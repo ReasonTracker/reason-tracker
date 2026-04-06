@@ -1,0 +1,20 @@
+{
+  "name": "reason-tracker-repo-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev --host",
+    "build": "node ./scripts/publish-website.mjs",
+    "publish:website": "node ./scripts/publish-website.mjs",
+    "preview": "node ./scripts/publish-website.mjs && vp preview --host"
+  },
+  "dependencies": {
+    "front-matter": "^4.0.2",
+    "marked": "^15.0.7"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "vite-plus": "^0.1.16"
+  }
+}

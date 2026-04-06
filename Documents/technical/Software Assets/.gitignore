@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
+
+# Build output
+website/dist/
+website/.vite-preview/
+**/dist/
+**/.vite/
+
+# Logs and local env
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/

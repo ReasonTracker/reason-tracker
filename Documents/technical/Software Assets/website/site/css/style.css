@@ -1,0 +1,203 @@
+:root {
+  --bg: #0f0f10;
+  --panel: #171719;
+  --text: #ffffff;
+  --muted: #b8b8c0;
+  --border: #2a2a2f;
+  --link: #ffffff;
+  --code-bg: #222228;
+  --subdued-opacity: 0.78;
+  --max-width: 860px;
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --mono: Consolas, "Cascadia Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--sans);
+  min-height: 100svh;
+}
+
+a {
+  color: var(--link);
+}
+
+body > main.doc-shell,
+body > footer.page-footer,
+#app {
+  width: min(100% - 2rem, var(--max-width));
+  margin-inline: auto;
+}
+
+body > main.doc-shell,
+#app {
+  margin-top: 2rem;
+}
+
+body > footer.page-footer {
+  margin-bottom: 2rem;
+}
+
+.doc-shell {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.page-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding-top: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.subdued {
+  opacity: var(--subdued-opacity);
+}
+
+.doc-meta-bar {
+  width: 100%;
+}
+
+.doc-breadcrumbs {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.doc-local-nav {
+  width: 100%;
+}
+
+.doc-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.8rem;
+}
+
+.doc-link {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.doc-link[aria-current="page"] {
+  border-color: #66667a;
+  color: var(--text);
+}
+
+.doc-link-icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  flex: 0 0 auto;
+}
+
+.doc-source {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.markdown-body {
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  line-height: 1.2;
+  margin: 1.4rem 0 0.8rem;
+}
+
+.markdown-body h1 {
+  font-size: 2rem;
+  margin-top: 0.2rem;
+}
+
+.markdown-body h2 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35rem;
+}
+
+.markdown-body p,
+.markdown-body li,
+.markdown-body blockquote {
+  margin: 0.75rem 0;
+}
+
+.markdown-body ul {
+  padding-left: 1.35rem;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid var(--border);
+  padding: 0.2rem 0.85rem;
+  color: var(--muted);
+}
+
+.markdown-body code {
+  font-family: var(--mono);
+  background: var(--code-bg);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.3rem;
+  font-size: 0.94em;
+}
+
+.not-found h1 {
+  margin-bottom: 0.4rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  body > main.doc-shell,
+  body > footer.page-footer,
+  #app {
+    width: min(100% - 1rem, var(--max-width));
+  }
+
+  body > main.doc-shell,
+  #app {
+    margin-top: 1rem;
+  }
+
+  body > footer.page-footer {
+    margin-bottom: 1rem;
+  }
+
+  .doc-shell {
+    padding: 0.85rem;
+  }
+
+  .doc-links {
+    gap: 0.35rem;
+  }
+}

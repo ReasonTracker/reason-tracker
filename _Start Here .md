@@ -10,11 +10,6 @@ controversial decisions.
 Each decision is explored across several videos that compare both sides, make support and
 uncertainty explicit, and improve over time as you contribute feedback and new evidence.
 
----
-
-- [About](./Documents/About.md)
-- [Vision](./Documents/Vision.md)
-
 <style>
 .page-footer {
 	display: none;
@@ -44,3 +39,10 @@ uncertainty explicit, and improve over time as you contribute feedback and new e
 	font-size: clamp(2rem, 6vw, 5rem);
 }
 </style>
+
+---
+
+<!-- autonav:start -->
+- [About](./Documents/About.md)
+- [Vision](./Documents/Vision.md)
+<!-- autonav:end -->
