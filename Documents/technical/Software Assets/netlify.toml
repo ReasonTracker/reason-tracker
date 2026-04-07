@@ -1,6 +1,7 @@
 [build]
   command = "npm run build:website"
   publish = "website/dist"
+  ignore = "false"
 
 [context.production]
   command = "npm run build:website"
