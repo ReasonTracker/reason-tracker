@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "Software Assets",
+      "path": ".."
+    },
+    {
+      "name": "Documentation",
+      "path": "../../../../"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.DS_Store": true
+    }
+  }
+}
