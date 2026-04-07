@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import frontMatter from "front-matter";
 import { marked } from "marked";
-import { selectPreferredIndex } from "../../scripts/markdown-index-rules.mjs";
+import { normalizeMdStemKey, selectPreferredIndex } from "../../scripts/markdown-index-rules.mjs";
 
 const WEBSITE_DIR = path.resolve(import.meta.dirname, "..");
 const REPO_DIR = resolveRepoDir();
@@ -15,6 +15,8 @@ const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-r
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
 const RESERVED_SITE_PREFIXES = ["css/", "icons/"];
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
+const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
+const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
 const AUGMENTATION_TYPES = Object.freeze({
   ".css": {
     bucket: "css",
@@ -26,35 +28,40 @@ const AUGMENTATION_TYPES = Object.freeze({
   },
 });
 let siteName = "Reason Tracker";
+let indexCandidateKeys = ["readme", "index"];
+let collapsedSourceRootName = DEFAULT_COLLAPSED_SOURCE_ROOT;
 const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 async function main() {
-  siteName = await resolveSiteName();
+  const siteConfig = await resolveSiteConfig();
+  siteName = siteConfig.siteName;
+  indexCandidateKeys = siteConfig.indexCandidateKeys;
+  collapsedSourceRootName = siteConfig.collapsedSourceRootName;
   await ensureGitRepository();
   await resetDist();
   await copyStaticAssets();
 
-  const trackedPaths = await collectTrackedPaths();
-  const filteredPaths = trackedPaths.filter((entry) => !isInsideDist(entry));
-  const virtualEntries = createVirtualEntries(filteredPaths);
+  const sourcePaths = await collectSourcePaths();
+  const filteredPaths = sourcePaths.filter((entry) => !isInsideDist(entry));
+  const virtualEntries = createVirtualEntries(filteredPaths, collapsedSourceRootName);
   const sourceVirtualPathBySourcePath = createSourceVirtualPathMap(virtualEntries);
   const augmentationResult = await buildSourceAugmentations(sourceVirtualPathBySourcePath);
   const augmentationsBySourcePath = augmentationResult.augmentationsBySourcePath;
   const tree = buildTree(virtualEntries);
   const gitContext = await getGitContext();
-  const routePlan = createRoutePlan(tree);
+  const routePlan = createRoutePlan(tree, indexCandidateKeys);
 
   await publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath);
   await publishFilePages(routePlan, gitContext, augmentationsBySourcePath);
   if (runtimeOptions.writeReport) {
     await writePublishReport({
-      trackedCount: filteredPaths.length,
+      sourceCount: filteredPaths.length,
       routePlan,
       augmentationResult,
     });
   }
 
-  console.log(`Published ${filteredPaths.length} tracked files into ${DIST_DIR}`);
+  console.log(`Published ${filteredPaths.length} source files into ${DIST_DIR}`);
 }
 
 function resolveRepoDir() {
@@ -91,19 +98,89 @@ async function copyStaticAssets() {
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "icons"), path.join(DIST_DIR, "icons"));
 }
 
-async function resolveSiteName() {
+async function resolveSiteConfig() {
   try {
     const raw = await fs.readFile(SITE_CONFIG_PATH, "utf8");
     const parsed = JSON.parse(raw);
-    const configured = typeof parsed.siteName === "string" ? parsed.siteName.trim() : "";
-    return configured || "Reason Tracker";
-  } catch {
-    return "Reason Tracker";
+    return normalizeSiteConfig(parsed);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return normalizeSiteConfig({});
+    }
+
+    throw new Error(`Invalid site config at ${SITE_CONFIG_PATH}: ${error.message}`);
   }
 }
 
-async function collectTrackedPaths() {
-  const output = await runCommand("git", ["-C", REPO_DIR, "ls-files", "-z"]);
+function validateConfiguredFieldType(value, fieldName, expectedType) {
+  if (value === undefined) {
+    return;
+  }
+
+  if (expectedType === "array") {
+    if (!Array.isArray(value)) {
+      throw new Error(`\`${fieldName}\` must be an array when provided.`);
+    }
+    return;
+  }
+
+  if (typeof value !== expectedType) {
+    throw new Error(`\`${fieldName}\` must be a ${expectedType} when provided.`);
+  }
+}
+
+function normalizeSiteConfig(value) {
+  validateConfiguredFieldType(value?.siteName, "siteName", "string");
+  validateConfiguredFieldType(value?.collapsedSourceRootName, "collapsedSourceRootName", "string");
+  validateConfiguredFieldType(value?.indexFileNames, "indexFileNames", "array");
+
+  const siteNameValue = typeof value?.siteName === "string" ? value.siteName.trim() : "";
+  const collapsedSourceRootValue =
+    typeof value?.collapsedSourceRootName === "string" ? value.collapsedSourceRootName.trim() : "";
+
+  if (value?.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
+    throw new Error("`collapsedSourceRootName` cannot be blank when provided.");
+  }
+
+  const configuredIndexNames = Array.isArray(value?.indexFileNames) ? value.indexFileNames : [];
+  if (Array.isArray(value?.indexFileNames) && configuredIndexNames.length === 0) {
+    throw new Error("`indexFileNames` must include at least one value when provided.");
+  }
+
+  for (const [index, entry] of configuredIndexNames.entries()) {
+    if (typeof entry !== "string") {
+      throw new Error(`\`indexFileNames[${index}]\` must be a string.`);
+    }
+
+    if (!entry.trim()) {
+      throw new Error(`\`indexFileNames[${index}]\` cannot be blank.`);
+    }
+
+    if (!normalizeMdStemKey(entry)) {
+      throw new Error(`\`indexFileNames[${index}]\` must resolve to a valid markdown stem.`);
+    }
+  }
+
+  const indexFileNames = configuredIndexNames.length > 0 ? configuredIndexNames : DEFAULT_INDEX_FILE_NAMES;
+  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter(Boolean);
+
+  return {
+    siteName: siteNameValue || "Reason Tracker",
+    collapsedSourceRootName: collapsedSourceRootValue || DEFAULT_COLLAPSED_SOURCE_ROOT,
+    indexCandidateKeys: [...new Set(indexKeys.length > 0 ? indexKeys : ["readme", "index"])],
+  };
+}
+
+async function collectSourcePaths() {
+  const output = await runCommand("git", [
+    "-C",
+    REPO_DIR,
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ]);
   const candidates = output.stdout
     .split("\u0000")
     .map((entry) => entry.trim())
@@ -117,22 +194,22 @@ async function collectTrackedPaths() {
       await fs.access(absolutePath);
       existing.push(sourcePath);
     } catch {
-      // Skip tracked entries that do not currently exist in the working tree.
+      // Skip entries that do not currently exist in the working tree.
     }
   }
 
   return existing;
 }
 
-function isInsideDist(trackedPath) {
+function isInsideDist(sourcePath) {
   const distPrefix = `${WEBSITE_RELATIVE_DIR}/dist/`;
-  return trackedPath === `${WEBSITE_RELATIVE_DIR}/dist` || trackedPath.startsWith(distPrefix);
+  return sourcePath === `${WEBSITE_RELATIVE_DIR}/dist` || sourcePath.startsWith(distPrefix);
 }
 
-function createVirtualEntries(sourcePaths) {
+function createVirtualEntries(sourcePaths, collapsedSourceRootName) {
   return sourcePaths.map((sourcePath) => ({
     sourcePath,
-    virtualPath: toVirtualPath(sourcePath),
+    virtualPath: toVirtualPath(sourcePath, collapsedSourceRootName),
   }));
 }
 
@@ -348,12 +425,18 @@ function toCanonicalLookupKey(value) {
     .join("/");
 }
 
-function toVirtualPath(sourcePath) {
+function toVirtualPath(sourcePath, collapsedSourceRootName) {
   const normalized = toPosixPath(sourcePath);
-  if (/^documents$/i.test(normalized)) {
+  const rootName = String(collapsedSourceRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rootOnlyPattern = new RegExp(`^${rootName}$`, "i");
+  const rootPrefixPattern = new RegExp(`^${rootName}/`, "i");
+
+  if (rootOnlyPattern.test(normalized)) {
     return "";
   }
-  if (/^documents\//i.test(normalized)) {
+  if (rootPrefixPattern.test(normalized)) {
     return normalized.slice(normalized.indexOf("/") + 1);
   }
   return normalized;
@@ -411,7 +494,7 @@ function ensureDirectoryNode(tree, directoryPath) {
   }
 }
 
-function createRoutePlan(tree) {
+function createRoutePlan(tree, indexCandidateKeys) {
   const normalizedDirectoryPathBySource = new Map();
   const defaultMarkdownSourceByDirectory = new Map();
   const routeOwners = new Map();
@@ -440,7 +523,9 @@ function createRoutePlan(tree) {
     const node = tree.get(directoryPath);
     const fileEntries = [...node.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-    const selection = selectPreferredIndex(fileEntries, (entry) => entry[0]);
+    const selection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
+      indexCandidateKeys,
+    });
     if (selection.conflict) {
       throw new Error(
         [
@@ -547,7 +632,9 @@ async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsB
     const node = tree.get(page.sourceDirectoryPath);
     const directories = [...node.directories].sort((a, b) => a.localeCompare(b));
     const fileEntries = [...node.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    const fallbackSelection = selectPreferredIndex(fileEntries, (entry) => entry[0]);
+    const fallbackSelection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
+      indexCandidateKeys,
+    });
     const resolvedDefaultSource = page.defaultMarkdownSource || fallbackSelection.selected?.[1] || null;
 
     const fileItems = fileEntries
@@ -837,7 +924,7 @@ function renderInlineJsAugmentations(jsChunks) {
     .join("\n");
 }
 
-async function writePublishReport({ trackedCount, routePlan, augmentationResult }) {
+async function writePublishReport({ sourceCount, routePlan, augmentationResult }) {
   const updatedDate = new Date().toISOString().slice(0, 10);
   const diagnostics = augmentationResult.diagnostics;
 
@@ -891,7 +978,7 @@ Run type: Publish website
 
 ## Summary
 
-- Tracked source files published: ${trackedCount}
+- Source files published: ${sourceCount}
 - Site files scanned: ${diagnostics.scannedSiteFileCount}
 - Augmentation files loaded: ${diagnostics.augmentationFileCount}
 - Matched augmentation links: ${diagnostics.matchedAugmentations.length}

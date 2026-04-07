@@ -1,13 +1,24 @@
 import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { selectPreferredIndex } from "./markdown-index-rules.mjs";
+import { normalizeMdStemKey, selectPreferredIndex } from "./markdown-index-rules.mjs";
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname);
 const REPO_DIR = resolveRepoDir();
+const WEBSITE_CONFIG_PATH = path.join(
+  REPO_DIR,
+  "Documents",
+  "technical",
+  "Software Assets",
+  "website",
+  "site",
+  "site-config.json",
+);
 const REPORT_PATH = path.join(SCRIPTS_DIR, "markdown-maintenance-report.md");
 const AUTONAV_START = "<!-- autonav:start -->";
 const AUTONAV_END = "<!-- autonav:end -->";
+const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
+const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
 const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 main().catch((error) => {
@@ -16,8 +27,9 @@ main().catch((error) => {
 });
 
 async function main() {
+  const routeConfig = await resolveRouteConfig();
   const sourcePaths = await collectMarkdownSourcePaths(REPO_DIR);
-  const routeInfo = buildRouteInfo(sourcePaths);
+  const routeInfo = buildRouteInfo(sourcePaths, routeConfig);
 
   const docs = [];
   for (const sourcePath of sourcePaths) {
@@ -128,6 +140,76 @@ function resolveRepoDir() {
   }
 }
 
+async function resolveRouteConfig() {
+  try {
+    const raw = await fs.readFile(WEBSITE_CONFIG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return normalizeRouteConfig(parsed);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return normalizeRouteConfig({});
+    }
+
+    throw new Error(`Invalid site config at ${WEBSITE_CONFIG_PATH}: ${error.message}`);
+  }
+}
+
+function validateConfiguredFieldType(value, fieldName, expectedType) {
+  if (value === undefined) {
+    return;
+  }
+
+  if (expectedType === "array") {
+    if (!Array.isArray(value)) {
+      throw new Error(`\`${fieldName}\` must be an array when provided.`);
+    }
+    return;
+  }
+
+  if (typeof value !== expectedType) {
+    throw new Error(`\`${fieldName}\` must be a ${expectedType} when provided.`);
+  }
+}
+
+function normalizeRouteConfig(value) {
+  validateConfiguredFieldType(value?.collapsedSourceRootName, "collapsedSourceRootName", "string");
+  validateConfiguredFieldType(value?.indexFileNames, "indexFileNames", "array");
+
+  const collapsedSourceRootValue =
+    typeof value?.collapsedSourceRootName === "string" ? value.collapsedSourceRootName.trim() : "";
+
+  if (value?.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
+    throw new Error("`collapsedSourceRootName` cannot be blank when provided.");
+  }
+
+  const configuredIndexNames = Array.isArray(value?.indexFileNames) ? value.indexFileNames : [];
+  if (Array.isArray(value?.indexFileNames) && configuredIndexNames.length === 0) {
+    throw new Error("`indexFileNames` must include at least one value when provided.");
+  }
+
+  for (const [index, entry] of configuredIndexNames.entries()) {
+    if (typeof entry !== "string") {
+      throw new Error(`\`indexFileNames[${index}]\` must be a string.`);
+    }
+
+    if (!entry.trim()) {
+      throw new Error(`\`indexFileNames[${index}]\` cannot be blank.`);
+    }
+
+    if (!normalizeMdStemKey(entry)) {
+      throw new Error(`\`indexFileNames[${index}]\` must resolve to a valid markdown stem.`);
+    }
+  }
+
+  const indexFileNames = configuredIndexNames.length > 0 ? configuredIndexNames : DEFAULT_INDEX_FILE_NAMES;
+  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter(Boolean);
+
+  return {
+    collapsedSourceRootName: collapsedSourceRootValue || DEFAULT_COLLAPSED_SOURCE_ROOT,
+    indexCandidateKeys: [...new Set(indexKeys.length > 0 ? indexKeys : ["readme", "index"])],
+  };
+}
+
 async function collectMarkdownSourcePaths(directory) {
   const files = [];
   const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -191,12 +273,12 @@ function shouldIncludeMarkdownPath(relativePath) {
   return /^documents$/i.test(segments[0]);
 }
 
-function buildRouteInfo(sourcePaths) {
+function buildRouteInfo(sourcePaths, routeConfig) {
   const bySourcePath = new Map();
   const byVirtualDirectory = new Map();
 
   for (const sourcePath of sourcePaths) {
-    const virtualPath = toVirtualPath(sourcePath);
+    const virtualPath = toVirtualPath(sourcePath, routeConfig.collapsedSourceRootName);
     const fileName = sourcePath.split("/").pop() || sourcePath;
     const virtualDirectory = virtualPath.includes("/")
       ? virtualPath.slice(0, virtualPath.lastIndexOf("/"))
@@ -208,7 +290,9 @@ function buildRouteInfo(sourcePaths) {
   }
 
   for (const [virtualDirectory, entries] of byVirtualDirectory.entries()) {
-    const selection = selectPreferredIndex(entries, (entry) => entry.fileName);
+    const selection = selectPreferredIndex(entries, (entry) => entry.fileName, {
+      indexCandidateKeys: routeConfig.indexCandidateKeys,
+    });
     if (selection.conflict) {
       throw new Error(
         [
@@ -238,12 +322,18 @@ function buildRouteInfo(sourcePaths) {
   return { bySourcePath };
 }
 
-function toVirtualPath(sourcePath) {
+function toVirtualPath(sourcePath, collapsedSourceRootName) {
   const normalized = toPosixPath(sourcePath);
-  if (/^documents$/i.test(normalized)) {
+  const rootName = String(collapsedSourceRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rootOnlyPattern = new RegExp(`^${rootName}$`, "i");
+  const rootPrefixPattern = new RegExp(`^${rootName}/`, "i");
+
+  if (rootOnlyPattern.test(normalized)) {
     return "";
   }
-  if (/^documents\//i.test(normalized)) {
+  if (rootPrefixPattern.test(normalized)) {
     return normalized.slice(normalized.indexOf("/") + 1);
   }
   return normalized;

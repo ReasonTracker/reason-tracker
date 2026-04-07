@@ -1,4 +1,4 @@
-const INDEX_CANDIDATE_KEYS = ["_starthere", "readme", "index"];
+const DEFAULT_INDEX_CANDIDATE_KEYS = ["readme", "index"];
 
 export function normalizeMdStemKey(fileName) {
   const parsed = parseMarkdownFileName(fileName);
@@ -10,6 +10,34 @@ export function normalizeMdStemKey(fileName) {
     .toLowerCase()
     .replace(/\s+/g, "")
     .trim();
+}
+
+function normalizeCandidateStemKey(fileName) {
+  const parsed = parseMarkdownFileName(fileName);
+  if (parsed) {
+    return normalizeMdStemKey(fileName);
+  }
+
+  return String(fileName || "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function resolveIndexCandidateKeys(indexCandidateKeys) {
+  const values = Array.isArray(indexCandidateKeys)
+    ? indexCandidateKeys
+    : DEFAULT_INDEX_CANDIDATE_KEYS;
+
+  const normalized = values
+    .map((entry) => normalizeCandidateStemKey(entry))
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    return DEFAULT_INDEX_CANDIDATE_KEYS;
+  }
+
+  return [...new Set(normalized)];
 }
 
 export function parseMarkdownFileName(fileName) {
@@ -24,28 +52,29 @@ export function parseMarkdownFileName(fileName) {
   };
 }
 
-export function getIndexCandidateRank(fileName) {
+export function getIndexCandidateRank(fileName, options = {}) {
   const stemKey = normalizeMdStemKey(fileName);
   if (!stemKey) {
     return null;
   }
 
-  const index = INDEX_CANDIDATE_KEYS.indexOf(stemKey);
+  const indexCandidateKeys = resolveIndexCandidateKeys(options.indexCandidateKeys);
+  const index = indexCandidateKeys.indexOf(stemKey);
   return index >= 0 ? index : null;
 }
 
-export function isIndexCandidateFileName(fileName) {
-  return getIndexCandidateRank(fileName) !== null;
+export function isIndexCandidateFileName(fileName, options = {}) {
+  return getIndexCandidateRank(fileName, options) !== null;
 }
 
-export function selectPreferredIndex(entries, getName = (entry) => entry) {
+export function selectPreferredIndex(entries, getName = (entry) => entry, options = {}) {
   const ranked = entries
     .map((entry) => {
       const name = getName(entry);
       return {
         entry,
         name,
-        rank: getIndexCandidateRank(name),
+        rank: getIndexCandidateRank(name, options),
       };
     })
     .filter((item) => item.rank !== null)

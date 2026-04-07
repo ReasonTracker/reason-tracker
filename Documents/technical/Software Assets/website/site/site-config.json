@@ -1,3 +1,8 @@
 {
-  "siteName": "Reason Tracker"
+  "siteName": "Reason Tracker",
+  "collapsedSourceRootName": "Documents",
+  "indexFileNames": [
+    "README.md",
+    "index.md"
+  ]
 }
