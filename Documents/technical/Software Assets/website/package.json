@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev --host",
-    "build": "node ./scripts/publish-website.mjs",
-    "publish:website": "node ./scripts/publish-website.mjs",
-    "preview": "node ./scripts/publish-website.mjs && vp preview --host"
+    "build": "node ./scripts/publish-website.mjs --write-report",
+    "publish-website": "node ./scripts/publish-website.mjs --write-report",
+    "preview": "node ./scripts/publish-website.mjs --write-report && vp preview --host"
   },
   "dependencies": {
     "front-matter": "^4.0.2",

@@ -42,7 +42,7 @@ function publishWebsitePlugin() {
         console.log(`[website] Change detected (${reason}). Regenerating...`);
       }
 
-      await runCommand("node", [PUBLISH_SCRIPT], WEBSITE_DIR);
+      await runCommand("node", [PUBLISH_SCRIPT, "--no-report"], WEBSITE_DIR);
       if (server) {
         server.ws.send({ type: "full-reload", path: "*" });
       }

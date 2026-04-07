@@ -5,9 +5,10 @@ import { selectPreferredIndex } from "./markdown-index-rules.mjs";
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname);
 const REPO_DIR = resolveRepoDir();
-const REPORT_PATH = path.join(SCRIPTS_DIR, "nav-maintenance-report.md");
+const REPORT_PATH = path.join(SCRIPTS_DIR, "markdown-maintenance-report.md");
 const AUTONAV_START = "<!-- autonav:start -->";
 const AUTONAV_END = "<!-- autonav:end -->";
+const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 main().catch((error) => {
   console.error(error);
@@ -101,10 +102,12 @@ async function main() {
     }
   }
 
-  await fs.writeFile(REPORT_PATH, buildReport({ unresolved, autoAdded }), "utf8");
+  if (runtimeOptions.writeReport) {
+    await fs.writeFile(REPORT_PATH, buildReport({ unresolved, autoAdded }), "utf8");
+  }
 
   console.log(
-    `Markdown nav maintenance complete: changedDocs=${changedDocs}, fixedLinks=${fixedLinks}, relabeledLinks=${relabeledLinks}, unresolved=${unresolved.length}, autoAdded=${autoAddedLinks}.`,
+    `Markdown maintenance complete: changedDocs=${changedDocs}, fixedLinks=${fixedLinks}, relabeledLinks=${relabeledLinks}, unresolved=${unresolved.length}, autoAdded=${autoAddedLinks}.`,
   );
 }
 
@@ -529,7 +532,7 @@ function buildReport(input) {
           })
           .join("\n");
 
-  return `# Nav Maintenance Report\n\nLast updated: ${updatedDate}\n\nRun type: Markdown nav maintenance\n\n## Unresolved Links\n\n${unresolvedBody}\n\n## Auto-Added Links\n\n${autoAddedBody}\n`;
+  return `# Markdown Maintenance Report\n\nLast updated: ${updatedDate}\n\nRun type: Markdown maintenance\n\n## Unresolved Links\n\n${unresolvedBody}\n\n## Auto-Added Links\n\n${autoAddedBody}\n`;
 }
 
 function resolveDocTarget(sourcePath, href, docsBySourcePath, docsByRoute) {
@@ -751,4 +754,22 @@ function normalizeTitle(value) {
 
 function toPosixPath(value) {
   return String(value).split(path.sep).join("/");
+}
+
+function parseRuntimeOptions(argv) {
+  let writeReport = false;
+
+  for (const arg of argv) {
+    if (arg === "--write-report") {
+      writeReport = true;
+      continue;
+    }
+
+    if (arg === "--no-report") {
+      writeReport = false;
+      continue;
+    }
+  }
+
+  return { writeReport };
 }

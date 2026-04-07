@@ -9,9 +9,24 @@ import { selectPreferredIndex } from "../../scripts/markdown-index-rules.mjs";
 const WEBSITE_DIR = path.resolve(import.meta.dirname, "..");
 const REPO_DIR = resolveRepoDir();
 const DIST_DIR = path.join(WEBSITE_DIR, "dist");
+const SITE_DIR = path.join(WEBSITE_DIR, "site");
 const SITE_CONFIG_PATH = path.join(WEBSITE_DIR, "site", "site-config.json");
+const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-report.md");
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
+const RESERVED_SITE_PREFIXES = ["css/", "icons/"];
+const RESERVED_SITE_FILES = new Set(["site-config.json"]);
+const AUGMENTATION_TYPES = Object.freeze({
+  ".css": {
+    bucket: "css",
+    encoding: "utf8",
+  },
+  ".js": {
+    bucket: "js",
+    encoding: "utf8",
+  },
+});
 let siteName = "Reason Tracker";
+const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 async function main() {
   siteName = await resolveSiteName();
@@ -22,12 +37,22 @@ async function main() {
   const trackedPaths = await collectTrackedPaths();
   const filteredPaths = trackedPaths.filter((entry) => !isInsideDist(entry));
   const virtualEntries = createVirtualEntries(filteredPaths);
+  const sourceVirtualPathBySourcePath = createSourceVirtualPathMap(virtualEntries);
+  const augmentationResult = await buildSourceAugmentations(sourceVirtualPathBySourcePath);
+  const augmentationsBySourcePath = augmentationResult.augmentationsBySourcePath;
   const tree = buildTree(virtualEntries);
   const gitContext = await getGitContext();
   const routePlan = createRoutePlan(tree);
 
-  await publishDirectoryPages(routePlan, tree, gitContext);
-  await publishFilePages(routePlan, gitContext);
+  await publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath);
+  await publishFilePages(routePlan, gitContext, augmentationsBySourcePath);
+  if (runtimeOptions.writeReport) {
+    await writePublishReport({
+      trackedCount: filteredPaths.length,
+      routePlan,
+      augmentationResult,
+    });
+  }
 
   console.log(`Published ${filteredPaths.length} tracked files into ${DIST_DIR}`);
 }
@@ -109,6 +134,218 @@ function createVirtualEntries(sourcePaths) {
     sourcePath,
     virtualPath: toVirtualPath(sourcePath),
   }));
+}
+
+function createSourceVirtualPathMap(virtualEntries) {
+  const sourceVirtualPathBySourcePath = new Map();
+
+  for (const entry of virtualEntries) {
+    sourceVirtualPathBySourcePath.set(entry.sourcePath, entry.virtualPath);
+  }
+
+  return sourceVirtualPathBySourcePath;
+}
+
+async function buildSourceAugmentations(sourceVirtualPathBySourcePath) {
+  const indexResult = await createAugmentationIndex();
+  const augmentationIndex = indexResult.augmentationIndex;
+  const augmentationsBySourcePath = new Map();
+  const matchedAugmentations = [];
+  const matchedLookupKeys = new Set();
+
+  for (const [sourcePath, virtualPath] of sourceVirtualPathBySourcePath.entries()) {
+    const augmentationKey = toAugmentationKeyFromVirtualPath(virtualPath);
+    if (!augmentationKey) {
+      continue;
+    }
+
+    const payload = {};
+    for (const definition of Object.values(AUGMENTATION_TYPES)) {
+      const lookupKey = `${definition.bucket}:${augmentationKey}`;
+      const augmentation = augmentationIndex.get(lookupKey);
+      if (!augmentation) {
+        continue;
+      }
+
+      payload[definition.bucket] = [augmentation.content];
+      matchedLookupKeys.add(lookupKey);
+      matchedAugmentations.push({
+        sourcePath,
+        type: definition.bucket,
+        augmentationPath: augmentation.path,
+      });
+    }
+
+    if (Object.keys(payload).length > 0) {
+      augmentationsBySourcePath.set(sourcePath, payload);
+    }
+  }
+
+  const unmatchedAugmentations = [];
+  for (const [lookupKey, value] of augmentationIndex.entries()) {
+    if (matchedLookupKeys.has(lookupKey)) {
+      continue;
+    }
+
+    unmatchedAugmentations.push({
+      type: value.type,
+      augmentationPath: value.path,
+      lookupKey: value.key,
+    });
+  }
+
+  matchedAugmentations.sort((a, b) => {
+    const sourceDiff = a.sourcePath.localeCompare(b.sourcePath);
+    if (sourceDiff !== 0) {
+      return sourceDiff;
+    }
+    return a.type.localeCompare(b.type);
+  });
+
+  unmatchedAugmentations.sort((a, b) => {
+    const typeDiff = a.type.localeCompare(b.type);
+    if (typeDiff !== 0) {
+      return typeDiff;
+    }
+    return a.augmentationPath.localeCompare(b.augmentationPath);
+  });
+
+  return {
+    augmentationsBySourcePath,
+    diagnostics: {
+      scannedSiteFileCount: indexResult.scannedSiteFileCount,
+      skippedSiteFiles: indexResult.skippedSiteFiles,
+      augmentationFileCount: indexResult.augmentationFileCount,
+      augmentationFilesByType: indexResult.augmentationFilesByType,
+      matchedAugmentations,
+      unmatchedAugmentations,
+    },
+  };
+}
+
+async function createAugmentationIndex() {
+  const files = await listFilesRecursive(SITE_DIR);
+  const augmentationIndex = new Map();
+  const skippedSiteFiles = [];
+  const augmentationFilesByType = {};
+  let augmentationFileCount = 0;
+
+  for (const absolutePath of files) {
+    const relativePath = toPosixPath(path.relative(SITE_DIR, absolutePath));
+    if (!relativePath || shouldSkipSiteFile(relativePath)) {
+      if (relativePath) {
+        skippedSiteFiles.push(relativePath);
+      }
+      continue;
+    }
+
+    const parsed = parseSourcePath(relativePath);
+    const definition = AUGMENTATION_TYPES[parsed.extension];
+    if (!definition) {
+      continue;
+    }
+
+    const key = toCanonicalLookupKey(toAugmentationKeyFromVirtualPath(relativePath));
+    if (!key) {
+      continue;
+    }
+
+    const lookupKey = `${definition.bucket}:${key}`;
+    const existing = augmentationIndex.get(lookupKey);
+    if (existing) {
+      throw new Error(
+        [
+          "Augmentation file collision detected after canonicalization.",
+          `Type: ${definition.bucket}`,
+          `First file: ${existing.path}`,
+          `Second file: ${relativePath}`,
+          `Lookup key: ${key}`,
+        ].join("\n"),
+      );
+    }
+
+    const content = await fs.readFile(absolutePath, definition.encoding);
+    augmentationIndex.set(lookupKey, {
+      path: relativePath,
+      type: definition.bucket,
+      key,
+      content,
+    });
+    augmentationFileCount += 1;
+    augmentationFilesByType[definition.bucket] = (augmentationFilesByType[definition.bucket] || 0) + 1;
+  }
+
+  skippedSiteFiles.sort((a, b) => a.localeCompare(b));
+
+  return {
+    augmentationIndex,
+    scannedSiteFileCount: files.length,
+    skippedSiteFiles,
+    augmentationFileCount,
+    augmentationFilesByType,
+  };
+}
+
+function shouldSkipSiteFile(relativePath) {
+  if (RESERVED_SITE_FILES.has(relativePath)) {
+    return true;
+  }
+
+  return RESERVED_SITE_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
+}
+
+async function listFilesRecursive(directoryPath) {
+  const files = [];
+
+  let entries;
+  try {
+    entries = await fs.readdir(directoryPath, { withFileTypes: true });
+  } catch {
+    return files;
+  }
+
+  for (const entry of entries) {
+    const absolutePath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await listFilesRecursive(absolutePath);
+      files.push(...nested);
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(absolutePath);
+    }
+  }
+
+  return files;
+}
+
+function toAugmentationKeyFromVirtualPath(virtualPath) {
+  const normalized = toPosixPath(String(virtualPath || "")).replace(/^\/+|\/+$/g, "");
+  if (!normalized) {
+    return "";
+  }
+
+  const directoryPath = path.posix.dirname(normalized);
+  const fileName = path.posix.basename(normalized);
+  const parsed = parseSourcePath(fileName);
+
+  const parts = [];
+  if (directoryPath && directoryPath !== ".") {
+    parts.push(directoryPath);
+  }
+  parts.push(parsed.name);
+
+  return toCanonicalLookupKey(parts.filter(Boolean).join("/"));
+}
+
+function toCanonicalLookupKey(value) {
+  return String(value || "")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => segment.toLowerCase())
+    .join("/");
 }
 
 function toVirtualPath(sourcePath) {
@@ -305,7 +542,7 @@ function joinRoutePath(...segments) {
   return segments.filter(Boolean).join("/");
 }
 
-async function publishDirectoryPages(routePlan, tree, gitContext) {
+async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath) {
   for (const page of routePlan.directoryPages) {
     const node = tree.get(page.sourceDirectoryPath);
     const directories = [...node.directories].sort((a, b) => a.localeCompare(b));
@@ -352,6 +589,7 @@ async function publishDirectoryPages(routePlan, tree, gitContext) {
       fileItems,
       gitContext,
       sourceHrefByPath: routePlan.sourceHrefByPath,
+      augmentationsBySourcePath,
     });
 
     const outputPath = path.join(DIST_DIR, ...page.outputRelPath.split("/"));
@@ -360,7 +598,7 @@ async function publishDirectoryPages(routePlan, tree, gitContext) {
   }
 }
 
-async function publishFilePages(routePlan, gitContext) {
+async function publishFilePages(routePlan, gitContext, augmentationsBySourcePath) {
   for (const filePage of routePlan.filePages) {
     const absolutePath = path.join(REPO_DIR, ...filePage.sourcePath.split("/"));
     const preview = await readFilePreview(absolutePath);
@@ -370,6 +608,7 @@ async function publishFilePages(routePlan, gitContext) {
       preview,
       gitContext,
       sourceHrefByPath: routePlan.sourceHrefByPath,
+      augmentationsBySourcePath,
     });
 
     const outputPath = path.join(DIST_DIR, ...filePage.outputRelPath.split("/"));
@@ -378,7 +617,14 @@ async function publishFilePages(routePlan, gitContext) {
   }
 }
 
-async function renderDirectoryPage({ page, directoryItems, fileItems, gitContext, sourceHrefByPath }) {
+async function renderDirectoryPage({
+  page,
+  directoryItems,
+  fileItems,
+  gitContext,
+  sourceHrefByPath,
+  augmentationsBySourcePath,
+}) {
   const sourceLabel = page.sourceDirectoryPath ? `${page.sourceDirectoryPath}/` : siteName;
   const breadcrumbs = renderBreadcrumbItemsFromOutputPath(page.outputRelPath);
 
@@ -410,10 +656,18 @@ ${markdownSection}`;
     sourceUrl: page.defaultMarkdownSource
       ? toSourceUrl(page.defaultMarkdownSource, gitContext)
       : null,
+    augmentations: getAugmentationsForSourcePath(augmentationsBySourcePath, page.defaultMarkdownSource),
   });
 }
 
-function renderFilePage({ sourcePath, outputRelPath, preview, gitContext, sourceHrefByPath }) {
+function renderFilePage({
+  sourcePath,
+  outputRelPath,
+  preview,
+  gitContext,
+  sourceHrefByPath,
+  augmentationsBySourcePath,
+}) {
   const breadcrumbs = renderBreadcrumbItemsFromOutputPath(outputRelPath);
   const extension = extensionLabel(sourcePath);
   const header = `<h1>${escapeHtml(sourcePath)}</h1>
@@ -445,7 +699,16 @@ function renderFilePage({ sourcePath, outputRelPath, preview, gitContext, source
     body,
     sourcePath,
     sourceUrl: toSourceUrl(sourcePath, gitContext),
+    augmentations: getAugmentationsForSourcePath(augmentationsBySourcePath, sourcePath),
   });
+}
+
+function getAugmentationsForSourcePath(augmentationsBySourcePath, sourcePath) {
+  if (!sourcePath) {
+    return null;
+  }
+
+  return augmentationsBySourcePath.get(sourcePath) || null;
 }
 
 async function readFilePreview(filePath) {
@@ -504,13 +767,15 @@ function looksBinary(buffer) {
   return nonTextCount / sampleSize > 0.1;
 }
 
-function renderLayout({ title, breadcrumbs, body, sourcePath, sourceUrl }) {
+function renderLayout({ title, breadcrumbs, body, sourcePath, sourceUrl, augmentations }) {
   const metaBar = renderMetaBar(breadcrumbs);
   const sourceLine = sourcePath
     ? sourceUrl
       ? `<p class="doc-source subdued">Source: <a href="${escapeHtmlAttribute(sourceUrl)}">${escapeHtml(sourcePath)}</a></p>`
       : `<p class="doc-source subdued">Source: ${escapeHtml(sourcePath)}</p>`
     : "";
+  const inlineCssBlocks = renderInlineCssAugmentations(augmentations?.css);
+  const inlineJsBlocks = renderInlineJsAugmentations(augmentations?.js);
 
   return `<!doctype html>
 <html lang="en">
@@ -520,6 +785,7 @@ function renderLayout({ title, breadcrumbs, body, sourcePath, sourceUrl }) {
     <title>${escapeHtml(title)}</title>
     <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
     <link rel="stylesheet" href="/css/style.css" />
+${inlineCssBlocks}
   </head>
   <body>
     <main class="doc-shell">
@@ -529,9 +795,126 @@ function renderLayout({ title, breadcrumbs, body, sourcePath, sourceUrl }) {
       ${metaBar}
       ${sourceLine}
     </footer>
+${inlineJsBlocks}
   </body>
 </html>
 `;
+}
+
+function renderInlineCssAugmentations(cssChunks) {
+  if (!Array.isArray(cssChunks) || cssChunks.length === 0) {
+    return "";
+  }
+
+  return cssChunks
+    .map((chunk) => {
+      const css = String(chunk || "").trim();
+      if (!css) {
+        return "";
+      }
+
+      return `    <style data-augmentation="css">\n${css}\n    </style>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function renderInlineJsAugmentations(jsChunks) {
+  if (!Array.isArray(jsChunks) || jsChunks.length === 0) {
+    return "";
+  }
+
+  return jsChunks
+    .map((chunk) => {
+      const js = String(chunk || "").trim();
+      if (!js) {
+        return "";
+      }
+
+      return `    <script data-augmentation="js">\n${js}\n    </script>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function writePublishReport({ trackedCount, routePlan, augmentationResult }) {
+  const updatedDate = new Date().toISOString().slice(0, 10);
+  const diagnostics = augmentationResult.diagnostics;
+
+  const matchedBySource = new Map();
+  for (const entry of diagnostics.matchedAugmentations) {
+    const current = matchedBySource.get(entry.sourcePath) || [];
+    current.push(entry);
+    matchedBySource.set(entry.sourcePath, current);
+  }
+
+  const matchedBody =
+    matchedBySource.size === 0
+      ? "No matched augmentations."
+      : [...matchedBySource.entries()]
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([sourcePath, entries]) => {
+            const href = routePlan.sourceHrefByPath.get(sourcePath) || "(no route)";
+            const lines = entries
+              .sort((a, b) => a.type.localeCompare(b.type))
+              .map((entry) => `  - ${entry.type}: ${entry.augmentationPath}`)
+              .join("\n");
+            return `- Source: ${sourcePath}\n  - Route: ${href}\n${lines}`;
+          })
+          .join("\n");
+
+  const unmatchedBody =
+    diagnostics.unmatchedAugmentations.length === 0
+      ? "No unmatched augmentations."
+      : diagnostics.unmatchedAugmentations
+          .map(
+            (entry) =>
+              `- Type: ${entry.type}\n  - File: ${entry.augmentationPath}\n  - Lookup key: ${entry.lookupKey}`,
+          )
+          .join("\n");
+
+  const skippedBody =
+    diagnostics.skippedSiteFiles.length === 0
+      ? "No skipped site files."
+      : diagnostics.skippedSiteFiles.map((entry) => `- ${entry}`).join("\n");
+
+  const typeSummary = Object.keys(diagnostics.augmentationFilesByType)
+    .sort((a, b) => a.localeCompare(b))
+    .map((type) => `- ${type}: ${diagnostics.augmentationFilesByType[type]}`)
+    .join("\n");
+
+  const report = `# Publish Website Report
+
+Last updated: ${updatedDate}
+
+Run type: Publish website
+
+## Summary
+
+- Tracked source files published: ${trackedCount}
+- Site files scanned: ${diagnostics.scannedSiteFileCount}
+- Augmentation files loaded: ${diagnostics.augmentationFileCount}
+- Matched augmentation links: ${diagnostics.matchedAugmentations.length}
+- Unmatched augmentation files: ${diagnostics.unmatchedAugmentations.length}
+
+## Augmentation Files By Type
+
+${typeSummary || "No augmentation files loaded."}
+
+## Matched Augmentations
+
+${matchedBody}
+
+## Unmatched Augmentations
+
+${unmatchedBody}
+
+## Skipped Site Files
+
+${skippedBody}
+`;
+
+  await fs.writeFile(PUBLISH_REPORT_PATH, report, "utf8");
 }
 
 function renderMetaBar(breadcrumbs) {
@@ -871,6 +1254,24 @@ function escapeHtmlAttribute(value) {
 
 function toPosixPath(filePath) {
   return filePath.split(path.sep).join("/");
+}
+
+function parseRuntimeOptions(argv) {
+  let writeReport = false;
+
+  for (const arg of argv) {
+    if (arg === "--write-report") {
+      writeReport = true;
+      continue;
+    }
+
+    if (arg === "--no-report") {
+      writeReport = false;
+      continue;
+    }
+  }
+
+  return { writeReport };
 }
 
 async function runCommand(command, args, options = {}) {
