@@ -10,6 +10,7 @@
     }
   ],
   "settings": {
+    "npm.packageManager": "pnpm",
     "files.exclude": {
       "**/.DS_Store": true
     }
