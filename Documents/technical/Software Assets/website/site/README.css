@@ -3,7 +3,7 @@
 }
 
 .markdown-body > h1 {
-	display: block;
+	display: grid;
 	width: min-content;
 	margin-inline: auto;
 	text-align: center;
@@ -12,12 +12,31 @@
 	line-height: 0.95;
 	transform: rotate(-15deg);
 	transform-origin: center;
+	gap: 0.1em;
+}
+ 
+.markdown-body > h1 .split-1,
+.markdown-body > h1 .split-2 {
+	display: block;
+	white-space: nowrap;
+}
+
+.markdown-body > h1 .split-1 {
+	color: var(--pro);
+	transform: translateX(-1ch);
+}
+
+.markdown-body > h1 .split-2 {
+	color: var(--con);
+	transform: translateX(1ch);
 }
 
 .markdown-body > blockquote {
 	text-align: center;
 	border-left-style: none;
-	padding-top: 20px;
+	padding-top: 28px;
+	font-size: clamp(1.2rem, 2.3vw, 1.6rem);
+	color: yellow;
 }
 
 .markdown-body > h2 {

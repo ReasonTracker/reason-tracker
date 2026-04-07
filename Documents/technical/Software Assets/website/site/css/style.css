@@ -10,6 +10,14 @@
   --max-width: 860px;
   --sans: "Segoe UI", system-ui, sans-serif;
   --mono: Consolas, "Cascadia Mono", monospace;
+
+  --pro-h: 276.37;
+  --pro-l: 65%;
+  --pro: hsl(var(--pro-h), 100%, var(--pro-l));
+
+  --con-h: 30.21;
+  --con-l: 42%;
+  --con: hsl(var(--con-h), 100%, var(--con-l));
 }
 
 * {
