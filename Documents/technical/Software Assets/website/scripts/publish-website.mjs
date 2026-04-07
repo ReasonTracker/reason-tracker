@@ -17,6 +17,12 @@ const RESERVED_SITE_PREFIXES = ["css/", "icons/"];
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
 const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
 const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
+const EXCLUDED_SOURCE_SEGMENTS = Object.freeze([
+  "node_modules",
+  ".pnpm-store",
+  ".yarn",
+  ".netlify",
+]);
 const AUGMENTATION_TYPES = Object.freeze({
   ".css": {
     bucket: "css",
@@ -42,7 +48,7 @@ async function main() {
   await copyStaticAssets();
 
   const sourcePaths = await collectSourcePaths();
-  const filteredPaths = sourcePaths.filter((entry) => !isInsideDist(entry));
+  const filteredPaths = sourcePaths.filter((entry) => !isInsideDist(entry) && !isExcludedSourcePath(entry));
   const virtualEntries = createVirtualEntries(filteredPaths, collapsedSourceRootName);
   const sourceVirtualPathBySourcePath = createSourceVirtualPathMap(virtualEntries);
   const augmentationResult = await buildSourceAugmentations(sourceVirtualPathBySourcePath);
@@ -204,6 +210,16 @@ async function collectSourcePaths() {
 function isInsideDist(sourcePath) {
   const distPrefix = `${WEBSITE_RELATIVE_DIR}/dist/`;
   return sourcePath === `${WEBSITE_RELATIVE_DIR}/dist` || sourcePath.startsWith(distPrefix);
+}
+
+function isExcludedSourcePath(sourcePath) {
+  const normalized = toPosixPath(String(sourcePath || ""));
+  if (!normalized) {
+    return true;
+  }
+
+  const segments = normalized.split("/").filter(Boolean);
+  return segments.some((segment) => EXCLUDED_SOURCE_SEGMENTS.includes(segment));
 }
 
 function createVirtualEntries(sourcePaths, collapsedSourceRootName) {
