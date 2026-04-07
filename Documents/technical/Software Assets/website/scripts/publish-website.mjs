@@ -44,7 +44,7 @@ async function main() {
   indexCandidateKeys = siteConfig.indexCandidateKeys;
   collapsedSourceRootName = siteConfig.collapsedSourceRootName;
   await ensureGitRepository();
-  await resetDist();
+  await resetDist({ preserveExisting: runtimeOptions.preserveDist });
   await copyStaticAssets();
 
   const sourcePaths = await collectSourcePaths();
@@ -94,8 +94,10 @@ async function ensureGitRepository() {
   }
 }
 
-async function resetDist() {
-  await fs.rm(DIST_DIR, { recursive: true, force: true });
+async function resetDist({ preserveExisting = false } = {}) {
+  if (!preserveExisting) {
+    await fs.rm(DIST_DIR, { recursive: true, force: true });
+  }
   await fs.mkdir(DIST_DIR, { recursive: true });
 }
 
@@ -1361,6 +1363,7 @@ function toPosixPath(filePath) {
 
 function parseRuntimeOptions(argv) {
   let writeReport = false;
+  let preserveDist = false;
 
   for (const arg of argv) {
     if (arg === "--write-report") {
@@ -1372,9 +1375,14 @@ function parseRuntimeOptions(argv) {
       writeReport = false;
       continue;
     }
+
+    if (arg === "--preserve-dist") {
+      preserveDist = true;
+      continue;
+    }
   }
 
-  return { writeReport };
+  return { writeReport, preserveDist };
 }
 
 async function runCommand(command, args, options = {}) {

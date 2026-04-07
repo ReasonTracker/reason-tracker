@@ -28,10 +28,29 @@ function resolveRepoDir() {
 function publishWebsitePlugin() {
   let isPublishing = false;
   let publishQueued = false;
+  let queuedReason = "change";
+  let pendingReason = null;
+  let debounceTimer = null;
+
+  function schedulePublish(server, reason) {
+    pendingReason = reason || pendingReason || "change";
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      const nextReason = pendingReason || "change";
+      pendingReason = null;
+      void runPublish(server, nextReason);
+    }, 120);
+  }
 
   async function runPublish(server, reason) {
     if (isPublishing) {
       publishQueued = true;
+      queuedReason = reason || queuedReason || "queued";
       return;
     }
 
@@ -42,9 +61,9 @@ function publishWebsitePlugin() {
         console.log(`[website] Change detected (${reason}). Regenerating...`);
       }
 
-      await runCommand("node", [PUBLISH_SCRIPT, "--no-report"], WEBSITE_DIR);
+      await runCommand("node", [PUBLISH_SCRIPT, "--no-report", "--preserve-dist"], WEBSITE_DIR);
       if (server) {
-        server.ws.send({ type: "full-reload", path: "*" });
+        server.ws.send({ type: "full-reload" });
       }
     } catch (error) {
       const message = error?.message || String(error);
@@ -53,7 +72,9 @@ function publishWebsitePlugin() {
       isPublishing = false;
       if (publishQueued) {
         publishQueued = false;
-        await runPublish(server, "queued");
+        const nextReason = queuedReason || "queued";
+        queuedReason = "queued";
+        schedulePublish(server, nextReason);
       }
     }
   }
@@ -72,7 +93,7 @@ function publishWebsitePlugin() {
           return;
         }
 
-        void runPublish(server, event);
+        schedulePublish(server, event);
       };
 
       server.watcher.on("add", (file) => onFsEvent("add", file));

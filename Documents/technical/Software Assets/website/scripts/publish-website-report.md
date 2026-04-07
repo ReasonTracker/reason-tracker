@@ -6,21 +6,23 @@ Run type: Publish website
 
 ## Summary
 
-- Source files published: 22
-- Site files scanned: 6
-- Augmentation files loaded: 1
-- Matched augmentation links: 1
+- Source files published: 23
+- Site files scanned: 7
+- Augmentation files loaded: 2
+- Matched augmentation links: 2
 - Unmatched augmentation files: 0
 
 ## Augmentation Files By Type
 
 - css: 1
+- js: 1
 
 ## Matched Augmentations
 
 - Source: README.md
   - Route: /
   - css: README.css
+  - js: README.js
 
 ## Unmatched Augmentations
 
