@@ -1,3 +1,51 @@
+@property --doc-shell-angle {
+	syntax: "<angle>";
+	inherits: true;
+	initial-value: 45deg;
+}
+
+:root {
+	--doc-shell-gap: 1deg;
+	--doc-shell-stops:
+		var(--panel) 0deg var(--doc-shell-gap),
+		var(--con) var(--doc-shell-gap) calc(180deg - var(--doc-shell-gap)),
+		var(--panel) calc(180deg - var(--doc-shell-gap)) calc(180deg + var(--doc-shell-gap)),
+		var(--pro) calc(180deg + var(--doc-shell-gap)) calc(360deg - var(--doc-shell-gap)),
+		var(--panel) calc(360deg - var(--doc-shell-gap)) 360deg;
+	--doc-shell-start-angle: 45deg;
+	--doc-shell-rotation-duration: 500s;
+}
+
+.doc-shell {
+	--doc-shell-angle: var(--doc-shell-start-angle);
+	border-color: transparent;
+	border-image: conic-gradient(from var(--doc-shell-angle), var(--doc-shell-stops)) 1;
+	animation: doc-shell-rotate var(--doc-shell-rotation-duration) linear infinite;
+}
+
+.doc-shell::after {
+	content: "";
+	position: absolute;
+	inset: -6px;
+	pointer-events: none;
+	background: conic-gradient(from var(--doc-shell-angle), var(--doc-shell-stops));
+	filter: blur(8px) saturate(1.25);
+	opacity: 0.85;
+	z-index: -1;
+}
+
+@keyframes doc-shell-rotate {
+	to {
+		--doc-shell-angle: calc(var(--doc-shell-start-angle) + 360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.doc-shell {
+		animation: none;
+	}
+}
+
 .page-footer {
 	display: none;
 }
@@ -36,7 +84,7 @@
 	border-left-style: none;
 	padding-top: 28px;
 	font-size: clamp(1.2rem, 2.3vw, 1.6rem);
-	color: yellow;
+	color: var(--highlight);
 	text-shadow:
 		0 0 0.4em color-mix(in srgb, currentColor 90%, transparent),
 		0 0 2em color-mix(in srgb, currentColor 50%, transparent);
