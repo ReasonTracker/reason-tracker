@@ -53,9 +53,34 @@ body > footer.page-footer {
 }
 
 .doc-shell {
+  position: relative;
   padding: 1.25rem;
-  border: 1px solid var(--border);
+  border: 2px solid transparent;
+  border-image: conic-gradient(
+      from 225deg,
+      var(--pro) 0deg 180deg,
+      var(--con) 180deg 360deg
+    )
+    1;
   background: var(--panel);
+}
+
+.doc-shell::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 225deg,
+    hsl(var(--pro-h) 100% var(--pro-l) / 0.95) 0deg 180deg,
+    hsl(var(--con-h) 100% var(--con-l) / 0.95) 180deg 360deg
+  );
+  filter: blur(8px) saturate(1.25);
+  opacity: 0.85;
+  box-shadow:
+    0 0 28px hsl(var(--pro-h) 100% var(--pro-l) / 0.45),
+    0 0 28px hsl(var(--con-h) 100% var(--con-l) / 0.45);
+  z-index: -1;
 }
 
 .page-footer {

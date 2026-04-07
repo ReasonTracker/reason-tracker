@@ -37,6 +37,9 @@
 	padding-top: 28px;
 	font-size: clamp(1.2rem, 2.3vw, 1.6rem);
 	color: yellow;
+	text-shadow:
+		0 0 0.4em color-mix(in srgb, currentColor 90%, transparent),
+		0 0 2em color-mix(in srgb, currentColor 50%, transparent);
 }
 
 .markdown-body > h2 {

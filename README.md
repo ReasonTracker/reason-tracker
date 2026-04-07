@@ -1,6 +1,6 @@
 # Reason Tracker
 
-> Videos about hard decisions.
+> Videos about hard decisions
 
 ## Coming Soon
 
