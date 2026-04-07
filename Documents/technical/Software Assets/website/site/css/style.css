@@ -20,6 +20,12 @@
   --con: hsl(var(--con-h), 100%, var(--con-l));
 }
 
+@property --doc-shell-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 225deg;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -53,15 +59,17 @@ body > footer.page-footer {
 }
 
 .doc-shell {
+  --doc-shell-angle: 225deg;
   position: relative;
   padding: 1.25rem;
   border: 2px solid transparent;
   border-image: conic-gradient(
-      from 225deg,
+      from var(--doc-shell-angle),
       var(--pro) 0deg 180deg,
       var(--con) 180deg 360deg
     )
     1;
+  animation: doc-shell-rotate 120s linear infinite;
   background: var(--panel);
 }
 
@@ -71,7 +79,7 @@ body > footer.page-footer {
   inset: -6px;
   pointer-events: none;
   background: conic-gradient(
-    from 225deg,
+    from var(--doc-shell-angle),
     hsl(var(--pro-h) 100% var(--pro-l) / 0.95) 0deg 180deg,
     hsl(var(--con-h) 100% var(--con-l) / 0.95) 180deg 360deg
   );
@@ -81,6 +89,12 @@ body > footer.page-footer {
     0 0 28px hsl(var(--pro-h) 100% var(--pro-l) / 0.45),
     0 0 28px hsl(var(--con-h) 100% var(--con-l) / 0.45);
   z-index: -1;
+}
+
+@keyframes doc-shell-rotate {
+  to {
+    --doc-shell-angle: 585deg;
+  }
 }
 
 .page-footer {
@@ -232,5 +246,11 @@ body > footer.page-footer {
 
   .doc-links {
     gap: 0.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-shell {
+    animation: none;
   }
 }
