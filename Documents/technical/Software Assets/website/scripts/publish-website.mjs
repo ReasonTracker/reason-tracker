@@ -741,7 +741,8 @@ async function renderDirectoryPage({
     const markdownPath = path.join(REPO_DIR, ...page.defaultMarkdownSource.split("/"));
     const markdown = await fs.readFile(markdownPath, "utf8");
     const parsed = parseMarkdownDocument(markdown);
-    const html = marked.parse(parsed.body, { gfm: true, async: false });
+    const normalizedBody = sanitizeMarkdownLinks(parsed.body);
+    const html = marked.parse(normalizedBody, { gfm: true, async: false });
     const rewritten = rewriteMarkdownLinks(String(html), page.defaultMarkdownSource, sourceHrefByPath);
     markdownSection = `<article class="markdown-body">${rewritten}</article>`;
     metadataSection = renderDocMetadata(parsed.metadata);
@@ -782,7 +783,8 @@ function renderFilePage({
   let body = "";
   if (preview.type === "markdown") {
     const parsed = parseMarkdownDocument(preview.markdown);
-    const html = marked.parse(parsed.body, { gfm: true, async: false });
+    const normalizedBody = sanitizeMarkdownLinks(parsed.body);
+    const html = marked.parse(normalizedBody, { gfm: true, async: false });
     const rewritten = rewriteMarkdownLinks(String(html), sourcePath, sourceHrefByPath);
     const metadataSection = renderDocMetadata(parsed.metadata);
     body = `${metadataSection}<article class="markdown-body">${rewritten}</article>`;
@@ -1142,7 +1144,12 @@ function resolveSourceRelativePath(sourcePath, hrefPath) {
   }
 
   if (hrefPath.startsWith("/")) {
-    return hrefPath.slice(1);
+    return hrefPath
+      .slice(1)
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => decodeURIComponentSafe(segment))
+      .join("/");
   }
 
   const baseDirectory = sourcePath.includes("/")
@@ -1150,7 +1157,10 @@ function resolveSourceRelativePath(sourcePath, hrefPath) {
     : "";
 
   const baseSegments = baseDirectory.split("/").filter(Boolean);
-  const hrefSegments = hrefPath.split("/").filter(Boolean);
+  const hrefSegments = hrefPath
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => decodeURIComponentSafe(segment));
 
   for (const segment of hrefSegments) {
     if (segment === ".") {
@@ -1186,6 +1196,49 @@ function parseMarkdownDocument(markdown) {
     body: parsed.body,
     metadata: toDocMetadata(parsed.attributes),
   };
+}
+
+function sanitizeMarkdownLinks(markdown) {
+  return String(markdown || "").replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (fullMatch, label, destination) => {
+    const trimmed = String(destination || "").trim();
+    if (!trimmed.includes(" ")) {
+      return fullMatch;
+    }
+
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed) || trimmed.startsWith("//")) {
+      return fullMatch;
+    }
+
+    if (!/\.md(?:$|[?#])/.test(trimmed)) {
+      return fullMatch;
+    }
+
+    const hashIndex = trimmed.indexOf("#");
+    const queryIndex = trimmed.indexOf("?");
+    const suffixIndex = [hashIndex, queryIndex].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? -1;
+    const pathPart = suffixIndex >= 0 ? trimmed.slice(0, suffixIndex) : trimmed;
+    const suffix = suffixIndex >= 0 ? trimmed.slice(suffixIndex) : "";
+    const encodedPath = pathPart
+      .split("/")
+      .map((segment) => {
+        if (!segment || segment === "." || segment === "..") {
+          return segment;
+        }
+
+        return encodeURIComponent(decodeURIComponentSafe(segment));
+      })
+      .join("/");
+
+    return `[${label}](${encodedPath}${suffix})`;
+  });
+}
+
+function decodeURIComponentSafe(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function toDocMetadata(attributes) {

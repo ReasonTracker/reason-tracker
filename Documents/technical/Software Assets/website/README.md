@@ -67,3 +67,10 @@ npm run preview
 - Invalid values for `collapsedSourceRootName` or `indexFileNames` fail publish/maintenance with a clear config error.
 - `site/index.html` is not required and is intentionally omitted.
 - Markdown maintenance validates source markdown links (not generated HTML), updates files in place, and only auto-adds autonav links on index-style pages.
+
+---
+
+<!-- autonav:start -->
+- [Scripts](./scripts/README.md)
+- [Site](./site/README.md)
+<!-- autonav:end -->

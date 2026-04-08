@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { normalizeMdStemKey, selectPreferredIndex } from "./markdown-index-rules.mjs";
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname);
@@ -28,7 +29,9 @@ main().catch((error) => {
 
 async function main() {
   const routeConfig = await resolveRouteConfig();
-  const sourcePaths = await collectMarkdownSourcePaths(REPO_DIR);
+  const initialGitSourcePaths = await collectGitSourcePaths();
+  const createdIndexDocs = await ensureDirectoryIndexDocs(routeConfig, initialGitSourcePaths);
+  const sourcePaths = await collectMarkdownSourcePaths();
   const routeInfo = buildRouteInfo(sourcePaths, routeConfig);
 
   const docs = [];
@@ -119,8 +122,183 @@ async function main() {
   }
 
   console.log(
-    `Markdown maintenance complete: changedDocs=${changedDocs}, fixedLinks=${fixedLinks}, relabeledLinks=${relabeledLinks}, unresolved=${unresolved.length}, autoAdded=${autoAddedLinks}.`,
+    `Markdown maintenance complete: createdIndexDocs=${createdIndexDocs.length}, changedDocs=${changedDocs}, fixedLinks=${fixedLinks}, relabeledLinks=${relabeledLinks}, unresolved=${unresolved.length}, autoAdded=${autoAddedLinks}.`,
   );
+}
+
+async function ensureDirectoryIndexDocs(routeConfig, sourcePaths) {
+  const created = [];
+  const indexName = "README.md";
+  const indexKeySet = new Set(routeConfig.indexCandidateKeys);
+  const markdownPaths = sourcePaths.filter((sourcePath) => /\.md\s*$/i.test(sourcePath));
+  const candidateDirectories = deriveCandidateDirectories(sourcePaths);
+  const sortedDirectories = [...candidateDirectories].sort((a, b) => {
+    const depthDiff = a.split("/").filter(Boolean).length - b.split("/").filter(Boolean).length;
+    if (depthDiff !== 0) {
+      return depthDiff;
+    }
+
+    return a.localeCompare(b);
+  });
+
+  for (const relativeDirectory of sortedDirectories) {
+    if (!shouldCreateIndexDocForDirectory(relativeDirectory, routeConfig)) {
+      continue;
+    }
+
+    const markdownFiles = markdownPaths
+      .filter((sourcePath) => getParentDirectory(sourcePath) === relativeDirectory)
+      .map((sourcePath) => sourcePath.split("/").pop() || sourcePath);
+
+    const hasIndexDoc = markdownFiles.some((fileName) => {
+      const key = normalizeMdStemKey(fileName);
+      return Boolean(key) && indexKeySet.has(key);
+    });
+
+    if (hasIndexDoc) {
+      continue;
+    }
+
+    const newIndexRelativePath = relativeDirectory ? `${relativeDirectory}/${indexName}` : indexName;
+    const newIndexAbsolutePath = path.join(REPO_DIR, ...newIndexRelativePath.split("/"));
+
+    await fs.mkdir(path.dirname(newIndexAbsolutePath), { recursive: true });
+    await fs.writeFile(
+      newIndexAbsolutePath,
+      buildDirectoryIndexTemplate(relativeDirectory),
+      "utf8",
+    );
+
+    created.push(newIndexRelativePath);
+  }
+
+  return created;
+}
+
+function deriveCandidateDirectories(sourcePaths) {
+  const directories = new Set();
+
+  for (const sourcePath of sourcePaths) {
+    const normalizedPath = toPosixPath(sourcePath);
+    const segments = normalizedPath.split("/").filter(Boolean);
+    if (segments.length === 0) {
+      continue;
+    }
+
+    const parentDirectory = getParentDirectory(normalizedPath);
+    if (parentDirectory !== null) {
+      addDirectoryWithAncestors(parentDirectory, directories);
+    }
+  }
+
+  return directories;
+}
+
+function addDirectoryWithAncestors(directoryPath, target) {
+  const normalized = toPosixPath(directoryPath);
+  if (!normalized) {
+    target.add("");
+    return;
+  }
+
+  const segments = normalized.split("/").filter(Boolean);
+  for (let index = 0; index < segments.length; index += 1) {
+    target.add(segments.slice(0, index + 1).join("/"));
+  }
+
+  target.add("");
+}
+
+function getParentDirectory(sourcePath) {
+  const normalized = toPosixPath(sourcePath);
+  if (!normalized.includes("/")) {
+    return "";
+  }
+
+  return normalized.slice(0, normalized.lastIndexOf("/"));
+}
+
+function shouldCreateIndexDocForDirectory(relativeDirectory, routeConfig) {
+  if (!relativeDirectory) {
+    return true;
+  }
+
+  const segments = toPosixPath(relativeDirectory).split("/").filter(Boolean);
+  if (segments.length === 0) {
+    return false;
+  }
+
+  if (!/^documents$/i.test(segments[0])) {
+    return false;
+  }
+
+  const collapsedRoot = String(routeConfig?.collapsedSourceRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
+    .trim()
+    .toLowerCase();
+
+  if (segments.length === 1 && segments[0].toLowerCase() === collapsedRoot) {
+    return false;
+  }
+
+  return true;
+}
+
+async function collectMarkdownSourcePaths() {
+  const sourcePaths = await collectGitSourcePaths();
+  return sourcePaths.filter(
+    (sourcePath) => /\.md\s*$/i.test(sourcePath) && shouldIncludeMarkdownPath(sourcePath),
+  );
+}
+
+async function collectGitSourcePaths() {
+  const output = await runCommand("git", [
+    "-C",
+    REPO_DIR,
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ]);
+
+  const candidates = output.stdout
+    .split("\u0000")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => toPosixPath(entry));
+
+  const existing = [];
+  for (const sourcePath of candidates) {
+    const absolutePath = path.join(REPO_DIR, ...sourcePath.split("/"));
+    try {
+      await fs.access(absolutePath);
+      existing.push(sourcePath);
+    } catch {
+      // Skip entries that are no longer in the working tree.
+    }
+  }
+
+  return existing;
+}
+
+function buildDirectoryIndexTemplate(relativeDirectory) {
+  const title = toDirectoryTitle(relativeDirectory);
+  return `# ${title}\n\n${AUTONAV_START}\n${AUTONAV_END}\n`;
+}
+
+function toDirectoryTitle(relativeDirectory) {
+  if (!relativeDirectory) {
+    return "Reason Tracker";
+  }
+
+  const segments = toPosixPath(relativeDirectory).split("/").filter(Boolean);
+  const name = segments[segments.length - 1] || "Reason Tracker";
+
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 function resolveRepoDir() {
@@ -210,53 +388,37 @@ function normalizeRouteConfig(value) {
   };
 }
 
-async function collectMarkdownSourcePaths(directory) {
-  const files = [];
-  const entries = await fs.readdir(directory, { withFileTypes: true });
+async function runCommand(command, args, options = {}) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd ?? REPO_DIR,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
 
-  for (const entry of entries) {
-    const absolutePath = path.join(directory, entry.name);
-    const relativePath = toPosixPath(path.relative(REPO_DIR, absolutePath));
+    const stdoutParts = [];
+    const stderrParts = [];
 
-    if (entry.isDirectory()) {
-      if (shouldIgnoreDirectory(relativePath)) {
-        continue;
+    child.stdout.on("data", (chunk) => stdoutParts.push(chunk));
+    child.stderr.on("data", (chunk) => stderrParts.push(chunk));
+
+    child.on("error", (error) => reject(error));
+    child.on("close", (code) => {
+      const stdout = Buffer.concat(stdoutParts).toString("utf8");
+      const stderr = Buffer.concat(stderrParts).toString("utf8");
+
+      if (code === 0 || options.allowFailure) {
+        resolve({ code, stdout, stderr });
+        return;
       }
 
-      files.push(...(await collectMarkdownSourcePaths(absolutePath)));
-      continue;
-    }
-
-    if (!entry.isFile()) {
-      continue;
-    }
-
-    if (/\.md\s*$/i.test(entry.name)) {
-      if (shouldIncludeMarkdownPath(relativePath)) {
-        files.push(relativePath);
-      }
-    }
-  }
-
-  return files;
-}
-
-function shouldIgnoreDirectory(relativePath) {
-  const normalized = relativePath.toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized === ".git" ||
-    normalized.endsWith("/.git") ||
-    normalized.includes("/.git/") ||
-    normalized === "node_modules" ||
-    normalized.endsWith("/node_modules") ||
-    normalized.includes("/node_modules/") ||
-    normalized.includes("/documents/technical/software assets/website/dist") ||
-    normalized.includes("/documents/technical/software assets/website/.vite-preview")
-  );
+      reject(
+        new Error(
+          `Command failed: ${command} ${args.join(" ")}\nExit code: ${code}\n${stderr || stdout}`,
+        ),
+      );
+    });
+  });
 }
 
 function shouldIncludeMarkdownPath(relativePath) {
