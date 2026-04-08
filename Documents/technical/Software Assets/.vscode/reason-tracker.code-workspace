@@ -7,6 +7,9 @@
     {
       "name": "Documentation",
       "path": "../../../../"
+    },
+    {
+      "path": "../../../../../../../GitHub/bentley/reason-tracker"
     }
   ],
   "settings": {

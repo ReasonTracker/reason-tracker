@@ -8,16 +8,16 @@ Prefer single-source documentation for shared rules.
 
 ## README Naming Pattern
 
-Use `📌 README.md` for documentation folders under Technical.
+Use `📌README.md` for documentation folders under Technical.
 Keep plain `README.md` only at the repository root.
 
 - Use: `Software Assets/<asset-name>/`
 - Avoid category folders like `packages/` and `apps/` for new assets
-- Keep each asset self-contained with its own `package.json` and `README.md`
+- Keep each asset self-contained with its own `package.json` and `📌README.md`
 - Avoid duplicating shared organizational guidance in individual asset docs; link back to this technical document instead
 
 Example: `Software Assets/engine` for `@reasontracker/engine`.
 
 <!-- autonav:start -->
-- [Software Assets](./Software Assets/README.md)
+- [📌 Software Assets](./Software%20Assets/📌README.md)
 <!-- autonav:end -->

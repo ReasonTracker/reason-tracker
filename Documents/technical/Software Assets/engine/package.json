@@ -1,0 +1,16 @@
+{
+  "name": "@reasontracker/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Core calculation and data manipulation engine for Reason Tracker.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "echo \"Build script pending\"",
+    "test": "echo \"Test script pending\""
+  }
+}

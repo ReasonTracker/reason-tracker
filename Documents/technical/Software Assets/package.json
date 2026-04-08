@@ -1,10 +1,10 @@
 {
-  "name": "reason-tracker-software-assets",
+  "name": "reason-tracker",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
     "website",
-    "packages/*"
+    "engine"
   ],
   "scripts": {
     "dev:website": "npm run -w reason-tracker-repo-website dev",

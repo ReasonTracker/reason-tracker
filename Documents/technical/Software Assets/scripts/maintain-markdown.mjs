@@ -44,7 +44,7 @@ async function main() {
       sourcePath,
       absolutePath,
       markdown,
-      title: extractTitle(markdown),
+      title: formatLinkText(extractTitle(markdown)),
       routePath: routeData.routePath ?? null,
       parentRoute: routeData.parentRoute ?? null,
       isIndexDoc: Boolean(routeData.isIndexDoc),
@@ -128,7 +128,7 @@ async function main() {
 
 async function ensureDirectoryIndexDocs(routeConfig, sourcePaths) {
   const created = [];
-  const indexName = "📌 README.md";
+  const indexName = "📌README.md";
   const indexKeySet = new Set(routeConfig.indexCandidateKeys);
   const markdownPaths = sourcePaths.filter((sourcePath) => /\.md\s*$/i.test(sourcePath));
   const candidateDirectories = deriveCandidateDirectories(sourcePaths);
@@ -423,6 +423,10 @@ async function runCommand(command, args, options = {}) {
 
 function shouldIncludeMarkdownPath(relativePath) {
   const normalized = toPosixPath(relativePath);
+  if (normalized.toLowerCase() === "documents/technical/software assets/scripts/markdown-maintenance-report.md") {
+    return false;
+  }
+
   const segments = normalized.split("/").filter(Boolean);
   if (segments.length === 0) {
     return false;
@@ -670,7 +674,7 @@ function relabelResolvedDocLinks(input) {
         return full;
       }
 
-      const expectedText = targetDoc.title;
+      const expectedText = formatLinkText(targetDoc.title);
       if (normalizeTitle(linkText) === normalizeTitle(expectedText)) {
         return full;
       }
@@ -864,16 +868,9 @@ function parseDestination(raw) {
     };
   }
 
-  const firstWhitespace = trimmed.search(/\s/);
-  if (firstWhitespace < 0) {
-    return { url: trimmed, rest: "", wrappedInAngles: false };
-  }
-
-  return {
-    url: trimmed.slice(0, firstWhitespace),
-    rest: trimmed.slice(firstWhitespace),
-    wrappedInAngles: false,
-  };
+  // Support local markdown paths that contain spaces (for example, "📌 README.md").
+  // Markdown link titles are uncommon in this repo; prioritize preserving the full href.
+  return { url: trimmed, rest: "", wrappedInAngles: false };
 }
 
 function toRelativeMarkdownPath(sourcePath, targetSourcePath) {
@@ -885,14 +882,29 @@ function toRelativeMarkdownPath(sourcePath, targetSourcePath) {
     return "./";
   }
 
-  return rel.startsWith(".") ? rel : `./${rel}`;
+  const withPrefix = rel.startsWith(".") ? rel : `./${rel}`;
+  return encodeMarkdownPathSpaces(withPrefix);
 }
 
 function resolveRelativePath(sourcePath, relativePath) {
   const sourceDir = sourcePath.includes("/")
     ? sourcePath.slice(0, sourcePath.lastIndexOf("/") + 1)
     : "";
-  return toPosixPath(path.posix.normalize(path.posix.join(sourceDir, relativePath)));
+  const decodedRelativePath = decodeMarkdownPath(relativePath);
+  return toPosixPath(path.posix.normalize(path.posix.join(sourceDir, decodedRelativePath)));
+}
+
+function encodeMarkdownPathSpaces(value) {
+  return String(value || "").replace(/ /g, "%20");
+}
+
+function decodeMarkdownPath(value) {
+  const raw = String(value || "");
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }
 
 function toRouteFromRelativePath(sourcePath, relativePath, docsBySourcePath) {
@@ -999,9 +1011,17 @@ function extractTitle(markdown) {
 
 function normalizeTitle(value) {
   return String(value || "")
+    .replace(/_/g, " ")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+function formatLinkText(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function toPosixPath(value) {
