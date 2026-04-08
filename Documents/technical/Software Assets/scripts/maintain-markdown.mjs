@@ -39,15 +39,18 @@ async function main() {
     const absolutePath = path.join(REPO_DIR, ...sourcePath.split("/"));
     const markdown = await fs.readFile(absolutePath, "utf8");
     const routeData = routeInfo.bySourcePath.get(sourcePath) || {};
+    const title = formatLinkText(extractTitle(markdown));
+    const isIndexDoc = Boolean(routeData.isIndexDoc);
 
     docs.push({
       sourcePath,
       absolutePath,
       markdown,
-      title: formatLinkText(extractTitle(markdown)),
+      title,
+      linkTitle: deriveDocLinkTitle({ sourcePath, isIndexDoc, title }),
       routePath: routeData.routePath ?? null,
       parentRoute: routeData.parentRoute ?? null,
-      isIndexDoc: Boolean(routeData.isIndexDoc),
+      isIndexDoc,
     });
   }
 
@@ -55,7 +58,7 @@ async function main() {
   const docsByRoute = new Map(
     docs.filter((doc) => doc.routePath).map((doc) => [doc.routePath, doc]),
   );
-  const titleIndex = buildTitleIndex(docs);
+  const linkTextIndex = buildLinkTextIndex(docs);
   const childrenByParent = buildChildrenByParent(docs);
 
   const unresolved = [];
@@ -72,7 +75,7 @@ async function main() {
       sourcePath: doc.sourcePath,
       docsBySourcePath,
       docsByRoute,
-      titleIndex,
+      linkTextIndex,
       unresolved,
     });
     fixedLinks += fixed.fixedCount;
@@ -98,7 +101,7 @@ async function main() {
     );
 
     const additions = missingTargets.map((target) => ({
-      title: target.title,
+      title: target.linkTitle,
       targetSourcePath: target.sourcePath,
       href: toRelativeMarkdownPath(doc.sourcePath, target.sourcePath),
     }));
@@ -539,17 +542,37 @@ function deriveParentRoute(routePath) {
   return `/${segments.slice(0, -1).join("/")}/`;
 }
 
-function buildTitleIndex(docs) {
-  const byTitle = new Map();
-
-  for (const doc of docs) {
-    const key = normalizeTitle(doc.title);
-    const current = byTitle.get(key) || [];
-    current.push(doc);
-    byTitle.set(key, current);
+function deriveDocLinkTitle(input) {
+  if (!input.isIndexDoc) {
+    return formatLinkText(input.title);
   }
 
-  return byTitle;
+  const directory = getParentDirectory(input.sourcePath);
+  return toDirectoryTitle(directory);
+}
+
+function buildLinkTextIndex(docs) {
+  const byText = new Map();
+
+  const addEntry = (key, doc) => {
+    const normalized = normalizeTitle(key);
+    if (!normalized) {
+      return;
+    }
+
+    const current = byText.get(normalized) || [];
+    if (!current.some((entry) => entry.sourcePath === doc.sourcePath)) {
+      current.push(doc);
+      byText.set(normalized, current);
+    }
+  };
+
+  for (const doc of docs) {
+    addEntry(doc.linkTitle, doc);
+    addEntry(doc.title, doc);
+  }
+
+  return byText;
 }
 
 function buildChildrenByParent(docs) {
@@ -616,7 +639,7 @@ function rewriteBrokenLinks(input) {
       }
 
       const normalizedText = normalizeTitle(linkText);
-      const matches = input.titleIndex.get(normalizedText) || [];
+      const matches = input.linkTextIndex.get(normalizedText) || [];
       if (matches.length !== 1) {
         input.unresolved.push({
           sourcePath: input.sourcePath,
@@ -674,7 +697,7 @@ function relabelResolvedDocLinks(input) {
         return full;
       }
 
-      const expectedText = formatLinkText(targetDoc.title);
+      const expectedText = formatLinkText(targetDoc.linkTitle || targetDoc.title);
       if (normalizeTitle(linkText) === normalizeTitle(expectedText)) {
         return full;
       }

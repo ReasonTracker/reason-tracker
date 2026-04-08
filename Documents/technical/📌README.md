@@ -19,5 +19,6 @@ Keep plain `README.md` only at the repository root.
 Example: `Software Assets/engine` for `@reasontracker/engine`.
 
 <!-- autonav:start -->
-- [📌 Software Assets](./Software%20Assets/📌README.md)
+- [Software Assets](./Software%20Assets/📌README.md)
+- [Agent Steering](./AGENTS.md)
 <!-- autonav:end -->

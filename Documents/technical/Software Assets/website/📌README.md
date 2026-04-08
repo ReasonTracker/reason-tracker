@@ -71,6 +71,6 @@ npm run preview
 ---
 
 <!-- autonav:start -->
-- [📌 Site](./site/📌README.md)
-- [📌 Scripts](./scripts/📌README.md)
+- [Site](./site/📌README.md)
+- [Scripts](./scripts/📌README.md)
 <!-- autonav:end -->

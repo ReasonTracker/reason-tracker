@@ -13,5 +13,5 @@ This software asset hosts the core calculation and data manipulation logic for R
 ---
 
 <!-- autonav:start -->
-- [📌 Src](./src/📌README.md)
+- [Src](./src/📌README.md)
 <!-- autonav:end -->

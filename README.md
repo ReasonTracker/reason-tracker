@@ -15,5 +15,5 @@ uncertainty explicit, and improve over time as you contribute feedback and new e
 <!-- autonav:start -->
 - [About](./Documents/About.md)
 - [Vision](./Documents/Vision.md)
-- [📌 Technical](./Documents/technical/📌README.md)
+- [Technical](./Documents/technical/📌README.md)
 <!-- autonav:end -->
