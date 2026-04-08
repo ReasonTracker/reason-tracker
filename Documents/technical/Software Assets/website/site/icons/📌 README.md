@@ -1,4 +1,4 @@
-# Icons
+# 📌 Icons
 
 <!-- autonav:start -->
 <!-- autonav:end -->

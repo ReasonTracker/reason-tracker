@@ -30,10 +30,10 @@ No unmatched augmentations.
 
 ## Skipped Site Files
 
-- css/README.md
+- css/📌 README.md
 - css/style.css
+- icons/📌 README.md
 - icons/favicon.svg
 - icons/file.svg
 - icons/folder.svg
-- icons/README.md
 - site-config.json

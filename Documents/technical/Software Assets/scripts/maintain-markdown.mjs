@@ -128,7 +128,7 @@ async function main() {
 
 async function ensureDirectoryIndexDocs(routeConfig, sourcePaths) {
   const created = [];
-  const indexName = "README.md";
+  const indexName = "📌 README.md";
   const indexKeySet = new Set(routeConfig.indexCandidateKeys);
   const markdownPaths = sourcePaths.filter((sourcePath) => /\.md\s*$/i.test(sourcePath));
   const candidateDirectories = deriveCandidateDirectories(sourcePaths);
@@ -283,7 +283,7 @@ async function collectGitSourcePaths() {
 
 function buildDirectoryIndexTemplate(relativeDirectory) {
   const title = toDirectoryTitle(relativeDirectory);
-  return `# ${title}\n\n${AUTONAV_START}\n${AUTONAV_END}\n`;
+  return `# 📌 ${title}\n\n${AUTONAV_START}\n${AUTONAV_END}\n`;
 }
 
 function toDirectoryTitle(relativeDirectory) {

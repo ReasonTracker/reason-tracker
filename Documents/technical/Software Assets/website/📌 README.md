@@ -1,4 +1,4 @@
-# Repository Website Builder
+# 📌 Repository Website Builder
 
 This folder contains a Git-based static website builder for the repository.
 
@@ -71,6 +71,6 @@ npm run preview
 ---
 
 <!-- autonav:start -->
-- [Scripts](./scripts/README.md)
-- [Site](./site/README.md)
+- [📌 Site](./site/📌 README.md)
+- [📌 Scripts](./scripts/📌 README.md)
 <!-- autonav:end -->

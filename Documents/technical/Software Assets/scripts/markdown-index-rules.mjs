@@ -6,10 +6,15 @@ export function normalizeMdStemKey(fileName) {
     return null;
   }
 
-  return parsed.stem
+  const normalized = parsed.stem
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, "")
     .trim();
+
+  // Allow index matching when filenames start with decorative glyphs such as emojis.
+  return normalized.replace(/^[^a-z0-9]+/, "");
 }
 
 function normalizeCandidateStemKey(fileName) {
