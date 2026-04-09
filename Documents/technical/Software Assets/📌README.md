@@ -10,4 +10,5 @@ New assets should be created as direct children of this folder (for example, `en
 - [.Vscode](.vscode/📌README.md)
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
+- [Engine Tests](./engine-tests/📌README.md)
 <!-- autonav:end -->

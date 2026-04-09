@@ -4,6 +4,7 @@
   "private": true,
   "workspaces": [
     "website",
+    "contracts",
     "engine",
     "engine-tests"
   ],

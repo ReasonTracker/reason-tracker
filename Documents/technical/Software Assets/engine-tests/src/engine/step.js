@@ -1,6 +1,10 @@
 import { deepClone, semanticEqual } from "../contract/transactions.js";
 import { calculateScores } from "./scoring.js";
 
+/** @typedef {import("@reasontracker/contracts").DebateStepState} DebateStepState */
+/** @typedef {import("@reasontracker/contracts").EmittedTransaction} EmittedTransaction */
+/** @typedef {import("@reasontracker/contracts").InputTransaction} InputTransaction */
+
 function diffMap(prev, next, setKind, deleteKind, idField, valueField) {
   const txs = [];
   const ids = new Set([...Object.keys(prev), ...Object.keys(next)]);
@@ -66,6 +70,11 @@ function applyInputTransactions(state, transactions = []) {
   return next;
 }
 
+/**
+ * @param {DebateStepState} state
+ * @param {InputTransaction[]} transactions
+ * @returns {{ next_state: DebateStepState, emitted_transactions: EmittedTransaction[] }}
+ */
 export function stepEngine(state, transactions) {
   const prev = deepClone(state);
   const next = applyInputTransactions(prev, transactions);

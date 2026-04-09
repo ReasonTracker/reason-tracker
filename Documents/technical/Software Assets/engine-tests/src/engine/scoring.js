@@ -1,3 +1,8 @@
+/** @typedef {import("@reasontracker/contracts").Connector} Connector */
+/** @typedef {import("@reasontracker/contracts").Debate} Debate */
+/** @typedef {import("@reasontracker/contracts").Id} Id */
+/** @typedef {import("@reasontracker/contracts").Score} Score */
+
 export function sortSourceIdsFirst(connectors) {
   const edges = Object.values(connectors).map((c) => [c.target, c.source]);
   const nodes = new Set();
@@ -47,6 +52,7 @@ export function sortSourceIdsFirst(connectors) {
   return sorted;
 }
 
+/** @param {Debate} debate */
 export function createConnectorsIndexes(debate) {
   const connectorsIndexes = {
     bySource: {},
@@ -130,6 +136,12 @@ export function calculateRelevance(children) {
   return relevance;
 }
 
+/**
+ * @param {Debate} debate
+ * @param {Id} id
+ * @param {Record<Id, Score>} scores
+ * @param {Record<Id, Connector[]>} connectorsByTarget
+ */
 export function calculateScore(debate, id, scores, connectorsByTarget) {
   const claim = debate.claims[id];
   if (!claim) {
@@ -160,6 +172,7 @@ export function calculateScore(debate, id, scores, connectorsByTarget) {
   };
 }
 
+/** @param {Debate} debate */
 export function calculateScores(debate) {
   let ids = sortSourceIdsFirst(debate.connectors);
   if (ids.length === 0) {

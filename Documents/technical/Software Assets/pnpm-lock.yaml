@@ -8,10 +8,19 @@ importers:
 
   .: {}
 
-  engine: {}
+  contracts: {}
+
+  engine:
+    dependencies:
+      '@reasontracker/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   engine-tests:
     devDependencies:
+      '@reasontracker/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(lightningcss@1.32.0)

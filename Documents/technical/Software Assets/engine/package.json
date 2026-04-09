@@ -9,6 +9,9 @@
   "files": [
     "src"
   ],
+  "dependencies": {
+    "@reasontracker/contracts": "workspace:*"
+  },
   "scripts": {
     "build": "echo \"Build script pending\"",
     "test": "echo \"Test script pending\""

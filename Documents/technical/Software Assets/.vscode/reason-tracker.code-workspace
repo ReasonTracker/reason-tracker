@@ -9,9 +9,11 @@
       "path": "../../../../"
     },
     {
+      "name": "OldReason Tracker",
       "path": "../../../../../../../GitHub/bentley/reason-tracker"
     },
     {
+      "name": "Old RS Editor",
       "path": "../../../../../../../GitHub/ReasonScore/rs-editor"
     }
   ],

@@ -1,5 +1,7 @@
 # 📌 Fixtures
 
+Use Standard Schema for TypeScript validator/tooling interop.
+
 - `seed-cases.json`: grouped baseline vectors
 - `seed-cases.jsonl`: line-delimited vectors
 - `debate-step-case.schema.json`: canonical JSON Schema for Debate-step test cases

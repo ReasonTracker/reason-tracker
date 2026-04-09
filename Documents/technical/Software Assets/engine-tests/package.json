@@ -10,6 +10,7 @@
     "test:contract": "vitest run tests/contract.spec.js"
   },
   "devDependencies": {
+    "@reasontracker/contracts": "workspace:*",
     "vitest": "^2.1.9"
   }
 }
