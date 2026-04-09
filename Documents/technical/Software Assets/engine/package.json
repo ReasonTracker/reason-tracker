@@ -13,6 +13,7 @@
     "@reasontracker/contracts": "workspace:*"
   },
   "scripts": {
+    "cli": "node --experimental-strip-types ./src/cli-main.ts",
     "build": "echo \"Build script pending\"",
     "test": "echo \"Test script pending\""
   }

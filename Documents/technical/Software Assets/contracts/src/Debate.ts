@@ -1,7 +1,7 @@
-import { newId } from "./newId";
-import type { Claim, ClaimId } from "./Claim";
-import type { Connector, ConnectorId } from "./Connector";
-import type { Score } from "./Score";
+import { newId } from "./newId.ts";
+import type { Claim, ClaimId } from "./Claim.ts";
+import type { Connector, ConnectorId } from "./Connector.ts";
+import type { Score } from "./Score.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
 

@@ -1,0 +1,38 @@
+{
+  "name": "cycle-error",
+  "argv": ["calculateDebate"],
+  "stdin": {
+    "debate": {
+      "id": "d3",
+      "name": "cycle",
+      "description": "",
+      "mainClaimId": "A",
+      "claims": {
+        "A": { "id": "A", "content": "A", "pol": "pro" },
+        "B": { "id": "B", "content": "B", "pol": "pro" }
+      },
+      "connectors": {
+        "c1": {
+          "id": "c1",
+          "source": "A",
+          "target": "B",
+          "proTarget": true,
+          "affects": "confidence"
+        },
+        "c2": {
+          "id": "c2",
+          "source": "B",
+          "target": "A",
+          "proTarget": true,
+          "affects": "confidence"
+        }
+      }
+    }
+  },
+  "expect": {
+    "exitCode": 1,
+    "ok": false,
+    "errorCode": "CYCLE_DETECTED",
+    "cycleClaimIds": ["A", "B"]
+  }
+}

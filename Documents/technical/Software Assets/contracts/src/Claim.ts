@@ -1,4 +1,4 @@
-import { newId } from "./newId";
+import { newId } from "./newId.ts";
 
 export type ClaimId = string & { readonly __brand: "ClaimId" };
 

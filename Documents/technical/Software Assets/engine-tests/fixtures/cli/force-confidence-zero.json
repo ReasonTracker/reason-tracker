@@ -1,0 +1,32 @@
+{
+  "name": "force-confidence-zero",
+  "argv": ["calculateDebate"],
+  "stdin": {
+    "debate": {
+      "id": "d2",
+      "name": "force-zero",
+      "description": "",
+      "mainClaimId": "A",
+      "claims": {
+        "A": { "id": "A", "content": "A", "pol": "pro", "forceConfidence": 0 },
+        "B": { "id": "B", "content": "B", "pol": "pro" }
+      },
+      "connectors": {
+        "c1": {
+          "id": "c1",
+          "source": "B",
+          "target": "A",
+          "proTarget": true,
+          "affects": "confidence"
+        }
+      }
+    }
+  },
+  "expect": {
+    "exitCode": 0,
+    "ok": true,
+    "scoreChecks": {
+      "A": { "confidence": 0 }
+    }
+  }
+}

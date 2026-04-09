@@ -1,15 +1,26 @@
+export { runCli } from "./cli";
+export {
+    runCliFromArgv,
+    runCliFromProcess,
+    type CliIoResult,
+} from "./cli/io";
+export { calculateScores, type CalculateScoresResult } from "./scoring/calculateScores";
+
 export type {
-  Claim,
-  ClaimId,
-  Connector,
-  ConnectorAffects,
-  ConnectorId,
-  Debate,
-  DebateId,
-  DebateStepState,
-  EmittedTransaction,
-  InputTransaction,
-  Polarity,
-  Score,
-  ScoreId
+    Affects,
+    CalculateDebateCliRequest,
+    CalculateDebateCliSuccess,
+    Claim,
+    ClaimId,
+    CliError,
+    CliFailure,
+    CliRequest,
+    CliResponse,
+    Connector,
+    ConnectorId,
+    Debate,
+    DebateId,
+    CalculatedDebate,
+    Score,
+    ScoreId,
 } from "@reasontracker/contracts";

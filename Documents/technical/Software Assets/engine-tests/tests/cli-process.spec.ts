@@ -1,0 +1,56 @@
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { describe, expect, test } from "vitest";
+
+interface ProcessFixture {
+  name: string;
+  argv: string[];
+  stdin: unknown;
+  expect: {
+    exitCode: number;
+    ok: boolean;
+    errorCode?: string;
+  };
+}
+
+describe("engine CLI process integration", () => {
+  test("runs calculateDebate from a real process", () => {
+    const fixture = readFixture("acyclic-basic.json");
+    const result = runCliProcess(fixture.argv, fixture.stdin);
+
+    expect(result.status).toBe(fixture.expect.exitCode);
+
+    const response = JSON.parse(result.stdout || "{}") as any;
+    expect(Boolean(response.ok)).toBe(true);
+    expect(response.command).toBe("calculateDebate");
+    expect(response.debate.scores.A.confidence).toBe(1);
+  });
+
+  test("returns INVALID_REQUEST from a real process", () => {
+    const result = runCliProcess(["calculateDebate"], {});
+
+    expect(result.status).toBe(2);
+    const response = JSON.parse(result.stdout || "{}") as any;
+    expect(response.ok).toBe(false);
+    expect(response.error.code).toBe("INVALID_REQUEST");
+  });
+});
+
+function runCliProcess(argv: string[], stdinPayload: unknown) {
+  const cliMainPath = resolve(process.cwd(), "..", "engine", "src", "cli-main.ts");
+  return spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", cliMainPath, ...argv],
+    {
+      cwd: process.cwd(),
+      input: JSON.stringify(stdinPayload),
+      encoding: "utf8",
+    },
+  );
+}
+
+function readFixture(fileName: string): ProcessFixture {
+  const fullPath = join(process.cwd(), "fixtures", "cli", fileName);
+  return JSON.parse(readFileSync(fullPath, "utf8")) as ProcessFixture;
+}

@@ -3,8 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node", "vitest/globals"],
     "erasableSyntaxOnly": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
