@@ -4,14 +4,17 @@
   "private": true,
   "workspaces": [
     "website",
-    "engine"
+    "engine",
+    "engine-tests"
   ],
   "scripts": {
     "dev:website": "npm run -w reason-tracker-repo-website dev",
     "build:website": "npm run -w reason-tracker-repo-website build",
     "publish-website": "npm run -w reason-tracker-repo-website publish-website",
     "preview:website": "npm run -w reason-tracker-repo-website preview",
-    "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report"
+    "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",
+    "test:engine-tests": "pnpm --filter @reasontracker/engine-tests test",
+    "test:engine-tests:watch": "pnpm --filter @reasontracker/engine-tests test:watch"
   },
   "packageManager": "pnpm@10.33.0"
 }
