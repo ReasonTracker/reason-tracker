@@ -35,6 +35,7 @@
 - Give a long response only when needed to fulfill the request or when explicitly asked.
 - Do not deviate from the request while executing it. You can stop and ask a question if something coes up during execution.
 - If useful, suggest possible additional actions only after completing the requested work.
+- Prefer explicit nouns over pronouns when multiple nouns are in scope.
 
 ## Maintaining This File
 - When the user gives new agent-behavior instructions, ask whether this file should be updated.
