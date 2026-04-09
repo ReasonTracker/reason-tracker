@@ -6,9 +6,9 @@
 
 The canonical state shape follows the engine model:
 
-- `state.debate`: Debate metadata object
-- `state.debateData.claims`: claim dictionary
-- `state.debateData.connectors`: connector dictionary
+- `state.debate`: Debate object and main graph container
+- `state.debate.claims`: claim dictionary
+- `state.debate.connectors`: connector dictionary
 - `state.scores`: computed score dictionary
 
 Input transactions mutate debate metadata and debate data:

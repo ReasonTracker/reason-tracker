@@ -47,13 +47,13 @@ export function sortSourceIdsFirst(connectors) {
   return sorted;
 }
 
-export function createConnectorsIndexes(debateData) {
+export function createConnectorsIndexes(debate) {
   const connectorsIndexes = {
     bySource: {},
     byTarget: {}
   };
 
-  Object.values(debateData.connectors).forEach((connector) => {
+  Object.values(debate.connectors).forEach((connector) => {
     (connectorsIndexes.byTarget[connector.target] ??= []).push(connector);
     (connectorsIndexes.bySource[connector.source] ??= []).push(connector);
   });
@@ -130,8 +130,8 @@ export function calculateRelevance(children) {
   return relevance;
 }
 
-export function calculateScore(debateData, id, scores, connectorsByTarget) {
-  const claim = debateData.claims[id];
+export function calculateScore(debate, id, scores, connectorsByTarget) {
+  const claim = debate.claims[id];
   if (!claim) {
     throw new Error(`calculateScore: no claim found for id '${id}' referenced by a connector`);
   }
@@ -160,17 +160,17 @@ export function calculateScore(debateData, id, scores, connectorsByTarget) {
   };
 }
 
-export function calculateScores(debateData) {
-  let ids = sortSourceIdsFirst(debateData.connectors);
+export function calculateScores(debate) {
+  let ids = sortSourceIdsFirst(debate.connectors);
   if (ids.length === 0) {
-    ids = Object.keys(debateData.claims);
+    ids = Object.keys(debate.claims);
   }
 
   const scores = {};
-  const connectorsByTarget = createConnectorsIndexes(debateData).byTarget;
+  const connectorsByTarget = createConnectorsIndexes(debate).byTarget;
 
   for (const id of ids) {
-    const newScore = calculateScore(debateData, id, scores, connectorsByTarget);
+    const newScore = calculateScore(debate, id, scores, connectorsByTarget);
     scores[newScore.id] = newScore;
   }
 

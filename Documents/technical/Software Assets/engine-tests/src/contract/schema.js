@@ -18,7 +18,9 @@ export function isDebateLike(value) {
     value.type === "debate" &&
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    typeof value.description === "string"
+    typeof value.description === "string" &&
+    isPlainObject(value.claims) &&
+    isPlainObject(value.connectors)
   );
 }
 
@@ -67,32 +69,20 @@ export function validateStateShape(state, label) {
     errors.push(`${label}.debate must be a Debate-shaped object.`);
   }
 
-  if (!isPlainObject(state.debateData)) {
-    errors.push(`${label}.debateData must be an object.`);
-  }
-
-  if (!isPlainObject(state.debateData?.claims)) {
-    errors.push(`${label}.debateData.claims must be an object.`);
-  }
-
-  if (!isPlainObject(state.debateData?.connectors)) {
-    errors.push(`${label}.debateData.connectors must be an object.`);
-  }
-
   if (!isPlainObject(state.scores)) {
     errors.push(`${label}.scores must be an object.`);
   }
 
-  for (const claim of Object.values(state.debateData?.claims ?? {})) {
+  for (const claim of Object.values(state.debate?.claims ?? {})) {
     if (!isClaimLike(claim)) {
-      errors.push(`${label}.debateData.claims contains a non-Claim value.`);
+      errors.push(`${label}.debate.claims contains a non-Claim value.`);
       break;
     }
   }
 
-  for (const connector of Object.values(state.debateData?.connectors ?? {})) {
+  for (const connector of Object.values(state.debate?.connectors ?? {})) {
     if (!isConnectorLike(connector)) {
-      errors.push(`${label}.debateData.connectors contains a non-Connector value.`);
+      errors.push(`${label}.debate.connectors contains a non-Connector value.`);
       break;
     }
   }

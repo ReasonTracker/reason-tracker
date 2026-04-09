@@ -18,6 +18,16 @@ function diffMap(prev, next, setKind, deleteKind, idField, valueField) {
   return txs;
 }
 
+function debateMeta(debate) {
+  return {
+    id: debate?.id,
+    type: debate?.type,
+    name: debate?.name,
+    description: debate?.description,
+    mainClaimId: debate?.mainClaimId
+  };
+}
+
 function applyInputTransactions(state, transactions = []) {
   const next = deepClone(state);
 
@@ -28,28 +38,28 @@ function applyInputTransactions(state, transactions = []) {
     }
 
     if (tx.kind === "set-claim" && tx.claim?.id) {
-      next.debateData.claims[tx.claim.id] = deepClone(tx.claim);
+      next.debate.claims[tx.claim.id] = deepClone(tx.claim);
       continue;
     }
 
     if (tx.kind === "delete-claim" && tx.claimId) {
-      delete next.debateData.claims[tx.claimId];
-      for (const connectorId of Object.keys(next.debateData.connectors)) {
-        const connector = next.debateData.connectors[connectorId];
+      delete next.debate.claims[tx.claimId];
+      for (const connectorId of Object.keys(next.debate.connectors)) {
+        const connector = next.debate.connectors[connectorId];
         if (connector.source === tx.claimId || connector.target === tx.claimId) {
-          delete next.debateData.connectors[connectorId];
+          delete next.debate.connectors[connectorId];
         }
       }
       continue;
     }
 
     if (tx.kind === "set-connector" && tx.connector?.id) {
-      next.debateData.connectors[tx.connector.id] = deepClone(tx.connector);
+      next.debate.connectors[tx.connector.id] = deepClone(tx.connector);
       continue;
     }
 
     if (tx.kind === "delete-connector" && tx.connectorId) {
-      delete next.debateData.connectors[tx.connectorId];
+      delete next.debate.connectors[tx.connectorId];
     }
   }
 
@@ -59,21 +69,21 @@ function applyInputTransactions(state, transactions = []) {
 export function stepEngine(state, transactions) {
   const prev = deepClone(state);
   const next = applyInputTransactions(prev, transactions);
-  next.scores = calculateScores(next.debateData);
+  next.scores = calculateScores(next.debate);
 
   const emitted = [
-    ...diffMap({ _: prev.debate }, { _: next.debate }, "set-debate", "delete-debate", "debateId", "debate"),
+    ...diffMap({ _: debateMeta(prev.debate) }, { _: debateMeta(next.debate) }, "set-debate", "delete-debate", "debateId", "debate"),
     ...diffMap(
-      prev.debateData.claims,
-      next.debateData.claims,
+      prev.debate.claims,
+      next.debate.claims,
       "set-claim",
       "delete-claim",
       "claimId",
       "claim"
     ),
     ...diffMap(
-      prev.debateData.connectors,
-      next.debateData.connectors,
+      prev.debate.connectors,
+      next.debate.connectors,
       "set-connector",
       "delete-connector",
       "connectorId",

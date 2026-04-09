@@ -40,13 +40,21 @@
   "$defs": {
     "debate": {
       "type": "object",
-      "required": ["id", "type", "name", "description"],
+      "required": ["id", "type", "name", "description", "claims", "connectors"],
       "properties": {
         "id": { "type": "string" },
         "type": { "const": "debate" },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "mainClaimId": { "type": "string" }
+        "mainClaimId": { "type": "string" },
+        "claims": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/claim" }
+        },
+        "connectors": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/connector" }
+        }
       },
       "additionalProperties": true
     },
@@ -87,27 +95,11 @@
       },
       "additionalProperties": true
     },
-    "debateData": {
-      "type": "object",
-      "required": ["claims", "connectors"],
-      "properties": {
-        "claims": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/claim" }
-        },
-        "connectors": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/connector" }
-        }
-      },
-      "additionalProperties": false
-    },
     "debateStepState": {
       "type": "object",
-      "required": ["debate", "debateData", "scores"],
+      "required": ["debate", "scores"],
       "properties": {
         "debate": { "$ref": "#/$defs/debate" },
-        "debateData": { "$ref": "#/$defs/debateData" },
         "scores": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/score" }

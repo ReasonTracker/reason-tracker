@@ -36,14 +36,11 @@ function ensureStateShape(state) {
 	if (!isObject(next.debate)) {
 		next.debate = {};
 	}
-	if (!isObject(next.debateData)) {
-		next.debateData = {};
+	if (!isObject(next.debate.claims)) {
+		next.debate.claims = {};
 	}
-	if (!isObject(next.debateData.claims)) {
-		next.debateData.claims = {};
-	}
-	if (!isObject(next.debateData.connectors)) {
-		next.debateData.connectors = {};
+	if (!isObject(next.debate.connectors)) {
+		next.debate.connectors = {};
 	}
 	if (!isObject(next.scores)) {
 		next.scores = {};
@@ -61,22 +58,22 @@ export function applyTransactions(state, transactions = []) {
 		}
 
 		if (tx.kind === "set-claim" && tx.claim?.id) {
-			next.debateData.claims[tx.claim.id] = deepClone(tx.claim);
+			next.debate.claims[tx.claim.id] = deepClone(tx.claim);
 			continue;
 		}
 
 		if (tx.kind === "delete-claim" && tx.claimId) {
-			delete next.debateData.claims[tx.claimId];
+			delete next.debate.claims[tx.claimId];
 			continue;
 		}
 
 		if (tx.kind === "set-connector" && tx.connector?.id) {
-			next.debateData.connectors[tx.connector.id] = deepClone(tx.connector);
+			next.debate.connectors[tx.connector.id] = deepClone(tx.connector);
 			continue;
 		}
 
 		if (tx.kind === "delete-connector" && tx.connectorId) {
-			delete next.debateData.connectors[tx.connectorId];
+			delete next.debate.connectors[tx.connectorId];
 			continue;
 		}
 

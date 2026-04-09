@@ -48,7 +48,7 @@ describe("engine scoring", () => {
   });
 
   test("calculateScores computes parent from child connectors", () => {
-    const debateData = {
+    const debate = {
       claims: {
         root: { id: "root", type: "claim", content: "Root", pol: "pro" },
         childA: { id: "childA", type: "claim", content: "A", pol: "pro" },
@@ -74,7 +74,7 @@ describe("engine scoring", () => {
       }
     };
 
-    const scores = calculateScores(debateData);
+    const scores = calculateScores(debate);
 
     expect(scores.childA.confidence).toBe(1);
     expect(scores.childB.confidence).toBe(1);
