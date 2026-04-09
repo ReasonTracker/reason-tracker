@@ -3,6 +3,10 @@ import { describe, expect, test } from "vitest";
 import acyclicBasic from "../fixtures/cli/acyclic-basic.json";
 import cycleError from "../fixtures/cli/cycle-error.json";
 import forceConfidenceZero from "../fixtures/cli/force-confidence-zero.json";
+import legacyRelevanceIgnoredForConfidence from "../fixtures/cli/legacy-relevance-child-ignored-for-confidence.json";
+import legacySlightlyComplex from "../fixtures/cli/legacy-slightly-complex.json";
+import legacySimpleProConTie from "../fixtures/cli/legacy-simple-pro-con-tie.json";
+import legacyTwoProOneCon from "../fixtures/cli/legacy-two-pro-one-con.json";
 
 interface FixtureFile {
   name: string;
@@ -22,6 +26,10 @@ describe("engine CLI fixture tests", () => {
     acyclicBasic as FixtureFile,
     cycleError as FixtureFile,
     forceConfidenceZero as FixtureFile,
+    legacyRelevanceIgnoredForConfidence as FixtureFile,
+    legacySlightlyComplex as FixtureFile,
+    legacySimpleProConTie as FixtureFile,
+    legacyTwoProOneCon as FixtureFile,
   ];
 
   for (const fixture of fixtures) {
