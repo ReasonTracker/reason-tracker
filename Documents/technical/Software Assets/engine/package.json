@@ -4,8 +4,8 @@
   "private": true,
   "description": "Core calculation and data manipulation engine for Reason Tracker.",
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "files": [
     "src"
   ],
