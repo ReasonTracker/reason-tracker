@@ -11,6 +11,7 @@ import type {
 } from "./types.ts";
 import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
 import { withConnectorGeometry } from "./computeConnectorGeometry.ts";
+import { orderConnectorShapeIdsForTarget } from "./orderConnectorShapesForTarget.ts";
 
 interface ElkClaimShapeLayout {
     id: string;
@@ -25,6 +26,22 @@ interface ElkConnectorLayout {
     id: string;
     sources: string[];
     targets: string[];
+    sections?: ElkConnectorSectionLayout[];
+}
+
+interface ElkPointLayout {
+    x?: number;
+    y?: number;
+}
+
+interface ElkConnectorSectionLayout {
+    startPoint?: ElkPointLayout;
+    endPoint?: ElkPointLayout;
+}
+
+interface OrderedConnectorsByTarget {
+    byTarget: Record<string, string[]>;
+    targetOrder: string[];
 }
 
 interface ElkGraph {
@@ -58,9 +75,12 @@ export async function placeLayoutWithElk(
     const peerGap = options.peerGap ?? 40;
     const layerGap = options.layerGap ?? 96;
     const connectorClaimShapeGap = options.connectorClaimShapeGap ?? 32;
+    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? 0.5;
+    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? 0.3;
     const preserveInputOrder = options.preserveInputOrder ?? true;
     const favorStraightEdges = options.favorStraightEdges ?? false;
     const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
+    const debugConnectorOrder = options.debugConnectorOrder ?? false;
 
     const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
 
@@ -99,8 +119,10 @@ export async function placeLayoutWithElk(
             "elk.layered.spacing.nodeNodeBetweenLayers": String(layerGap),
             "elk.spacing.edgeNode": String(connectorClaimShapeGap),
             "elk.layered.cycleBreaking.strategy": "GREEDY",
+            "elk.layered.nodePlacement.strategy": "LINEAR_SEGMENTS",
             "elk.layered.nodePlacement.favorStraightEdges": favorStraightEdges ? "true" : "false",
             "elk.layered.nodePlacement.bk.fixedAlignment": bkFixedAlignment,
+            "elk.layered.compaction.connectedComponents": "false",
             ...(preserveInputOrder
                 ? {
                       "elk.layered.considerModelOrder": "NODES_AND_EDGES",
@@ -164,13 +186,37 @@ export async function placeLayoutWithElk(
         maxY = Math.max(maxY, placedClaimShape.y + placedClaimShape.height);
     }
 
-    const placedConnectorShapes = withConnectorGeometry(placedClaimShapes, model.connectorShapes);
-    const connectorShapeRenderOrder = Object.keys(placedConnectorShapes)
-        .sort((a, b) => a.localeCompare(b));
+    const {
+        targetAnchorYByConnectorShapeId,
+        sourceAnchorYByConnectorShapeId,
+    } = extractElkConnectorAnchorYByConnectorShapeId(laidOutGraph);
+
+    const orderedConnectorsByTarget = buildOrderedConnectorShapeIdsByTargetClaimShapeId(
+        model,
+        placedClaimShapes,
+        targetAnchorYByConnectorShapeId,
+        sourceAnchorYByConnectorShapeId,
+    );
+
+    const connectorShapeRenderOrder = orderedConnectorsByTarget.targetOrder
+        .flatMap((targetClaimShapeId) => orderedConnectorsByTarget.byTarget[targetClaimShapeId]);
+
+    const placedConnectorShapes = withConnectorGeometry(placedClaimShapes, model.connectorShapes, {
+        targetAnchorYByConnectorShapeId,
+        sourceAnchorYByConnectorShapeId,
+        orderedConnectorShapeIdsByTargetClaimShapeId: orderedConnectorsByTarget.byTarget,
+        connectorShapeProcessingOrder: connectorShapeRenderOrder,
+        sourceSideStraightSegmentPercent,
+        targetSideStraightSegmentPercent,
+        debugConnectorOrder,
+    });
+
     const claimShapeRenderOrder = Object.keys(placedClaimShapes)
         .sort((a, b) => {
-            const depthOrder = placedClaimShapes[a].depth - placedClaimShapes[b].depth;
-            if (depthOrder !== 0) return depthOrder;
+            const xOrder = placedClaimShapes[a].x - placedClaimShapes[b].x;
+            if (xOrder !== 0) return xOrder;
+            const yOrder = placedClaimShapes[a].y - placedClaimShapes[b].y;
+            if (yOrder !== 0) return yOrder;
             return a.localeCompare(b);
         });
 
@@ -216,5 +262,73 @@ function toPlacedClaimShape(claimShape: ClaimShape, placedClaimShapeLayout: ElkC
         y: placedClaimShapeLayout.y ?? 0,
         width: placedClaimShapeLayout.width,
         height: placedClaimShapeLayout.height,
+    };
+}
+
+function extractElkConnectorAnchorYByConnectorShapeId(laidOutGraph: ElkGraph): {
+    targetAnchorYByConnectorShapeId: Record<string, number>;
+    sourceAnchorYByConnectorShapeId: Record<string, number>;
+} {
+    const targetAnchorYByConnectorShapeId: Record<string, number> = {};
+    const sourceAnchorYByConnectorShapeId: Record<string, number> = {};
+
+    for (const edge of laidOutGraph.edges ?? []) {
+        const primarySection = edge.sections?.[0];
+        const targetAnchorY = primarySection?.startPoint?.y;
+        const sourceAnchorY = primarySection?.endPoint?.y;
+        if (targetAnchorY != null) {
+            targetAnchorYByConnectorShapeId[edge.id] = targetAnchorY;
+        }
+        if (sourceAnchorY != null) {
+            sourceAnchorYByConnectorShapeId[edge.id] = sourceAnchorY;
+        }
+    }
+
+    return {
+        targetAnchorYByConnectorShapeId,
+        sourceAnchorYByConnectorShapeId,
+    };
+}
+
+function buildOrderedConnectorShapeIdsByTargetClaimShapeId(
+    model: DraftLayoutModel,
+    placedClaimShapes: Record<string, PlacedClaimShape>,
+    targetAnchorYByConnectorShapeId: Record<string, number>,
+    sourceAnchorYByConnectorShapeId: Record<string, number>,
+): OrderedConnectorsByTarget {
+    const connectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
+
+    for (const connectorShape of Object.values(model.connectorShapes)) {
+        (connectorShapeIdsByTargetClaimShapeId[connectorShape.targetClaimShapeId] ??= []).push(connectorShape.id);
+    }
+
+    const orderedConnectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
+    for (const [targetClaimShapeId, connectorShapeIds] of Object.entries(connectorShapeIdsByTargetClaimShapeId)) {
+        orderedConnectorShapeIdsByTargetClaimShapeId[targetClaimShapeId] = orderConnectorShapeIdsForTarget(
+            {
+                claimShapes: placedClaimShapes,
+                connectorShapes: model.connectorShapes,
+                targetAnchorYByConnectorShapeId,
+                sourceAnchorYByConnectorShapeId,
+            },
+            connectorShapeIds,
+        );
+    }
+
+    const targetOrder = Object.keys(orderedConnectorShapeIdsByTargetClaimShapeId)
+        .sort((a, b) => {
+            const targetA = placedClaimShapes[a];
+            const targetB = placedClaimShapes[b];
+            if (!targetA || !targetB) return a.localeCompare(b);
+            const xOrder = targetA.x - targetB.x;
+            if (xOrder !== 0) return xOrder;
+            const yOrder = targetA.y - targetB.y;
+            if (yOrder !== 0) return yOrder;
+            return a.localeCompare(b);
+        });
+
+    return {
+        byTarget: orderedConnectorShapeIdsByTargetClaimShapeId,
+        targetOrder,
     };
 }

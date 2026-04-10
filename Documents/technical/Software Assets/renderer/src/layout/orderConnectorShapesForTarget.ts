@@ -4,6 +4,8 @@ import type { ConnectorShape } from "./types.ts";
 interface TargetConnectorOrderingModel {
     claimShapes: Record<string, { y: number; height: number; score?: { confidence: number } }>;
     connectorShapes: Record<string, Pick<ConnectorShape, "id" | "sourceClaimShapeId" | "targetRelation">>;
+    targetAnchorYByConnectorShapeId?: Record<string, number>;
+    sourceAnchorYByConnectorShapeId?: Record<string, number>;
 }
 
 export function orderConnectorShapeIdsForTarget(
@@ -14,6 +16,20 @@ export function orderConnectorShapeIdsForTarget(
         const connectorShapeA = model.connectorShapes[a];
         const connectorShapeB = model.connectorShapes[b];
         if (!connectorShapeA || !connectorShapeB) return a.localeCompare(b);
+
+        const elkTargetYA = model.targetAnchorYByConnectorShapeId?.[a];
+        const elkTargetYB = model.targetAnchorYByConnectorShapeId?.[b];
+        if (elkTargetYA != null && elkTargetYB != null) {
+            const elkTargetYOrder = elkTargetYA - elkTargetYB;
+            if (elkTargetYOrder !== 0) return elkTargetYOrder;
+        }
+
+        const elkSourceYA = model.sourceAnchorYByConnectorShapeId?.[a];
+        const elkSourceYB = model.sourceAnchorYByConnectorShapeId?.[b];
+        if (elkSourceYA != null && elkSourceYB != null) {
+            const elkSourceYOrder = elkSourceYA - elkSourceYB;
+            if (elkSourceYOrder !== 0) return elkSourceYOrder;
+        }
 
         const sourceClaimShapeA = model.claimShapes[connectorShapeA.sourceClaimShapeId];
         const sourceClaimShapeB = model.claimShapes[connectorShapeB.sourceClaimShapeId];

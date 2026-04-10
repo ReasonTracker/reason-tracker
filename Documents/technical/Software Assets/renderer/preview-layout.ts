@@ -17,13 +17,30 @@ import {
 } from "./src/index.ts";
 
 // AGENT NOTE: Keep preview layout tuning constants grouped here directly below imports.
-const APPLY_CONFIDENCE_SCALE = true;
-const APPLY_RELEVANCE_SCALE = true;
-const DEFAULT_CLAIM_SHAPE_WIDTH = 320;
-const DEFAULT_CLAIM_SHAPE_HEIGHT = 190;
-const PEER_GAP = 20;
-const LAYER_GAP = 180;
-const CONNECTOR_CLAIM_SHAPE_GAP = 32;
+const PREVIEW_LAYOUT_CONFIG = {
+    sizing: {
+        applyConfidenceScale: true,
+        applyRelevanceScale: true,
+        defaultClaimShape: {
+            width: 320,
+            height: 190,
+        },
+    },
+    elk: {
+        peerGap: 20,
+        layerGap: 180,
+        connectorClaimShapeGap: 32,
+        favorStraightEdges: true,
+        bkFixedAlignment: "LEFTUP" as const,
+    },
+    connectorGeometry: {
+        sourceSideStraightSegmentPercent: 0.5,
+        targetSideStraightSegmentPercent: 0.3,
+    },
+    debug: {
+        connectorOrder: true,
+    },
+};
 
 function asClaimId(value: string): ClaimId {
     return value as ClaimId;
@@ -208,24 +225,27 @@ async function main(): Promise<void> {
     }
 
     const defaultClaimShapeSize = {
-        width: DEFAULT_CLAIM_SHAPE_WIDTH,
-        height: DEFAULT_CLAIM_SHAPE_HEIGHT,
+        width: PREVIEW_LAYOUT_CONFIG.sizing.defaultClaimShape.width,
+        height: PREVIEW_LAYOUT_CONFIG.sizing.defaultClaimShape.height,
     };
 
     const contributorSizing = computeContributorNodeSizing(built.model, {
-        applyConfidenceScale: APPLY_CONFIDENCE_SCALE,
-        applyRelevanceScale: APPLY_RELEVANCE_SCALE,
+        applyConfidenceScale: PREVIEW_LAYOUT_CONFIG.sizing.applyConfidenceScale,
+        applyRelevanceScale: PREVIEW_LAYOUT_CONFIG.sizing.applyRelevanceScale,
         defaultClaimShapeSize,
     });
 
     const placed = await placeLayoutWithElk(built.model, {
         defaultClaimShapeSize,
         claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
-        peerGap: PEER_GAP,
-        layerGap: LAYER_GAP,
-        connectorClaimShapeGap: CONNECTOR_CLAIM_SHAPE_GAP,
-        favorStraightEdges: true,
-        bkFixedAlignment: "LEFTUP",
+        peerGap: PREVIEW_LAYOUT_CONFIG.elk.peerGap,
+        layerGap: PREVIEW_LAYOUT_CONFIG.elk.layerGap,
+        connectorClaimShapeGap: PREVIEW_LAYOUT_CONFIG.elk.connectorClaimShapeGap,
+        sourceSideStraightSegmentPercent: PREVIEW_LAYOUT_CONFIG.connectorGeometry.sourceSideStraightSegmentPercent,
+        targetSideStraightSegmentPercent: PREVIEW_LAYOUT_CONFIG.connectorGeometry.targetSideStraightSegmentPercent,
+        favorStraightEdges: PREVIEW_LAYOUT_CONFIG.elk.favorStraightEdges,
+        bkFixedAlignment: PREVIEW_LAYOUT_CONFIG.elk.bkFixedAlignment,
+        debugConnectorOrder: PREVIEW_LAYOUT_CONFIG.debug.connectorOrder,
     });
 
     if (!placed.ok) {
@@ -236,7 +256,7 @@ async function main(): Promise<void> {
         title: "Reason Tracker Layout Preview",
         includeScore: true,
         brandCssHref: "../../website/site/css/brand.css",
-        useClaimShapeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
+        useClaimShapeTransformScale: PREVIEW_LAYOUT_CONFIG.sizing.applyConfidenceScale || PREVIEW_LAYOUT_CONFIG.sizing.applyRelevanceScale,
         claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
         claimShapeTransformBaseSize: defaultClaimShapeSize,
     });

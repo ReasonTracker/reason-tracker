@@ -95,9 +95,12 @@ export interface PlaceLayoutWithElkOptions {
     peerGap?: number;
     layerGap?: number;
     connectorClaimShapeGap?: number;
+    sourceSideStraightSegmentPercent?: number;
+    targetSideStraightSegmentPercent?: number;
     preserveInputOrder?: boolean;
     favorStraightEdges?: boolean;
     bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";
+    debugConnectorOrder?: boolean;
 }
 
 export interface ContributorNodeSizingOptions {

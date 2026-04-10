@@ -4,24 +4,43 @@ import type { ConnectorShape, PlacedClaimShape } from "./types.ts";
 // Separation of duties: connector routing geometry belongs to layout calculations.
 // Rendering consumes this data and should not recompute connector anchor or path logic.
 const SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.5;
-const TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT = 0.1;
-const TARGET_SIDE_STRAIGHT_SEGMENT_MAX_PERCENT = 0.5;
+const TARGET_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.3;
 
 interface ConnectorOrderingModel {
     claimShapes: Record<string, PlacedClaimShape>;
     connectorShapes: Record<string, ConnectorShape>;
+    targetAnchorYByConnectorShapeId?: Record<string, number>;
+    sourceAnchorYByConnectorShapeId?: Record<string, number>;
+}
+
+interface ConnectorGeometryOptions {
+    targetAnchorYByConnectorShapeId?: Record<string, number>;
+    sourceAnchorYByConnectorShapeId?: Record<string, number>;
+    orderedConnectorShapeIdsByTargetClaimShapeId?: Record<string, string[]>;
+    connectorShapeProcessingOrder?: string[];
+    sourceSideStraightSegmentPercent?: number;
+    targetSideStraightSegmentPercent?: number;
+    debugConnectorOrder?: boolean;
 }
 
 export function withConnectorGeometry(
     claimShapes: Record<string, PlacedClaimShape>,
     connectorShapes: Record<string, ConnectorShape>,
+    options: ConnectorGeometryOptions = {},
 ): Record<string, ConnectorShape> {
     const connectorShapeStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeReferenceStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
+    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT;
+    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? TARGET_SIDE_STRAIGHT_SEGMENT_PERCENT;
 
-    const sortedConnectorShapes = Object.values(connectorShapes)
-        .sort((a, b) => a.id.localeCompare(b.id));
+    const connectorShapeIdsInProcessingOrder = options.connectorShapeProcessingOrder
+        ? options.connectorShapeProcessingOrder.filter((connectorShapeId) => Boolean(connectorShapes[connectorShapeId]))
+        : Object.keys(connectorShapes).sort((a, b) => a.localeCompare(b));
+
+    const sortedConnectorShapes = connectorShapeIdsInProcessingOrder
+        .map((connectorShapeId) => connectorShapes[connectorShapeId])
+        .filter((connectorShape): connectorShape is ConnectorShape => Boolean(connectorShape));
 
     for (const connectorShape of sortedConnectorShapes) {
         const sourceClaimShape = claimShapes[connectorShape.sourceClaimShapeId];
@@ -34,12 +53,13 @@ export function withConnectorGeometry(
     }
 
     const connectorShapeTargetSideYByConnectorShapeId: Record<string, number> = {};
-    const connectorShapeTargetApproachFactorByConnectorShapeId: Record<string, number> = {};
     const horizontalGapByTargetClaimShapeId: Record<string, number> = {};
 
     const orderingModel: ConnectorOrderingModel = {
         claimShapes,
         connectorShapes,
+        targetAnchorYByConnectorShapeId: options.targetAnchorYByConnectorShapeId,
+        sourceAnchorYByConnectorShapeId: options.sourceAnchorYByConnectorShapeId,
     };
 
     for (const [targetClaimShapeId, connectorShapeIds] of Object.entries(connectorShapeIdsByTargetClaimShapeId)) {
@@ -63,38 +83,34 @@ export function withConnectorGeometry(
                 ? (nearestSourceSideX - targetSideX)
                 : 0;
 
-        const orderedConnectorShapeIds = orderConnectorShapeIdsForTarget(orderingModel, connectorShapeIds);
-        const yByConnectorShapeId = computeStackedAnchorYByConnectorShapeId(
+        const orderedConnectorShapeIds = options.orderedConnectorShapeIdsByTargetClaimShapeId?.[targetClaimShapeId]
+            ?? orderConnectorShapeIdsForTarget(orderingModel, connectorShapeIds);
+
+        if (options.debugConnectorOrder) {
+            console.log(`[stack-order] target=${targetClaimShapeId} connectors=${orderedConnectorShapeIds.join(" -> ")}`);
+        }
+
+        const yByConnectorShapeId = readTargetAnchorYByConnectorShapeIdFromElk(
             orderedConnectorShapeIds,
-            connectorShapeStrokeWidthByConnectorShapeId,
-            connectorShapeReferenceStrokeWidthByConnectorShapeId,
-            targetClaimShape,
-        );
+            options.targetAnchorYByConnectorShapeId,
+        )
+            ?? computeStackedAnchorYByConnectorShapeId(
+                orderedConnectorShapeIds,
+                connectorShapeStrokeWidthByConnectorShapeId,
+                connectorShapeReferenceStrokeWidthByConnectorShapeId,
+                targetClaimShape,
+            );
 
         Object.assign(connectorShapeTargetSideYByConnectorShapeId, yByConnectorShapeId);
 
-        const centerY = targetClaimShape.y + targetClaimShape.height / 2;
-        let maxDistanceFromCenter = 0;
-        for (const connectorShapeId of orderedConnectorShapeIds) {
-            const y = yByConnectorShapeId[connectorShapeId];
-            if (y == null) continue;
-            maxDistanceFromCenter = Math.max(maxDistanceFromCenter, Math.abs(y - centerY));
-        }
-
-        for (const connectorShapeId of orderedConnectorShapeIds) {
-            const y = yByConnectorShapeId[connectorShapeId];
-            if (y == null || maxDistanceFromCenter === 0) {
-                connectorShapeTargetApproachFactorByConnectorShapeId[connectorShapeId] = 1;
-                continue;
-            }
-
-            const distanceFromCenter = Math.abs(y - centerY);
-            const centeredness = 1 - Math.min(1, distanceFromCenter / maxDistanceFromCenter);
-            connectorShapeTargetApproachFactorByConnectorShapeId[connectorShapeId] = centeredness;
-        }
     }
 
     const placedConnectorShapes: Record<string, ConnectorShape> = {};
+
+    if (options.debugConnectorOrder) {
+        const bendProcessOrder = sortedConnectorShapes.map((connectorShape) => connectorShape.id);
+        console.log(`[bend-process-order] connectors=${bendProcessOrder.join(" -> ")}`);
+    }
 
     for (const connectorShape of sortedConnectorShapes) {
         const targetClaimShape = claimShapes[connectorShape.targetClaimShapeId];
@@ -108,16 +124,19 @@ export function withConnectorGeometry(
         const targetSideX = targetClaimShape.x + targetClaimShape.width;
         const targetSideY = connectorShapeTargetSideYByConnectorShapeId[connectorShape.id] ?? (targetClaimShape.y + targetClaimShape.height / 2);
         const sourceSideX = sourceClaimShape.x;
-        const sourceSideY = sourceClaimShape.y + sourceClaimShape.height / 2;
+        const sourceSideY = options.sourceAnchorYByConnectorShapeId?.[connectorShape.id]
+            ?? (sourceClaimShape.y + sourceClaimShape.height / 2);
         const targetHorizontalGap = horizontalGapByTargetClaimShapeId[connectorShape.targetClaimShapeId] ?? 0;
-        const sourceSideStraightSegment = targetHorizontalGap * SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT;
-        const targetApproachFactor = connectorShapeTargetApproachFactorByConnectorShapeId[connectorShape.id] ?? 1;
-        const targetSideStraightSegment = targetHorizontalGap * (
-            TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT
-            + targetApproachFactor * (TARGET_SIDE_STRAIGHT_SEGMENT_MAX_PERCENT - TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT)
-        );
+        const sourceSideStraightSegment = targetHorizontalGap * sourceSideStraightSegmentPercent;
+        const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
         const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
         const pathD = `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceElbowX} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+
+        if (options.debugConnectorOrder) {
+            console.log(
+                `[bend] connector=${connectorShape.id} target=${connectorShape.targetClaimShapeId} targetY=${targetSideY} sourceY=${sourceSideY}`,
+            );
+        }
 
         placedConnectorShapes[connectorShape.id] = {
             ...connectorShape,
@@ -186,6 +205,24 @@ function computeStackedAnchorYByConnectorShapeId(
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
         yByConnectorShapeId[connectorShapeId] = cursorY + strokeWidth / 2;
         cursorY += strokeWidth + gap;
+    }
+
+    return yByConnectorShapeId;
+}
+
+function readTargetAnchorYByConnectorShapeIdFromElk(
+    connectorShapeIds: string[],
+    targetAnchorYByConnectorShapeId: Record<string, number> | undefined,
+): Record<string, number> | undefined {
+    if (!targetAnchorYByConnectorShapeId) return undefined;
+
+    const yByConnectorShapeId: Record<string, number> = {};
+    for (const connectorShapeId of connectorShapeIds) {
+        const targetY = targetAnchorYByConnectorShapeId[connectorShapeId];
+        if (targetY == null) {
+            return undefined;
+        }
+        yByConnectorShapeId[connectorShapeId] = targetY;
     }
 
     return yByConnectorShapeId;
