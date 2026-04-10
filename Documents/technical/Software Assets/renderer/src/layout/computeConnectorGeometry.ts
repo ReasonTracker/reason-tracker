@@ -90,16 +90,12 @@ export function withConnectorGeometry(
             console.log(`[stack-order] target=${targetClaimShapeId} connectors=${orderedConnectorShapeIds.join(" -> ")}`);
         }
 
-        const yByConnectorShapeId = readTargetAnchorYByConnectorShapeIdFromElk(
+        const yByConnectorShapeId = computeStackedAnchorYByConnectorShapeId(
             orderedConnectorShapeIds,
-            options.targetAnchorYByConnectorShapeId,
-        )
-            ?? computeStackedAnchorYByConnectorShapeId(
-                orderedConnectorShapeIds,
-                connectorShapeStrokeWidthByConnectorShapeId,
-                connectorShapeReferenceStrokeWidthByConnectorShapeId,
-                targetClaimShape,
-            );
+            connectorShapeStrokeWidthByConnectorShapeId,
+            connectorShapeReferenceStrokeWidthByConnectorShapeId,
+            targetClaimShape,
+        );
 
         Object.assign(connectorShapeTargetSideYByConnectorShapeId, yByConnectorShapeId);
 
@@ -205,24 +201,6 @@ function computeStackedAnchorYByConnectorShapeId(
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
         yByConnectorShapeId[connectorShapeId] = cursorY + strokeWidth / 2;
         cursorY += strokeWidth + gap;
-    }
-
-    return yByConnectorShapeId;
-}
-
-function readTargetAnchorYByConnectorShapeIdFromElk(
-    connectorShapeIds: string[],
-    targetAnchorYByConnectorShapeId: Record<string, number> | undefined,
-): Record<string, number> | undefined {
-    if (!targetAnchorYByConnectorShapeId) return undefined;
-
-    const yByConnectorShapeId: Record<string, number> = {};
-    for (const connectorShapeId of connectorShapeIds) {
-        const targetY = targetAnchorYByConnectorShapeId[connectorShapeId];
-        if (targetY == null) {
-            return undefined;
-        }
-        yByConnectorShapeId[connectorShapeId] = targetY;
     }
 
     return yByConnectorShapeId;
