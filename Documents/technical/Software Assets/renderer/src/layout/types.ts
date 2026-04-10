@@ -19,7 +19,7 @@ export interface BuildLayoutModelRequest {
     dagOptions?: DagOptions;
 }
 
-export interface LayoutNode {
+export interface LayoutClaimShape {
     id: string;
     claimId: ClaimId;
     score: Score | undefined;
@@ -29,15 +29,19 @@ export interface LayoutNode {
     parentId?: string;
 }
 
-export interface NodeSize {
+export type LayoutNode = LayoutClaimShape;
+
+export interface ClaimShapeSize {
     width: number;
     height: number;
 }
 
-export interface LayoutEdge {
+export type NodeSize = ClaimShapeSize;
+
+export interface LayoutConnectorShape {
     id: string;
-    fromNodeId: string;
-    toNodeId: string;
+    targetClaimShapeId: string;
+    sourceClaimShapeId: string;
     sourceClaimId: ClaimId;
     targetClaimId: ClaimId;
     connectorId: string;
@@ -46,23 +50,27 @@ export interface LayoutEdge {
     skippedInCycleMode?: boolean;
 }
 
+export type LayoutEdge = LayoutConnectorShape;
+
 export interface LayoutModel {
-    rootNodeId: string;
-    nodes: Record<string, LayoutNode>;
-    edges: Record<string, LayoutEdge>;
+    rootClaimShapeId: string;
+    claimShapes: Record<string, LayoutNode>;
+    connectorShapes: Record<string, LayoutEdge>;
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
 }
 
-export interface PositionedLayoutNode extends LayoutNode, NodeSize {
+export interface PositionedLayoutClaimShape extends LayoutNode, NodeSize {
     x: number;
     y: number;
 }
 
+export type PositionedLayoutNode = PositionedLayoutClaimShape;
+
 export interface PositionedLayoutModel {
-    rootNodeId: string;
-    nodes: Record<string, PositionedLayoutNode>;
-    edges: Record<string, LayoutEdge>;
+    rootClaimShapeId: string;
+    claimShapes: Record<string, PositionedLayoutClaimShape>;
+    connectorShapes: Record<string, LayoutEdge>;
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
     layoutEngine: "elkjs";
@@ -73,11 +81,11 @@ export interface PositionedLayoutModel {
 }
 
 export interface PlaceLayoutWithElkOptions {
-    defaultNodeSize?: NodeSize;
-    nodeSizeByNodeId?: Record<string, NodeSize>;
-    nodeSpacing?: number;
+    defaultClaimShapeSize?: ClaimShapeSize;
+    claimShapeSizeByClaimShapeId?: Record<string, ClaimShapeSize>;
+    claimShapeSpacing?: number;
     layerSpacing?: number;
-    edgeNodeSpacing?: number;
+    connectorClaimShapeSpacing?: number;
     preserveInputOrder?: boolean;
     favorStraightEdges?: boolean;
     bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";
@@ -86,12 +94,12 @@ export interface PlaceLayoutWithElkOptions {
 export interface ContributorNodeSizingOptions {
     applyConfidenceScale?: boolean;
     applyRelevanceScale?: boolean;
-    defaultNodeSize?: NodeSize;
+    defaultClaimShapeSize?: ClaimShapeSize;
 }
 
 export interface ContributorNodeSizingResult {
-    nodeSizeByNodeId: Record<string, NodeSize>;
-    nodeScaleByNodeId: Record<string, number>;
+    claimShapeSizeByClaimShapeId: Record<string, ClaimShapeSize>;
+    claimShapeScaleByClaimShapeId: Record<string, number>;
 }
 
 export interface LayoutDiagnostic {

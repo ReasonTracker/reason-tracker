@@ -47,6 +47,8 @@ function buildSampleDebate(): Debate {
     const cV = asClaimId("v");
     const cW = asClaimId("w");
     const cX = asClaimId("x");
+    const cY = asClaimId("y");
+    const cZ = asClaimId("z");
 
     const claims: Record<ClaimId, Claim> = {
         [cMain]: { id: cMain, content: "Main claim", pol: "pro" },
@@ -64,6 +66,8 @@ function buildSampleDebate(): Debate {
         [cV]: { id: cV, content: "Support V", pol: "pro" },
         [cW]: { id: cW, content: "Counterpoint W", pol: "con" },
         [cX]: { id: cX, content: "Support X", pol: "pro" },
+        [cY]: { id: cY, content: "Counterpoint Y", pol: "con" },
+        [cZ]: { id: cZ, content: "Counterpoint Z", pol: "con" },
     };
 
     const connectors: Record<ConnectorId, Connector> = {
@@ -165,6 +169,20 @@ function buildSampleDebate(): Debate {
             proTarget: true,
             affects: "confidence",
         },
+        [asConnectorId("edge:25")]: {
+            id: asConnectorId("edge:25"),
+            source: cY,
+            target: cMain,
+            proTarget: false,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:26")]: {
+            id: asConnectorId("edge:26"),
+            source: cZ,
+            target: cY,
+            proTarget: false,
+            affects: "confidence",
+        },
     };
 
     return {
@@ -199,7 +217,7 @@ async function main(): Promise<void> {
         throw new Error(`buildLayoutModel failed: ${built.error.code} ${built.error.message}`);
     }
 
-    const defaultNodeSize = {
+    const defaultClaimShapeSize = {
         width: 320,
         height: 190,
     };
@@ -207,14 +225,14 @@ async function main(): Promise<void> {
     const contributorSizing = computeContributorNodeSizing(built.model, {
         applyConfidenceScale: APPLY_CONFIDENCE_SCALE,
         applyRelevanceScale: APPLY_RELEVANCE_SCALE,
-        defaultNodeSize,
+        defaultClaimShapeSize,
     });
 
     const placed = await placeLayoutWithElk(built.model, {
-        defaultNodeSize,
-        nodeSizeByNodeId: contributorSizing.nodeSizeByNodeId,
-        nodeSpacing: 36,
-        layerSpacing: 108,
+        defaultClaimShapeSize,
+        claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
+        claimShapeSpacing: 8,
+        layerSpacing: 180,
         favorStraightEdges: true,
         bkFixedAlignment: "LEFTUP",
     });
@@ -227,9 +245,9 @@ async function main(): Promise<void> {
         title: "Reason Tracker Layout Preview",
         includeScore: true,
         density: "comfortable",
-        useNodeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
-        nodeScaleByNodeId: contributorSizing.nodeScaleByNodeId,
-        nodeTransformBaseSize: defaultNodeSize,
+        useClaimShapeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
+        claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
+        claimShapeTransformBaseSize: defaultClaimShapeSize,
     });
 
     const outDir = resolve(process.cwd(), "preview");

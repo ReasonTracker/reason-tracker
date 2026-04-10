@@ -39,27 +39,27 @@ function node(id: string, confidence: number, depth = 0, relevance = 1): LayoutN
 
 function edge(
     id: string,
-    fromNodeId: string,
-    toNodeId: string,
+    targetClaimShapeId: string,
+    sourceClaimShapeId: string,
     affects: Affects = "confidence",
 ): LayoutEdge {
     return {
         id,
-        fromNodeId,
-        toNodeId,
-        sourceClaimId: asClaimId(toNodeId),
-        targetClaimId: asClaimId(fromNodeId),
+        targetClaimShapeId,
+        sourceClaimShapeId,
+        sourceClaimId: asClaimId(sourceClaimShapeId),
+        targetClaimId: asClaimId(targetClaimShapeId),
         connectorId: id,
         affects,
         proTarget: true,
     };
 }
 
-function layoutModel(nodes: Record<string, LayoutNode>, edges: Record<string, LayoutEdge>): LayoutModel {
+function layoutModel(claimShapes: Record<string, LayoutNode>, connectorShapes: Record<string, LayoutEdge>): LayoutModel {
     return {
-        rootNodeId: "target",
-        nodes,
-        edges,
+        rootClaimShapeId: "target",
+        claimShapes,
+        connectorShapes,
         cycleMode: "preserve",
         sourceDebateId: asDebateId("debate:test"),
     };
@@ -87,13 +87,13 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: false,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.target).toBe(1);
-        expect(result.nodeScaleByNodeId.c1).toBe(1);
-        expect(result.nodeScaleByNodeId.c2).toBe(1);
-        expect(result.nodeSizeByNodeId.c1.height).toBe(200);
+        expect(result.claimShapeScaleByClaimShapeId.target).toBe(1);
+        expect(result.claimShapeScaleByClaimShapeId.c1).toBe(1);
+        expect(result.claimShapeScaleByClaimShapeId.c2).toBe(1);
+        expect(result.claimShapeSizeByClaimShapeId.c1.height).toBe(200);
     });
 
     it("keeps a single 0.5-confidence contributor at full size", () => {
@@ -110,11 +110,11 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.c1).toBe(1);
-        expect(result.nodeSizeByNodeId.c1.height).toBe(200);
+        expect(result.claimShapeScaleByClaimShapeId.c1).toBe(1);
+        expect(result.claimShapeSizeByClaimShapeId.c1.height).toBe(200);
     });
 
     it("shrinks all contributors equally when cumulative positive confidence exceeds one", () => {
@@ -133,15 +133,15 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.c1).toBeCloseTo(0.5, 10);
-        expect(result.nodeScaleByNodeId.c2).toBeCloseTo(0.5, 10);
-        expect(result.nodeSizeByNodeId.c1.width).toBeCloseTo(150, 10);
-        expect(result.nodeSizeByNodeId.c2.width).toBeCloseTo(150, 10);
-        expect(result.nodeSizeByNodeId.c1.height).toBeCloseTo(100, 10);
-        expect(result.nodeSizeByNodeId.c2.height).toBeCloseTo(100, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c1).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c2).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeSizeByClaimShapeId.c1.width).toBeCloseTo(150, 10);
+        expect(result.claimShapeSizeByClaimShapeId.c2.width).toBeCloseTo(150, 10);
+        expect(result.claimShapeSizeByClaimShapeId.c1.height).toBeCloseTo(100, 10);
+        expect(result.claimShapeSizeByClaimShapeId.c2.height).toBeCloseTo(100, 10);
     });
 
     it("filters zero-confidence contributors from cumulative mass", () => {
@@ -162,13 +162,13 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.c1).toBe(1);
-        expect(result.nodeScaleByNodeId.c2).toBe(1);
-        expect(result.nodeScaleByNodeId.c3).toBe(1);
-        expect(result.nodeSizeByNodeId.c2.height).toBe(200);
+        expect(result.claimShapeScaleByClaimShapeId.c1).toBe(1);
+        expect(result.claimShapeScaleByClaimShapeId.c2).toBe(1);
+        expect(result.claimShapeScaleByClaimShapeId.c3).toBe(1);
+        expect(result.claimShapeSizeByClaimShapeId.c2.height).toBe(200);
     });
 
     it("cascades contributor scale from parent target scale", () => {
@@ -189,12 +189,12 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.a).toBeCloseTo(1 / 1.26, 10);
-        expect(result.nodeScaleByNodeId.b).toBeCloseTo(1 / 1.26, 10);
-        expect(result.nodeScaleByNodeId.c).toBeCloseTo(1 / 1.26, 10);
+        expect(result.claimShapeScaleByClaimShapeId.a).toBeCloseTo(1 / 1.26, 10);
+        expect(result.claimShapeScaleByClaimShapeId.b).toBeCloseTo(1 / 1.26, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c).toBeCloseTo(1 / 1.26, 10);
     });
 
     it("includes relevance edges in cascade propagation", () => {
@@ -215,12 +215,12 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: false,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.c1).toBeCloseTo(0.5, 10);
-        expect(result.nodeScaleByNodeId.c1b).toBeCloseTo(0.5, 10);
-        expect(result.nodeScaleByNodeId.c2).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c1).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c1b).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeScaleByClaimShapeId.c2).toBeCloseTo(0.5, 10);
     });
 
     it("applies relevance scaling as sibling-normalized shrink-only adjustment", () => {
@@ -239,12 +239,12 @@ describe("computeContributorNodeSizing", () => {
         const result = computeContributorNodeSizing(model, {
             applyConfidenceScale: true,
             applyRelevanceScale: true,
-            defaultNodeSize: BASE_SIZE,
+            defaultClaimShapeSize: BASE_SIZE,
         });
 
-        expect(result.nodeScaleByNodeId.a).toBeCloseTo(0.25, 10);
-        expect(result.nodeScaleByNodeId.b).toBeCloseTo(0.5, 10);
-        expect(result.nodeSizeByNodeId.b.height).toBeCloseTo(100, 10);
-        expect(result.nodeSizeByNodeId.a.height).toBeCloseTo(50, 10);
+        expect(result.claimShapeScaleByClaimShapeId.a).toBeCloseTo(0.25, 10);
+        expect(result.claimShapeScaleByClaimShapeId.b).toBeCloseTo(0.5, 10);
+        expect(result.claimShapeSizeByClaimShapeId.b.height).toBeCloseTo(100, 10);
+        expect(result.claimShapeSizeByClaimShapeId.a.height).toBeCloseTo(50, 10);
     });
 });

@@ -16,78 +16,80 @@ export function computeContributorNodeSizing(
 ): ContributorNodeSizingResult {
     const applyConfidenceScale = options.applyConfidenceScale ?? true;
     const applyRelevanceScale = options.applyRelevanceScale ?? true;
-    const defaultNodeSize = options.defaultNodeSize ?? DEFAULT_NODE_SIZE;
+    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_NODE_SIZE;
 
-    const confidenceCascadeScaleByNodeId: Record<string, number> = {};
-    const relevanceNormalizedScaleByNodeId: Record<string, number> = {};
-    const nodeScaleByNodeId: Record<string, number> = {};
-    const nodeSizeByNodeId: Record<string, NodeSize> = {};
+    const confidenceCascadeScaleByClaimShapeId: Record<string, number> = {};
+    const relevanceNormalizedScaleByClaimShapeId: Record<string, number> = {};
+    const claimShapeScaleByClaimShapeId: Record<string, number> = {};
+    const claimShapeSizeByClaimShapeId: Record<string, NodeSize> = {};
 
-    for (const nodeId of Object.keys(model.nodes)) {
-        confidenceCascadeScaleByNodeId[nodeId] = 1;
-        relevanceNormalizedScaleByNodeId[nodeId] = 1;
-        nodeScaleByNodeId[nodeId] = 1;
-        nodeSizeByNodeId[nodeId] = {
-            width: defaultNodeSize.width,
-            height: defaultNodeSize.height,
+    for (const claimShapeId of Object.keys(model.claimShapes)) {
+        confidenceCascadeScaleByClaimShapeId[claimShapeId] = 1;
+        relevanceNormalizedScaleByClaimShapeId[claimShapeId] = 1;
+        claimShapeScaleByClaimShapeId[claimShapeId] = 1;
+        claimShapeSizeByClaimShapeId[claimShapeId] = {
+            width: defaultClaimShapeSize.width,
+            height: defaultClaimShapeSize.height,
         };
     }
 
-    const contributorNodeIdsByTargetNodeId: Record<string, Set<string>> = {};
+    const contributorClaimShapeIdsByTargetClaimShapeId: Record<string, Set<string>> = {};
 
-    for (const edge of Object.values(model.edges)) {
-        (contributorNodeIdsByTargetNodeId[edge.fromNodeId] ??= new Set<string>()).add(edge.toNodeId);
+    for (const connectorShape of Object.values(model.connectorShapes)) {
+        (contributorClaimShapeIdsByTargetClaimShapeId[connectorShape.targetClaimShapeId] ??= new Set<string>()).add(
+            connectorShape.sourceClaimShapeId,
+        );
     }
 
-    const confidenceGroupScaleByTargetNodeId: Record<string, number> = {};
+    const confidenceGroupScaleByTargetClaimShapeId: Record<string, number> = {};
 
-    for (const [targetNodeId, contributorNodeIds] of Object.entries(contributorNodeIdsByTargetNodeId)) {
-        if (contributorNodeIds.size === 0) continue;
+    for (const [targetClaimShapeId, contributorClaimShapeIds] of Object.entries(contributorClaimShapeIdsByTargetClaimShapeId)) {
+        if (contributorClaimShapeIds.size === 0) continue;
 
         let totalPositiveConfidenceMass = 0;
 
-        for (const contributorNodeId of contributorNodeIds) {
-            const contributorNode = model.nodes[contributorNodeId];
-            if (!contributorNode) continue;
+        for (const contributorClaimShapeId of contributorClaimShapeIds) {
+            const contributorClaimShape = model.claimShapes[contributorClaimShapeId];
+            if (!contributorClaimShape) continue;
 
-            const confidence = contributorNode.score?.confidence ?? 1;
+            const confidence = contributorClaimShape.score?.confidence ?? 1;
             if (confidence <= 0) continue;
 
             totalPositiveConfidenceMass += confidence;
         }
 
-        confidenceGroupScaleByTargetNodeId[targetNodeId] =
+        confidenceGroupScaleByTargetClaimShapeId[targetClaimShapeId] =
             applyConfidenceScale
                 ? 1 / Math.max(1, totalPositiveConfidenceMass)
                 : 1;
     }
 
-    const orderedNodeIds = Object.keys(model.nodes).sort((a, b) => {
-        const depthOrder = model.nodes[a].depth - model.nodes[b].depth;
+    const orderedClaimShapeIds = Object.keys(model.claimShapes).sort((a, b) => {
+        const depthOrder = model.claimShapes[a].depth - model.claimShapes[b].depth;
         if (depthOrder !== 0) return depthOrder;
         return a.localeCompare(b);
     });
 
-    confidenceCascadeScaleByNodeId[model.rootNodeId] = 1;
+    confidenceCascadeScaleByClaimShapeId[model.rootClaimShapeId] = 1;
 
-    nodeScaleByNodeId[model.rootNodeId] =
-        confidenceCascadeScaleByNodeId[model.rootNodeId] * relevanceNormalizedScaleByNodeId[model.rootNodeId];
+    claimShapeScaleByClaimShapeId[model.rootClaimShapeId] =
+        confidenceCascadeScaleByClaimShapeId[model.rootClaimShapeId] * relevanceNormalizedScaleByClaimShapeId[model.rootClaimShapeId];
 
-    for (const targetNodeId of orderedNodeIds) {
-        const contributorNodeIds = contributorNodeIdsByTargetNodeId[targetNodeId];
-        if (!contributorNodeIds || contributorNodeIds.size === 0) continue;
+    for (const targetClaimShapeId of orderedClaimShapeIds) {
+        const contributorClaimShapeIds = contributorClaimShapeIdsByTargetClaimShapeId[targetClaimShapeId];
+        if (!contributorClaimShapeIds || contributorClaimShapeIds.size === 0) continue;
 
-        const targetFinalScale = nodeScaleByNodeId[targetNodeId] ?? 1;
-        const confidenceGroupScale = confidenceGroupScaleByTargetNodeId[targetNodeId] ?? 1;
+        const targetFinalScale = claimShapeScaleByClaimShapeId[targetClaimShapeId] ?? 1;
+        const confidenceGroupScale = confidenceGroupScaleByTargetClaimShapeId[targetClaimShapeId] ?? 1;
         const cascadedConfidenceScaleFromTarget = targetFinalScale * confidenceGroupScale;
 
         let maxContributorRelevance = 1;
         if (applyRelevanceScale) {
             maxContributorRelevance = 0;
-            for (const contributorNodeId of contributorNodeIds) {
-                const contributorNode = model.nodes[contributorNodeId];
-                if (!contributorNode) continue;
-                const contributorRelevance = Math.max(0, contributorNode.score?.relevance ?? 1);
+            for (const contributorClaimShapeId of contributorClaimShapeIds) {
+                const contributorClaimShape = model.claimShapes[contributorClaimShapeId];
+                if (!contributorClaimShape) continue;
+                const contributorRelevance = Math.max(0, contributorClaimShape.score?.relevance ?? 1);
                 maxContributorRelevance = Math.max(maxContributorRelevance, contributorRelevance);
             }
             if (maxContributorRelevance <= 0) {
@@ -95,41 +97,41 @@ export function computeContributorNodeSizing(
             }
         }
 
-        for (const contributorNodeId of contributorNodeIds) {
-            const contributorNode = model.nodes[contributorNodeId];
-            if (!contributorNode) continue;
+        for (const contributorClaimShapeId of contributorClaimShapeIds) {
+            const contributorClaimShape = model.claimShapes[contributorClaimShapeId];
+            if (!contributorClaimShape) continue;
 
-            const priorConfidenceCascadeScale = confidenceCascadeScaleByNodeId[contributorNodeId] ?? 1;
+            const priorConfidenceCascadeScale = confidenceCascadeScaleByClaimShapeId[contributorClaimShapeId] ?? 1;
             const nextConfidenceCascadeScale = Math.min(
                 priorConfidenceCascadeScale,
                 cascadedConfidenceScaleFromTarget,
             );
 
-            confidenceCascadeScaleByNodeId[contributorNodeId] = nextConfidenceCascadeScale;
+            confidenceCascadeScaleByClaimShapeId[contributorClaimShapeId] = nextConfidenceCascadeScale;
 
             const relevanceNormalizedScale = applyRelevanceScale
                 ? Math.min(
                     1,
-                    Math.max(0, contributorNode.score?.relevance ?? 1) / maxContributorRelevance,
+                    Math.max(0, contributorClaimShape.score?.relevance ?? 1) / maxContributorRelevance,
                 )
                 : 1;
-            relevanceNormalizedScaleByNodeId[contributorNodeId] = relevanceNormalizedScale;
+            relevanceNormalizedScaleByClaimShapeId[contributorClaimShapeId] = relevanceNormalizedScale;
 
-            nodeScaleByNodeId[contributorNodeId] =
+            claimShapeScaleByClaimShapeId[contributorClaimShapeId] =
                 nextConfidenceCascadeScale * relevanceNormalizedScale;
         }
     }
 
-    for (const nodeId of Object.keys(model.nodes)) {
-        const scale = nodeScaleByNodeId[nodeId] ?? 1;
-        nodeSizeByNodeId[nodeId] = {
-            width: defaultNodeSize.width * scale,
-            height: defaultNodeSize.height * scale,
+    for (const claimShapeId of Object.keys(model.claimShapes)) {
+        const scale = claimShapeScaleByClaimShapeId[claimShapeId] ?? 1;
+        claimShapeSizeByClaimShapeId[claimShapeId] = {
+            width: defaultClaimShapeSize.width * scale,
+            height: defaultClaimShapeSize.height * scale,
         };
     }
 
     return {
-        nodeSizeByNodeId,
-        nodeScaleByNodeId,
+        claimShapeSizeByClaimShapeId,
+        claimShapeScaleByClaimShapeId,
     };
 }

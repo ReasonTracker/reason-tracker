@@ -17,9 +17,12 @@ export type {
     BuildLayoutModelSuccess,
     ContributorNodeSizingOptions,
     ContributorNodeSizingResult,
+    ClaimShapeSize,
     CycleMode,
     DagOptions,
     LayoutDiagnostic,
+    LayoutClaimShape,
+    LayoutConnectorShape,
     LayoutEdge,
     LayoutModel,
     LayoutNode,
@@ -29,6 +32,7 @@ export type {
     PlaceLayoutWithElkResult,
     PlaceLayoutWithElkSuccess,
     PositionedLayoutModel,
+    PositionedLayoutClaimShape,
     PositionedLayoutNode,
 } from "./layout/types.ts";
 

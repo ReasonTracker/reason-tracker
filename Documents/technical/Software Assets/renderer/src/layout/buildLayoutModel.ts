@@ -14,7 +14,7 @@ import type {
 } from "./types.ts";
 
 interface TraversalItem {
-    nodeId: string;
+    claimShapeId: string;
     claimId: ClaimId;
     depth: number;
     pathSeen: Set<ClaimId>;
@@ -57,15 +57,15 @@ export function buildLayoutModel(request: BuildLayoutModelRequest): BuildLayoutM
 
 function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
-    const nodes: Record<string, LayoutNode> = {};
-    const edges: Record<string, LayoutEdge> = {};
+    const claimShapes: Record<string, LayoutNode> = {};
+    const connectorShapes: Record<string, LayoutEdge> = {};
 
     const indexes = createConnectorIndexes(debate, "id-asc");
     const depths = computeShortestDepthFromSink(debate.mainClaimId, indexes);
 
     for (const claimId of Object.keys(debate.claims).sort() as ClaimId[]) {
         const incoming = indexes.byTarget[claimId] ?? [];
-        nodes[claimId] = {
+        claimShapes[claimId] = {
             id: claimId,
             claimId,
             score: debate.scores[claimId],
@@ -81,10 +81,10 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
 
     for (const connector of sortedConnectors) {
         const edgeId = String(connector.id);
-        edges[edgeId] = {
+        connectorShapes[edgeId] = {
             id: edgeId,
-            fromNodeId: connector.target,
-            toNodeId: connector.source,
+            targetClaimShapeId: connector.target,
+            sourceClaimShapeId: connector.source,
             sourceClaimId: connector.source as ClaimId,
             targetClaimId: connector.target as ClaimId,
             connectorId: edgeId,
@@ -94,9 +94,9 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
     }
 
     const model: LayoutModel = {
-        rootNodeId: debate.mainClaimId,
-        nodes,
-        edges,
+        rootClaimShapeId: debate.mainClaimId,
+        claimShapes,
+        connectorShapes,
         cycleMode: "preserve",
         sourceDebateId: debate.id,
     };
@@ -106,8 +106,8 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
         code: "PRESERVE_MODE",
         message: "Built layout model without cycle unrolling.",
         data: {
-            nodeCount: Object.keys(nodes).length,
-            edgeCount: Object.keys(edges).length,
+            nodeCount: Object.keys(claimShapes).length,
+            edgeCount: Object.keys(connectorShapes).length,
         },
     });
 
@@ -124,8 +124,8 @@ function buildUnrolledDagLayoutModel(
     connectorOrder: "id-asc" | "source-asc-then-id",
 ): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
-    const nodes: Record<string, LayoutNode> = {};
-    const edges: Record<string, LayoutEdge> = {};
+    const claimShapes: Record<string, LayoutNode> = {};
+    const connectorShapes: Record<string, LayoutEdge> = {};
 
     const claimCount = Object.keys(debate.claims).length;
     const maxInstances = Math.max(1, Math.floor(claimCount * maxInstancesMultiplier));
@@ -134,11 +134,11 @@ function buildUnrolledDagLayoutModel(
     let instanceCounter = 0;
     let edgeCounter = 0;
 
-    const rootNodeId = createInstanceId(debate.mainClaimId, instanceCounter);
+    const rootClaimShapeId = createInstanceId(debate.mainClaimId, instanceCounter);
     instanceCounter += 1;
 
-    nodes[rootNodeId] = {
-        id: rootNodeId,
+    claimShapes[rootClaimShapeId] = {
+        id: rootClaimShapeId,
         claimId: debate.mainClaimId,
         score: debate.scores[debate.mainClaimId],
         depth: 0,
@@ -148,7 +148,7 @@ function buildUnrolledDagLayoutModel(
 
     const stack: TraversalItem[] = [
         {
-            nodeId: rootNodeId,
+            claimShapeId: rootClaimShapeId,
             claimId: debate.mainClaimId,
             depth: 0,
             pathSeen: new Set([debate.mainClaimId]),
@@ -175,7 +175,7 @@ function buildUnrolledDagLayoutModel(
                     data: {
                         connectorId: String(connector.id),
                         claimId: childClaimId,
-                        fromNodeId: current.nodeId,
+                        fromClaimShapeId: current.claimShapeId,
                     },
                 });
                 continue;
@@ -198,28 +198,28 @@ function buildUnrolledDagLayoutModel(
                 };
             }
 
-            const childNodeId = createInstanceId(childClaimId, instanceCounter);
+            const childClaimShapeId = createInstanceId(childClaimId, instanceCounter);
             instanceCounter += 1;
 
-            nodes[childNodeId] = {
-                id: childNodeId,
+            claimShapes[childClaimShapeId] = {
+                id: childClaimShapeId,
                 claimId: childClaimId,
                 score: debate.scores[childClaimId],
                 depth: current.depth + 1,
                 isRoot: false,
                 isLeaf: true,
-                parentId: current.nodeId,
+                parentId: current.claimShapeId,
             };
 
-            nodes[current.nodeId].isLeaf = false;
+            claimShapes[current.claimShapeId].isLeaf = false;
 
             const edgeId = `${String(connector.id)}#${edgeCounter}`;
             edgeCounter += 1;
 
-            edges[edgeId] = {
+            connectorShapes[edgeId] = {
                 id: edgeId,
-                fromNodeId: current.nodeId,
-                toNodeId: childNodeId,
+                targetClaimShapeId: current.claimShapeId,
+                sourceClaimShapeId: childClaimShapeId,
                 sourceClaimId: connector.source as ClaimId,
                 targetClaimId: connector.target as ClaimId,
                 connectorId: String(connector.id),
@@ -231,7 +231,7 @@ function buildUnrolledDagLayoutModel(
             nextPathSeen.add(childClaimId);
 
             stack.push({
-                nodeId: childNodeId,
+                claimShapeId: childClaimShapeId,
                 claimId: childClaimId,
                 depth: current.depth + 1,
                 pathSeen: nextPathSeen,
@@ -244,8 +244,8 @@ function buildUnrolledDagLayoutModel(
         code: "UNROLL_DAG_MODE",
         message: "Built unrolled DAG layout model.",
         data: {
-            nodeCount: Object.keys(nodes).length,
-            edgeCount: Object.keys(edges).length,
+            nodeCount: Object.keys(claimShapes).length,
+            edgeCount: Object.keys(connectorShapes).length,
             maxInstances,
             maxInstancesMultiplier,
         },
@@ -254,9 +254,9 @@ function buildUnrolledDagLayoutModel(
     return {
         ok: true,
         model: {
-            rootNodeId,
-            nodes,
-            edges,
+            rootClaimShapeId,
+            claimShapes,
+            connectorShapes,
             cycleMode: "unroll-dag",
             sourceDebateId: debate.id,
         },

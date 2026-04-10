@@ -49,27 +49,27 @@ export async function placeLayoutWithElk(
 ): Promise<PlaceLayoutWithElkResult> {
     const diagnostics: LayoutDiagnostic[] = [];
 
-    const defaultNodeSize = options.defaultNodeSize ?? DEFAULT_NODE_SIZE;
-    const nodeSizeByNodeId = options.nodeSizeByNodeId ?? {};
-    const nodeSpacing = options.nodeSpacing ?? 40;
+    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_NODE_SIZE;
+    const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
+    const claimShapeSpacing = options.claimShapeSpacing ?? 40;
     const layerSpacing = options.layerSpacing ?? 96;
-    const edgeNodeSpacing = options.edgeNodeSpacing ?? 32;
+    const connectorClaimShapeSpacing = options.connectorClaimShapeSpacing ?? 32;
     const preserveInputOrder = options.preserveInputOrder ?? true;
     const favorStraightEdges = options.favorStraightEdges ?? false;
     const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
 
-    const orderedNodeIds = Object.keys(model.nodes).sort((a, b) => {
-        const depthOrder = model.nodes[a].depth - model.nodes[b].depth;
+    const orderedClaimShapeIds = Object.keys(model.claimShapes).sort((a, b) => {
+        const depthOrder = model.claimShapes[a].depth - model.claimShapes[b].depth;
         if (depthOrder !== 0) return depthOrder;
         return a.localeCompare(b);
     });
 
-    const children: ElkChildNode[] = orderedNodeIds.map((nodeId) => {
-        const size = nodeSizeByNodeId[nodeId] ?? defaultNodeSize;
-        const isRoot = nodeId === model.rootNodeId;
+    const children: ElkChildNode[] = orderedClaimShapeIds.map((claimShapeId) => {
+        const size = claimShapeSizeByClaimShapeId[claimShapeId] ?? defaultClaimShapeSize;
+        const isRoot = claimShapeId === model.rootClaimShapeId;
 
         return {
-            id: nodeId,
+            id: claimShapeId,
             width: size.width,
             height: size.height,
             layoutOptions: isRoot
@@ -80,24 +80,24 @@ export async function placeLayoutWithElk(
         };
     });
 
-    const edges: ElkEdge[] = Object.values(model.edges)
+    const connectorShapes: ElkEdge[] = Object.values(model.connectorShapes)
         .sort((a, b) => a.id.localeCompare(b.id))
-        .map((edge) => ({
-            id: edge.id,
-            sources: [edge.fromNodeId],
-            targets: [edge.toNodeId],
+        .map((connectorShape) => ({
+            id: connectorShape.id,
+            sources: [connectorShape.targetClaimShapeId],
+            targets: [connectorShape.sourceClaimShapeId],
         }));
 
     const graph: ElkGraph = {
         id: "reason-tracker-layout",
         children,
-        edges,
+        edges: connectorShapes,
         layoutOptions: {
             "elk.algorithm": "layered",
             "elk.direction": "RIGHT",
-            "elk.spacing.nodeNode": String(nodeSpacing),
+            "elk.spacing.nodeNode": String(claimShapeSpacing),
             "elk.layered.spacing.nodeNodeBetweenLayers": String(layerSpacing),
-            "elk.spacing.edgeNode": String(edgeNodeSpacing),
+            "elk.spacing.edgeNode": String(connectorClaimShapeSpacing),
             "elk.layered.cycleBreaking.strategy": "GREEDY",
             "elk.layered.nodePlacement.favorStraightEdges": favorStraightEdges ? "true" : "false",
             "elk.layered.nodePlacement.bk.fixedAlignment": bkFixedAlignment,
@@ -135,12 +135,12 @@ export async function placeLayoutWithElk(
         positionedChildren.set(child.id, child);
     }
 
-    const positionedNodes: Record<string, PositionedLayoutNode> = {};
+    const positionedClaimShapes: Record<string, PositionedLayoutNode> = {};
     let maxX = 0;
     let maxY = 0;
 
-    for (const [nodeId, node] of Object.entries(model.nodes)) {
-        const laidOutNode = positionedChildren.get(nodeId);
+    for (const [claimShapeId, claimShape] of Object.entries(model.claimShapes)) {
+        const laidOutNode = positionedChildren.get(claimShapeId);
         if (!laidOutNode || laidOutNode.x == null || laidOutNode.y == null) {
             return {
                 ok: false,
@@ -148,26 +148,26 @@ export async function placeLayoutWithElk(
                     code: "ELK_NODE_NOT_POSITIONED",
                     message: "ELK did not return a position for every node.",
                     details: {
-                        nodeId,
+                        claimShapeId,
                     },
                 },
                 diagnostics,
             };
         }
 
-        const positionedNode = toPositionedNode(node, laidOutNode);
-        positionedNodes[nodeId] = positionedNode;
+        const positionedNode = toPositionedNode(claimShape, laidOutNode);
+        positionedClaimShapes[claimShapeId] = positionedNode;
     }
 
-    for (const positionedNode of Object.values(positionedNodes)) {
+    for (const positionedNode of Object.values(positionedClaimShapes)) {
         maxX = Math.max(maxX, positionedNode.x + positionedNode.width);
         maxY = Math.max(maxY, positionedNode.y + positionedNode.height);
     }
 
     const placedModel: PositionedLayoutModel = {
-        rootNodeId: model.rootNodeId,
-        nodes: positionedNodes,
-        edges: model.edges,
+        rootClaimShapeId: model.rootClaimShapeId,
+        claimShapes: positionedClaimShapes,
+        connectorShapes: model.connectorShapes,
         cycleMode: model.cycleMode,
         sourceDebateId: model.sourceDebateId,
         layoutEngine: "elkjs",
@@ -182,9 +182,9 @@ export async function placeLayoutWithElk(
         code: "ELK_LAYOUT_COMPLETED",
         message: "Placed layout nodes with ELK layered algorithm.",
         data: {
-            nodeCount: Object.keys(model.nodes).length,
-            edgeCount: Object.keys(model.edges).length,
-            rootNodeId: model.rootNodeId,
+            nodeCount: Object.keys(model.claimShapes).length,
+            edgeCount: Object.keys(model.connectorShapes).length,
+            rootClaimShapeId: model.rootClaimShapeId,
             boundsWidth: placedModel.layoutBounds.width,
             boundsHeight: placedModel.layoutBounds.height,
         },

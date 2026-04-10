@@ -36,13 +36,13 @@ function positionedNode(id: string, width: number, height: number): PositionedLa
     };
 }
 
-function edge(id: string, fromNodeId: string, toNodeId: string): LayoutEdge {
+function edge(id: string, targetClaimShapeId: string, sourceClaimShapeId: string): LayoutEdge {
     return {
         id,
-        fromNodeId,
-        toNodeId,
-        sourceClaimId: asClaimId(toNodeId),
-        targetClaimId: asClaimId(fromNodeId),
+        targetClaimShapeId,
+        sourceClaimShapeId,
+        sourceClaimId: asClaimId(sourceClaimShapeId),
+        targetClaimId: asClaimId(targetClaimShapeId),
         connectorId: id,
         affects: "confidence",
         proTarget: true,
@@ -52,12 +52,12 @@ function edge(id: string, fromNodeId: string, toNodeId: string): LayoutEdge {
 describe("renderWebDocument transform scaling", () => {
     it("renders literal CSS transform scale with shell geometry", () => {
         const model: PositionedLayoutModel = {
-            rootNodeId: "target",
-            nodes: {
+            rootClaimShapeId: "target",
+            claimShapes: {
                 target: positionedNode("target", 100, 50),
                 c1: positionedNode("c1", 100, 50),
             },
-            edges: {
+            connectorShapes: {
                 e1: edge("e1", "target", "c1"),
             },
             cycleMode: "preserve",
@@ -70,12 +70,12 @@ describe("renderWebDocument transform scaling", () => {
         };
 
         const { html } = renderWebDocument(model, {
-            useNodeTransformScale: true,
-            nodeScaleByNodeId: {
+            useClaimShapeTransformScale: true,
+            claimShapeScaleByClaimShapeId: {
                 c1: 0.5,
                 target: 1,
             },
-            nodeTransformBaseSize: {
+            claimShapeTransformBaseSize: {
                 width: 200,
                 height: 100,
             },

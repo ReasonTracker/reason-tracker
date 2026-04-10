@@ -1,16 +1,16 @@
 import type {
     LayoutModel,
     PositionedLayoutModel,
-    PositionedLayoutNode,
+    PositionedLayoutNode as PositionedLayoutClaimShape,
 } from "./layout/types.ts";
 
 export interface RenderWebDocumentOptions {
     title?: string;
     includeScore?: boolean;
     density?: "comfortable" | "compact";
-    useNodeTransformScale?: boolean;
-    nodeScaleByNodeId?: Record<string, number>;
-    nodeTransformBaseSize?: {
+    useClaimShapeTransformScale?: boolean;
+    claimShapeScaleByClaimShapeId?: Record<string, number>;
+    claimShapeTransformBaseSize?: {
         width: number;
         height: number;
     };
@@ -28,16 +28,16 @@ export function renderWebDocument(
     const title = options.title ?? "Reason Tracker";
     const includeScore = options.includeScore ?? true;
     const density = options.density ?? "comfortable";
-    const useNodeTransformScale = options.useNodeTransformScale ?? false;
-    const nodeScaleByNodeId = options.nodeScaleByNodeId ?? {};
-    const nodeTransformBaseSize = options.nodeTransformBaseSize;
+    const useClaimShapeTransformScale = options.useClaimShapeTransformScale ?? false;
+    const claimShapeScaleByClaimShapeId = options.claimShapeScaleByClaimShapeId ?? {};
+    const claimShapeTransformBaseSize = options.claimShapeTransformBaseSize;
     const css = renderWebCss({ density });
 
     const bodyContent = isPositionedLayoutModel(model)
         ? renderPositionedContent(model, includeScore, {
-              useNodeTransformScale,
-              nodeScaleByNodeId,
-              nodeTransformBaseSize,
+              useClaimShapeTransformScale,
+              claimShapeScaleByClaimShapeId,
+              claimShapeTransformBaseSize,
           })
         : renderListContent(model, includeScore);
 
@@ -53,9 +53,9 @@ export function renderWebDocument(
         "</style>",
         "</head>",
         "<body>",
-        `<main data-cycle-mode=\"${escapeHtml(model.cycleMode)}\">`,
+        `<main data-cycle-mode="${escapeHtml(model.cycleMode)}">`,
         `<h1>${escapeHtml(title)}</h1>`,
-        `<p>Root: ${escapeHtml(model.rootNodeId)}</p>`,
+        `<p>Root: ${escapeHtml(model.rootClaimShapeId)}</p>`,
         bodyContent,
         "</main>",
         "</body>",
@@ -134,6 +134,9 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  stroke-width: 2;",
         "  stroke-linecap: butt;",
         "}",
+        ".rt-edge.rt-edge-potential-confidence {",
+        "  opacity: 0.5;",
+        "}",
         ".rt-edge[data-pro-target='true'] {",
         "  stroke: #166534;",
         "}",
@@ -210,15 +213,15 @@ function formatConfidencePercent(confidence: number): string {
 }
 
 function renderListContent(model: LayoutModel, includeScore: boolean): string {
-    const nodes = Object.values(model.nodes).sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+    const claimShapes = Object.values(model.claimShapes).sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
 
-    const items = nodes
-        .map((node) => {
-            const scoreSnippet = includeScore && node.score
-                ? ` <small data-score="${escapeHtml(String(node.score.confidence))}">${escapeHtml(formatConfidencePercent(node.score.confidence))}</small>`
+    const items = claimShapes
+        .map((claimShape) => {
+            const scoreSnippet = includeScore && claimShape.score
+                ? ` <small data-score="${escapeHtml(String(claimShape.score.confidence))}">${escapeHtml(formatConfidencePercent(claimShape.score.confidence))}</small>`
                 : "";
 
-            return `<li data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><strong>${escapeHtml(node.claimId)}</strong>${scoreSnippet}</li>`;
+            return `<li data-claim-shape-id="${escapeHtml(claimShape.id)}" data-claim-id="${escapeHtml(claimShape.claimId)}" data-depth="${claimShape.depth}"><strong>${escapeHtml(claimShape.claimId)}</strong>${scoreSnippet}</li>`;
         })
         .join("\n");
 
@@ -229,10 +232,10 @@ function renderListContent(model: LayoutModel, includeScore: boolean): string {
     ].join("\n");
 }
 
-interface RenderPositionedNodeOptions {
-    useNodeTransformScale: boolean;
-    nodeScaleByNodeId: Record<string, number>;
-    nodeTransformBaseSize?: {
+interface RenderPositionedClaimShapeOptions {
+    useClaimShapeTransformScale: boolean;
+    claimShapeScaleByClaimShapeId: Record<string, number>;
+    claimShapeTransformBaseSize?: {
         width: number;
         height: number;
     };
@@ -241,113 +244,160 @@ interface RenderPositionedNodeOptions {
 function renderPositionedContent(
     model: PositionedLayoutModel,
     includeScore: boolean,
-    options: RenderPositionedNodeOptions,
+    options: RenderPositionedClaimShapeOptions,
 ): string {
     const canvasWidth = Math.max(1, Math.ceil(model.layoutBounds.width));
     const canvasHeight = Math.max(1, Math.ceil(model.layoutBounds.height));
 
-    const sortedEdges = Object.values(model.edges)
+    const sortedConnectorShapes = Object.values(model.connectorShapes)
         .sort((a, b) => a.id.localeCompare(b.id));
 
-    const edgeStrokeWidthByEdgeId: Record<string, number> = {};
-    const edgesByFromNodeId: Record<string, string[]> = {};
+    const connectorShapeStrokeWidthByConnectorShapeId: Record<string, number> = {};
+    const connectorShapeReferenceStrokeWidthByConnectorShapeId: Record<string, number> = {};
+    const connectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
 
-    for (const edge of sortedEdges) {
-        const toNode = model.nodes[edge.toNodeId];
-        if (!toNode) continue;
+    for (const connectorShape of sortedConnectorShapes) {
+        const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
+        if (!sourceClaimShape) continue;
 
-        const sourceConfidence = toNode.score?.confidence ?? 1;
-        const sourceRenderedHeight = getRenderedNodeHeight(toNode, options);
-        edgeStrokeWidthByEdgeId[edge.id] = sourceRenderedHeight * sourceConfidence;
-        (edgesByFromNodeId[edge.fromNodeId] ??= []).push(edge.id);
+        const sourceConfidence = sourceClaimShape.score?.confidence ?? 1;
+        const sourceRenderedHeight = getRenderedClaimShapeHeight(sourceClaimShape, options);
+        connectorShapeStrokeWidthByConnectorShapeId[connectorShape.id] = sourceRenderedHeight * sourceConfidence;
+        connectorShapeReferenceStrokeWidthByConnectorShapeId[connectorShape.id] = sourceRenderedHeight;
+        (connectorShapeIdsByTargetClaimShapeId[connectorShape.targetClaimShapeId] ??= []).push(connectorShape.id);
     }
 
-    const edgeStartYByEdgeId: Record<string, number> = {};
-    for (const [fromNodeId, edgeIds] of Object.entries(edgesByFromNodeId)) {
-        const fromNode = model.nodes[fromNodeId];
-        if (!fromNode) continue;
+    const connectorShapeStartYByConnectorShapeId: Record<string, number> = {};
+    const connectorShapeTargetApproachFactorByConnectorShapeId: Record<string, number> = {};
+    for (const [targetClaimShapeId, connectorShapeIds] of Object.entries(connectorShapeIdsByTargetClaimShapeId)) {
+        const targetClaimShape = model.claimShapes[targetClaimShapeId];
+        if (!targetClaimShape) continue;
 
-        edgeIds.sort((a, b) => {
-            const edgeA = model.edges[a];
-            const edgeB = model.edges[b];
-            if (!edgeA || !edgeB) return a.localeCompare(b);
+        connectorShapeIds.sort((a, b) => {
+            const connectorShapeA = model.connectorShapes[a];
+            const connectorShapeB = model.connectorShapes[b];
+            if (!connectorShapeA || !connectorShapeB) return a.localeCompare(b);
 
-            const sourceA = model.nodes[edgeA.toNodeId];
-            const sourceB = model.nodes[edgeB.toNodeId];
-            if (!sourceA || !sourceB) return a.localeCompare(b);
+            const sourceClaimShapeA = model.claimShapes[connectorShapeA.sourceClaimShapeId];
+            const sourceClaimShapeB = model.claimShapes[connectorShapeB.sourceClaimShapeId];
+            if (!sourceClaimShapeA || !sourceClaimShapeB) return a.localeCompare(b);
 
-            const sourceCenterYA = sourceA.y + sourceA.height / 2;
-            const sourceCenterYB = sourceB.y + sourceB.height / 2;
+            const sourceCenterYA = sourceClaimShapeA.y + sourceClaimShapeA.height / 2;
+            const sourceCenterYB = sourceClaimShapeB.y + sourceClaimShapeB.height / 2;
             const sourceYOrder = sourceCenterYA - sourceCenterYB;
             if (sourceYOrder !== 0) return sourceYOrder;
 
             return a.localeCompare(b);
         });
 
-        const yByEdgeId = computeStackedAnchorYByEdgeId(edgeIds, edgeStrokeWidthByEdgeId, fromNode);
-        Object.assign(edgeStartYByEdgeId, yByEdgeId);
+        const yByConnectorShapeId = computeStackedAnchorYByConnectorShapeId(
+            connectorShapeIds,
+            connectorShapeStrokeWidthByConnectorShapeId,
+            targetClaimShape,
+        );
+        Object.assign(connectorShapeStartYByConnectorShapeId, yByConnectorShapeId);
+
+        const centerY = targetClaimShape.y + targetClaimShape.height / 2;
+        let maxDistanceFromCenter = 0;
+        for (const connectorShapeId of connectorShapeIds) {
+            const y = yByConnectorShapeId[connectorShapeId];
+            if (y === undefined) continue;
+            maxDistanceFromCenter = Math.max(maxDistanceFromCenter, Math.abs(y - centerY));
+        }
+
+        for (const connectorShapeId of connectorShapeIds) {
+            const y = yByConnectorShapeId[connectorShapeId];
+            if (y === undefined || maxDistanceFromCenter === 0) {
+                connectorShapeTargetApproachFactorByConnectorShapeId[connectorShapeId] = 1;
+                continue;
+            }
+
+            const distanceFromCenter = Math.abs(y - centerY);
+            const centeredness = 1 - Math.min(1, distanceFromCenter / maxDistanceFromCenter);
+            connectorShapeTargetApproachFactorByConnectorShapeId[connectorShapeId] = centeredness;
+        }
     }
 
-    const edgeLines = sortedEdges
-        .map((edge) => {
-            const fromNode = model.nodes[edge.fromNodeId];
-            const toNode = model.nodes[edge.toNodeId];
-            if (!fromNode || !toNode) return "";
+    const connectorShapeCurveByConnectorShapeId: Record<string, string> = {};
 
-            const strokeWidth = edgeStrokeWidthByEdgeId[edge.id] ?? 2;
+    const connectorShapeLines = sortedConnectorShapes
+        .map((connectorShape) => {
+            const targetClaimShape = model.claimShapes[connectorShape.targetClaimShapeId];
+            const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
+            if (!targetClaimShape || !sourceClaimShape) return "";
 
-            const x1 = fromNode.x + fromNode.width;
-            const y1 = edgeStartYByEdgeId[edge.id] ?? (fromNode.y + fromNode.height / 2);
-            const x2 = toNode.x;
-            const y2 = toNode.y + toNode.height / 2;
-            const bend = Math.max(24, Math.abs(x2 - x1) * 0.35);
-            const d = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+            const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShape.id] ?? 2;
 
-            return `<path class="rt-edge" data-affects="${escapeHtml(String(edge.affects))}" data-pro-target="${edge.proTarget ? "true" : "false"}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`;
+            const targetSideX = targetClaimShape.x + targetClaimShape.width;
+            const targetSideY = connectorShapeStartYByConnectorShapeId[connectorShape.id] ?? (targetClaimShape.y + targetClaimShape.height / 2);
+            const sourceSideX = sourceClaimShape.x;
+            const sourceSideY = sourceClaimShape.y + sourceClaimShape.height / 2;
+            const horizontalGap = Math.abs(sourceSideX - targetSideX);
+            const sourceSideStraightSegment = horizontalGap * 0.3;
+            const targetApproachFactor = connectorShapeTargetApproachFactorByConnectorShapeId[connectorShape.id] ?? 1;
+            const targetSideStraightSegment = horizontalGap * (0.1 + targetApproachFactor * (0.3 - 0.1));
+            const d = `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceSideX - sourceSideStraightSegment} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+            connectorShapeCurveByConnectorShapeId[connectorShape.id] = d;
+
+            return [
+                `<path class="rt-edge" data-affects="${escapeHtml(String(connectorShape.affects))}" data-pro-target="${connectorShape.proTarget ? "true" : "false"}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`,
+            ].join("\n");
         })
         .join("\n");
 
-    const nodeBlocks = Object.values(model.nodes)
+    const potentialConfidenceConnectorShapeLines = sortedConnectorShapes
+        .map((connectorShape) => {
+            const d = connectorShapeCurveByConnectorShapeId[connectorShape.id];
+            if (!d) return "";
+
+            const referenceStrokeWidth = connectorShapeReferenceStrokeWidthByConnectorShapeId[connectorShape.id] ?? 2;
+
+            return `<path class="rt-edge rt-edge-potential-confidence" data-affects="${escapeHtml(String(connectorShape.affects))}" data-pro-target="${connectorShape.proTarget ? "true" : "false"}" style="stroke-width:${referenceStrokeWidth}" d="${escapeHtml(d)}" />`;
+        })
+        .join("\n");
+
+    const claimShapeBlocks = Object.values(model.claimShapes)
         .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id))
-        .map((node) => renderPositionedNode(node, includeScore, options))
+        .map((claimShape) => renderPositionedClaimShape(claimShape, includeScore, options))
         .join("\n");
 
     return [
         `<section class="rt-layout-stage" aria-label="Graph layout canvas">`,
         `<div class="rt-layout-canvas" style="width:${canvasWidth}px;height:${canvasHeight}px;">`,
         `<svg class="rt-edge-layer" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" aria-hidden="true">`,
-        edgeLines,
+        potentialConfidenceConnectorShapeLines,
+        connectorShapeLines,
         "</svg>",
-        nodeBlocks,
+        claimShapeBlocks,
         "</div>",
         "</section>",
     ].join("\n");
 }
 
-function renderPositionedNode(
-    node: PositionedLayoutNode,
+function renderPositionedClaimShape(
+    claimShape: PositionedLayoutClaimShape,
     includeScore: boolean,
-    options: RenderPositionedNodeOptions,
+    options: RenderPositionedClaimShapeOptions,
 ): string {
-    const scoreSnippet = includeScore && node.score
-        ? `<small data-score="${escapeHtml(String(node.score.confidence))}">${escapeHtml(formatConfidencePercent(node.score.confidence))}</small>`
+    const scoreSnippet = includeScore && claimShape.score
+        ? `<small data-score="${escapeHtml(String(claimShape.score.confidence))}">${escapeHtml(formatConfidencePercent(claimShape.score.confidence))}</small>`
         : "";
 
-    const scale = options.useNodeTransformScale
-        ? (options.nodeScaleByNodeId[node.id] ?? 1)
+    const scale = options.useClaimShapeTransformScale
+        ? (options.claimShapeScaleByClaimShapeId[claimShape.id] ?? 1)
         : 1;
-    const baseWidth = options.useNodeTransformScale
-        ? (options.nodeTransformBaseSize?.width ?? node.width)
-        : node.width;
-    const baseHeight = options.useNodeTransformScale
-        ? (options.nodeTransformBaseSize?.height ?? node.height)
-        : node.height;
+    const baseWidth = options.useClaimShapeTransformScale
+        ? (options.claimShapeTransformBaseSize?.width ?? claimShape.width)
+        : claimShape.width;
+    const baseHeight = options.useClaimShapeTransformScale
+        ? (options.claimShapeTransformBaseSize?.height ?? claimShape.height)
+        : claimShape.height;
 
     const shellStyle = [
-        `left:${node.x}px`,
-        `top:${node.y}px`,
-        `width:${node.width}px`,
-        `height:${node.height}px`,
+        `left:${claimShape.x}px`,
+        `top:${claimShape.y}px`,
+        `width:${claimShape.width}px`,
+        `height:${claimShape.height}px`,
     ].join(";");
 
     const transformedStyle = [
@@ -356,43 +406,43 @@ function renderPositionedNode(
         `--rt-node-scale:${scale}`,
     ].join(";");
 
-    return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(node.claimId)}</h2>${scoreSnippet}</article></div></article>`;
+    return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-claim-shape-id="${escapeHtml(claimShape.id)}" data-claim-id="${escapeHtml(claimShape.claimId)}" data-depth="${claimShape.depth}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(claimShape.claimId)}</h2>${scoreSnippet}</article></div></article>`;
 }
 
-function getRenderedNodeHeight(
-    node: PositionedLayoutNode,
-    options: RenderPositionedNodeOptions,
+function getRenderedClaimShapeHeight(
+    claimShape: PositionedLayoutClaimShape,
+    options: RenderPositionedClaimShapeOptions,
 ): number {
-    if (!options.useNodeTransformScale) {
-        return node.height;
+    if (!options.useClaimShapeTransformScale) {
+        return claimShape.height;
     }
 
-    const baseHeight = options.nodeTransformBaseSize?.height ?? node.height;
-    const scale = options.nodeScaleByNodeId[node.id] ?? 1;
+    const baseHeight = options.claimShapeTransformBaseSize?.height ?? claimShape.height;
+    const scale = options.claimShapeScaleByClaimShapeId[claimShape.id] ?? 1;
 
     return baseHeight * scale;
 }
 
-function computeStackedAnchorYByEdgeId(
-    edgeIds: string[],
-    edgeStrokeWidthByEdgeId: Record<string, number>,
-    node: PositionedLayoutNode,
+function computeStackedAnchorYByConnectorShapeId(
+    connectorShapeIds: string[],
+    connectorShapeStrokeWidthByConnectorShapeId: Record<string, number>,
+    targetClaimShape: PositionedLayoutClaimShape,
 ): Record<string, number> {
     const gap = 2;
-    const centerY = node.y + node.height / 2;
-    const totalStackHeight = edgeIds.reduce((sum, edgeId, index) => {
-        const strokeWidth = edgeStrokeWidthByEdgeId[edgeId] ?? 0;
+    const centerY = targetClaimShape.y + targetClaimShape.height / 2;
+    const totalStackHeight = connectorShapeIds.reduce((sum, connectorShapeId, index) => {
+        const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
         return sum + strokeWidth + (index === 0 ? 0 : gap);
     }, 0);
 
-    const yByEdgeId: Record<string, number> = {};
+    const yByConnectorShapeId: Record<string, number> = {};
     let cursorY = centerY - totalStackHeight / 2;
 
-    for (const edgeId of edgeIds) {
-        const strokeWidth = edgeStrokeWidthByEdgeId[edgeId] ?? 0;
-        yByEdgeId[edgeId] = cursorY + strokeWidth / 2;
+    for (const connectorShapeId of connectorShapeIds) {
+        const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
+        yByConnectorShapeId[connectorShapeId] = cursorY + strokeWidth / 2;
         cursorY += strokeWidth + gap;
     }
 
-    return yByEdgeId;
+    return yByConnectorShapeId;
 }
