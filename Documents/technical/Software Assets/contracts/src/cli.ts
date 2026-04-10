@@ -1,4 +1,4 @@
-import type { CalculatedDebate, Debate } from "../Debate";
+import type { CalculatedDebate, Debate } from "./Debate.ts";
 
 export type CliCommand = "calculateDebate";
 export type CycleHandlingMode = "fail" | "cut" | "simulateAllSingleCuts";

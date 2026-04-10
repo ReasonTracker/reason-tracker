@@ -40,4 +40,4 @@ export type {
     CliFailure,
     CliRequest,
     CliResponse,
-} from "./cli/cli.ts";
+} from "./cli.ts";

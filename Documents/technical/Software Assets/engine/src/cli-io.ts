@@ -4,7 +4,7 @@ import type {
     CliFailure,
     CliRequest,
 } from "@reasontracker/contracts";
-import { runCli } from "../cli.ts";
+import { runCli } from "./cli.ts";
 
 export interface CliIoResult {
     exitCode: number;

@@ -21,4 +21,4 @@ export {
     type RenderWebCssOptions,
     type RenderWebDocumentOptions,
     type WebDocument,
-} from "./adapters/web/renderWebDocument.ts";
+} from "./renderWebDocument.ts";

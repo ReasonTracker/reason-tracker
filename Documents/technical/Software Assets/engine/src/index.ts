@@ -3,7 +3,7 @@ export {
     runCliFromArgv,
     runCliFromProcess,
     type CliIoResult,
-} from "./cli/io";
+} from "./cli-io";
 export { calculateScores, type CalculateScoresResult } from "./scoring/calculateScores";
 
 export type {

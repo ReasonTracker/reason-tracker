@@ -1,4 +1,4 @@
-import type { LayoutModel } from "../../layout/types.ts";
+import type { LayoutModel } from "./layout/types.ts";
 
 export interface RenderWebDocumentOptions {
     title?: string;
