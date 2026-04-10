@@ -32,6 +32,13 @@ This software asset hosts render-focused logic for Reason Tracker.
 - Preview data is engine-calculated before rendering (not score-overridden sample output).
 - Confidence is displayed as a percentage value.
 
+## Separation Of Duties
+
+- Layout code owns all connector geometry (anchor Y placement, stack spacing, stroke widths, and SVG path routes).
+- Web rendering code is presentation-only and must serialize precomputed layout geometry.
+- Do not add geometry behavior tests to web rendering modules.
+- Test geometry behavior in layout logic tests under `src/layout/*.test.ts`.
+
 ## Preview Workflow
 
 - Run `pnpm --filter @reasontracker/renderer preview` for a one-off preview render.

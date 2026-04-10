@@ -7,11 +7,11 @@ import { deriveTargetRelation } from "@reasontracker/contracts";
 import type {
     BuildLayoutModelRequest,
     BuildLayoutModelResult,
+    DraftLayoutModel,
     CycleMode,
     LayoutDiagnostic,
-    LayoutEdge,
-    LayoutModel,
-    LayoutNode,
+    ConnectorShape,
+    ClaimShape,
 } from "./types.ts";
 
 interface TraversalItem {
@@ -58,8 +58,8 @@ export function buildLayoutModel(request: BuildLayoutModelRequest): BuildLayoutM
 
 function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
-    const claimShapes: Record<string, LayoutNode> = {};
-    const connectorShapes: Record<string, LayoutEdge> = {};
+    const claimShapes: Record<string, ClaimShape> = {};
+    const connectorShapes: Record<string, ConnectorShape> = {};
 
     const indexes = createConnectorIndexes(debate, "id-asc");
     const depths = computeShortestDepthFromSink(debate.mainClaimId, indexes);
@@ -82,11 +82,11 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
     );
 
     for (const connector of sortedConnectors) {
-        const edgeId = String(connector.id);
+        const connectorShapeId = String(connector.id);
         const sourceClaim = debate.claims[connector.source as ClaimId];
         const targetClaim = debate.claims[connector.target as ClaimId];
-        connectorShapes[edgeId] = {
-            id: edgeId,
+        connectorShapes[connectorShapeId] = {
+            id: connectorShapeId,
             targetClaimShapeId: connector.target,
             sourceClaimShapeId: connector.source,
             sourceClaimId: connector.source as ClaimId,
@@ -101,7 +101,7 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
         };
     }
 
-    const model: LayoutModel = {
+    const model: DraftLayoutModel = {
         rootClaimShapeId: debate.mainClaimId,
         claimShapes,
         connectorShapes,
@@ -114,8 +114,8 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
         code: "PRESERVE_MODE",
         message: "Built layout model without cycle unrolling.",
         data: {
-            nodeCount: Object.keys(claimShapes).length,
-            edgeCount: Object.keys(connectorShapes).length,
+            claimShapeCount: Object.keys(claimShapes).length,
+            connectorShapeCount: Object.keys(connectorShapes).length,
         },
     });
 
@@ -132,15 +132,15 @@ function buildUnrolledDagLayoutModel(
     connectorOrder: "id-asc" | "source-asc-then-id",
 ): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
-    const claimShapes: Record<string, LayoutNode> = {};
-    const connectorShapes: Record<string, LayoutEdge> = {};
+    const claimShapes: Record<string, ClaimShape> = {};
+    const connectorShapes: Record<string, ConnectorShape> = {};
 
     const claimCount = Object.keys(debate.claims).length;
     const maxInstances = Math.max(1, Math.floor(claimCount * maxInstancesMultiplier));
     const indexes = createConnectorIndexes(debate, connectorOrder);
 
     let instanceCounter = 0;
-    let edgeCounter = 0;
+    let connectorShapeCounter = 0;
 
     const rootClaimShapeId = createInstanceId(debate.mainClaimId, instanceCounter);
     instanceCounter += 1;
@@ -179,8 +179,8 @@ function buildUnrolledDagLayoutModel(
             if (current.pathSeen.has(childClaimId)) {
                 diagnostics.push({
                     level: "info",
-                    code: "EDGE_SKIPPED_PATH_REPEAT",
-                    message: "Skipped edge because claim was already seen in the current branch path.",
+                    code: "CONNECTOR_SKIPPED_PATH_REPEAT",
+                    message: "Skipped connector because claim was already seen in the current branch path.",
                     data: {
                         connectorId: String(connector.id),
                         claimId: childClaimId,
@@ -223,13 +223,13 @@ function buildUnrolledDagLayoutModel(
 
             claimShapes[current.claimShapeId].isLeaf = false;
 
-            const edgeId = `${String(connector.id)}#${edgeCounter}`;
-            edgeCounter += 1;
+            const connectorShapeId = `${String(connector.id)}#${connectorShapeCounter}`;
+            connectorShapeCounter += 1;
             const sourceClaim = debate.claims[connector.source as ClaimId];
             const targetClaim = debate.claims[connector.target as ClaimId];
 
-            connectorShapes[edgeId] = {
-                id: edgeId,
+            connectorShapes[connectorShapeId] = {
+                id: connectorShapeId,
                 targetClaimShapeId: current.claimShapeId,
                 sourceClaimShapeId: childClaimShapeId,
                 sourceClaimId: connector.source as ClaimId,
@@ -260,8 +260,8 @@ function buildUnrolledDagLayoutModel(
         code: "UNROLL_DAG_MODE",
         message: "Built unrolled DAG layout model.",
         data: {
-            nodeCount: Object.keys(claimShapes).length,
-            edgeCount: Object.keys(connectorShapes).length,
+            claimShapeCount: Object.keys(claimShapes).length,
+            connectorShapeCount: Object.keys(connectorShapes).length,
             maxInstances,
             maxInstancesMultiplier,
         },

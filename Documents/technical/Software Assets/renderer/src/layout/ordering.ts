@@ -1,8 +1,8 @@
-import type { LayoutEdge, LayoutModel, PositionedLayoutModel } from "./types.ts";
+import type { ConnectorShape, DraftLayoutModel, LayoutModel } from "./types.ts";
 
 interface ConnectorOrderingModel {
     claimShapes: Record<string, { score?: { confidence: number } }>;
-    connectorShapes: Record<string, Pick<LayoutEdge, "id" | "sourceClaimShapeId" | "targetRelation">>;
+    connectorShapes: Record<string, Pick<ConnectorShape, "id" | "sourceClaimShapeId" | "targetRelation">>;
 }
 
 export function compareConnectorPreference(
@@ -25,7 +25,7 @@ export function compareConnectorPreference(
     return connectorShapeIdA.localeCompare(connectorShapeIdB);
 }
 
-export function orderClaimShapeIdsForElk(model: LayoutModel): string[] {
+export function orderClaimShapeIdsForElk(model: DraftLayoutModel): string[] {
     const connectorShapeIdsBySourceClaimShapeId: Record<string, string[]> = {};
     for (const connectorShape of Object.values(model.connectorShapes)) {
         (connectorShapeIdsBySourceClaimShapeId[connectorShape.sourceClaimShapeId] ??= []).push(connectorShape.id);
@@ -61,13 +61,13 @@ export function orderClaimShapeIdsForElk(model: LayoutModel): string[] {
 }
 
 export function orderConnectorShapeIdsForTargetByPreference(
-    model: PositionedLayoutModel,
+    model: LayoutModel,
     connectorShapeIds: string[],
 ): string[] {
     return [...connectorShapeIds].sort((a, b) => compareConnectorPreference(model, a, b));
 }
 
-function relationPriority(targetRelation: LayoutEdge["targetRelation"]): number {
+function relationPriority(targetRelation: ConnectorShape["targetRelation"]): number {
     if (targetRelation === "proTarget") return 0;
     if (targetRelation === "conTarget") return 1;
     return 2;

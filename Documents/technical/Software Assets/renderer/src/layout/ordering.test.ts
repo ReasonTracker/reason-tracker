@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
-import { layoutEdgeToTarget, layoutModel, layoutNode } from "./testLayoutBuilders.ts";
+import { connectorShapeToTarget, layoutModel, claimShape } from "./testLayoutBuilders.ts";
 
 // Test fixture naming rule: every fixture string must include the literal token "id" (for example claim-id:* and connector-id:*).
 
@@ -21,13 +21,13 @@ describe("layout ordering shared preference", () => {
     it("prefers matching relation before opposing relation", () => {
         const inputModel = layoutModel(
             {
-                target: layoutNode("target", 1, 0),
-                "claim-id:pro:match": layoutNode("claim-id:pro:match", 0.2, 1),
-                "claim-id:con:oppose": layoutNode("claim-id:con:oppose", 0.9, 1),
+                target: claimShape("target", 1, 0),
+                "claim-id:pro:match": claimShape("claim-id:pro:match", 0.2, 1),
+                "claim-id:con:oppose": claimShape("claim-id:con:oppose", 0.9, 1),
             },
             {
-                "connector-id:pro:match": layoutEdgeToTarget("connector-id:pro:match", "claim-id:pro:match", "proTarget"),
-                "connector-id:con:oppose": layoutEdgeToTarget("connector-id:con:oppose", "claim-id:con:oppose", "conTarget"),
+                "connector-id:pro:match": connectorShapeToTarget("connector-id:pro:match", "claim-id:pro:match", "proTarget"),
+                "connector-id:con:oppose": connectorShapeToTarget("connector-id:con:oppose", "claim-id:con:oppose", "conTarget"),
             },
         );
 
@@ -55,13 +55,13 @@ describe("layout ordering shared preference", () => {
     it("prefers higher confidence within same relation", () => {
         const inputModel = layoutModel(
             {
-                target: layoutNode("target", 1, 0),
-                "claim-id:pro:high-confidence": layoutNode("claim-id:pro:high-confidence", 0.9, 1),
-                "claim-id:pro:low-confidence": layoutNode("claim-id:pro:low-confidence", 0.3, 1),
+                target: claimShape("target", 1, 0),
+                "claim-id:pro:high-confidence": claimShape("claim-id:pro:high-confidence", 0.9, 1),
+                "claim-id:pro:low-confidence": claimShape("claim-id:pro:low-confidence", 0.3, 1),
             },
             {
-                "connector-id:pro:high-confidence": layoutEdgeToTarget("connector-id:pro:high-confidence", "claim-id:pro:high-confidence", "proTarget"),
-                "connector-id:pro:low-confidence": layoutEdgeToTarget("connector-id:pro:low-confidence", "claim-id:pro:low-confidence", "proTarget"),
+                "connector-id:pro:high-confidence": connectorShapeToTarget("connector-id:pro:high-confidence", "claim-id:pro:high-confidence", "proTarget"),
+                "connector-id:pro:low-confidence": connectorShapeToTarget("connector-id:pro:low-confidence", "claim-id:pro:low-confidence", "proTarget"),
             },
         );
 
@@ -89,15 +89,15 @@ describe("layout ordering shared preference", () => {
     it("orders ELK claim inputs by depth then shared connector preference", () => {
         const inputModel = layoutModel(
             {
-                target: layoutNode("target", 1, 0),
-                "claim-id:pro:high": layoutNode("claim-id:pro:high", 0.9, 1),
-                "claim-id:pro:low": layoutNode("claim-id:pro:low", 0.2, 1),
-                "claim-id:con:high": layoutNode("claim-id:con:high", 0.95, 1),
+                target: claimShape("target", 1, 0),
+                "claim-id:pro:high": claimShape("claim-id:pro:high", 0.9, 1),
+                "claim-id:pro:low": claimShape("claim-id:pro:low", 0.2, 1),
+                "claim-id:con:high": claimShape("claim-id:con:high", 0.95, 1),
             },
             {
-                "connector-id:con:high": layoutEdgeToTarget("connector-id:con:high", "claim-id:con:high", "conTarget"),
-                "connector-id:pro:low": layoutEdgeToTarget("connector-id:pro:low", "claim-id:pro:low", "proTarget"),
-                "connector-id:pro:high": layoutEdgeToTarget("connector-id:pro:high", "claim-id:pro:high", "proTarget"),
+                "connector-id:con:high": connectorShapeToTarget("connector-id:con:high", "claim-id:con:high", "conTarget"),
+                "connector-id:pro:low": connectorShapeToTarget("connector-id:pro:low", "claim-id:pro:low", "proTarget"),
+                "connector-id:pro:high": connectorShapeToTarget("connector-id:pro:high", "claim-id:pro:high", "proTarget"),
             },
         );
 

@@ -20,7 +20,7 @@ export interface BuildLayoutModelRequest {
     dagOptions?: DagOptions;
 }
 
-export interface LayoutClaimShape {
+export interface ClaimShape {
     id: string;
     claimId: ClaimId;
     claim: CalculatedDebate["claims"][ClaimId];
@@ -31,16 +31,20 @@ export interface LayoutClaimShape {
     parentId?: string;
 }
 
-export type LayoutNode = LayoutClaimShape;
-
 export interface ClaimShapeSize {
     width: number;
     height: number;
 }
 
-export type NodeSize = ClaimShapeSize;
+export interface ConnectorGeometry {
+    targetSideY: number;
+    sourceSideY: number;
+    strokeWidth: number;
+    referenceStrokeWidth: number;
+    pathD: string;
+}
 
-export interface LayoutConnectorShape {
+export interface ConnectorShape {
     id: string;
     targetClaimShapeId: string;
     sourceClaimShapeId: string;
@@ -50,30 +54,32 @@ export interface LayoutConnectorShape {
     connector: CalculatedDebate["connectors"][ConnectorId];
     affects: Affects;
     targetRelation: TargetRelation;
+    // Separation of duties: when present, geometry was computed by layout.
+    // Render adapters must consume this directly and avoid recalculating connector routes.
+    geometry?: ConnectorGeometry;
     skippedInCycleMode?: boolean;
 }
 
-export type LayoutEdge = LayoutConnectorShape;
-
-export interface LayoutModel {
+export interface DraftLayoutModel {
     rootClaimShapeId: string;
-    claimShapes: Record<string, LayoutNode>;
-    connectorShapes: Record<string, LayoutEdge>;
+    claimShapes: Record<string, ClaimShape>;
+    connectorShapes: Record<string, ConnectorShape>;
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
 }
 
-export interface PositionedLayoutClaimShape extends LayoutNode, NodeSize {
+export interface PlacedClaimShape extends ClaimShape, ClaimShapeSize {
     x: number;
     y: number;
 }
 
-export type PositionedLayoutNode = PositionedLayoutClaimShape;
-
-export interface PositionedLayoutModel {
+export interface LayoutModel {
     rootClaimShapeId: string;
-    claimShapes: Record<string, PositionedLayoutClaimShape>;
-    connectorShapes: Record<string, LayoutEdge>;
+    claimShapes: Record<string, PlacedClaimShape>;
+    connectorShapes: Record<string, ConnectorShape>;
+    // Draw order is layout-owned; adapters should render in this sequence.
+    connectorShapeRenderOrder: string[];
+    claimShapeRenderOrder: string[];
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
     layoutEngine: "elkjs";
@@ -124,7 +130,7 @@ export interface BuildLayoutModelFailure {
 
 export interface BuildLayoutModelSuccess {
     ok: true;
-    model: LayoutModel;
+    model: DraftLayoutModel;
     diagnostics: LayoutDiagnostic[];
 }
 
@@ -133,7 +139,7 @@ export type BuildLayoutModelResult = BuildLayoutModelSuccess | BuildLayoutModelF
 export interface PlaceLayoutWithElkFailure {
     ok: false;
     error: {
-        code: "ELK_LAYOUT_FAILED" | "ELK_NODE_NOT_POSITIONED";
+        code: "ELK_LAYOUT_FAILED" | "ELK_CLAIM_SHAPE_NOT_PLACED";
         message: string;
         details?: Record<string, unknown>;
     };
@@ -142,7 +148,7 @@ export interface PlaceLayoutWithElkFailure {
 
 export interface PlaceLayoutWithElkSuccess {
     ok: true;
-    model: PositionedLayoutModel;
+    model: LayoutModel;
     diagnostics: LayoutDiagnostic[];
 }
 

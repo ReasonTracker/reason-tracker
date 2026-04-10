@@ -538,8 +538,8 @@ function createRoutePlan(tree, indexCandidateKeys) {
 
     claimOutputPath(routeOwners, outputRelPath, `directory:${directoryPath || "<root>"}`);
 
-    const node = tree.get(directoryPath);
-    const fileEntries = [...node.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const directoryEntry = tree.get(directoryPath);
+    const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
     const selection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
       indexCandidateKeys,
@@ -570,8 +570,8 @@ function createRoutePlan(tree, indexCandidateKeys) {
   }
 
   for (const directoryPath of directoryPaths) {
-    const node = tree.get(directoryPath);
-    const fileEntries = [...node.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const directoryEntry = tree.get(directoryPath);
+    const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     const defaultMarkdownSource = defaultMarkdownSourceByDirectory.get(directoryPath) || null;
 
     for (const [, sourcePath] of fileEntries) {
@@ -647,9 +647,9 @@ function joinRoutePath(...segments) {
 
 async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath) {
   for (const page of routePlan.directoryPages) {
-    const node = tree.get(page.sourceDirectoryPath);
-    const directories = [...node.directories].sort((a, b) => a.localeCompare(b));
-    const fileEntries = [...node.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const directoryEntry = tree.get(page.sourceDirectoryPath);
+    const directories = [...directoryEntry.directories].sort((a, b) => a.localeCompare(b));
+    const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     const fallbackSelection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
       indexCandidateKeys,
     });

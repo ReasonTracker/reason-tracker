@@ -22,3 +22,6 @@ Renderer package source.
 - No fallback clamping strategy.
 - Visual transform scaling is supported for web preview while layout geometry remains authoritative.
 - Preview uses engine-calculated scores.
+- Connector routing logic belongs in `layout/` and not in HTML/CSS rendering modules.
+- Rendering modules should treat connector geometry as immutable layout input.
+- Geometry behavior tests belong in `layout/*.test.ts`.

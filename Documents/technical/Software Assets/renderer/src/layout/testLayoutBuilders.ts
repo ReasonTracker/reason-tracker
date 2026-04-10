@@ -1,14 +1,14 @@
 import type { TargetRelation } from "@reasontracker/contracts";
 import { asClaimId, asConnectorId, asDebateId, asScore } from "./testContracts.ts";
 import type {
-    LayoutEdge,
+    ConnectorShape,
+    DraftLayoutModel,
+    ClaimShape,
     LayoutModel,
-    LayoutNode,
-    PositionedLayoutModel,
-    PositionedLayoutNode,
+    PlacedClaimShape,
 } from "./types.ts";
 
-export function layoutNode(id: string, confidence: number, depth = 0): LayoutNode {
+export function claimShape(id: string, confidence: number, depth = 0): ClaimShape {
     const claimId = asClaimId(id);
     return {
         id,
@@ -25,12 +25,12 @@ export function layoutNode(id: string, confidence: number, depth = 0): LayoutNod
     };
 }
 
-export function positionedLayoutNode(
+export function placedClaimShape(
     id: string,
     side: "proMain" | "conMain",
     confidence: number,
     y: number,
-): PositionedLayoutNode {
+): PlacedClaimShape {
     const claimId = asClaimId(id);
     return {
         id,
@@ -51,11 +51,11 @@ export function positionedLayoutNode(
     };
 }
 
-export function layoutEdgeToTarget(
+export function connectorShapeToTarget(
     id: string,
     sourceClaimShapeId: string,
     targetRelation: TargetRelation,
-): LayoutEdge {
+): ConnectorShape {
     return {
         id,
         targetClaimShapeId: "target",
@@ -75,9 +75,9 @@ export function layoutEdgeToTarget(
 }
 
 export function layoutModel(
-    claimShapes: Record<string, LayoutNode>,
-    connectorShapes: Record<string, LayoutEdge>,
-): LayoutModel {
+    claimShapes: Record<string, ClaimShape>,
+    connectorShapes: Record<string, ConnectorShape>,
+): DraftLayoutModel {
     return {
         rootClaimShapeId: "target",
         claimShapes,
@@ -87,14 +87,24 @@ export function layoutModel(
     };
 }
 
-export function positionedLayoutModel(
-    claimShapes: Record<string, PositionedLayoutNode>,
-    connectorShapes: Record<string, LayoutEdge>,
-): PositionedLayoutModel {
+export function placedLayoutModel(
+    claimShapes: Record<string, PlacedClaimShape>,
+    connectorShapes: Record<string, ConnectorShape>,
+): LayoutModel {
+    const connectorShapeRenderOrder = Object.keys(connectorShapes).sort((a, b) => a.localeCompare(b));
+    const claimShapeRenderOrder = Object.keys(claimShapes)
+        .sort((a, b) => {
+            const depthOrder = claimShapes[a].depth - claimShapes[b].depth;
+            if (depthOrder !== 0) return depthOrder;
+            return a.localeCompare(b);
+        });
+
     return {
         rootClaimShapeId: "target",
         claimShapes,
         connectorShapes,
+        connectorShapeRenderOrder,
+        claimShapeRenderOrder,
         cycleMode: "preserve",
         sourceDebateId: asDebateId("debate:test"),
         layoutEngine: "elkjs",

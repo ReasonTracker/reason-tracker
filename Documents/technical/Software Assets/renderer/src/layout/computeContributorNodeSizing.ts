@@ -1,27 +1,27 @@
 import type {
+    ClaimShapeSize,
     ContributorNodeSizingOptions,
     ContributorNodeSizingResult,
-    LayoutModel,
-    NodeSize,
+    DraftLayoutModel,
 } from "./types.ts";
 
-const DEFAULT_NODE_SIZE: NodeSize = {
+const DEFAULT_CLAIM_SHAPE_SIZE: ClaimShapeSize = {
     width: 320,
     height: 180,
 };
 
 export function computeContributorNodeSizing(
-    model: LayoutModel,
+    model: DraftLayoutModel,
     options: ContributorNodeSizingOptions = {},
 ): ContributorNodeSizingResult {
     const applyConfidenceScale = options.applyConfidenceScale ?? true;
     const applyRelevanceScale = options.applyRelevanceScale ?? true;
-    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_NODE_SIZE;
+    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
 
     const confidenceCascadeScaleByClaimShapeId: Record<string, number> = {};
     const relevanceNormalizedScaleByClaimShapeId: Record<string, number> = {};
     const claimShapeScaleByClaimShapeId: Record<string, number> = {};
-    const claimShapeSizeByClaimShapeId: Record<string, NodeSize> = {};
+    const claimShapeSizeByClaimShapeId: Record<string, ClaimShapeSize> = {};
 
     for (const claimShapeId of Object.keys(model.claimShapes)) {
         confidenceCascadeScaleByClaimShapeId[claimShapeId] = 1;

@@ -1,8 +1,13 @@
 import { compareConnectorPreference } from "./ordering.ts";
-import type { PositionedLayoutModel } from "./types.ts";
+import type { ConnectorShape } from "./types.ts";
+
+interface TargetConnectorOrderingModel {
+    claimShapes: Record<string, { y: number; height: number; score?: { confidence: number } }>;
+    connectorShapes: Record<string, Pick<ConnectorShape, "id" | "sourceClaimShapeId" | "targetRelation">>;
+}
 
 export function orderConnectorShapeIdsForTarget(
-    model: PositionedLayoutModel,
+    model: TargetConnectorOrderingModel,
     connectorShapeIds: string[],
 ): string[] {
     return [...connectorShapeIds].sort((a, b) => {

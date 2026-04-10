@@ -5,9 +5,9 @@ import type {
 import { describe, expect, it } from "vitest";
 import { computeContributorNodeSizing } from "./computeContributorNodeSizing.ts";
 import { asClaimId, asConnectorId, asDebateId, asScore } from "./testContracts.ts";
-import type { LayoutEdge, LayoutModel, LayoutNode, NodeSize } from "./types.ts";
+import type { ClaimShapeSize, ConnectorShape, DraftLayoutModel, ClaimShape } from "./types.ts";
 
-function node(id: string, confidence: number, depth = 0, relevance = 1): LayoutNode {
+function claimShape(id: string, confidence: number, depth = 0, relevance = 1): ClaimShape {
     const claimId = asClaimId(id);
     return {
         id,
@@ -24,12 +24,12 @@ function node(id: string, confidence: number, depth = 0, relevance = 1): LayoutN
     };
 }
 
-function edge(
+function connectorShape(
     id: string,
     targetClaimShapeId: string,
     sourceClaimShapeId: string,
     affects: Affects = "confidence",
-): LayoutEdge {
+): ConnectorShape {
     const connector: Connector = {
         id: asConnectorId(id),
         target: targetClaimShapeId,
@@ -50,7 +50,7 @@ function edge(
     };
 }
 
-function layoutModel(claimShapes: Record<string, LayoutNode>, connectorShapes: Record<string, LayoutEdge>): LayoutModel {
+function layoutModel(claimShapes: Record<string, ClaimShape>, connectorShapes: Record<string, ConnectorShape>): DraftLayoutModel {
     return {
         rootClaimShapeId: "target",
         claimShapes,
@@ -60,22 +60,22 @@ function layoutModel(claimShapes: Record<string, LayoutNode>, connectorShapes: R
     };
 }
 
-const BASE_SIZE: NodeSize = {
+const BASE_SIZE: ClaimShapeSize = {
     width: 300,
     height: 200,
 };
 
 describe("computeContributorNodeSizing", () => {
-    it("returns full-size nodes when confidence and relevance scaling are disabled", () => {
+    it("returns full-size claim shapes when confidence and relevance scaling are disabled", () => {
         const model = layoutModel(
             {
-                target: node("target", 1),
-                c1: node("c1", 0.2, 1),
-                c2: node("c2", 0, 1),
+                target: claimShape("target", 1),
+                c1: claimShape("c1", 0.2, 1),
+                c2: claimShape("c2", 0, 1),
             },
             {
-                e1: edge("e1", "target", "c1"),
-                e2: edge("e2", "target", "c2"),
+                e1: connectorShape("e1", "target", "c1"),
+                e2: connectorShape("e2", "target", "c2"),
             },
         );
 
@@ -94,11 +94,11 @@ describe("computeContributorNodeSizing", () => {
     it("keeps a single 0.5-confidence contributor at full size", () => {
         const model = layoutModel(
             {
-                target: node("target", 1),
-                c1: node("c1", 0.5, 1),
+                target: claimShape("target", 1),
+                c1: claimShape("c1", 0.5, 1),
             },
             {
-                e1: edge("e1", "target", "c1"),
+                e1: connectorShape("e1", "target", "c1"),
             },
         );
 
@@ -115,13 +115,13 @@ describe("computeContributorNodeSizing", () => {
     it("shrinks all contributors equally when cumulative positive confidence exceeds one", () => {
         const model = layoutModel(
             {
-                target: node("target", 1),
-                c1: node("c1", 1, 1),
-                c2: node("c2", 1, 1),
+                target: claimShape("target", 1),
+                c1: claimShape("c1", 1, 1),
+                c2: claimShape("c2", 1, 1),
             },
             {
-                e1: edge("e1", "target", "c1"),
-                e2: edge("e2", "target", "c2"),
+                e1: connectorShape("e1", "target", "c1"),
+                e2: connectorShape("e2", "target", "c2"),
             },
         );
 
@@ -142,15 +142,15 @@ describe("computeContributorNodeSizing", () => {
     it("filters zero-confidence contributors from cumulative mass", () => {
         const model = layoutModel(
             {
-                target: node("target", 1),
-                c1: node("c1", 1, 1),
-                c2: node("c2", 0, 1),
-                c3: node("c3", 0, 1),
+                target: claimShape("target", 1),
+                c1: claimShape("c1", 1, 1),
+                c2: claimShape("c2", 0, 1),
+                c3: claimShape("c3", 0, 1),
             },
             {
-                e1: edge("e1", "target", "c1"),
-                e2: edge("e2", "target", "c2"),
-                e3: edge("e3", "target", "c3"),
+                e1: connectorShape("e1", "target", "c1"),
+                e2: connectorShape("e2", "target", "c2"),
+                e3: connectorShape("e3", "target", "c3"),
             },
         );
 
@@ -169,15 +169,15 @@ describe("computeContributorNodeSizing", () => {
     it("cascades contributor scale from parent target scale", () => {
         const model = layoutModel(
             {
-                target: node("target", 1, 0),
-                a: node("a", 0.84, 1),
-                b: node("b", 0.42, 1),
-                c: node("c", 0.67, 2),
+                target: claimShape("target", 1, 0),
+                a: claimShape("a", 0.84, 1),
+                b: claimShape("b", 0.42, 1),
+                c: claimShape("c", 0.67, 2),
             },
             {
-                e1: edge("e1", "target", "a"),
-                e2: edge("e2", "target", "b"),
-                e3: edge("e3", "a", "c"),
+                e1: connectorShape("e1", "target", "a"),
+                e2: connectorShape("e2", "target", "b"),
+                e3: connectorShape("e3", "a", "c"),
             },
         );
 
@@ -195,15 +195,15 @@ describe("computeContributorNodeSizing", () => {
     it("includes relevance edges in cascade propagation", () => {
         const model = layoutModel(
             {
-                target: node("target", 1, 0),
-                c1: node("c1", 1, 1),
-                c1b: node("c1b", 1, 1),
-                c2: node("c2", 1, 2),
+                target: claimShape("target", 1, 0),
+                c1: claimShape("c1", 1, 1),
+                c1b: claimShape("c1b", 1, 1),
+                c2: claimShape("c2", 1, 2),
             },
             {
-                e1: edge("e1", "target", "c1", "confidence"),
-                e1b: edge("e1b", "target", "c1b", "confidence"),
-                e2: edge("e2", "c1", "c2", "relevance"),
+                e1: connectorShape("e1", "target", "c1", "confidence"),
+                e1b: connectorShape("e1b", "target", "c1b", "confidence"),
+                e2: connectorShape("e2", "c1", "c2", "relevance"),
             },
         );
 
@@ -221,13 +221,13 @@ describe("computeContributorNodeSizing", () => {
     it("applies relevance scaling as sibling-normalized shrink-only adjustment", () => {
         const model = layoutModel(
             {
-                target: node("target", 1, 0, 1),
-                a: node("a", 1, 1, 1),
-                b: node("b", 1, 1, 2),
+                target: claimShape("target", 1, 0, 1),
+                a: claimShape("a", 1, 1, 1),
+                b: claimShape("b", 1, 1, 2),
             },
             {
-                e1: edge("e1", "target", "a", "confidence"),
-                e2: edge("e2", "target", "b", "confidence"),
+                e1: connectorShape("e1", "target", "a", "confidence"),
+                e2: connectorShape("e2", "target", "b", "confidence"),
             },
         );
 

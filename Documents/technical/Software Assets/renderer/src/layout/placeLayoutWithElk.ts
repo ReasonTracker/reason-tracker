@@ -1,17 +1,18 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type {
+    ClaimShapeSize,
+    ClaimShape,
+    DraftLayoutModel,
     LayoutDiagnostic,
     LayoutModel,
-    LayoutNode,
-    NodeSize,
     PlaceLayoutWithElkOptions,
     PlaceLayoutWithElkResult,
-    PositionedLayoutModel,
-    PositionedLayoutNode,
+    PlacedClaimShape,
 } from "./types.ts";
 import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
+import { withConnectorGeometry } from "./computeConnectorGeometry.ts";
 
-interface ElkChildNode {
+interface ElkClaimShapeLayout {
     id: string;
     width: number;
     height: number;
@@ -20,7 +21,7 @@ interface ElkChildNode {
     layoutOptions?: Record<string, string>;
 }
 
-interface ElkEdge {
+interface ElkConnectorLayout {
     id: string;
     sources: string[];
     targets: string[];
@@ -28,8 +29,8 @@ interface ElkEdge {
 
 interface ElkGraph {
     id: string;
-    children?: ElkChildNode[];
-    edges?: ElkEdge[];
+    children?: ElkClaimShapeLayout[];
+    edges?: ElkConnectorLayout[];
     width?: number;
     height?: number;
     layoutOptions?: Record<string, string>;
@@ -39,18 +40,20 @@ interface ElkLayoutApi {
     layout: (graph: unknown) => Promise<unknown>;
 }
 
-const DEFAULT_NODE_SIZE: NodeSize = {
+const DEFAULT_CLAIM_SHAPE_SIZE: ClaimShapeSize = {
     width: 320,
     height: 180,
 };
 
 export async function placeLayoutWithElk(
-    model: LayoutModel,
+    model: DraftLayoutModel,
     options: PlaceLayoutWithElkOptions = {},
 ): Promise<PlaceLayoutWithElkResult> {
+    // Separation of duties: this function owns placed geometry for both nodes and connectors.
+    // Render adapters should not recompute connector routing.
     const diagnostics: LayoutDiagnostic[] = [];
 
-    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_NODE_SIZE;
+    const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
     const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
     const claimShapeSpacing = options.claimShapeSpacing ?? 40;
     const layerSpacing = options.layerSpacing ?? 96;
@@ -61,7 +64,7 @@ export async function placeLayoutWithElk(
 
     const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
 
-    const children: ElkChildNode[] = orderedClaimShapeIds.map((claimShapeId) => {
+    const children: ElkClaimShapeLayout[] = orderedClaimShapeIds.map((claimShapeId) => {
         const size = claimShapeSizeByClaimShapeId[claimShapeId] ?? defaultClaimShapeSize;
         const isRoot = claimShapeId === model.rootClaimShapeId;
 
@@ -77,7 +80,7 @@ export async function placeLayoutWithElk(
         };
     });
 
-    const connectorShapes: ElkEdge[] = Object.values(model.connectorShapes)
+    const connectorShapes: ElkConnectorLayout[] = Object.values(model.connectorShapes)
         .sort((a, b) => compareConnectorPreference(model, a.id, b.id))
         .map((connectorShape) => ({
             id: connectorShape.id,
@@ -127,23 +130,23 @@ export async function placeLayoutWithElk(
         };
     }
 
-    const positionedChildren = new Map<string, ElkChildNode>();
+    const placedChildren = new Map<string, ElkClaimShapeLayout>();
     for (const child of laidOutGraph.children ?? []) {
-        positionedChildren.set(child.id, child);
+        placedChildren.set(child.id, child);
     }
 
-    const positionedClaimShapes: Record<string, PositionedLayoutNode> = {};
+    const placedClaimShapes: Record<string, PlacedClaimShape> = {};
     let maxX = 0;
     let maxY = 0;
 
     for (const [claimShapeId, claimShape] of Object.entries(model.claimShapes)) {
-        const laidOutNode = positionedChildren.get(claimShapeId);
+        const laidOutNode = placedChildren.get(claimShapeId);
         if (!laidOutNode || laidOutNode.x == null || laidOutNode.y == null) {
             return {
                 ok: false,
                 error: {
-                    code: "ELK_NODE_NOT_POSITIONED",
-                    message: "ELK did not return a position for every node.",
+                    code: "ELK_CLAIM_SHAPE_NOT_PLACED",
+                    message: "ELK did not return a position for every claim shape.",
                     details: {
                         claimShapeId,
                     },
@@ -152,19 +155,31 @@ export async function placeLayoutWithElk(
             };
         }
 
-        const positionedNode = toPositionedNode(claimShape, laidOutNode);
-        positionedClaimShapes[claimShapeId] = positionedNode;
+        const placedClaimShape = toPlacedClaimShape(claimShape, laidOutNode);
+        placedClaimShapes[claimShapeId] = placedClaimShape;
     }
 
-    for (const positionedNode of Object.values(positionedClaimShapes)) {
-        maxX = Math.max(maxX, positionedNode.x + positionedNode.width);
-        maxY = Math.max(maxY, positionedNode.y + positionedNode.height);
+    for (const placedClaimShape of Object.values(placedClaimShapes)) {
+        maxX = Math.max(maxX, placedClaimShape.x + placedClaimShape.width);
+        maxY = Math.max(maxY, placedClaimShape.y + placedClaimShape.height);
     }
 
-    const placedModel: PositionedLayoutModel = {
+    const placedConnectorShapes = withConnectorGeometry(placedClaimShapes, model.connectorShapes);
+    const connectorShapeRenderOrder = Object.keys(placedConnectorShapes)
+        .sort((a, b) => a.localeCompare(b));
+    const claimShapeRenderOrder = Object.keys(placedClaimShapes)
+        .sort((a, b) => {
+            const depthOrder = placedClaimShapes[a].depth - placedClaimShapes[b].depth;
+            if (depthOrder !== 0) return depthOrder;
+            return a.localeCompare(b);
+        });
+
+    const placedModel: LayoutModel = {
         rootClaimShapeId: model.rootClaimShapeId,
-        claimShapes: positionedClaimShapes,
-        connectorShapes: model.connectorShapes,
+        claimShapes: placedClaimShapes,
+        connectorShapes: placedConnectorShapes,
+        connectorShapeRenderOrder,
+        claimShapeRenderOrder,
         cycleMode: model.cycleMode,
         sourceDebateId: model.sourceDebateId,
         layoutEngine: "elkjs",
@@ -177,10 +192,10 @@ export async function placeLayoutWithElk(
     diagnostics.push({
         level: "info",
         code: "ELK_LAYOUT_COMPLETED",
-        message: "Placed layout nodes with ELK layered algorithm.",
+        message: "Placed claim shapes with ELK layered algorithm.",
         data: {
-            nodeCount: Object.keys(model.claimShapes).length,
-            edgeCount: Object.keys(model.connectorShapes).length,
+            claimShapeCount: Object.keys(model.claimShapes).length,
+            connectorShapeCount: Object.keys(model.connectorShapes).length,
             rootClaimShapeId: model.rootClaimShapeId,
             boundsWidth: placedModel.layoutBounds.width,
             boundsHeight: placedModel.layoutBounds.height,
@@ -194,12 +209,12 @@ export async function placeLayoutWithElk(
     };
 }
 
-function toPositionedNode(node: LayoutNode, laidOutNode: ElkChildNode): PositionedLayoutNode {
+function toPlacedClaimShape(claimShape: ClaimShape, placedClaimShapeLayout: ElkClaimShapeLayout): PlacedClaimShape {
     return {
-        ...node,
-        x: laidOutNode.x ?? 0,
-        y: laidOutNode.y ?? 0,
-        width: laidOutNode.width,
-        height: laidOutNode.height,
+        ...claimShape,
+        x: placedClaimShapeLayout.x ?? 0,
+        y: placedClaimShapeLayout.y ?? 0,
+        width: placedClaimShapeLayout.width,
+        height: placedClaimShapeLayout.height,
     };
 }

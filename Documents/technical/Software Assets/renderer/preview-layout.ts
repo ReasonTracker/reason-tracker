@@ -71,98 +71,98 @@ function buildSampleDebate(): Debate {
     };
 
     const connectors: Record<ConnectorId, Connector> = {
-        [asConnectorId("edge:1")]: {
-            id: asConnectorId("edge:1"),
+        [asConnectorId("connector:1")]: {
+            id: asConnectorId("connector:1"),
             source: cA,
             target: cMain,
             affects: "confidence",
         },
-        [asConnectorId("edge:2")]: {
-            id: asConnectorId("edge:2"),
+        [asConnectorId("connector:2")]: {
+            id: asConnectorId("connector:2"),
             source: cB,
             target: cMain,
             affects: "confidence",
         },
-        [asConnectorId("edge:3")]: {
-            id: asConnectorId("edge:3"),
+        [asConnectorId("connector:3")]: {
+            id: asConnectorId("connector:3"),
             source: cC,
             target: cA,
             affects: "confidence",
         },
-        [asConnectorId("edge:5")]: {
-            id: asConnectorId("edge:5"),
+        [asConnectorId("connector:5")]: {
+            id: asConnectorId("connector:5"),
             source: cE,
             target: cB,
             affects: "relevance",
         },
-        [asConnectorId("edge:6")]: {
-            id: asConnectorId("edge:6"),
+        [asConnectorId("connector:6")]: {
+            id: asConnectorId("connector:6"),
             source: cF,
             target: cB,
             affects: "confidence",
         },
-        [asConnectorId("edge:9")]: {
-            id: asConnectorId("edge:9"),
+        [asConnectorId("connector:9")]: {
+            id: asConnectorId("connector:9"),
             source: cI,
             target: cB,
             affects: "confidence",
         },
-        [asConnectorId("edge:12")]: {
-            id: asConnectorId("edge:12"),
+        [asConnectorId("connector:12")]: {
+            id: asConnectorId("connector:12"),
             source: cL,
             target: cA,
             affects: "confidence",
         },
-        [asConnectorId("edge:13")]: {
-            id: asConnectorId("edge:13"),
+        [asConnectorId("connector:13")]: {
+            id: asConnectorId("connector:13"),
             source: cM,
             target: cA,
             affects: "confidence",
         },
-        [asConnectorId("edge:14")]: {
-            id: asConnectorId("edge:14"),
+        [asConnectorId("connector:14")]: {
+            id: asConnectorId("connector:14"),
             source: cN,
             target: cMain,
             affects: "confidence",
         },
-        [asConnectorId("edge:15")]: {
-            id: asConnectorId("edge:15"),
+        [asConnectorId("connector:15")]: {
+            id: asConnectorId("connector:15"),
             source: cO,
             target: cB,
             affects: "confidence",
         },
-        [asConnectorId("edge:21")]: {
-            id: asConnectorId("edge:21"),
+        [asConnectorId("connector:21")]: {
+            id: asConnectorId("connector:21"),
             source: cU,
             target: cN,
             affects: "confidence",
         },
-        [asConnectorId("edge:22")]: {
-            id: asConnectorId("edge:22"),
+        [asConnectorId("connector:22")]: {
+            id: asConnectorId("connector:22"),
             source: cV,
             target: cN,
             affects: "confidence",
         },
-        [asConnectorId("edge:23")]: {
-            id: asConnectorId("edge:23"),
+        [asConnectorId("connector:23")]: {
+            id: asConnectorId("connector:23"),
             source: cW,
             target: cN,
             affects: "confidence",
         },
-        [asConnectorId("edge:24")]: {
-            id: asConnectorId("edge:24"),
+        [asConnectorId("connector:24")]: {
+            id: asConnectorId("connector:24"),
             source: cX,
             target: cMain,
             affects: "confidence",
         },
-        [asConnectorId("edge:25")]: {
-            id: asConnectorId("edge:25"),
+        [asConnectorId("connector:25")]: {
+            id: asConnectorId("connector:25"),
             source: cY,
             target: cMain,
             affects: "confidence",
         },
-        [asConnectorId("edge:26")]: {
-            id: asConnectorId("edge:26"),
+        [asConnectorId("connector:26")]: {
+            id: asConnectorId("connector:26"),
             source: cZ,
             target: cY,
             affects: "confidence",
@@ -228,7 +228,6 @@ async function main(): Promise<void> {
     const { html } = renderWebDocument(placed.model, {
         title: "Reason Tracker Layout Preview",
         includeScore: true,
-        density: "comfortable",
         brandCssHref: "../../website/site/css/brand.css",
         useClaimShapeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
         claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
