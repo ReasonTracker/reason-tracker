@@ -97,6 +97,7 @@ export interface PlaceLayoutWithElkOptions {
     connectorClaimShapeGap?: number;
     sourceSideStraightSegmentPercent?: number;
     targetSideStraightSegmentPercent?: number;
+    connectorPathShape?: "straight" | "curved" | "sharp-corners" | "elk-bends";
     preserveInputOrder?: boolean;
     favorStraightEdges?: boolean;
     bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";

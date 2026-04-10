@@ -3,8 +3,6 @@ import type { ConnectorShape, PlacedClaimShape } from "./types.ts";
 
 // Separation of duties: connector routing geometry belongs to layout calculations.
 // Rendering consumes this data and should not recompute connector anchor or path logic.
-const SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.5;
-const TARGET_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.3;
 
 interface ConnectorOrderingModel {
     claimShapes: Record<string, PlacedClaimShape>;
@@ -20,6 +18,8 @@ interface ConnectorGeometryOptions {
     connectorShapeProcessingOrder?: string[];
     sourceSideStraightSegmentPercent?: number;
     targetSideStraightSegmentPercent?: number;
+    connectorPathShape?: "straight" | "curved" | "sharp-corners" | "elk-bends";
+    elkPathDByConnectorShapeId?: Record<string, string>;
     debugConnectorOrder?: boolean;
 }
 
@@ -31,8 +31,9 @@ export function withConnectorGeometry(
     const connectorShapeStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeReferenceStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
-    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT;
-    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? TARGET_SIDE_STRAIGHT_SEGMENT_PERCENT;
+    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? 0.5;
+    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? 0.3;
+    const connectorPathShape = options.connectorPathShape ?? "straight";
 
     const connectorShapeIdsInProcessingOrder = options.connectorShapeProcessingOrder
         ? options.connectorShapeProcessingOrder.filter((connectorShapeId) => Boolean(connectorShapes[connectorShapeId]))
@@ -123,10 +124,30 @@ export function withConnectorGeometry(
         const sourceSideY = options.sourceAnchorYByConnectorShapeId?.[connectorShape.id]
             ?? (sourceClaimShape.y + sourceClaimShape.height / 2);
         const targetHorizontalGap = horizontalGapByTargetClaimShapeId[connectorShape.targetClaimShapeId] ?? 0;
-        const sourceSideStraightSegment = targetHorizontalGap * sourceSideStraightSegmentPercent;
-        const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
-        const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
-        const pathD = `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceElbowX} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+        const elkPathD = options.elkPathDByConnectorShapeId?.[connectorShape.id];
+        const pathD = connectorPathShape === "elk-bends" && elkPathD
+            ? elkPathD
+            : connectorPathShape === "curved"
+                ? buildCurvedConnectorPathD(
+                    targetSideX,
+                    targetSideY,
+                    sourceSideX,
+                    sourceSideY,
+                    targetHorizontalGap,
+                    sourceSideStraightSegmentPercent,
+                    targetSideStraightSegmentPercent,
+                )
+                : connectorPathShape === "sharp-corners"
+                    ? buildSharpCornerConnectorPathD(
+                        targetSideX,
+                        targetSideY,
+                        sourceSideX,
+                        sourceSideY,
+                        targetHorizontalGap,
+                        sourceSideStraightSegmentPercent,
+                        targetSideStraightSegmentPercent,
+                    )
+                    : `M ${targetSideX} ${targetSideY} L ${sourceSideX} ${sourceSideY}`;
 
         if (options.debugConnectorOrder) {
             console.log(
@@ -204,4 +225,39 @@ function computeStackedAnchorYByConnectorShapeId(
     }
 
     return yByConnectorShapeId;
+}
+
+function buildCurvedConnectorPathD(
+    targetSideX: number,
+    targetSideY: number,
+    sourceSideX: number,
+    sourceSideY: number,
+    targetHorizontalGap: number,
+    sourceSideStraightSegmentPercent: number,
+    targetSideStraightSegmentPercent: number,
+): string {
+    const sourceSideStraightSegment = targetHorizontalGap * sourceSideStraightSegmentPercent;
+    const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
+    const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
+    return `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceElbowX} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+}
+
+function buildSharpCornerConnectorPathD(
+    targetSideX: number,
+    targetSideY: number,
+    sourceSideX: number,
+    sourceSideY: number,
+    targetHorizontalGap: number,
+    sourceSideStraightSegmentPercent: number,
+    targetSideStraightSegmentPercent: number,
+): string {
+    const sourceSideStraightSegment = targetHorizontalGap * sourceSideStraightSegmentPercent;
+    const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
+    const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
+    return [
+        `M ${targetSideX} ${targetSideY}`,
+        `L ${targetSideX + targetSideStraightSegment} ${targetSideY}`,
+        `L ${sourceElbowX} ${sourceSideY}`,
+        `L ${sourceSideX} ${sourceSideY}`,
+    ].join(" ");
 }
