@@ -467,11 +467,10 @@ function computeStackedAnchorYByConnectorShapeId(
     connectorShapeStrokeWidthByConnectorShapeId: Record<string, number>,
     targetClaimShape: PositionedLayoutClaimShape,
 ): Record<string, number> {
-    const gap = 2;
     const centerY = targetClaimShape.y + targetClaimShape.height / 2;
-    const totalStackHeight = connectorShapeIds.reduce((sum, connectorShapeId, index) => {
+    const totalStackHeight = connectorShapeIds.reduce((sum, connectorShapeId) => {
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
-        return sum + strokeWidth + (index === 0 ? 0 : gap);
+        return sum + strokeWidth;
     }, 0);
 
     const yByConnectorShapeId: Record<string, number> = {};
@@ -480,7 +479,7 @@ function computeStackedAnchorYByConnectorShapeId(
     for (const connectorShapeId of connectorShapeIds) {
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
         yByConnectorShapeId[connectorShapeId] = cursorY + strokeWidth / 2;
-        cursorY += strokeWidth + gap;
+        cursorY += strokeWidth;
     }
 
     return yByConnectorShapeId;
