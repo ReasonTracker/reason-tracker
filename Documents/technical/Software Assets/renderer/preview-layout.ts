@@ -36,28 +36,34 @@ function buildSampleDebate(): Debate {
     const cA = asClaimId("a");
     const cB = asClaimId("b");
     const cC = asClaimId("c");
-    const cD = asClaimId("d");
     const cE = asClaimId("e");
     const cF = asClaimId("f");
-    const cG = asClaimId("g");
-    const cH = asClaimId("h");
     const cI = asClaimId("i");
-    const cJ = asClaimId("j");
-    const cK = asClaimId("k");
+    const cL = asClaimId("l");
+    const cM = asClaimId("m");
+    const cN = asClaimId("n");
+    const cO = asClaimId("o");
+    const cU = asClaimId("u");
+    const cV = asClaimId("v");
+    const cW = asClaimId("w");
+    const cX = asClaimId("x");
 
     const claims: Record<ClaimId, Claim> = {
         [cMain]: { id: cMain, content: "Main claim", pol: "pro" },
         [cA]: { id: cA, content: "Evidence A", pol: "pro" },
         [cB]: { id: cB, content: "Counterpoint B", pol: "pro" },
         [cC]: { id: cC, content: "Sub reason C", pol: "pro" },
-        [cD]: { id: cD, content: "Sub reason D", pol: "pro" },
         [cE]: { id: cE, content: "Alternative source E", pol: "pro" },
         [cF]: { id: cF, content: "Alternative source F", pol: "pro" },
-        [cG]: { id: cG, content: "Detail G", pol: "pro" },
-        [cH]: { id: cH, content: "Detail H", pol: "pro" },
         [cI]: { id: cI, content: "Detail I", pol: "pro" },
-        [cJ]: { id: cJ, content: "Detail J", pol: "pro" },
-        [cK]: { id: cK, content: "Detail K", pol: "pro" },
+        [cL]: { id: cL, content: "Counterpoint L", pol: "con" },
+        [cM]: { id: cM, content: "Support M", pol: "pro" },
+        [cN]: { id: cN, content: "Counterpoint N", pol: "con" },
+        [cO]: { id: cO, content: "Counterpoint O", pol: "con" },
+        [cU]: { id: cU, content: "Support U", pol: "pro" },
+        [cV]: { id: cV, content: "Support V", pol: "pro" },
+        [cW]: { id: cW, content: "Counterpoint W", pol: "con" },
+        [cX]: { id: cX, content: "Support X", pol: "pro" },
     };
 
     const connectors: Record<ConnectorId, Connector> = {
@@ -82,13 +88,6 @@ function buildSampleDebate(): Debate {
             proTarget: true,
             affects: "confidence",
         },
-        [asConnectorId("edge:4")]: {
-            id: asConnectorId("edge:4"),
-            source: cD,
-            target: cC,
-            proTarget: true,
-            affects: "confidence",
-        },
         [asConnectorId("edge:5")]: {
             id: asConnectorId("edge:5"),
             source: cE,
@@ -103,20 +102,6 @@ function buildSampleDebate(): Debate {
             proTarget: true,
             affects: "confidence",
         },
-        [asConnectorId("edge:7")]: {
-            id: asConnectorId("edge:7"),
-            source: cG,
-            target: cC,
-            proTarget: true,
-            affects: "confidence",
-        },
-        [asConnectorId("edge:8")]: {
-            id: asConnectorId("edge:8"),
-            source: cH,
-            target: cC,
-            proTarget: true,
-            affects: "confidence",
-        },
         [asConnectorId("edge:9")]: {
             id: asConnectorId("edge:9"),
             source: cI,
@@ -124,17 +109,59 @@ function buildSampleDebate(): Debate {
             proTarget: true,
             affects: "confidence",
         },
-        [asConnectorId("edge:10")]: {
-            id: asConnectorId("edge:10"),
-            source: cJ,
-            target: cF,
+        [asConnectorId("edge:12")]: {
+            id: asConnectorId("edge:12"),
+            source: cL,
+            target: cA,
+            proTarget: false,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:13")]: {
+            id: asConnectorId("edge:13"),
+            source: cM,
+            target: cA,
             proTarget: true,
             affects: "confidence",
         },
-        [asConnectorId("edge:11")]: {
-            id: asConnectorId("edge:11"),
-            source: cK,
-            target: cD,
+        [asConnectorId("edge:14")]: {
+            id: asConnectorId("edge:14"),
+            source: cN,
+            target: cMain,
+            proTarget: false,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:15")]: {
+            id: asConnectorId("edge:15"),
+            source: cO,
+            target: cB,
+            proTarget: false,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:21")]: {
+            id: asConnectorId("edge:21"),
+            source: cU,
+            target: cN,
+            proTarget: true,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:22")]: {
+            id: asConnectorId("edge:22"),
+            source: cV,
+            target: cN,
+            proTarget: true,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:23")]: {
+            id: asConnectorId("edge:23"),
+            source: cW,
+            target: cN,
+            proTarget: false,
+            affects: "confidence",
+        },
+        [asConnectorId("edge:24")]: {
+            id: asConnectorId("edge:24"),
+            source: cX,
+            target: cMain,
             proTarget: true,
             affects: "confidence",
         },

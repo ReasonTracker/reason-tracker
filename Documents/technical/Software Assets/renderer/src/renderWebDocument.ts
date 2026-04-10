@@ -132,7 +132,7 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  fill: none;",
         "  stroke: #64748b;",
         "  stroke-width: 2;",
-        "  stroke-linecap: round;",
+        "  stroke-linecap: butt;",
         "}",
         ".rt-edge[data-pro-target='true'] {",
         "  stroke: #166534;",
@@ -168,7 +168,7 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "}",
         ".rt-node h2 {",
         "  margin: 0;",
-        "  font-size: 0.95rem;",
+        "  font-size: 1.9rem;",
         "}",
         ".rt-node small {",
         "  display: block;",
@@ -246,21 +246,64 @@ function renderPositionedContent(
     const canvasWidth = Math.max(1, Math.ceil(model.layoutBounds.width));
     const canvasHeight = Math.max(1, Math.ceil(model.layoutBounds.height));
 
-    const edgeLines = Object.values(model.edges)
-        .sort((a, b) => a.id.localeCompare(b.id))
+    const sortedEdges = Object.values(model.edges)
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+    const edgeStrokeWidthByEdgeId: Record<string, number> = {};
+    const edgesByFromNodeId: Record<string, string[]> = {};
+
+    for (const edge of sortedEdges) {
+        const toNode = model.nodes[edge.toNodeId];
+        if (!toNode) continue;
+
+        const sourceConfidence = toNode.score?.confidence ?? 1;
+        const sourceRenderedHeight = getRenderedNodeHeight(toNode, options);
+        edgeStrokeWidthByEdgeId[edge.id] = sourceRenderedHeight * sourceConfidence;
+        (edgesByFromNodeId[edge.fromNodeId] ??= []).push(edge.id);
+    }
+
+    const edgeStartYByEdgeId: Record<string, number> = {};
+    for (const [fromNodeId, edgeIds] of Object.entries(edgesByFromNodeId)) {
+        const fromNode = model.nodes[fromNodeId];
+        if (!fromNode) continue;
+
+        edgeIds.sort((a, b) => {
+            const edgeA = model.edges[a];
+            const edgeB = model.edges[b];
+            if (!edgeA || !edgeB) return a.localeCompare(b);
+
+            const sourceA = model.nodes[edgeA.toNodeId];
+            const sourceB = model.nodes[edgeB.toNodeId];
+            if (!sourceA || !sourceB) return a.localeCompare(b);
+
+            const sourceCenterYA = sourceA.y + sourceA.height / 2;
+            const sourceCenterYB = sourceB.y + sourceB.height / 2;
+            const sourceYOrder = sourceCenterYA - sourceCenterYB;
+            if (sourceYOrder !== 0) return sourceYOrder;
+
+            return a.localeCompare(b);
+        });
+
+        const yByEdgeId = computeStackedAnchorYByEdgeId(edgeIds, edgeStrokeWidthByEdgeId, fromNode);
+        Object.assign(edgeStartYByEdgeId, yByEdgeId);
+    }
+
+    const edgeLines = sortedEdges
         .map((edge) => {
             const fromNode = model.nodes[edge.fromNodeId];
             const toNode = model.nodes[edge.toNodeId];
             if (!fromNode || !toNode) return "";
 
+            const strokeWidth = edgeStrokeWidthByEdgeId[edge.id] ?? 2;
+
             const x1 = fromNode.x + fromNode.width;
-            const y1 = fromNode.y + fromNode.height / 2;
+            const y1 = edgeStartYByEdgeId[edge.id] ?? (fromNode.y + fromNode.height / 2);
             const x2 = toNode.x;
             const y2 = toNode.y + toNode.height / 2;
             const bend = Math.max(24, Math.abs(x2 - x1) * 0.35);
             const d = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
 
-            return `<path class="rt-edge" data-affects="${escapeHtml(String(edge.affects))}" data-pro-target="${edge.proTarget ? "true" : "false"}" d="${escapeHtml(d)}" />`;
+            return `<path class="rt-edge" data-affects="${escapeHtml(String(edge.affects))}" data-pro-target="${edge.proTarget ? "true" : "false"}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`;
         })
         .join("\n");
 
@@ -314,4 +357,42 @@ function renderPositionedNode(
     ].join(";");
 
     return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(node.claimId)}</h2>${scoreSnippet}</article></div></article>`;
+}
+
+function getRenderedNodeHeight(
+    node: PositionedLayoutNode,
+    options: RenderPositionedNodeOptions,
+): number {
+    if (!options.useNodeTransformScale) {
+        return node.height;
+    }
+
+    const baseHeight = options.nodeTransformBaseSize?.height ?? node.height;
+    const scale = options.nodeScaleByNodeId[node.id] ?? 1;
+
+    return baseHeight * scale;
+}
+
+function computeStackedAnchorYByEdgeId(
+    edgeIds: string[],
+    edgeStrokeWidthByEdgeId: Record<string, number>,
+    node: PositionedLayoutNode,
+): Record<string, number> {
+    const gap = 2;
+    const centerY = node.y + node.height / 2;
+    const totalStackHeight = edgeIds.reduce((sum, edgeId, index) => {
+        const strokeWidth = edgeStrokeWidthByEdgeId[edgeId] ?? 0;
+        return sum + strokeWidth + (index === 0 ? 0 : gap);
+    }, 0);
+
+    const yByEdgeId: Record<string, number> = {};
+    let cursorY = centerY - totalStackHeight / 2;
+
+    for (const edgeId of edgeIds) {
+        const strokeWidth = edgeStrokeWidthByEdgeId[edgeId] ?? 0;
+        yByEdgeId[edgeId] = cursorY + strokeWidth / 2;
+        cursorY += strokeWidth + gap;
+    }
+
+    return yByEdgeId;
 }
