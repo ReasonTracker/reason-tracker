@@ -30,6 +30,7 @@ export function placedClaimShape(
     side: "proMain" | "conMain",
     confidence: number,
     y: number,
+    height = 40,
 ): PlacedClaimShape {
     const claimId = asClaimId(id);
     return {
@@ -47,7 +48,7 @@ export function placedClaimShape(
         x: id === "target" ? 260 : 40,
         y,
         width: 120,
-        height: 40,
+        height,
     };
 }
 

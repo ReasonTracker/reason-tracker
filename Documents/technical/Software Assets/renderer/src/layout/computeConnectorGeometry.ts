@@ -67,6 +67,7 @@ export function withConnectorGeometry(
         const yByConnectorShapeId = computeStackedAnchorYByConnectorShapeId(
             orderedConnectorShapeIds,
             connectorShapeStrokeWidthByConnectorShapeId,
+            connectorShapeReferenceStrokeWidthByConnectorShapeId,
             targetClaimShape,
         );
 
@@ -136,22 +137,50 @@ export function withConnectorGeometry(
 function computeStackedAnchorYByConnectorShapeId(
     connectorShapeIds: string[],
     connectorShapeStrokeWidthByConnectorShapeId: Record<string, number>,
+    connectorShapeReferenceStrokeWidthByConnectorShapeId: Record<string, number>,
     targetClaimShape: PlacedClaimShape,
 ): Record<string, number> {
     const connectorCount = connectorShapeIds.length;
-    const centerY = targetClaimShape.y + targetClaimShape.height / 2;
     const totalStrokeWidth = connectorShapeIds.reduce((sum, connectorShapeId) => {
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
         return sum + strokeWidth;
     }, 0);
-    const totalGapHeight = Math.max(0, targetClaimShape.height - totalStrokeWidth);
+
+    const firstConnectorShapeId = connectorShapeIds[0];
+    const lastConnectorShapeId = connectorShapeIds[connectorCount - 1];
+    const firstStrokeWidth = firstConnectorShapeId
+        ? (connectorShapeStrokeWidthByConnectorShapeId[firstConnectorShapeId] ?? 0)
+        : 0;
+    const lastStrokeWidth = lastConnectorShapeId
+        ? (connectorShapeStrokeWidthByConnectorShapeId[lastConnectorShapeId] ?? 0)
+        : 0;
+    const firstReferenceStrokeWidth = firstConnectorShapeId
+        ? (connectorShapeReferenceStrokeWidthByConnectorShapeId[firstConnectorShapeId] ?? firstStrokeWidth)
+        : firstStrokeWidth;
+    const lastReferenceStrokeWidth = lastConnectorShapeId
+        ? (connectorShapeReferenceStrokeWidthByConnectorShapeId[lastConnectorShapeId] ?? lastStrokeWidth)
+        : lastStrokeWidth;
+
+    // Only reserve potential-confidence overhang on the outer stack boundaries.
+    const topBoundaryPadding = Math.max(0, (firstReferenceStrokeWidth - firstStrokeWidth) / 2);
+    const bottomBoundaryPadding = Math.max(0, (lastReferenceStrokeWidth - lastStrokeWidth) / 2);
+
+    const totalGapHeight = Math.max(
+        0,
+        targetClaimShape.height - topBoundaryPadding - bottomBoundaryPadding - totalStrokeWidth,
+    );
     const gap = connectorCount > 1
         ? totalGapHeight / (connectorCount - 1)
         : 0;
-    const totalStackHeight = totalStrokeWidth + gap * Math.max(0, connectorCount - 1);
+
+    const totalStackHeight = topBoundaryPadding
+        + totalStrokeWidth
+        + bottomBoundaryPadding
+        + gap * Math.max(0, connectorCount - 1);
+    const centerY = targetClaimShape.y + targetClaimShape.height / 2;
 
     const yByConnectorShapeId: Record<string, number> = {};
-    let cursorY = centerY - totalStackHeight / 2;
+    let cursorY = centerY - totalStackHeight / 2 + topBoundaryPadding;
 
     for (const connectorShapeId of connectorShapeIds) {
         const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShapeId] ?? 0;
