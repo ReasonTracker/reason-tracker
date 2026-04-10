@@ -7,6 +7,7 @@ New assets should be created as direct children of this folder (for example, `en
 
 <!-- autonav:start -->
 - [Engine](./engine/📌README.md)
+- [Renderer](./renderer/📌README.md)
 - [.Vscode](.vscode/📌README.md)
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)

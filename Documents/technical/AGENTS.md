@@ -48,3 +48,6 @@
 ## This Document Boundary
 - Keep this file for agent steering only.
 - Put general project documentation in shared docs.
+
+## Coding Conventions Pointer
+- While coding, read and follow `Documents/technical/Coding Guidelines.md` for code-structure conventions (for example folder creation and `index.ts` usage).

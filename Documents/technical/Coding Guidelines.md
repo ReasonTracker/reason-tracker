@@ -1,0 +1,24 @@
+# Coding Guidelines
+
+These are implementation guidelines for repository code structure and file organization.
+
+## Barrel Files (`index.ts`)
+
+- Do not create folder-level `index.ts` files unless they provide clear value.
+- A folder-level `index.ts` is justified only when at least one of these is true:
+  - It curates a stable public API from multiple implementation files.
+  - It intentionally hides internal file layout from consumers.
+  - It provides a compatibility layer during refactors or deprecations.
+- If a folder contains only one implementation file, import that file directly and avoid an extra `index.ts`.
+
+## Folder Creation Threshold
+
+- Avoid creating a new folder for only one or two files.
+- Default threshold: create a folder when there are more than 3 closely related files expected in that group.
+- Exceptions are allowed for clear domain boundaries (for example a package root or a top-level asset folder).
+
+## Intent
+
+- Keep concept count low.
+- Reduce file tree clutter.
+- Preserve clear and predictable structure while coding.

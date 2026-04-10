@@ -6,7 +6,8 @@
     "website",
     "contracts",
     "engine",
-    "engine-tests"
+    "engine-tests",
+    "renderer"
   ],
   "scripts": {
     "dev:website": "vp run reason-tracker-repo-website#dev",

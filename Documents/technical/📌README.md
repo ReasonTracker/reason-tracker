@@ -21,4 +21,5 @@ Example: `Software Assets/engine` for `@reasontracker/engine`.
 <!-- autonav:start -->
 - [Software Assets](./Software%20Assets/📌README.md)
 - [Agent Steering](./AGENTS.md)
+- [Coding Guidelines](./Coding%20Guidelines.md)
 <!-- autonav:end -->
