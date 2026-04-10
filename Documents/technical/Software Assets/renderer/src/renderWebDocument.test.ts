@@ -1,4 +1,4 @@
-import type { ClaimId, Connector, ConnectorId, DebateId, Score } from "@reasontracker/contracts";
+import type { ClaimId, Connector, ConnectorId, DebateId, Score, TargetRelation } from "@reasontracker/contracts";
 import { describe, expect, it } from "vitest";
 import { renderWebDocument } from "./renderWebDocument.ts";
 import type { LayoutEdge, PositionedLayoutModel, PositionedLayoutNode } from "./layout/types.ts";
@@ -46,7 +46,28 @@ function positionedNode(id: string, width: number, height: number): PositionedLa
     };
 }
 
-function edge(id: string, targetClaimShapeId: string, sourceClaimShapeId: string): LayoutEdge {
+function positionedNodeWithSide(
+    id: string,
+    width: number,
+    height: number,
+    side: "proMain" | "conMain",
+): PositionedLayoutNode {
+    const node = positionedNode(id, width, height);
+    return {
+        ...node,
+        claim: {
+            ...node.claim,
+            side,
+        },
+    };
+}
+
+function edge(
+    id: string,
+    targetClaimShapeId: string,
+    sourceClaimShapeId: string,
+    targetRelation: TargetRelation = "proTarget",
+): LayoutEdge {
     const connector: Connector = {
         id: asConnectorId(id),
         target: targetClaimShapeId,
@@ -63,7 +84,7 @@ function edge(id: string, targetClaimShapeId: string, sourceClaimShapeId: string
         connectorId: connector.id,
         connector,
         affects: "confidence",
-        targetRelation: "proTarget",
+        targetRelation,
     };
 }
 
@@ -103,5 +124,33 @@ describe("renderWebDocument transform scaling", () => {
         expect(html).toContain("--rt-node-scale:0.5");
         expect(html).toContain("width:100px;height:50px");
         expect(html).toContain("width:200px;height:100px;--rt-node-scale:0.5");
+    });
+
+    it("uses source claim main side for connector styling", () => {
+        const model: PositionedLayoutModel = {
+            rootClaimShapeId: "target",
+            claimShapes: {
+                target: positionedNodeWithSide("target", 100, 50, "conMain"),
+                c1: positionedNodeWithSide("c1", 100, 50, "conMain"),
+            },
+            connectorShapes: {
+                e1: edge("e1", "target", "c1", "conTarget"),
+            },
+            cycleMode: "preserve",
+            sourceDebateId: asDebateId("debate:test"),
+            layoutEngine: "elkjs",
+            layoutBounds: {
+                width: 300,
+                height: 200,
+            },
+        };
+
+        const { html, css } = renderWebDocument(model);
+
+        expect((html.match(/data-connector-side="conMain"/g) ?? []).length).toBe(2);
+        expect(html).not.toContain("data-connector-side=\"proMain\"");
+        expect((html.match(/data-target-relation="conTarget"/g) ?? []).length).toBe(2);
+        expect(css).toContain(".rt-edge[data-connector-side='conMain'] {");
+        expect(css).not.toContain(".rt-edge[data-target-relation='conTarget'] {");
     });
 });

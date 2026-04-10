@@ -149,10 +149,10 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         ".rt-edge.rt-edge-potential-confidence {",
         "  opacity: var(--rt-connector-potential-opacity);",
         "}",
-        ".rt-edge[data-target-relation='proTarget'] {",
+        ".rt-edge[data-connector-side='proMain'] {",
         "  stroke: var(--pro);",
         "}",
-        ".rt-edge[data-target-relation='conTarget'] {",
+        ".rt-edge[data-connector-side='conMain'] {",
         "  stroke: var(--con);",
         "}",
         ".rt-edge[data-affects='relevance'] {",
@@ -368,6 +368,7 @@ function renderPositionedContent(
             const targetClaimShape = model.claimShapes[connectorShape.targetClaimShapeId];
             const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
             if (!targetClaimShape || !sourceClaimShape) return "";
+            const connectorMainSide = sourceClaimShape.claim.side;
 
             const strokeWidth = connectorShapeStrokeWidthByConnectorShapeId[connectorShape.id] ?? 2;
 
@@ -387,19 +388,22 @@ function renderPositionedContent(
             connectorShapeCurveByConnectorShapeId[connectorShape.id] = d;
 
             return [
-                `<path class="rt-edge" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`,
+                `<path class="rt-edge" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-side="${escapeHtml(connectorMainSide)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`,
             ].join("\n");
         })
         .join("\n");
 
     const potentialConfidenceConnectorShapeLines = sortedConnectorShapes
         .map((connectorShape) => {
+            const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
+            if (!sourceClaimShape) return "";
+            const connectorMainSide = sourceClaimShape.claim.side;
             const d = connectorShapeCurveByConnectorShapeId[connectorShape.id];
             if (!d) return "";
 
             const referenceStrokeWidth = connectorShapeReferenceStrokeWidthByConnectorShapeId[connectorShape.id] ?? 2;
 
-            return `<path class="rt-edge rt-edge-potential-confidence" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${referenceStrokeWidth}" d="${escapeHtml(d)}" />`;
+            return `<path class="rt-edge rt-edge-potential-confidence" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-side="${escapeHtml(connectorMainSide)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${referenceStrokeWidth}" d="${escapeHtml(d)}" />`;
         })
         .join("\n");
 
