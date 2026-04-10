@@ -149,10 +149,10 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         ".rt-edge.rt-edge-potential-confidence {",
         "  opacity: var(--rt-connector-potential-opacity);",
         "}",
-        ".rt-edge[data-pro-target='true'] {",
+        ".rt-edge[data-target-relation='proTarget'] {",
         "  stroke: var(--pro);",
         "}",
-        ".rt-edge[data-pro-target='false'] {",
+        ".rt-edge[data-target-relation='conTarget'] {",
         "  stroke: var(--con);",
         "}",
         ".rt-edge[data-affects='relevance'] {",
@@ -174,12 +174,21 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  box-sizing: border-box;",
         "  width: 100%;",
         "  height: 100%;",
-        "  background: white;",
-        "  border: 1px solid #cbd5e1;",
+        "  background: #000000;",
+        "  color: #ffffff;",
+        "  border: 4px solid #cbd5e1;",
         "  border-radius: 0;",
         "  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);",
         "  padding: 0.5rem 0.75rem;",
         "  overflow: auto;",
+        "}",
+        ".rt-node-shell[data-claim-side='proMain'] .rt-node-body {",
+        "  border-color: var(--pro);",
+        "  background: hsl(var(--pro-h) 100% var(--pro-l) / var(--rt-connector-potential-opacity));",
+        "}",
+        ".rt-node-shell[data-claim-side='conMain'] .rt-node-body {",
+        "  border-color: var(--con);",
+        "  background: hsl(var(--con-h) 100% var(--con-l) / var(--rt-connector-potential-opacity));",
         "}",
         ".rt-node h2 {",
         "  margin: 0;",
@@ -188,6 +197,7 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         ".rt-node small {",
         "  display: block;",
         "  margin-top: 0.35rem;",
+        "  color: #d1d5db;",
         "}",
         "ul {",
         "  list-style: none;",
@@ -214,6 +224,10 @@ function escapeHtml(value: string): string {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+}
+
+function encodeDataJson(value: unknown): string {
+    return escapeHtml(JSON.stringify(value));
 }
 
 function isPositionedLayoutModel(model: LayoutModel | PositionedLayoutModel): model is PositionedLayoutModel {
@@ -373,7 +387,7 @@ function renderPositionedContent(
             connectorShapeCurveByConnectorShapeId[connectorShape.id] = d;
 
             return [
-                `<path class="rt-edge" data-affects="${escapeHtml(String(connectorShape.affects))}" data-pro-target="${connectorShape.proTarget ? "true" : "false"}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`,
+                `<path class="rt-edge" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${strokeWidth}" d="${escapeHtml(d)}" />`,
             ].join("\n");
         })
         .join("\n");
@@ -385,7 +399,7 @@ function renderPositionedContent(
 
             const referenceStrokeWidth = connectorShapeReferenceStrokeWidthByConnectorShapeId[connectorShape.id] ?? 2;
 
-            return `<path class="rt-edge rt-edge-potential-confidence" data-affects="${escapeHtml(String(connectorShape.affects))}" data-pro-target="${connectorShape.proTarget ? "true" : "false"}" style="stroke-width:${referenceStrokeWidth}" d="${escapeHtml(d)}" />`;
+            return `<path class="rt-edge rt-edge-potential-confidence" data-affects="${escapeHtml(String(connectorShape.affects))}" data-target-relation="${escapeHtml(connectorShape.targetRelation)}" data-connector-json="${encodeDataJson(connectorShape.connector)}" style="stroke-width:${referenceStrokeWidth}" d="${escapeHtml(d)}" />`;
         })
         .join("\n");
 
@@ -439,7 +453,9 @@ function renderPositionedClaimShape(
         `--rt-node-scale:${scale}`,
     ].join(";");
 
-    return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-claim-shape-id="${escapeHtml(claimShape.id)}" data-claim-id="${escapeHtml(claimShape.claimId)}" data-depth="${claimShape.depth}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(claimShape.claimId)}</h2>${scoreSnippet}</article></div></article>`;
+    const scoreDataJson = claimShape.score ? encodeDataJson(claimShape.score) : "";
+
+    return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-claim-shape-id="${escapeHtml(claimShape.id)}" data-claim-id="${escapeHtml(claimShape.claimId)}" data-depth="${claimShape.depth}" data-claim-side="${escapeHtml(claimShape.claim.side)}" data-claim-json="${encodeDataJson(claimShape.claim)}" data-score-json="${scoreDataJson}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(claimShape.claimId)}</h2>${scoreSnippet}</article></div></article>`;
 }
 
 function getRenderedClaimShapeHeight(

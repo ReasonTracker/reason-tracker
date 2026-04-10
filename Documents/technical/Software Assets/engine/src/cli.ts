@@ -232,7 +232,8 @@ function averageScores(simulations: CalculatedDebate[]): Record<ClaimId, Score> 
         if (!sum || sum.count < 1) continue;
 
         averaged[claimId as ClaimId] = {
-            id: claimId as ClaimId,
+            id: claimId as Score["id"],
+            claimId: claimId as ClaimId,
             confidence: sum.confidence / sum.count,
             reversibleConfidence: sum.reversibleConfidence / sum.count,
             relevance: sum.relevance / sum.count,

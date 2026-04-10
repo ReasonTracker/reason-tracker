@@ -1,6 +1,8 @@
 {
   "name": "force-confidence-zero",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "d2",
@@ -8,15 +10,23 @@
       "description": "",
       "mainClaimId": "A",
       "claims": {
-        "A": { "id": "A", "content": "A", "pol": "pro", "forceConfidence": 0 },
-        "B": { "id": "B", "content": "B", "pol": "pro" }
+        "A": {
+          "id": "A",
+          "content": "A",
+          "forceConfidence": 0,
+          "side": "proMain"
+        },
+        "B": {
+          "id": "B",
+          "content": "B",
+          "side": "proMain"
+        }
       },
       "connectors": {
         "c1": {
           "id": "c1",
           "source": "B",
           "target": "A",
-          "proTarget": true,
           "affects": "confidence"
         }
       }
@@ -26,7 +36,9 @@
     "exitCode": 0,
     "ok": true,
     "scoreChecks": {
-      "A": { "confidence": 0 }
+      "A": {
+        "confidence": 0
+      }
     }
   }
 }

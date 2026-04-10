@@ -3,6 +3,7 @@ import type {
     ClaimId,
     Connector,
 } from "@reasontracker/contracts";
+import { deriveTargetRelation } from "@reasontracker/contracts";
 import type {
     BuildLayoutModelRequest,
     BuildLayoutModelResult,
@@ -68,6 +69,7 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
         claimShapes[claimId] = {
             id: claimId,
             claimId,
+            claim: debate.claims[claimId],
             score: debate.scores[claimId],
             depth: depths.get(claimId) ?? -1,
             isRoot: claimId === debate.mainClaimId,
@@ -81,15 +83,21 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
 
     for (const connector of sortedConnectors) {
         const edgeId = String(connector.id);
+        const sourceClaim = debate.claims[connector.source as ClaimId];
+        const targetClaim = debate.claims[connector.target as ClaimId];
         connectorShapes[edgeId] = {
             id: edgeId,
             targetClaimShapeId: connector.target,
             sourceClaimShapeId: connector.source,
             sourceClaimId: connector.source as ClaimId,
             targetClaimId: connector.target as ClaimId,
-            connectorId: edgeId,
+            connectorId: connector.id,
+            connector,
             affects: connector.affects,
-            proTarget: connector.proTarget,
+            targetRelation: deriveTargetRelation(
+                sourceClaim?.side ?? "proMain",
+                targetClaim?.side ?? "proMain",
+            ),
         };
     }
 
@@ -140,6 +148,7 @@ function buildUnrolledDagLayoutModel(
     claimShapes[rootClaimShapeId] = {
         id: rootClaimShapeId,
         claimId: debate.mainClaimId,
+        claim: debate.claims[debate.mainClaimId],
         score: debate.scores[debate.mainClaimId],
         depth: 0,
         isRoot: true,
@@ -204,6 +213,7 @@ function buildUnrolledDagLayoutModel(
             claimShapes[childClaimShapeId] = {
                 id: childClaimShapeId,
                 claimId: childClaimId,
+                claim: debate.claims[childClaimId],
                 score: debate.scores[childClaimId],
                 depth: current.depth + 1,
                 isRoot: false,
@@ -215,6 +225,8 @@ function buildUnrolledDagLayoutModel(
 
             const edgeId = `${String(connector.id)}#${edgeCounter}`;
             edgeCounter += 1;
+            const sourceClaim = debate.claims[connector.source as ClaimId];
+            const targetClaim = debate.claims[connector.target as ClaimId];
 
             connectorShapes[edgeId] = {
                 id: edgeId,
@@ -222,9 +234,13 @@ function buildUnrolledDagLayoutModel(
                 sourceClaimShapeId: childClaimShapeId,
                 sourceClaimId: connector.source as ClaimId,
                 targetClaimId: connector.target as ClaimId,
-                connectorId: String(connector.id),
+                connectorId: connector.id,
+                connector,
                 affects: connector.affects,
-                proTarget: connector.proTarget,
+                targetRelation: deriveTargetRelation(
+                    sourceClaim?.side ?? "proMain",
+                    targetClaim?.side ?? "proMain",
+                ),
             };
 
             const nextPathSeen = new Set(current.pathSeen);

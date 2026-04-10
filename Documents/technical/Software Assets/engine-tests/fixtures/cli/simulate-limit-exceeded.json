@@ -1,6 +1,8 @@
 {
   "name": "simulate-limit-exceeded",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "d-sim-limit",
@@ -8,24 +10,100 @@
       "description": "",
       "mainClaimId": "A",
       "claims": {
-        "A": { "id": "A", "content": "A", "pol": "pro" },
-        "B": { "id": "B", "content": "B", "pol": "pro" },
-        "C": { "id": "C", "content": "C", "pol": "pro" },
-        "D": { "id": "D", "content": "D", "pol": "pro" }
+        "A": {
+          "id": "A",
+          "content": "A",
+          "side": "proMain"
+        },
+        "B": {
+          "id": "B",
+          "content": "B",
+          "side": "proMain"
+        },
+        "C": {
+          "id": "C",
+          "content": "C",
+          "side": "proMain"
+        },
+        "D": {
+          "id": "D",
+          "content": "D",
+          "side": "proMain"
+        }
       },
       "connectors": {
-        "ab": { "id": "ab", "source": "A", "target": "B", "proTarget": true, "affects": "confidence" },
-        "ac": { "id": "ac", "source": "A", "target": "C", "proTarget": true, "affects": "confidence" },
-        "ad": { "id": "ad", "source": "A", "target": "D", "proTarget": true, "affects": "confidence" },
-        "ba": { "id": "ba", "source": "B", "target": "A", "proTarget": true, "affects": "confidence" },
-        "bc": { "id": "bc", "source": "B", "target": "C", "proTarget": true, "affects": "confidence" },
-        "bd": { "id": "bd", "source": "B", "target": "D", "proTarget": true, "affects": "confidence" },
-        "ca": { "id": "ca", "source": "C", "target": "A", "proTarget": true, "affects": "confidence" },
-        "cb": { "id": "cb", "source": "C", "target": "B", "proTarget": true, "affects": "confidence" },
-        "cd": { "id": "cd", "source": "C", "target": "D", "proTarget": true, "affects": "confidence" },
-        "da": { "id": "da", "source": "D", "target": "A", "proTarget": true, "affects": "confidence" },
-        "db": { "id": "db", "source": "D", "target": "B", "proTarget": true, "affects": "confidence" },
-        "dc": { "id": "dc", "source": "D", "target": "C", "proTarget": true, "affects": "confidence" }
+        "ab": {
+          "id": "ab",
+          "source": "A",
+          "target": "B",
+          "affects": "confidence"
+        },
+        "ac": {
+          "id": "ac",
+          "source": "A",
+          "target": "C",
+          "affects": "confidence"
+        },
+        "ad": {
+          "id": "ad",
+          "source": "A",
+          "target": "D",
+          "affects": "confidence"
+        },
+        "ba": {
+          "id": "ba",
+          "source": "B",
+          "target": "A",
+          "affects": "confidence"
+        },
+        "bc": {
+          "id": "bc",
+          "source": "B",
+          "target": "C",
+          "affects": "confidence"
+        },
+        "bd": {
+          "id": "bd",
+          "source": "B",
+          "target": "D",
+          "affects": "confidence"
+        },
+        "ca": {
+          "id": "ca",
+          "source": "C",
+          "target": "A",
+          "affects": "confidence"
+        },
+        "cb": {
+          "id": "cb",
+          "source": "C",
+          "target": "B",
+          "affects": "confidence"
+        },
+        "cd": {
+          "id": "cd",
+          "source": "C",
+          "target": "D",
+          "affects": "confidence"
+        },
+        "da": {
+          "id": "da",
+          "source": "D",
+          "target": "A",
+          "affects": "confidence"
+        },
+        "db": {
+          "id": "db",
+          "source": "D",
+          "target": "B",
+          "affects": "confidence"
+        },
+        "dc": {
+          "id": "dc",
+          "source": "D",
+          "target": "C",
+          "affects": "confidence"
+        }
       }
     },
     "cycleHandling": "simulateAllSingleCuts"
@@ -34,7 +112,14 @@
     "exitCode": 1,
     "ok": false,
     "errorCode": "SIMULATION_LIMIT_EXCEEDED",
-    "sccClaimIds": [["A", "B", "C", "D"]],
+    "sccClaimIds": [
+      [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    ],
     "detailsChecks": {
       "projectedSimulations": 12,
       "maxSimulations": 8

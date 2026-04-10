@@ -114,4 +114,45 @@ describe("engine CLI fixture tests", () => {
     expect(Array.isArray(response.simulations)).toBe(true);
     expect(response.simulations.length).toBeGreaterThan(0);
   });
+
+  test("derives connector relation from claim side changes", () => {
+    const baseDebate = {
+      id: "side-derivation",
+      name: "side derivation",
+      description: "",
+      mainClaimId: "A",
+      claims: {
+        A: { id: "A", content: "main", side: "proMain" },
+        B: { id: "B", content: "child", side: "proMain" },
+      },
+      connectors: {
+        c1: { id: "c1", source: "B", target: "A", affects: "confidence" },
+      },
+    };
+
+    const proAlignedResult = runCliFromArgv(
+      ["calculateDebate"],
+      JSON.stringify({ debate: baseDebate }),
+    );
+    const proAlignedResponse = JSON.parse(proAlignedResult.stdout) as any;
+    expect(proAlignedResponse.ok).toBe(true);
+    expect(proAlignedResponse.calculatedDebate.scores.A.confidence).toBeCloseTo(1, 10);
+
+    const flippedSourceResult = runCliFromArgv(
+      ["calculateDebate"],
+      JSON.stringify({
+        debate: {
+          ...baseDebate,
+          claims: {
+            ...baseDebate.claims,
+            B: { ...baseDebate.claims.B, side: "conMain" },
+          },
+        },
+      }),
+    );
+    const flippedSourceResponse = JSON.parse(flippedSourceResult.stdout) as any;
+    expect(flippedSourceResponse.ok).toBe(true);
+    expect(flippedSourceResponse.calculatedDebate.scores.A.confidence).toBeCloseTo(0, 10);
+    expect(flippedSourceResponse.calculatedDebate.scores.A.reversibleConfidence).toBeCloseTo(-1, 10);
+  });
 });

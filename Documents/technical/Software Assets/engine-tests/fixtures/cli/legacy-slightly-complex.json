@@ -1,6 +1,8 @@
 {
   "name": "legacy-slightly-complex",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "legacy4",
@@ -8,47 +10,66 @@
       "description": "ported from old slightlyComplex graph shape",
       "mainClaimId": "mainClaim",
       "claims": {
-        "mainClaim": { "id": "mainClaim", "content": "main", "pol": "pro" },
-        "1": { "id": "1", "content": "1", "pol": "pro" },
-        "2": { "id": "2", "content": "2", "pol": "pro" },
-        "2_1": { "id": "2_1", "content": "2_1", "pol": "pro" },
-        "2_2": { "id": "2_2", "content": "2_2", "pol": "pro" },
-        "2_3": { "id": "2_3", "content": "2_3", "pol": "pro" }
+        "1": {
+          "id": "1",
+          "content": "1",
+          "side": "proMain"
+        },
+        "2": {
+          "id": "2",
+          "content": "2",
+          "side": "conMain"
+        },
+        "mainClaim": {
+          "id": "mainClaim",
+          "content": "main",
+          "side": "proMain"
+        },
+        "2_1": {
+          "id": "2_1",
+          "content": "2_1",
+          "side": "conMain"
+        },
+        "2_2": {
+          "id": "2_2",
+          "content": "2_2",
+          "side": "conMain"
+        },
+        "2_3": {
+          "id": "2_3",
+          "content": "2_3",
+          "side": "proMain"
+        }
       },
       "connectors": {
         "c1": {
           "id": "c1",
           "source": "1",
           "target": "mainClaim",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c2": {
           "id": "c2",
           "source": "2",
           "target": "mainClaim",
-          "proTarget": false,
           "affects": "confidence"
         },
         "c3": {
           "id": "c3",
           "source": "2_1",
           "target": "2",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c4": {
           "id": "c4",
           "source": "2_2",
           "target": "2",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c5": {
           "id": "c5",
           "source": "2_3",
           "target": "2",
-          "proTarget": false,
           "affects": "confidence"
         }
       }
@@ -58,8 +79,12 @@
     "exitCode": 0,
     "ok": true,
     "scoreChecks": {
-      "mainClaim": { "confidence": 0.6666666666666666 },
-      "2": { "confidence": 0.3333333333333333 }
+      "2": {
+        "confidence": 0.3333333333333333
+      },
+      "mainClaim": {
+        "confidence": 0.6666666666666666
+      }
     }
   }
 }

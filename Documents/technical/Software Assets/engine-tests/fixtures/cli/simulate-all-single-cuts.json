@@ -1,6 +1,8 @@
 {
   "name": "simulate-all-single-cuts",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "d-sim-1",
@@ -8,38 +10,52 @@
       "description": "",
       "mainClaimId": "A",
       "claims": {
-        "A": { "id": "A", "content": "A", "pol": "pro" },
-        "B": { "id": "B", "content": "B", "pol": "pro" },
-        "X": { "id": "X", "content": "X", "pol": "pro", "forceConfidence": 0.8 },
-        "Y": { "id": "Y", "content": "Y", "pol": "pro", "forceConfidence": 0.2 }
+        "A": {
+          "id": "A",
+          "content": "A",
+          "side": "proMain"
+        },
+        "B": {
+          "id": "B",
+          "content": "B",
+          "side": "proMain"
+        },
+        "X": {
+          "id": "X",
+          "content": "X",
+          "forceConfidence": 0.8,
+          "side": "proMain"
+        },
+        "Y": {
+          "id": "Y",
+          "content": "Y",
+          "forceConfidence": 0.2,
+          "side": "proMain"
+        }
       },
       "connectors": {
         "ab": {
           "id": "ab",
           "source": "A",
           "target": "B",
-          "proTarget": true,
           "affects": "confidence"
         },
         "ba": {
           "id": "ba",
           "source": "B",
           "target": "A",
-          "proTarget": true,
           "affects": "confidence"
         },
         "xA": {
           "id": "xA",
           "source": "X",
           "target": "A",
-          "proTarget": true,
           "affects": "confidence"
         },
         "yB": {
           "id": "yB",
           "source": "Y",
           "target": "B",
-          "proTarget": true,
           "affects": "confidence"
         }
       }
@@ -51,10 +67,18 @@
     "ok": true,
     "simulationsCount": 2,
     "scoreChecks": {
-      "A": { "confidence": 0.74 },
-      "B": { "confidence": 0.44 },
-      "X": { "confidence": 0.8 },
-      "Y": { "confidence": 0.2 }
+      "A": {
+        "confidence": 0.74
+      },
+      "B": {
+        "confidence": 0.44
+      },
+      "X": {
+        "confidence": 0.8
+      },
+      "Y": {
+        "confidence": 0.2
+      }
     }
   }
 }

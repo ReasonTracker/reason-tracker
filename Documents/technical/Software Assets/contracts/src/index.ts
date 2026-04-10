@@ -2,15 +2,18 @@ export {
     newClaim,
     type Claim,
     type ClaimId,
+    type ClaimSide,
     type ProtoClaim,
 } from "./Claim.ts";
 
 export {
+    deriveTargetRelation,
     newConnector,
     type Affects,
     type Connector,
     type ConnectorId,
     type ProtoConnector,
+    type TargetRelation,
 } from "./Connector.ts";
 
 export {

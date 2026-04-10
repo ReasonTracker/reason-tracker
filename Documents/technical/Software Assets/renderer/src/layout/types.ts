@@ -2,8 +2,9 @@ import type {
     Affects,
     CalculatedDebate,
     ClaimId,
+    ConnectorId,
     DebateId,
-    Score,
+    TargetRelation,
 } from "@reasontracker/contracts";
 
 export type CycleMode = "preserve" | "unroll-dag";
@@ -22,7 +23,8 @@ export interface BuildLayoutModelRequest {
 export interface LayoutClaimShape {
     id: string;
     claimId: ClaimId;
-    score: Score | undefined;
+    claim: CalculatedDebate["claims"][ClaimId];
+    score: CalculatedDebate["scores"][ClaimId] | undefined;
     depth: number;
     isRoot: boolean;
     isLeaf: boolean;
@@ -44,9 +46,10 @@ export interface LayoutConnectorShape {
     sourceClaimShapeId: string;
     sourceClaimId: ClaimId;
     targetClaimId: ClaimId;
-    connectorId: string;
+    connectorId: ConnectorId;
+    connector: CalculatedDebate["connectors"][ConnectorId];
     affects: Affects;
-    proTarget: boolean;
+    targetRelation: TargetRelation;
     skippedInCycleMode?: boolean;
 }
 

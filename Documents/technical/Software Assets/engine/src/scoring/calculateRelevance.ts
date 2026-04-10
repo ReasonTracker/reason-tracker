@@ -1,8 +1,8 @@
-import type { Connector, Score } from "@reasontracker/contracts";
+import type { Score, TargetRelation } from "@reasontracker/contracts";
 
 interface RelevanceChild {
     score?: Score;
-    connector?: Connector;
+    targetRelation: TargetRelation;
 }
 
 /**
@@ -15,7 +15,7 @@ export function calculateRelevance(children: RelevanceChild[]): number {
     for (const child of children) {
         if ((child.score?.confidence ?? 0) <= 0) continue;
 
-        if (child.connector?.proTarget) {
+        if (child.targetRelation === "proTarget") {
             relevance += child.score!.confidence;
         } else {
             relevance -= child.score!.confidence / 2;

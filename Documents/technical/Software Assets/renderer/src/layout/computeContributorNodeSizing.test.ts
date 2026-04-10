@@ -1,6 +1,8 @@
 import type {
     Affects,
+    ConnectorId,
     ClaimId,
+    Connector,
     DebateId,
     Score,
 } from "@reasontracker/contracts";
@@ -16,9 +18,14 @@ function asDebateId(value: string): DebateId {
     return value as DebateId;
 }
 
+function asConnectorId(value: string): ConnectorId {
+    return value as ConnectorId;
+}
+
 function asScore(id: string, confidence: number, relevance = 1): Score {
     return {
         id: id as Score["id"],
+        claimId: id as ClaimId,
         confidence,
         reversibleConfidence: confidence * 2 - 1,
         relevance,
@@ -30,6 +37,11 @@ function node(id: string, confidence: number, depth = 0, relevance = 1): LayoutN
     return {
         id,
         claimId,
+        claim: {
+            id: claimId,
+            content: id,
+            side: "proMain",
+        },
         score: asScore(`score:${id}`, confidence, relevance),
         depth,
         isRoot: false,
@@ -43,15 +55,23 @@ function edge(
     sourceClaimShapeId: string,
     affects: Affects = "confidence",
 ): LayoutEdge {
+    const connector: Connector = {
+        id: asConnectorId(id),
+        target: targetClaimShapeId,
+        source: sourceClaimShapeId,
+        affects,
+    };
+
     return {
         id,
         targetClaimShapeId,
         sourceClaimShapeId,
         sourceClaimId: asClaimId(sourceClaimShapeId),
         targetClaimId: asClaimId(targetClaimShapeId),
-        connectorId: id,
+        connectorId: connector.id,
+        connector,
         affects,
-        proTarget: true,
+        targetRelation: "proTarget",
     };
 }
 

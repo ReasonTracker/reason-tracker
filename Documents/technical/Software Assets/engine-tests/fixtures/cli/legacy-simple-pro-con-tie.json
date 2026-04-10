@@ -1,6 +1,8 @@
 {
   "name": "legacy-simple-pro-con-tie",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "legacy1",
@@ -8,23 +10,33 @@
       "description": "ported from old simple score expectation",
       "mainClaimId": "mainClaim",
       "claims": {
-        "mainClaim": { "id": "mainClaim", "content": "main", "pol": "pro" },
-        "pro1": { "id": "pro1", "content": "pro", "pol": "pro" },
-        "con1": { "id": "con1", "content": "con", "pol": "pro" }
+        "mainClaim": {
+          "id": "mainClaim",
+          "content": "main",
+          "side": "proMain"
+        },
+        "pro1": {
+          "id": "pro1",
+          "content": "pro",
+          "side": "proMain"
+        },
+        "con1": {
+          "id": "con1",
+          "content": "con",
+          "side": "conMain"
+        }
       },
       "connectors": {
         "c1": {
           "id": "c1",
           "source": "pro1",
           "target": "mainClaim",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c2": {
           "id": "c2",
           "source": "con1",
           "target": "mainClaim",
-          "proTarget": false,
           "affects": "confidence"
         }
       }
@@ -34,7 +46,9 @@
     "exitCode": 0,
     "ok": true,
     "scoreChecks": {
-      "mainClaim": { "confidence": 0 }
+      "mainClaim": {
+        "confidence": 0
+      }
     }
   }
 }

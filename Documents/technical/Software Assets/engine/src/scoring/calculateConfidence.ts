@@ -1,8 +1,8 @@
-import type { Connector, Score } from "@reasontracker/contracts";
+import type { Score, TargetRelation } from "@reasontracker/contracts";
 
 export interface ScoreChild {
     score?: Score;
-    connector?: Connector;
+    targetRelation: TargetRelation;
 }
 
 export interface ConfidenceResult {
@@ -34,7 +34,7 @@ export function calculateConfidence(children: ScoreChild[]): ConfidenceResult {
             confidence +=
                 child.score.confidence *
                 (weight(child.score) / childrenWeight) *
-                (child.connector?.proTarget === false ? -1 : 1);
+                (child.targetRelation === "conTarget" ? -1 : 1);
         }
     }
 

@@ -1,4 +1,4 @@
-import type { ClaimId, DebateId, Score } from "@reasontracker/contracts";
+import type { ClaimId, Connector, ConnectorId, DebateId, Score } from "@reasontracker/contracts";
 import { describe, expect, it } from "vitest";
 import { renderWebDocument } from "./renderWebDocument.ts";
 import type { LayoutEdge, PositionedLayoutModel, PositionedLayoutNode } from "./layout/types.ts";
@@ -11,9 +11,14 @@ function asDebateId(value: string): DebateId {
     return value as DebateId;
 }
 
+function asConnectorId(value: string): ConnectorId {
+    return value as ConnectorId;
+}
+
 function asScore(id: string, confidence: number): Score {
     return {
         id: id as Score["id"],
+        claimId: id as ClaimId,
         confidence,
         reversibleConfidence: confidence * 2 - 1,
         relevance: 1,
@@ -25,6 +30,11 @@ function positionedNode(id: string, width: number, height: number): PositionedLa
     return {
         id,
         claimId,
+        claim: {
+            id: claimId,
+            content: id,
+            side: "proMain",
+        },
         score: asScore(`score:${id}`, 1),
         depth: 0,
         isRoot: id === "target",
@@ -37,15 +47,23 @@ function positionedNode(id: string, width: number, height: number): PositionedLa
 }
 
 function edge(id: string, targetClaimShapeId: string, sourceClaimShapeId: string): LayoutEdge {
+    const connector: Connector = {
+        id: asConnectorId(id),
+        target: targetClaimShapeId,
+        source: sourceClaimShapeId,
+        affects: "confidence",
+    };
+
     return {
         id,
         targetClaimShapeId,
         sourceClaimShapeId,
         sourceClaimId: asClaimId(sourceClaimShapeId),
         targetClaimId: asClaimId(targetClaimShapeId),
-        connectorId: id,
+        connectorId: connector.id,
+        connector,
         affects: "confidence",
-        proTarget: true,
+        targetRelation: "proTarget",
     };
 }
 

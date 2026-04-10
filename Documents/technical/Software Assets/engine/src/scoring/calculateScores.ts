@@ -1,4 +1,9 @@
-import type { ClaimId, Debate, Score } from "@reasontracker/contracts";
+import {
+    deriveTargetRelation,
+    type ClaimId,
+    type Debate,
+    type Score,
+} from "@reasontracker/contracts";
 import { calculateConfidence } from "./calculateConfidence.ts";
 import { calculateRelevance } from "./calculateRelevance.ts";
 import { createConnectorsIndexes } from "./createConnectorsIndexes.ts";
@@ -33,7 +38,13 @@ export function calculateScores(debate: Debate): CalculateScoresResult {
         const children =
             connectorsByTarget[id]?.map((connector) => {
                 const score = scores[connector.source as ClaimId];
-                return { score, connector };
+                const sourceClaim = debate.claims[connector.source as ClaimId];
+                const targetClaim = debate.claims[connector.target as ClaimId];
+                const targetRelation = deriveTargetRelation(
+                    sourceClaim?.side ?? "proMain",
+                    targetClaim?.side ?? "proMain",
+                );
+                return { score, targetRelation, connector };
             }) ?? [];
 
         const confidenceChildren = children.filter(
@@ -47,7 +58,8 @@ export function calculateScores(debate: Debate): CalculateScoresResult {
             calculateConfidence(confidenceChildren);
 
         scores[id] = {
-            id,
+            id: id as Score["id"],
+            claimId: id,
             relevance: calculateRelevance(relevanceChildren),
             confidence: claim.forceConfidence ?? confidence,
             reversibleConfidence,

@@ -1,6 +1,8 @@
 {
   "name": "legacy-two-pro-one-con",
-  "argv": ["calculateDebate"],
+  "argv": [
+    "calculateDebate"
+  ],
   "stdin": {
     "debate": {
       "id": "legacy2",
@@ -8,31 +10,44 @@
       "description": "ported from old calculateConfidence 2-pro-1-con",
       "mainClaimId": "mainClaim",
       "claims": {
-        "mainClaim": { "id": "mainClaim", "content": "main", "pol": "pro" },
-        "pro1": { "id": "pro1", "content": "pro1", "pol": "pro" },
-        "pro2": { "id": "pro2", "content": "pro2", "pol": "pro" },
-        "con1": { "id": "con1", "content": "con1", "pol": "pro" }
+        "mainClaim": {
+          "id": "mainClaim",
+          "content": "main",
+          "side": "proMain"
+        },
+        "pro1": {
+          "id": "pro1",
+          "content": "pro1",
+          "side": "proMain"
+        },
+        "pro2": {
+          "id": "pro2",
+          "content": "pro2",
+          "side": "proMain"
+        },
+        "con1": {
+          "id": "con1",
+          "content": "con1",
+          "side": "conMain"
+        }
       },
       "connectors": {
         "c1": {
           "id": "c1",
           "source": "pro1",
           "target": "mainClaim",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c2": {
           "id": "c2",
           "source": "pro2",
           "target": "mainClaim",
-          "proTarget": true,
           "affects": "confidence"
         },
         "c3": {
           "id": "c3",
           "source": "con1",
           "target": "mainClaim",
-          "proTarget": false,
           "affects": "confidence"
         }
       }
@@ -42,7 +57,9 @@
     "exitCode": 0,
     "ok": true,
     "scoreChecks": {
-      "mainClaim": { "confidence": 0.3333333333333333 }
+      "mainClaim": {
+        "confidence": 0.3333333333333333
+      }
     }
   }
 }

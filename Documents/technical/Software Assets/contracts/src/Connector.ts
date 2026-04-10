@@ -1,6 +1,8 @@
 import { newId } from "./newId.ts";
+import type { ClaimSide } from "./Claim.ts";
 
 export type ConnectorId = string & { readonly __brand: "ConnectorId" };
+export type TargetRelation = "proTarget" | "conTarget";
 
 /**
  * A connector establishes a relationship between two distinct claims (target and source).
@@ -17,9 +19,6 @@ export interface Connector {
     /** the id of the claim that is doing the attacking or supporting of the target claim. */
     source: string
 
-    /** indicates if the source claim is attacking (pro:false) or supporting (pro:true) */
-    proTarget: boolean
-
     /** indicates if the source claim is affecting the target claim's confidence or relevance */
     affects: Affects
 }
@@ -31,10 +30,13 @@ export function newConnector<T extends ProtoConnector>(partialItem: T): T & Conn
     const newItem = {
         ...partialItem,
         id: partialItem.id ?? (newId() as ConnectorId),
-        proTarget: partialItem.proTarget ?? true,
         affects: partialItem.affects ?? "confidence",
     } satisfies Connector;
     return newItem as T & Connector
+}
+
+export function deriveTargetRelation(sourceSide: ClaimSide, targetSide: ClaimSide): TargetRelation {
+    return sourceSide === targetSide ? "proTarget" : "conTarget";
 }
 
 export type Affects =
