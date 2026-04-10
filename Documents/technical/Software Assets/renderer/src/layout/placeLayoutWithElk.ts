@@ -9,6 +9,7 @@ import type {
     PositionedLayoutModel,
     PositionedLayoutNode,
 } from "./types.ts";
+import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
 
 interface ElkChildNode {
     id: string;
@@ -58,11 +59,7 @@ export async function placeLayoutWithElk(
     const favorStraightEdges = options.favorStraightEdges ?? false;
     const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
 
-    const orderedClaimShapeIds = Object.keys(model.claimShapes).sort((a, b) => {
-        const depthOrder = model.claimShapes[a].depth - model.claimShapes[b].depth;
-        if (depthOrder !== 0) return depthOrder;
-        return a.localeCompare(b);
-    });
+    const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
 
     const children: ElkChildNode[] = orderedClaimShapeIds.map((claimShapeId) => {
         const size = claimShapeSizeByClaimShapeId[claimShapeId] ?? defaultClaimShapeSize;
@@ -81,7 +78,7 @@ export async function placeLayoutWithElk(
     });
 
     const connectorShapes: ElkEdge[] = Object.values(model.connectorShapes)
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .sort((a, b) => compareConnectorPreference(model, a.id, b.id))
         .map((connectorShape) => ({
             id: connectorShape.id,
             sources: [connectorShape.targetClaimShapeId],

@@ -3,6 +3,7 @@ import type {
     PositionedLayoutModel,
     PositionedLayoutNode as PositionedLayoutClaimShape,
 } from "./layout/types.ts";
+import { orderConnectorShapeIdsForTarget } from "./layout/orderConnectorShapesForTarget.ts";
 
 // Connector line-shape profile (hardcoded during design iteration).
 // Percentages are applied to a per-target baseline horizontal gap.
@@ -316,25 +317,10 @@ function renderPositionedContent(
                 ? (nearestSourceSideX - targetSideX)
                 : 0;
 
-        connectorShapeIds.sort((a, b) => {
-            const connectorShapeA = model.connectorShapes[a];
-            const connectorShapeB = model.connectorShapes[b];
-            if (!connectorShapeA || !connectorShapeB) return a.localeCompare(b);
-
-            const sourceClaimShapeA = model.claimShapes[connectorShapeA.sourceClaimShapeId];
-            const sourceClaimShapeB = model.claimShapes[connectorShapeB.sourceClaimShapeId];
-            if (!sourceClaimShapeA || !sourceClaimShapeB) return a.localeCompare(b);
-
-            const sourceCenterYA = sourceClaimShapeA.y + sourceClaimShapeA.height / 2;
-            const sourceCenterYB = sourceClaimShapeB.y + sourceClaimShapeB.height / 2;
-            const sourceYOrder = sourceCenterYA - sourceCenterYB;
-            if (sourceYOrder !== 0) return sourceYOrder;
-
-            return a.localeCompare(b);
-        });
+        const orderedConnectorShapeIds = orderConnectorShapeIdsForTarget(model, connectorShapeIds);
 
         const yByConnectorShapeId = computeStackedAnchorYByConnectorShapeId(
-            connectorShapeIds,
+            orderedConnectorShapeIds,
             connectorShapeStrokeWidthByConnectorShapeId,
             targetClaimShape,
         );
@@ -342,13 +328,13 @@ function renderPositionedContent(
 
         const centerY = targetClaimShape.y + targetClaimShape.height / 2;
         let maxDistanceFromCenter = 0;
-        for (const connectorShapeId of connectorShapeIds) {
+        for (const connectorShapeId of orderedConnectorShapeIds) {
             const y = yByConnectorShapeId[connectorShapeId];
             if (y === undefined) continue;
             maxDistanceFromCenter = Math.max(maxDistanceFromCenter, Math.abs(y - centerY));
         }
 
-        for (const connectorShapeId of connectorShapeIds) {
+        for (const connectorShapeId of orderedConnectorShapeIds) {
             const y = yByConnectorShapeId[connectorShapeId];
             if (y === undefined || maxDistanceFromCenter === 0) {
                 connectorShapeTargetApproachFactorByConnectorShapeId[connectorShapeId] = 1;

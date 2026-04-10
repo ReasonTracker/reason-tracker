@@ -1,36 +1,11 @@
 import type {
     Affects,
-    ConnectorId,
-    ClaimId,
     Connector,
-    DebateId,
-    Score,
 } from "@reasontracker/contracts";
 import { describe, expect, it } from "vitest";
 import { computeContributorNodeSizing } from "./computeContributorNodeSizing.ts";
+import { asClaimId, asConnectorId, asDebateId, asScore } from "./testContracts.ts";
 import type { LayoutEdge, LayoutModel, LayoutNode, NodeSize } from "./types.ts";
-
-function asClaimId(value: string): ClaimId {
-    return value as ClaimId;
-}
-
-function asDebateId(value: string): DebateId {
-    return value as DebateId;
-}
-
-function asConnectorId(value: string): ConnectorId {
-    return value as ConnectorId;
-}
-
-function asScore(id: string, confidence: number, relevance = 1): Score {
-    return {
-        id: id as Score["id"],
-        claimId: id as ClaimId,
-        confidence,
-        reversibleConfidence: confidence * 2 - 1,
-        relevance,
-    };
-}
 
 function node(id: string, confidence: number, depth = 0, relevance = 1): LayoutNode {
     const claimId = asClaimId(id);
