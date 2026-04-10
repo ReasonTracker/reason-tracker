@@ -1,22 +1,26 @@
 import type { CalculatedDebate, Debate } from "../Debate";
 
 export type CliCommand = "calculateDebate";
+export type CycleHandlingMode = "fail" | "cut" | "simulateAllSingleCuts";
 
 export interface CalculateDebateCliRequest {
     command: "calculateDebate";
     debate: Debate | CalculatedDebate;
+    cycleHandling?: CycleHandlingMode;
 }
 
 export interface CliError {
-    code: "CYCLE_DETECTED" | "INVALID_REQUEST";
+    code: "CYCLE_DETECTED" | "INVALID_REQUEST" | "SIMULATION_LIMIT_EXCEEDED";
     message: string;
-    cycleClaimIds?: string[];
+    sccClaimIds?: string[][];
+    details?: Record<string, unknown>;
 }
 
 export interface CalculateDebateCliSuccess {
     ok: true;
     command: "calculateDebate";
-    debate: CalculatedDebate;
+    calculatedDebate: CalculatedDebate;
+    simulations?: CalculatedDebate[];
 }
 
 export interface CliFailure {

@@ -33,6 +33,6 @@
     "exitCode": 1,
     "ok": false,
     "errorCode": "CYCLE_DETECTED",
-    "cycleClaimIds": ["A", "B"]
+    "sccClaimIds": [["A", "B"]]
   }
 }

@@ -10,6 +10,7 @@ export type {
     Affects,
     CalculateDebateCliRequest,
     CalculateDebateCliSuccess,
+    CycleHandlingMode,
     Claim,
     ClaimId,
     CliError,

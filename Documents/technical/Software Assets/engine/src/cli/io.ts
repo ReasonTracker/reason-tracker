@@ -1,5 +1,6 @@
 import type {
     CalculateDebateCliRequest,
+    CycleHandlingMode,
     CliFailure,
     CliRequest,
 } from "@reasontracker/contracts";
@@ -84,9 +85,26 @@ function parseRequest(
         };
     }
 
+    const cycleHandling = (payload as { cycleHandling?: unknown }).cycleHandling;
+    if (
+        cycleHandling !== undefined &&
+        cycleHandling !== "fail" &&
+        cycleHandling !== "cut" &&
+        cycleHandling !== "simulateAllSingleCuts"
+    ) {
+        return {
+            ok: false,
+            failure: invalidRequest(
+                command,
+                "cycleHandling must be one of: fail, cut, simulateAllSingleCuts.",
+            ),
+        };
+    }
+
     const request: CalculateDebateCliRequest = {
         command: "calculateDebate",
         debate: (payload as { debate: CalculateDebateCliRequest["debate"] }).debate,
+        cycleHandling: cycleHandling as CycleHandlingMode | undefined,
     };
 
     return {

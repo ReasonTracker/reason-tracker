@@ -34,6 +34,7 @@ export { newId } from "./newId.ts";
 export type {
     CalculateDebateCliRequest,
     CalculateDebateCliSuccess,
+    CycleHandlingMode,
     CliCommand,
     CliError,
     CliFailure,

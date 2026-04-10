@@ -9,13 +9,15 @@
     "engine-tests"
   ],
   "scripts": {
-    "dev:website": "npm run -w reason-tracker-repo-website dev",
-    "build:website": "npm run -w reason-tracker-repo-website build",
-    "publish-website": "npm run -w reason-tracker-repo-website publish-website",
-    "preview:website": "npm run -w reason-tracker-repo-website preview",
+    "dev:website": "vp run reason-tracker-repo-website#dev",
+    "build:website": "vp run reason-tracker-repo-website#build",
+    "publish-website": "vp run reason-tracker-repo-website#publish-website",
+    "preview:website": "vp run reason-tracker-repo-website#preview",
+    "test": "vp test",
+    "test:all": "vp test",
     "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",
-    "test:engine-tests": "pnpm --filter @reasontracker/engine-tests test",
-    "test:engine-tests:watch": "pnpm --filter @reasontracker/engine-tests test:watch"
+    "test:engine-tests": "vp run -F @reasontracker/engine-tests test",
+    "test:engine-tests:watch": "vp run -F @reasontracker/engine-tests test:watch"
   },
   "packageManager": "pnpm@10.33.0"
 }

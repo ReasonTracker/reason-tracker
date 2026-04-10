@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+
+const THIS_DIR = fileURLToPath(new URL(".", import.meta.url));
+const ENGINE_TESTS_ROOT = resolve(THIS_DIR, "..");
+const SOFTWARE_ASSETS_ROOT = resolve(ENGINE_TESTS_ROOT, "..");
 
 interface ProcessFixture {
   name: string;
@@ -24,7 +29,7 @@ describe("engine CLI process integration", () => {
     const response = JSON.parse(result.stdout || "{}") as any;
     expect(Boolean(response.ok)).toBe(true);
     expect(response.command).toBe("calculateDebate");
-    expect(response.debate.scores.A.confidence).toBe(1);
+    expect(response.calculatedDebate.scores.A.confidence).toBe(1);
   });
 
   test("returns INVALID_REQUEST from a real process", () => {
@@ -38,12 +43,12 @@ describe("engine CLI process integration", () => {
 });
 
 function runCliProcess(argv: string[], stdinPayload: unknown) {
-  const cliMainPath = resolve(process.cwd(), "..", "engine", "src", "cli-main.ts");
+  const cliMainPath = resolve(SOFTWARE_ASSETS_ROOT, "engine", "src", "cli-main.ts");
   return spawnSync(
     process.execPath,
     ["--experimental-strip-types", cliMainPath, ...argv],
     {
-      cwd: process.cwd(),
+      cwd: ENGINE_TESTS_ROOT,
       input: JSON.stringify(stdinPayload),
       encoding: "utf8",
     },
@@ -51,6 +56,6 @@ function runCliProcess(argv: string[], stdinPayload: unknown) {
 }
 
 function readFixture(fileName: string): ProcessFixture {
-  const fullPath = join(process.cwd(), "fixtures", "cli", fileName);
+  const fullPath = join(ENGINE_TESTS_ROOT, "fixtures", "cli", fileName);
   return JSON.parse(readFileSync(fullPath, "utf8")) as ProcessFixture;
 }

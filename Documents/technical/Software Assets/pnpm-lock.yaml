@@ -8,13 +8,21 @@ importers:
 
   .: {}
 
-  contracts: {}
+  contracts:
+    devDependencies:
+      vite-plus:
+        specifier: ^0.1.16
+        version: 0.1.16(@types/node@22.19.17)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.17)(lightningcss@1.32.0))
 
   engine:
     dependencies:
       '@reasontracker/contracts':
         specifier: workspace:*
         version: link:../contracts
+    devDependencies:
+      vite-plus:
+        specifier: ^0.1.16
+        version: 0.1.16(@types/node@22.19.17)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.17)(lightningcss@1.32.0))
 
   engine-tests:
     dependencies:
@@ -31,6 +39,9 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+      vite-plus:
+        specifier: ^0.1.16
+        version: 0.1.16(@types/node@22.19.17)(typescript@5.9.3)(vite@6.4.2(@types/node@22.19.17)(lightningcss@1.32.0))
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.17)(lightningcss@1.32.0)

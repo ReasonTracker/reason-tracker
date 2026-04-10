@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev --host",
+    "test": "vp test --passWithNoTests",
     "build": "node ./scripts/publish-website.mjs --write-report",
     "publish-website": "node ./scripts/publish-website.mjs --write-report",
     "preview": "node ./scripts/publish-website.mjs --write-report && vp preview --host"
