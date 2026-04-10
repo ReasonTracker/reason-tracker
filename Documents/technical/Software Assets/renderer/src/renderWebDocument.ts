@@ -14,6 +14,7 @@ export interface RenderWebDocumentOptions {
     title?: string;
     includeScore?: boolean;
     density?: "comfortable" | "compact";
+    brandCssHref?: string;
     useClaimShapeTransformScale?: boolean;
     claimShapeScaleByClaimShapeId?: Record<string, number>;
     claimShapeTransformBaseSize?: {
@@ -34,6 +35,7 @@ export function renderWebDocument(
     const title = options.title ?? "Reason Tracker";
     const includeScore = options.includeScore ?? true;
     const density = options.density ?? "comfortable";
+    const brandCssHref = options.brandCssHref?.trim();
     const useClaimShapeTransformScale = options.useClaimShapeTransformScale ?? false;
     const claimShapeScaleByClaimShapeId = options.claimShapeScaleByClaimShapeId ?? {};
     const claimShapeTransformBaseSize = options.claimShapeTransformBaseSize;
@@ -54,6 +56,7 @@ export function renderWebDocument(
         "<meta charset=\"utf-8\">",
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
         `<title>${escapeHtml(title)}</title>`,
+        ...(brandCssHref ? [`<link rel=\"stylesheet\" href=\"${escapeHtml(brandCssHref)}\">`] : []),
         "<style>",
         css,
         "</style>",
@@ -87,14 +90,16 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  --rt-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;",
         "  --rt-fg: #1f2937;",
         "  --rt-muted: #6b7280;",
-        "  --rt-bg: #f3f4f6;",
+        "  --rt-bg: #000000;",
+        "  --rt-connector-opacity: 90%;",
+        "  --rt-connector-potential-opacity: 30%;",
         "}",
         "body {",
         "  margin: 0;",
         "  min-height: 100vh;",
         "  font-family: var(--rt-font);",
         "  color: var(--rt-fg);",
-        "  background: linear-gradient(160deg, #f8fafc 0%, var(--rt-bg) 100%);",
+        "  background: var(--rt-bg);",
         "}",
         "main {",
         "  height: 100vh;",
@@ -122,11 +127,11 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  overflow: auto;",
         "  border: 1px solid #d1d5db;",
         "  border-radius: 0.75rem;",
-        "  background: gray;",
+        "  background: #000000;",
         "}",
         ".rt-layout-canvas {",
         "  position: relative;",
-        "  background: gray;",
+        "  background: #000000;",
         "}",
         ".rt-edge-layer {",
         "  position: absolute;",
@@ -137,17 +142,18 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         ".rt-edge {",
         "  fill: none;",
         "  stroke: #64748b;",
+        "  opacity: var(--rt-connector-opacity);",
         "  stroke-width: 2;",
         "  stroke-linecap: butt;",
         "}",
         ".rt-edge.rt-edge-potential-confidence {",
-        "  opacity: 0.5;",
+        "  opacity: var(--rt-connector-potential-opacity);",
         "}",
         ".rt-edge[data-pro-target='true'] {",
-        "  stroke: #166534;",
+        "  stroke: var(--pro);",
         "}",
         ".rt-edge[data-pro-target='false'] {",
-        "  stroke: #991b1b;",
+        "  stroke: var(--con);",
         "}",
         ".rt-edge[data-affects='relevance'] {",
         "  stroke-dasharray: 6 5;",

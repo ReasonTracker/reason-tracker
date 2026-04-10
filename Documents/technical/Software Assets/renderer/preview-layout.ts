@@ -245,6 +245,7 @@ async function main(): Promise<void> {
         title: "Reason Tracker Layout Preview",
         includeScore: true,
         density: "comfortable",
+        brandCssHref: "../../website/site/css/brand.css",
         useClaimShapeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
         claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
         claimShapeTransformBaseSize: defaultClaimShapeSize,

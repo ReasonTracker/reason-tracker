@@ -13,7 +13,7 @@
     "dev:website": "vp run reason-tracker-repo-website#dev",
     "build:website": "vp run reason-tracker-repo-website#build",
     "publish-website": "vp run reason-tracker-repo-website#publish-website",
-    "preview:website": "vp run reason-tracker-repo-website#preview",
+    "preview": "node ./scripts/preview-live.mjs",
     "test": "vp test",
     "test:all": "vp test",
     "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",

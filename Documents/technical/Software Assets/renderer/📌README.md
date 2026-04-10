@@ -32,6 +32,11 @@ This software asset hosts render-focused logic for Reason Tracker.
 - Preview data is engine-calculated before rendering (not score-overridden sample output).
 - Confidence is displayed as a percentage value.
 
+## Preview Workflow
+
+- Run `pnpm --filter @reasontracker/renderer preview` for a one-off preview render.
+- Run `pnpm --filter @reasontracker/renderer preview:watch` to re-render preview output on visual changes in renderer sources and website brand CSS using Node's built-in watch mode.
+
 ## Decisions
 
 - No fallback clamping strategy is used to hide algorithm issues.
