@@ -1,12 +1,10 @@
 import type { ConnectorShape, DraftLayoutModel, LayoutModel } from "./types.ts";
 
-interface ConnectorOrderingModel {
-    claimShapes: Record<string, { score?: { confidence: number } }>;
-    connectorShapes: Record<string, Pick<ConnectorShape, "id" | "sourceClaimShapeId" | "targetRelation">>;
-}
-
 export function compareConnectorPreference(
-    model: ConnectorOrderingModel,
+    model: {
+        claimShapes: Record<string, { score?: { confidence: number } }>;
+        connectorShapes: Record<string, Pick<ConnectorShape, "id" | "sourceClaimShapeId" | "targetRelation">>;
+    },
     connectorShapeIdA: string,
     connectorShapeIdB: string,
 ): number {
@@ -73,6 +71,11 @@ function relationPriority(targetRelation: ConnectorShape["targetRelation"]): num
     return 2;
 }
 
-function sourceConfidence(model: ConnectorOrderingModel, sourceClaimShapeId: string): number {
+function sourceConfidence(
+    model: {
+        claimShapes: Record<string, { score?: { confidence: number } }>;
+    },
+    sourceClaimShapeId: string,
+): number {
     return model.claimShapes[sourceClaimShapeId]?.score?.confidence ?? 1;
 }

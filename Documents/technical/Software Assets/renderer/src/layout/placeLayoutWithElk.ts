@@ -3,9 +3,9 @@ import type {
     ClaimShapeSize,
     ClaimShape,
     DraftLayoutModel,
+    LayoutOptions,
     LayoutDiagnostic,
     LayoutModel,
-    PlaceLayoutWithElkOptions,
     PlaceLayoutWithElkResult,
     PlacedClaimShape,
 } from "./types.ts";
@@ -13,51 +13,52 @@ import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering
 import { withConnectorGeometry } from "./computeConnectorGeometry.ts";
 import { orderConnectorShapeIdsForTarget } from "./orderConnectorShapesForTarget.ts";
 
-interface ElkClaimShapeLayout {
+type ElkClaimShapeLayout = {
     id: string;
     width: number;
     height: number;
     x?: number;
     y?: number;
     layoutOptions?: Record<string, string>;
-}
+};
 
-interface ElkConnectorLayout {
+type ElkConnectorLayout = {
     id: string;
     sources: string[];
     targets: string[];
     sections?: ElkConnectorSectionLayout[];
     layoutOptions?: Record<string, string>;
-}
+    properties?: Record<string, unknown>;
+};
 
-interface ElkPointLayout {
+type ElkPointLayout = {
     x?: number;
     y?: number;
-}
+};
 
-interface ElkConnectorSectionLayout {
+type ElkConnectorSectionLayout = {
     startPoint?: ElkPointLayout;
     endPoint?: ElkPointLayout;
     bendPoints?: ElkPointLayout[];
-}
+};
 
-interface OrderedConnectorsByTarget {
+type OrderedConnectorsByTarget = {
     byTarget: Record<string, string[]>;
     targetOrder: string[];
-}
+};
 
-interface ElkGraph {
+type ElkGraph = {
     id: string;
     children?: ElkClaimShapeLayout[];
     edges?: ElkConnectorLayout[];
     width?: number;
     height?: number;
     layoutOptions?: Record<string, string>;
-}
+};
 
-interface ElkLayoutApi {
+type ElkLayoutApi = {
     layout: (graph: unknown) => Promise<unknown>;
-}
+};
 
 const DEFAULT_CLAIM_SHAPE_SIZE: ClaimShapeSize = {
     width: 320,
@@ -66,7 +67,7 @@ const DEFAULT_CLAIM_SHAPE_SIZE: ClaimShapeSize = {
 
 export async function placeLayoutWithElk(
     model: DraftLayoutModel,
-    options: PlaceLayoutWithElkOptions = {},
+    options: LayoutOptions = {},
 ): Promise<PlaceLayoutWithElkResult> {
     // Separation of duties: this function owns placed geometry for both nodes and connectors.
     // Render adapters should not recompute connector routing.
@@ -74,16 +75,7 @@ export async function placeLayoutWithElk(
 
     const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
     const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
-    const peerGap = options.peerGap ?? 40;
-    const layerGap = options.layerGap ?? 96;
-    const connectorClaimShapeGap = options.connectorClaimShapeGap ?? 32;
-    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? 0.5;
-    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? 0.3;
-    const connectorPathShape = options.connectorPathShape ?? "straight";
     const preserveInputOrder = options.preserveInputOrder ?? true;
-    const favorStraightEdges = options.favorStraightEdges ?? false;
-    const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
-    const debugConnectorOrder = options.debugConnectorOrder ?? false;
 
     const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
 
@@ -109,14 +101,14 @@ export async function placeLayoutWithElk(
             const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
             const sourceClaimShapeSize = claimShapeSizeByClaimShapeId[connectorShape.sourceClaimShapeId] ?? defaultClaimShapeSize;
             const sourceConfidence = sourceClaimShape?.score?.confidence ?? 1;
-            const connectorThickness = Math.max(0, sourceClaimShapeSize.height * sourceConfidence);
+            const connectorThickness = Math.max(0, sourceClaimShapeSize.height * sourceConfidence * 10);
 
             return {
                 id: connectorShape.id,
                 sources: [connectorShape.targetClaimShapeId],
                 targets: [connectorShape.sourceClaimShapeId],
                 layoutOptions: {
-                    "elk.thickness": String(connectorThickness),
+                    "elk.edge.thickness": String(connectorThickness),
                 },
             };
         });
@@ -128,13 +120,13 @@ export async function placeLayoutWithElk(
         layoutOptions: {
             "elk.algorithm": "layered",
             "elk.direction": "RIGHT",
-            "elk.spacing.nodeNode": String(peerGap),
-            "elk.layered.spacing.nodeNodeBetweenLayers": String(layerGap),
-            "elk.spacing.edgeNode": String(connectorClaimShapeGap),
+            "elk.spacing.nodeNode": String(options.peerGap),
+            "elk.layered.spacing.nodeNodeBetweenLayers": String(options.layerGap),
+            "elk.spacing.edgeNode": String(options.connectorClaimShapeGap),
             "elk.layered.cycleBreaking.strategy": "GREEDY",
             "elk.layered.nodePlacement.strategy": "LINEAR_SEGMENTS",
-            "elk.layered.nodePlacement.favorStraightEdges": favorStraightEdges ? "true" : "false",
-            "elk.layered.nodePlacement.bk.fixedAlignment": bkFixedAlignment,
+            "elk.layered.nodePlacement.favorStraightEdges": options.favorStraightEdges ? "true" : "false",
+            "elk.layered.nodePlacement.bk.fixedAlignment": options.bkFixedAlignment,
             "elk.layered.compaction.connectedComponents": "false",
             ...(preserveInputOrder
                 ? {
@@ -163,6 +155,10 @@ export async function placeLayoutWithElk(
             },
             diagnostics,
         };
+    }
+
+    if (options.debugConnectorOrder) {
+        logElkThicknessRoundTrip(connectorShapes, laidOutGraph.edges ?? []);
     }
 
     const placedChildren = new Map<string, ElkClaimShapeLayout>();
@@ -215,17 +211,18 @@ export async function placeLayoutWithElk(
     const connectorShapeRenderOrder = orderedConnectorsByTarget.targetOrder
         .flatMap((targetClaimShapeId) => orderedConnectorsByTarget.byTarget[targetClaimShapeId]);
 
-    const placedConnectorShapes = withConnectorGeometry(placedClaimShapes, model.connectorShapes, {
-        targetAnchorYByConnectorShapeId,
-        sourceAnchorYByConnectorShapeId,
-        orderedConnectorShapeIdsByTargetClaimShapeId: orderedConnectorsByTarget.byTarget,
-        connectorShapeProcessingOrder: connectorShapeRenderOrder,
-        sourceSideStraightSegmentPercent,
-        targetSideStraightSegmentPercent,
-        connectorPathShape,
-        elkPathDByConnectorShapeId: pathDByConnectorShapeId,
-        debugConnectorOrder,
-    });
+    const placedConnectorShapes = withConnectorGeometry(
+        placedClaimShapes,
+        model.connectorShapes,
+        options,
+        {
+            targetAnchorYByConnectorShapeId,
+            sourceAnchorYByConnectorShapeId,
+            orderedConnectorShapeIdsByTargetClaimShapeId: orderedConnectorsByTarget.byTarget,
+            connectorShapeProcessingOrder: connectorShapeRenderOrder,
+            elkPathDByConnectorShapeId: pathDByConnectorShapeId,
+        },
+    );
 
     const claimShapeRenderOrder = Object.keys(placedClaimShapes)
         .sort((a, b) => {
@@ -339,6 +336,54 @@ function buildPathDFromElkSections(sections: ElkConnectorSectionLayout[]): strin
 
     if (commands.length === 0) return undefined;
     return commands.join(" ");
+}
+
+function readElkEdgeThicknessFromLayoutOptions(layoutOptions: Record<string, string> | undefined): string | undefined {
+    if (!layoutOptions) return undefined;
+    const shortKey = layoutOptions["elk.edge.thickness"];
+    if (shortKey != null) return String(shortKey);
+    const fullKey = layoutOptions["org.eclipse.elk.edge.thickness"];
+    if (fullKey != null) return String(fullKey);
+    return undefined;
+}
+
+function readElkEdgeThicknessFromProperties(properties: Record<string, unknown> | undefined): string | undefined {
+    if (!properties) return undefined;
+    const shortKey = properties["elk.edge.thickness"];
+    if (shortKey != null) return String(shortKey);
+    const fullKey = properties["org.eclipse.elk.edge.thickness"];
+    if (fullKey != null) return String(fullKey);
+    return undefined;
+}
+
+function readElkEdgeThickness(edge: ElkConnectorLayout): string | undefined {
+    return readElkEdgeThicknessFromLayoutOptions(edge.layoutOptions)
+        ?? readElkEdgeThicknessFromProperties(edge.properties);
+}
+
+function logElkThicknessRoundTrip(inputEdges: ElkConnectorLayout[], outputEdges: ElkConnectorLayout[]): void {
+    const outputById = new Map<string, ElkConnectorLayout>();
+    for (const outputEdge of outputEdges) {
+        outputById.set(outputEdge.id, outputEdge);
+    }
+
+    const sampleOutputEdge = outputEdges[0];
+    const sampleLayoutOptionKeys = sampleOutputEdge?.layoutOptions
+        ? Object.keys(sampleOutputEdge.layoutOptions).join(",")
+        : "";
+    const samplePropertyKeys = sampleOutputEdge?.properties
+        ? Object.keys(sampleOutputEdge.properties).join(",")
+        : "";
+    process.stdout.write(
+        `[elk-thickness-keys] layoutOptions=${sampleLayoutOptionKeys || "(none)"} properties=${samplePropertyKeys || "(none)"}\n`,
+    );
+
+    for (const inputEdge of inputEdges) {
+        const outputEdge = outputById.get(inputEdge.id);
+        const thicknessIn = readElkEdgeThickness(inputEdge) ?? "(none)";
+        const thicknessOut = outputEdge ? (readElkEdgeThickness(outputEdge) ?? "(none)") : "(edge-missing)";
+        process.stdout.write(`[elk-thickness] connector=${inputEdge.id} in=${thicknessIn} out=${thicknessOut}\n`);
+    }
 }
 
 function buildOrderedConnectorShapeIdsByTargetClaimShapeId(

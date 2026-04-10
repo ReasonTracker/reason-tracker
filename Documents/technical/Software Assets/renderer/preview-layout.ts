@@ -37,6 +37,7 @@ const PREVIEW_LAYOUT_CONFIG = {
         connectorPathShape: "elk-bends" as const,
         sourceSideStraightSegmentPercent: 0.5,
         targetSideStraightSegmentPercent: 0.3,
+        spreadTargetAnchorY: true,
     },
     debug: {
         connectorOrder: true,
@@ -231,22 +232,15 @@ async function main(): Promise<void> {
     };
 
     const contributorSizing = computeContributorNodeSizing(built.model, {
-        applyConfidenceScale: PREVIEW_LAYOUT_CONFIG.sizing.applyConfidenceScale,
-        applyRelevanceScale: PREVIEW_LAYOUT_CONFIG.sizing.applyRelevanceScale,
+        ...PREVIEW_LAYOUT_CONFIG.sizing,
         defaultClaimShapeSize,
     });
 
     const placed = await placeLayoutWithElk(built.model, {
         defaultClaimShapeSize,
         claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
-        peerGap: PREVIEW_LAYOUT_CONFIG.elk.peerGap,
-        layerGap: PREVIEW_LAYOUT_CONFIG.elk.layerGap,
-        connectorClaimShapeGap: PREVIEW_LAYOUT_CONFIG.elk.connectorClaimShapeGap,
-        connectorPathShape: PREVIEW_LAYOUT_CONFIG.connectorGeometry.connectorPathShape,
-        sourceSideStraightSegmentPercent: PREVIEW_LAYOUT_CONFIG.connectorGeometry.sourceSideStraightSegmentPercent,
-        targetSideStraightSegmentPercent: PREVIEW_LAYOUT_CONFIG.connectorGeometry.targetSideStraightSegmentPercent,
-        favorStraightEdges: PREVIEW_LAYOUT_CONFIG.elk.favorStraightEdges,
-        bkFixedAlignment: PREVIEW_LAYOUT_CONFIG.elk.bkFixedAlignment,
+        ...PREVIEW_LAYOUT_CONFIG.elk,
+        ...PREVIEW_LAYOUT_CONFIG.connectorGeometry,
         debugConnectorOrder: PREVIEW_LAYOUT_CONFIG.debug.connectorOrder,
     });
 

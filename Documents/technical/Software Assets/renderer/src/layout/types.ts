@@ -89,7 +89,7 @@ export interface LayoutModel {
     };
 }
 
-export interface PlaceLayoutWithElkOptions {
+export interface LayoutOptions {
     defaultClaimShapeSize?: ClaimShapeSize;
     claimShapeSizeByClaimShapeId?: Record<string, ClaimShapeSize>;
     peerGap?: number;
@@ -97,12 +97,15 @@ export interface PlaceLayoutWithElkOptions {
     connectorClaimShapeGap?: number;
     sourceSideStraightSegmentPercent?: number;
     targetSideStraightSegmentPercent?: number;
+    spreadTargetAnchorY?: boolean;
     connectorPathShape?: "straight" | "curved" | "sharp-corners" | "elk-bends";
     preserveInputOrder?: boolean;
     favorStraightEdges?: boolean;
     bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";
     debugConnectorOrder?: boolean;
 }
+
+export type PlaceLayoutWithElkOptions = LayoutOptions;
 
 export interface ContributorNodeSizingOptions {
     applyConfidenceScale?: boolean;
