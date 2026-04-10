@@ -23,6 +23,13 @@ These are implementation guidelines for repository code structure and file organ
 - Reduce file tree clutter.
 - Preserve clear and predictable structure while coding.
 
+## Options And Type Contracts
+
+- Prefer direct `options.x` usage at the point of use instead of creating one-off local aliases.
+- Avoid destructuring or local variable extraction when a value is used only once.
+- Keep internal implementation type contracts DRY: do not redefine equivalent option/type contracts repeatedly across internal functions.
+- Define and reuse shared contracts at real boundaries (for example package/library boundaries), then thread those through internal call chains.
+
 ## Tunable Constants Placement
 
 - For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.
