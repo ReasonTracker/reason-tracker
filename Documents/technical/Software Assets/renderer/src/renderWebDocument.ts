@@ -4,6 +4,12 @@ import type {
     PositionedLayoutNode as PositionedLayoutClaimShape,
 } from "./layout/types.ts";
 
+// Connector line-shape profile (hardcoded during design iteration).
+// Percentages are applied to a per-target baseline horizontal gap.
+const SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.5;
+const TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT = 0.1;
+const TARGET_SIDE_STRAIGHT_SEGMENT_MAX_PERCENT = 0.5;
+
 export interface RenderWebDocumentOptions {
     title?: string;
     includeScore?: boolean;
@@ -164,7 +170,7 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  height: 100%;",
         "  background: white;",
         "  border: 1px solid #cbd5e1;",
-        "  border-radius: 0.5rem;",
+        "  border-radius: 0;",
         "  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);",
         "  padding: 0.5rem 0.75rem;",
         "  overflow: auto;",
@@ -269,9 +275,26 @@ function renderPositionedContent(
 
     const connectorShapeStartYByConnectorShapeId: Record<string, number> = {};
     const connectorShapeTargetApproachFactorByConnectorShapeId: Record<string, number> = {};
+    const horizontalGapByTargetClaimShapeId: Record<string, number> = {};
     for (const [targetClaimShapeId, connectorShapeIds] of Object.entries(connectorShapeIdsByTargetClaimShapeId)) {
         const targetClaimShape = model.claimShapes[targetClaimShapeId];
         if (!targetClaimShape) continue;
+
+        const targetSideX = targetClaimShape.x + targetClaimShape.width;
+        let nearestSourceSideX = Number.POSITIVE_INFINITY;
+        for (const connectorShapeId of connectorShapeIds) {
+            const connectorShape = model.connectorShapes[connectorShapeId];
+            if (!connectorShape) continue;
+
+            const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
+            if (!sourceClaimShape) continue;
+
+            nearestSourceSideX = Math.min(nearestSourceSideX, sourceClaimShape.x);
+        }
+        horizontalGapByTargetClaimShapeId[targetClaimShapeId] =
+            Number.isFinite(nearestSourceSideX)
+                ? (nearestSourceSideX - targetSideX)
+                : 0;
 
         connectorShapeIds.sort((a, b) => {
             const connectorShapeA = model.connectorShapes[a];
@@ -332,11 +355,15 @@ function renderPositionedContent(
             const targetSideY = connectorShapeStartYByConnectorShapeId[connectorShape.id] ?? (targetClaimShape.y + targetClaimShape.height / 2);
             const sourceSideX = sourceClaimShape.x;
             const sourceSideY = sourceClaimShape.y + sourceClaimShape.height / 2;
-            const horizontalGap = Math.abs(sourceSideX - targetSideX);
-            const sourceSideStraightSegment = horizontalGap * 0.3;
+            const targetHorizontalGap = horizontalGapByTargetClaimShapeId[connectorShape.targetClaimShapeId] ?? 0;
+            const sourceSideStraightSegment = targetHorizontalGap * SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT;
             const targetApproachFactor = connectorShapeTargetApproachFactorByConnectorShapeId[connectorShape.id] ?? 1;
-            const targetSideStraightSegment = horizontalGap * (0.1 + targetApproachFactor * (0.3 - 0.1));
-            const d = `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceSideX - sourceSideStraightSegment} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+            const targetSideStraightSegment = targetHorizontalGap * (
+                TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT
+                + targetApproachFactor * (TARGET_SIDE_STRAIGHT_SEGMENT_MAX_PERCENT - TARGET_SIDE_STRAIGHT_SEGMENT_MIN_PERCENT)
+            );
+            const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
+            const d = `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceElbowX} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
             connectorShapeCurveByConnectorShapeId[connectorShape.id] = d;
 
             return [
