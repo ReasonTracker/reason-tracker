@@ -29,6 +29,11 @@ export interface LayoutNode {
     parentId?: string;
 }
 
+export interface NodeSize {
+    width: number;
+    height: number;
+}
+
 export interface LayoutEdge {
     id: string;
     fromNodeId: string;
@@ -47,6 +52,33 @@ export interface LayoutModel {
     edges: Record<string, LayoutEdge>;
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
+}
+
+export interface PositionedLayoutNode extends LayoutNode, NodeSize {
+    x: number;
+    y: number;
+}
+
+export interface PositionedLayoutModel {
+    rootNodeId: string;
+    nodes: Record<string, PositionedLayoutNode>;
+    edges: Record<string, LayoutEdge>;
+    cycleMode: CycleMode;
+    sourceDebateId: DebateId;
+    layoutEngine: "elkjs";
+    layoutBounds: {
+        width: number;
+        height: number;
+    };
+}
+
+export interface PlaceLayoutWithElkOptions {
+    defaultNodeSize?: NodeSize;
+    nodeSizeByNodeId?: Record<string, NodeSize>;
+    nodeSpacing?: number;
+    layerSpacing?: number;
+    edgeNodeSpacing?: number;
+    preserveInputOrder?: boolean;
 }
 
 export interface LayoutDiagnostic {
@@ -73,3 +105,21 @@ export interface BuildLayoutModelSuccess {
 }
 
 export type BuildLayoutModelResult = BuildLayoutModelSuccess | BuildLayoutModelFailure;
+
+export interface PlaceLayoutWithElkFailure {
+    ok: false;
+    error: {
+        code: "ELK_LAYOUT_FAILED" | "ELK_NODE_NOT_POSITIONED";
+        message: string;
+        details?: Record<string, unknown>;
+    };
+    diagnostics: LayoutDiagnostic[];
+}
+
+export interface PlaceLayoutWithElkSuccess {
+    ok: true;
+    model: PositionedLayoutModel;
+    diagnostics: LayoutDiagnostic[];
+}
+
+export type PlaceLayoutWithElkResult = PlaceLayoutWithElkSuccess | PlaceLayoutWithElkFailure;

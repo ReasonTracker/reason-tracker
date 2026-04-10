@@ -10,13 +10,16 @@
     "src"
   ],
   "dependencies": {
-    "@reasontracker/contracts": "workspace:*"
+    "@reasontracker/contracts": "workspace:*",
+    "elkjs": "^0.11.1"
   },
   "devDependencies": {
+    "tsx": "^4.20.6",
     "vite-plus": "^0.1.16"
   },
   "scripts": {
     "build": "echo \"Build script pending\"",
+    "preview": "tsx ./preview-layout.ts",
     "test": "vp test --passWithNoTests"
   }
 }

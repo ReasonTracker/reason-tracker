@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reason Tracker Layout Preview</title>
+<style>
+:root {
+  --rt-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --rt-fg: #1f2937;
+  --rt-muted: #6b7280;
+  --rt-bg: #f3f4f6;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--rt-font);
+  color: var(--rt-fg);
+  background: linear-gradient(160deg, #f8fafc 0%, var(--rt-bg) 100%);
+}
+main {
+  height: 100vh;
+  padding: 0.35rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+h1 {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--rt-muted);
+}
+.rt-layout-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+.rt-layout-canvas {
+  position: relative;
+}
+.rt-edge-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.rt-edge {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.rt-edge[data-pro-target='true'] {
+  stroke: #166534;
+}
+.rt-edge[data-pro-target='false'] {
+  stroke: #991b1b;
+}
+.rt-edge[data-affects='relevance'] {
+  stroke-dasharray: 6 5;
+}
+.rt-node {
+  position: absolute;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+}
+.rt-node h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.rt-node small {
+  display: block;
+  margin-top: 0.35rem;
+}
+ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+li {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+small {
+  color: var(--rt-muted);
+}
+</style>
+</head>
+<body>
+<main data-cycle-mode="preserve">
+<h1>Reason Tracker Layout Preview</h1>
+<p>Root: claim:main</p>
+<section class="rt-layout-stage" aria-label="Graph layout canvas">
+<div class="rt-layout-canvas" style="width:2056px;height:1118px;">
+<svg class="rt-edge-layer" width="2056" height="1118" viewBox="0 0 2056 1118" aria-hidden="true">
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 332 186.16666666666666 C 369.8 186.16666666666666, 402.2 154.5, 440 154.5" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="false" d="M 1188 1011 C 1225.8 1011, 1258.2 1011, 1296 1011" />
+<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 1616 107 C 1653.8 107, 1686.2 107, 1724 107" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="false" d="M 332 186.16666666666666 C 369.8 186.16666666666666, 402.2 816.6666666666666, 440 816.6666666666666" />
+<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 760 154.5 C 797.8 154.5, 830.2 154.5, 868 154.5" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 107, 1296 107" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 760 816.6666666666666 C 797.8 816.6666666666666, 830.2 785, 868 785" />
+<path class="rt-edge" data-affects="relevance" data-pro-target="false" d="M 760 816.6666666666666 C 797.8 816.6666666666666, 830.2 1011, 868 1011" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 333, 1296 333" />
+<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 559, 1296 559" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 785 C 1225.8 785, 1258.2 785, 1296 785" />
+</svg>
+<article class="rt-node" style="left:12px;top:91.16666666666666px;width:320px;height:190px" data-node-id="claim:main" data-claim-id="claim:main" data-depth="0"><h2>claim:main</h2><small data-score="0.71">c=0.710</small></article>
+<article class="rt-node" style="left:440px;top:59.49999999999999px;width:320px;height:190px" data-node-id="claim:a" data-claim-id="claim:a" data-depth="1"><h2>claim:a</h2><small data-score="0.84">c=0.840</small></article>
+<article class="rt-node" style="left:440px;top:721.6666666666666px;width:320px;height:190px" data-node-id="claim:b" data-claim-id="claim:b" data-depth="1"><h2>claim:b</h2><small data-score="0.42">c=0.420</small></article>
+<article class="rt-node" style="left:868px;top:59.49999999999999px;width:320px;height:190px" data-node-id="claim:c" data-claim-id="claim:c" data-depth="2"><h2>claim:c</h2><small data-score="0.67">c=0.670</small></article>
+<article class="rt-node" style="left:868px;top:690px;width:320px;height:190px" data-node-id="claim:e" data-claim-id="claim:e" data-depth="2"><h2>claim:e</h2><small data-score="0.61">c=0.610</small></article>
+<article class="rt-node" style="left:868px;top:916px;width:320px;height:190px" data-node-id="claim:f" data-claim-id="claim:f" data-depth="2"><h2>claim:f</h2><small data-score="0.47">c=0.470</small></article>
+<article class="rt-node" style="left:1296px;top:12px;width:320px;height:190px" data-node-id="claim:d" data-claim-id="claim:d" data-depth="3"><h2>claim:d</h2><small data-score="0.58">c=0.580</small></article>
+<article class="rt-node" style="left:1296px;top:238px;width:320px;height:190px" data-node-id="claim:g" data-claim-id="claim:g" data-depth="3"><h2>claim:g</h2><small data-score="0.73">c=0.730</small></article>
+<article class="rt-node" style="left:1296px;top:464px;width:320px;height:190px" data-node-id="claim:h" data-claim-id="claim:h" data-depth="3"><h2>claim:h</h2><small data-score="0.64">c=0.640</small></article>
+<article class="rt-node" style="left:1296px;top:690px;width:320px;height:190px" data-node-id="claim:i" data-claim-id="claim:i" data-depth="3"><h2>claim:i</h2><small data-score="0.69">c=0.690</small></article>
+<article class="rt-node" style="left:1296px;top:916px;width:320px;height:190px" data-node-id="claim:j" data-claim-id="claim:j" data-depth="3"><h2>claim:j</h2><small data-score="0.38">c=0.380</small></article>
+<article class="rt-node" style="left:1724px;top:12px;width:320px;height:190px" data-node-id="claim:k" data-claim-id="claim:k" data-depth="4"><h2>claim:k</h2><small data-score="0.66">c=0.660</small></article>
+</div>
+</section>
+</main>
+</body>
+</html>

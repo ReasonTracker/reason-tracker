@@ -2,6 +2,10 @@ export {
     buildLayoutModel,
 } from "./layout/buildLayoutModel.ts";
 
+export {
+    placeLayoutWithElk,
+} from "./layout/placeLayoutWithElk.ts";
+
 export type {
     BuildLayoutModelFailure,
     BuildLayoutModelRequest,
@@ -13,6 +17,13 @@ export type {
     LayoutEdge,
     LayoutModel,
     LayoutNode,
+    NodeSize,
+    PlaceLayoutWithElkFailure,
+    PlaceLayoutWithElkOptions,
+    PlaceLayoutWithElkResult,
+    PlaceLayoutWithElkSuccess,
+    PositionedLayoutModel,
+    PositionedLayoutNode,
 } from "./layout/types.ts";
 
 export {
