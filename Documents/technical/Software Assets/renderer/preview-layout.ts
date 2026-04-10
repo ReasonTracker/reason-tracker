@@ -1,19 +1,23 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { runCli } from "@reasontracker/engine";
 import type {
-    CalculatedDebate,
     Claim,
     ClaimId,
     Connector,
     ConnectorId,
+    Debate,
     DebateId,
-    Score,
 } from "@reasontracker/contracts";
 import {
     buildLayoutModel,
+    computeContributorNodeSizing,
     placeLayoutWithElk,
     renderWebDocument,
 } from "./src/index.ts";
+
+const APPLY_CONFIDENCE_SCALE = true;
+const APPLY_RELEVANCE_SCALE = true;
 
 function asClaimId(value: string): ClaimId {
     return value as ClaimId;
@@ -27,41 +31,32 @@ function asDebateId(value: string): DebateId {
     return value as DebateId;
 }
 
-function score(id: string, confidence: number, relevance: number): Score {
-    return {
-        id: id as Score["id"],
-        confidence,
-        reversibleConfidence: confidence * 2 - 1,
-        relevance,
-    };
-}
-
-function buildSampleCalculatedDebate(): CalculatedDebate {
-    const cMain = asClaimId("claim:main");
-    const cA = asClaimId("claim:a");
-    const cB = asClaimId("claim:b");
-    const cC = asClaimId("claim:c");
-    const cD = asClaimId("claim:d");
-    const cE = asClaimId("claim:e");
-    const cF = asClaimId("claim:f");
-    const cG = asClaimId("claim:g");
-    const cH = asClaimId("claim:h");
-    const cI = asClaimId("claim:i");
-    const cJ = asClaimId("claim:j");
-    const cK = asClaimId("claim:k");
+function buildSampleDebate(): Debate {
+    const cMain = asClaimId("main");
+    const cA = asClaimId("a");
+    const cB = asClaimId("b");
+    const cC = asClaimId("c");
+    const cD = asClaimId("d");
+    const cE = asClaimId("e");
+    const cF = asClaimId("f");
+    const cG = asClaimId("g");
+    const cH = asClaimId("h");
+    const cI = asClaimId("i");
+    const cJ = asClaimId("j");
+    const cK = asClaimId("k");
 
     const claims: Record<ClaimId, Claim> = {
         [cMain]: { id: cMain, content: "Main claim", pol: "pro" },
         [cA]: { id: cA, content: "Evidence A", pol: "pro" },
-        [cB]: { id: cB, content: "Counterpoint B", pol: "con" },
+        [cB]: { id: cB, content: "Counterpoint B", pol: "pro" },
         [cC]: { id: cC, content: "Sub reason C", pol: "pro" },
         [cD]: { id: cD, content: "Sub reason D", pol: "pro" },
         [cE]: { id: cE, content: "Alternative source E", pol: "pro" },
-        [cF]: { id: cF, content: "Alternative source F", pol: "con" },
+        [cF]: { id: cF, content: "Alternative source F", pol: "pro" },
         [cG]: { id: cG, content: "Detail G", pol: "pro" },
         [cH]: { id: cH, content: "Detail H", pol: "pro" },
         [cI]: { id: cI, content: "Detail I", pol: "pro" },
-        [cJ]: { id: cJ, content: "Detail J", pol: "con" },
+        [cJ]: { id: cJ, content: "Detail J", pol: "pro" },
         [cK]: { id: cK, content: "Detail K", pol: "pro" },
     };
 
@@ -77,7 +72,7 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             id: asConnectorId("edge:2"),
             source: cB,
             target: cMain,
-            proTarget: false,
+            proTarget: true,
             affects: "confidence",
         },
         [asConnectorId("edge:3")]: {
@@ -85,7 +80,7 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             source: cC,
             target: cA,
             proTarget: true,
-            affects: "relevance",
+            affects: "confidence",
         },
         [asConnectorId("edge:4")]: {
             id: asConnectorId("edge:4"),
@@ -99,14 +94,14 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             source: cE,
             target: cB,
             proTarget: true,
-            affects: "confidence",
+            affects: "relevance",
         },
         [asConnectorId("edge:6")]: {
             id: asConnectorId("edge:6"),
             source: cF,
             target: cB,
-            proTarget: false,
-            affects: "relevance",
+            proTarget: true,
+            affects: "confidence",
         },
         [asConnectorId("edge:7")]: {
             id: asConnectorId("edge:7"),
@@ -120,12 +115,12 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             source: cH,
             target: cC,
             proTarget: true,
-            affects: "relevance",
+            affects: "confidence",
         },
         [asConnectorId("edge:9")]: {
             id: asConnectorId("edge:9"),
             source: cI,
-            target: cE,
+            target: cB,
             proTarget: true,
             affects: "confidence",
         },
@@ -133,7 +128,7 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             id: asConnectorId("edge:10"),
             source: cJ,
             target: cF,
-            proTarget: false,
+            proTarget: true,
             affects: "confidence",
         },
         [asConnectorId("edge:11")]: {
@@ -141,23 +136,8 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
             source: cK,
             target: cD,
             proTarget: true,
-            affects: "relevance",
+            affects: "confidence",
         },
-    };
-
-    const scores: Record<ClaimId, Score> = {
-        [cMain]: score("score:main", 0.71, 1),
-        [cA]: score("score:a", 0.84, 0.9),
-        [cB]: score("score:b", 0.42, 1.1),
-        [cC]: score("score:c", 0.67, 0.8),
-        [cD]: score("score:d", 0.58, 0.7),
-        [cE]: score("score:e", 0.61, 0.9),
-        [cF]: score("score:f", 0.47, 0.95),
-        [cG]: score("score:g", 0.73, 0.85),
-        [cH]: score("score:h", 0.64, 0.75),
-        [cI]: score("score:i", 0.69, 0.82),
-        [cJ]: score("score:j", 0.38, 0.92),
-        [cK]: score("score:k", 0.66, 0.7),
     };
 
     return {
@@ -167,15 +147,24 @@ function buildSampleCalculatedDebate(): CalculatedDebate {
         mainClaimId: cMain,
         claims,
         connectors,
-        scores,
     };
 }
 
 async function main(): Promise<void> {
-    const debate = buildSampleCalculatedDebate();
+    const debate = buildSampleDebate();
+
+    const calculation = runCli({
+        command: "calculateDebate",
+        debate,
+        cycleHandling: "fail",
+    });
+
+    if (!calculation.ok) {
+        throw new Error(`calculateDebate failed: ${calculation.error.code} ${calculation.error.message}`);
+    }
 
     const built = buildLayoutModel({
-        calculatedDebate: debate,
+        calculatedDebate: calculation.calculatedDebate,
         cycleMode: "preserve",
     });
 
@@ -183,13 +172,24 @@ async function main(): Promise<void> {
         throw new Error(`buildLayoutModel failed: ${built.error.code} ${built.error.message}`);
     }
 
+    const defaultNodeSize = {
+        width: 320,
+        height: 190,
+    };
+
+    const contributorSizing = computeContributorNodeSizing(built.model, {
+        applyConfidenceScale: APPLY_CONFIDENCE_SCALE,
+        applyRelevanceScale: APPLY_RELEVANCE_SCALE,
+        defaultNodeSize,
+    });
+
     const placed = await placeLayoutWithElk(built.model, {
-        defaultNodeSize: {
-            width: 320,
-            height: 190,
-        },
+        defaultNodeSize,
+        nodeSizeByNodeId: contributorSizing.nodeSizeByNodeId,
         nodeSpacing: 36,
         layerSpacing: 108,
+        favorStraightEdges: true,
+        bkFixedAlignment: "LEFTUP",
     });
 
     if (!placed.ok) {
@@ -200,6 +200,9 @@ async function main(): Promise<void> {
         title: "Reason Tracker Layout Preview",
         includeScore: true,
         density: "comfortable",
+        useNodeTransformScale: APPLY_CONFIDENCE_SCALE || APPLY_RELEVANCE_SCALE,
+        nodeScaleByNodeId: contributorSizing.nodeScaleByNodeId,
+        nodeTransformBaseSize: defaultNodeSize,
     });
 
     const outDir = resolve(process.cwd(), "preview");

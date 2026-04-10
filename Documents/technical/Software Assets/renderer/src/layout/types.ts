@@ -79,6 +79,19 @@ export interface PlaceLayoutWithElkOptions {
     layerSpacing?: number;
     edgeNodeSpacing?: number;
     preserveInputOrder?: boolean;
+    favorStraightEdges?: boolean;
+    bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";
+}
+
+export interface ContributorNodeSizingOptions {
+    applyConfidenceScale?: boolean;
+    applyRelevanceScale?: boolean;
+    defaultNodeSize?: NodeSize;
+}
+
+export interface ContributorNodeSizingResult {
+    nodeSizeByNodeId: Record<string, NodeSize>;
+    nodeScaleByNodeId: Record<string, number>;
 }
 
 export interface LayoutDiagnostic {

@@ -22,4 +22,5 @@ Example: `Software Assets/engine` for `@reasontracker/engine`.
 - [Software Assets](./Software%20Assets/📌README.md)
 - [Agent Steering](./AGENTS.md)
 - [Coding Guidelines](./Coding%20Guidelines.md)
+- [Renderer Algorithm Rationale](./Renderer%20Algorithm%20Rationale.md)
 <!-- autonav:end -->

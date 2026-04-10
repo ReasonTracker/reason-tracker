@@ -44,10 +44,11 @@ p {
   overflow: auto;
   border: 1px solid #d1d5db;
   border-radius: 0.75rem;
-  background: #f8fafc;
+  background: gray;
 }
 .rt-layout-canvas {
   position: relative;
+  background: gray;
 }
 .rt-edge-layer {
   position: absolute;
@@ -71,7 +72,21 @@ p {
   stroke-dasharray: 6 5;
 }
 .rt-node {
+  box-sizing: border-box;
   position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  transform: translate(-50%, -50%) scale(var(--rt-node-scale, 1));
+}
+.rt-node-shell {
+  position: absolute;
+  overflow: visible;
+}
+.rt-node-body {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   background: white;
   border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
@@ -107,34 +122,34 @@ small {
 <body>
 <main data-cycle-mode="preserve">
 <h1>Reason Tracker Layout Preview</h1>
-<p>Root: claim:main</p>
+<p>Root: main</p>
 <section class="rt-layout-stage" aria-label="Graph layout canvas">
-<div class="rt-layout-canvas" style="width:2056px;height:1118px;">
-<svg class="rt-edge-layer" width="2056" height="1118" viewBox="0 0 2056 1118" aria-hidden="true">
-<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 332 186.16666666666666 C 369.8 186.16666666666666, 402.2 154.5, 440 154.5" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="false" d="M 1188 1011 C 1225.8 1011, 1258.2 1011, 1296 1011" />
-<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 1616 107 C 1653.8 107, 1686.2 107, 1724 107" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="false" d="M 332 186.16666666666666 C 369.8 186.16666666666666, 402.2 816.6666666666666, 440 816.6666666666666" />
-<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 760 154.5 C 797.8 154.5, 830.2 154.5, 868 154.5" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 107, 1296 107" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 760 816.6666666666666 C 797.8 816.6666666666666, 830.2 785, 868 785" />
-<path class="rt-edge" data-affects="relevance" data-pro-target="false" d="M 760 816.6666666666666 C 797.8 816.6666666666666, 830.2 1011, 868 1011" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 333, 1296 333" />
-<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 1188 154.5 C 1225.8 154.5, 1258.2 559, 1296 559" />
-<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 1188 785 C 1225.8 785, 1258.2 785, 1296 785" />
+<div class="rt-layout-canvas" style="width:1097px;height:311px;">
+<svg class="rt-edge-layer" width="1097" height="311" viewBox="0 0 1097 311" aria-hidden="true">
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 332 183.33333333333331 C 383.8 183.33333333333331, 428.2 71.75, 480 71.75" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 774.6666666666667 215 C 817.1333333333334 215, 853.5333333333333 215, 896 215" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 936 19.916666666666664 C 978.4666666666667 19.916666666666664, 1014.8666666666668 19.916666666666664, 1057.3333333333335 19.916666666666664" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 332 183.33333333333331 C 369.8 183.33333333333331, 402.2 215, 440 215" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 560 71.75 C 611.8 71.75, 656.2 71.75, 708 71.75" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 788 71.75 C 830.4666666666667 71.75, 866.8666666666667 19.916666666666664, 909.3333333333334 19.916666666666664" />
+<path class="rt-edge" data-affects="relevance" data-pro-target="true" d="M 600 215 C 637.8 215, 670.2 147.33333333333334, 708 147.33333333333334" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 600 215 C 642.4666666666667 215, 678.8666666666667 215, 721.3333333333334 215" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 788 71.75 C 825.8 71.75, 858.2 71.75000000000001, 896 71.75000000000001" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 788 71.75 C 825.8 71.75, 858.2 123.58333333333336, 896 123.58333333333336" />
+<path class="rt-edge" data-affects="confidence" data-pro-target="true" d="M 600 215 C 637.8 215, 670.2 282.66666666666663, 708 282.66666666666663" />
 </svg>
-<article class="rt-node" style="left:12px;top:91.16666666666666px;width:320px;height:190px" data-node-id="claim:main" data-claim-id="claim:main" data-depth="0"><h2>claim:main</h2><small data-score="0.71">c=0.710</small></article>
-<article class="rt-node" style="left:440px;top:59.49999999999999px;width:320px;height:190px" data-node-id="claim:a" data-claim-id="claim:a" data-depth="1"><h2>claim:a</h2><small data-score="0.84">c=0.840</small></article>
-<article class="rt-node" style="left:440px;top:721.6666666666666px;width:320px;height:190px" data-node-id="claim:b" data-claim-id="claim:b" data-depth="1"><h2>claim:b</h2><small data-score="0.42">c=0.420</small></article>
-<article class="rt-node" style="left:868px;top:59.49999999999999px;width:320px;height:190px" data-node-id="claim:c" data-claim-id="claim:c" data-depth="2"><h2>claim:c</h2><small data-score="0.67">c=0.670</small></article>
-<article class="rt-node" style="left:868px;top:690px;width:320px;height:190px" data-node-id="claim:e" data-claim-id="claim:e" data-depth="2"><h2>claim:e</h2><small data-score="0.61">c=0.610</small></article>
-<article class="rt-node" style="left:868px;top:916px;width:320px;height:190px" data-node-id="claim:f" data-claim-id="claim:f" data-depth="2"><h2>claim:f</h2><small data-score="0.47">c=0.470</small></article>
-<article class="rt-node" style="left:1296px;top:12px;width:320px;height:190px" data-node-id="claim:d" data-claim-id="claim:d" data-depth="3"><h2>claim:d</h2><small data-score="0.58">c=0.580</small></article>
-<article class="rt-node" style="left:1296px;top:238px;width:320px;height:190px" data-node-id="claim:g" data-claim-id="claim:g" data-depth="3"><h2>claim:g</h2><small data-score="0.73">c=0.730</small></article>
-<article class="rt-node" style="left:1296px;top:464px;width:320px;height:190px" data-node-id="claim:h" data-claim-id="claim:h" data-depth="3"><h2>claim:h</h2><small data-score="0.64">c=0.640</small></article>
-<article class="rt-node" style="left:1296px;top:690px;width:320px;height:190px" data-node-id="claim:i" data-claim-id="claim:i" data-depth="3"><h2>claim:i</h2><small data-score="0.69">c=0.690</small></article>
-<article class="rt-node" style="left:1296px;top:916px;width:320px;height:190px" data-node-id="claim:j" data-claim-id="claim:j" data-depth="3"><h2>claim:j</h2><small data-score="0.38">c=0.380</small></article>
-<article class="rt-node" style="left:1724px;top:12px;width:320px;height:190px" data-node-id="claim:k" data-claim-id="claim:k" data-depth="4"><h2>claim:k</h2><small data-score="0.66">c=0.660</small></article>
+<article class="rt-node-shell" style="left:12px;top:88.33333333333331px;width:320px;height:190px" data-node-id="main" data-claim-id="main" data-depth="0"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:1"><article class="rt-node-body"><h2>main</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:480px;top:48px;width:80px;height:47.5px" data-node-id="a" data-claim-id="a" data-depth="1"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.25"><article class="rt-node-body"><h2>a</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:440px;top:167.5px;width:160px;height:95px" data-node-id="b" data-claim-id="b" data-depth="1"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.5"><article class="rt-node-body"><h2>b</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:708px;top:48px;width:80px;height:47.5px" data-node-id="c" data-claim-id="c" data-depth="2"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.25"><article class="rt-node-body"><h2>c</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:708px;top:131.5px;width:53.33333333333333px;height:31.666666666666664px" data-node-id="e" data-claim-id="e" data-depth="2"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.16666666666666666"><article class="rt-node-body"><h2>e</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:721.3333333333334px;top:199.16666666666666px;width:53.33333333333333px;height:31.666666666666664px" data-node-id="f" data-claim-id="f" data-depth="2"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.16666666666666666"><article class="rt-node-body"><h2>f</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:708px;top:266.8333333333333px;width:53.33333333333333px;height:31.666666666666664px" data-node-id="i" data-claim-id="i" data-depth="2"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.16666666666666666"><article class="rt-node-body"><h2>i</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:909.3333333333334px;top:12px;width:26.666666666666664px;height:15.833333333333332px" data-node-id="d" data-claim-id="d" data-depth="3"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.08333333333333333"><article class="rt-node-body"><h2>d</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:896px;top:63.83333333333334px;width:26.666666666666664px;height:15.833333333333332px" data-node-id="g" data-claim-id="g" data-depth="3"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.08333333333333333"><article class="rt-node-body"><h2>g</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:896px;top:115.66666666666669px;width:26.666666666666664px;height:15.833333333333332px" data-node-id="h" data-claim-id="h" data-depth="3"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.08333333333333333"><article class="rt-node-body"><h2>h</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:896px;top:199.16666666666666px;width:53.33333333333333px;height:31.666666666666664px" data-node-id="j" data-claim-id="j" data-depth="3"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.16666666666666666"><article class="rt-node-body"><h2>j</h2><small data-score="1">100%</small></article></div></article>
+<article class="rt-node-shell" style="left:1057.3333333333335px;top:12px;width:26.666666666666664px;height:15.833333333333332px" data-node-id="k" data-claim-id="k" data-depth="4"><div class="rt-node" style="width:320px;height:190px;--rt-node-scale:0.08333333333333333"><article class="rt-node-body"><h2>k</h2><small data-score="1">100%</small></article></div></article>
 </div>
 </section>
 </main>

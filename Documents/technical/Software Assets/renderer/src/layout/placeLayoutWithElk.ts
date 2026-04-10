@@ -55,6 +55,8 @@ export async function placeLayoutWithElk(
     const layerSpacing = options.layerSpacing ?? 96;
     const edgeNodeSpacing = options.edgeNodeSpacing ?? 32;
     const preserveInputOrder = options.preserveInputOrder ?? true;
+    const favorStraightEdges = options.favorStraightEdges ?? false;
+    const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
 
     const orderedNodeIds = Object.keys(model.nodes).sort((a, b) => {
         const depthOrder = model.nodes[a].depth - model.nodes[b].depth;
@@ -97,6 +99,8 @@ export async function placeLayoutWithElk(
             "elk.layered.spacing.nodeNodeBetweenLayers": String(layerSpacing),
             "elk.spacing.edgeNode": String(edgeNodeSpacing),
             "elk.layered.cycleBreaking.strategy": "GREEDY",
+            "elk.layered.nodePlacement.favorStraightEdges": favorStraightEdges ? "true" : "false",
+            "elk.layered.nodePlacement.bk.fixedAlignment": bkFixedAlignment,
             ...(preserveInputOrder
                 ? {
                       "elk.layered.considerModelOrder": "NODES_AND_EDGES",
@@ -153,7 +157,9 @@ export async function placeLayoutWithElk(
 
         const positionedNode = toPositionedNode(node, laidOutNode);
         positionedNodes[nodeId] = positionedNode;
+    }
 
+    for (const positionedNode of Object.values(positionedNodes)) {
         maxX = Math.max(maxX, positionedNode.x + positionedNode.width);
         maxY = Math.max(maxY, positionedNode.y + positionedNode.height);
     }

@@ -6,11 +6,17 @@ export {
     placeLayoutWithElk,
 } from "./layout/placeLayoutWithElk.ts";
 
+export {
+    computeContributorNodeSizing,
+} from "./layout/computeContributorNodeSizing.ts";
+
 export type {
     BuildLayoutModelFailure,
     BuildLayoutModelRequest,
     BuildLayoutModelResult,
     BuildLayoutModelSuccess,
+    ContributorNodeSizingOptions,
+    ContributorNodeSizingResult,
     CycleMode,
     DagOptions,
     LayoutDiagnostic,

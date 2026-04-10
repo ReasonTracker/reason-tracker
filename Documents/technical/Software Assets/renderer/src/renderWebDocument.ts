@@ -8,6 +8,12 @@ export interface RenderWebDocumentOptions {
     title?: string;
     includeScore?: boolean;
     density?: "comfortable" | "compact";
+    useNodeTransformScale?: boolean;
+    nodeScaleByNodeId?: Record<string, number>;
+    nodeTransformBaseSize?: {
+        width: number;
+        height: number;
+    };
 }
 
 export interface WebDocument {
@@ -22,10 +28,17 @@ export function renderWebDocument(
     const title = options.title ?? "Reason Tracker";
     const includeScore = options.includeScore ?? true;
     const density = options.density ?? "comfortable";
+    const useNodeTransformScale = options.useNodeTransformScale ?? false;
+    const nodeScaleByNodeId = options.nodeScaleByNodeId ?? {};
+    const nodeTransformBaseSize = options.nodeTransformBaseSize;
     const css = renderWebCss({ density });
 
     const bodyContent = isPositionedLayoutModel(model)
-        ? renderPositionedContent(model, includeScore)
+        ? renderPositionedContent(model, includeScore, {
+              useNodeTransformScale,
+              nodeScaleByNodeId,
+              nodeTransformBaseSize,
+          })
         : renderListContent(model, includeScore);
 
     const html = [
@@ -103,10 +116,11 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  overflow: auto;",
         "  border: 1px solid #d1d5db;",
         "  border-radius: 0.75rem;",
-        "  background: #f8fafc;",
+        "  background: gray;",
         "}",
         ".rt-layout-canvas {",
         "  position: relative;",
+        "  background: gray;",
         "}",
         ".rt-edge-layer {",
         "  position: absolute;",
@@ -130,7 +144,21 @@ export function renderWebCss(options: RenderWebCssOptions = {}): string {
         "  stroke-dasharray: 6 5;",
         "}",
         ".rt-node {",
+        "  box-sizing: border-box;",
         "  position: absolute;",
+        "  left: 50%;",
+        "  top: 50%;",
+        "  transform-origin: center center;",
+        "  transform: translate(-50%, -50%) scale(var(--rt-node-scale, 1));",
+        "}",
+        ".rt-node-shell {",
+        "  position: absolute;",
+        "  overflow: visible;",
+        "}",
+        ".rt-node-body {",
+        "  box-sizing: border-box;",
+        "  width: 100%;",
+        "  height: 100%;",
         "  background: white;",
         "  border: 1px solid #cbd5e1;",
         "  border-radius: 0.5rem;",
@@ -177,13 +205,17 @@ function isPositionedLayoutModel(model: LayoutModel | PositionedLayoutModel): mo
     return "layoutEngine" in model;
 }
 
+function formatConfidencePercent(confidence: number): string {
+    return `${Math.round(confidence * 100)}%`;
+}
+
 function renderListContent(model: LayoutModel, includeScore: boolean): string {
     const nodes = Object.values(model.nodes).sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
 
     const items = nodes
         .map((node) => {
             const scoreSnippet = includeScore && node.score
-                ? ` <small data-score="${escapeHtml(String(node.score.confidence))}">c=${escapeHtml(node.score.confidence.toFixed(3))}</small>`
+                ? ` <small data-score="${escapeHtml(String(node.score.confidence))}">${escapeHtml(formatConfidencePercent(node.score.confidence))}</small>`
                 : "";
 
             return `<li data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><strong>${escapeHtml(node.claimId)}</strong>${scoreSnippet}</li>`;
@@ -197,7 +229,20 @@ function renderListContent(model: LayoutModel, includeScore: boolean): string {
     ].join("\n");
 }
 
-function renderPositionedContent(model: PositionedLayoutModel, includeScore: boolean): string {
+interface RenderPositionedNodeOptions {
+    useNodeTransformScale: boolean;
+    nodeScaleByNodeId: Record<string, number>;
+    nodeTransformBaseSize?: {
+        width: number;
+        height: number;
+    };
+}
+
+function renderPositionedContent(
+    model: PositionedLayoutModel,
+    includeScore: boolean,
+    options: RenderPositionedNodeOptions,
+): string {
     const canvasWidth = Math.max(1, Math.ceil(model.layoutBounds.width));
     const canvasHeight = Math.max(1, Math.ceil(model.layoutBounds.height));
 
@@ -221,7 +266,7 @@ function renderPositionedContent(model: PositionedLayoutModel, includeScore: boo
 
     const nodeBlocks = Object.values(model.nodes)
         .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id))
-        .map((node) => renderPositionedNode(node, includeScore))
+        .map((node) => renderPositionedNode(node, includeScore, options))
         .join("\n");
 
     return [
@@ -236,17 +281,37 @@ function renderPositionedContent(model: PositionedLayoutModel, includeScore: boo
     ].join("\n");
 }
 
-function renderPositionedNode(node: PositionedLayoutNode, includeScore: boolean): string {
+function renderPositionedNode(
+    node: PositionedLayoutNode,
+    includeScore: boolean,
+    options: RenderPositionedNodeOptions,
+): string {
     const scoreSnippet = includeScore && node.score
-        ? `<small data-score="${escapeHtml(String(node.score.confidence))}">c=${escapeHtml(node.score.confidence.toFixed(3))}</small>`
+        ? `<small data-score="${escapeHtml(String(node.score.confidence))}">${escapeHtml(formatConfidencePercent(node.score.confidence))}</small>`
         : "";
 
-    const style = [
+    const scale = options.useNodeTransformScale
+        ? (options.nodeScaleByNodeId[node.id] ?? 1)
+        : 1;
+    const baseWidth = options.useNodeTransformScale
+        ? (options.nodeTransformBaseSize?.width ?? node.width)
+        : node.width;
+    const baseHeight = options.useNodeTransformScale
+        ? (options.nodeTransformBaseSize?.height ?? node.height)
+        : node.height;
+
+    const shellStyle = [
         `left:${node.x}px`,
         `top:${node.y}px`,
         `width:${node.width}px`,
         `height:${node.height}px`,
     ].join(";");
 
-    return `<article class="rt-node" style="${escapeHtml(style)}" data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><h2>${escapeHtml(node.claimId)}</h2>${scoreSnippet}</article>`;
+    const transformedStyle = [
+        `width:${baseWidth}px`,
+        `height:${baseHeight}px`,
+        `--rt-node-scale:${scale}`,
+    ].join(";");
+
+    return `<article class="rt-node-shell" style="${escapeHtml(shellStyle)}" data-node-id="${escapeHtml(node.id)}" data-claim-id="${escapeHtml(node.claimId)}" data-depth="${node.depth}"><div class="rt-node" style="${escapeHtml(transformedStyle)}"><article class="rt-node-body"><h2>${escapeHtml(node.claimId)}</h2>${scoreSnippet}</article></div></article>`;
 }
