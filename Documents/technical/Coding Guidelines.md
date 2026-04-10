@@ -22,3 +22,9 @@ These are implementation guidelines for repository code structure and file organ
 - Keep concept count low.
 - Reduce file tree clutter.
 - Preserve clear and predictable structure while coding.
+
+## Tunable Constants Placement
+
+- For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.
+- Keep those constants grouped in one block and reference them in the implementation instead of inline magic numbers.
+- Add a short `AGENT NOTE` comment above the block when maintaining or introducing this pattern so future edits keep the constants in the same location.

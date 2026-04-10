@@ -16,8 +16,14 @@ import {
     renderWebDocument,
 } from "./src/index.ts";
 
+// AGENT NOTE: Keep preview layout tuning constants grouped here directly below imports.
 const APPLY_CONFIDENCE_SCALE = true;
 const APPLY_RELEVANCE_SCALE = true;
+const DEFAULT_CLAIM_SHAPE_WIDTH = 320;
+const DEFAULT_CLAIM_SHAPE_HEIGHT = 190;
+const PEER_GAP = 20;
+const LAYER_GAP = 180;
+const CONNECTOR_CLAIM_SHAPE_GAP = 32;
 
 function asClaimId(value: string): ClaimId {
     return value as ClaimId;
@@ -202,8 +208,8 @@ async function main(): Promise<void> {
     }
 
     const defaultClaimShapeSize = {
-        width: 320,
-        height: 190,
+        width: DEFAULT_CLAIM_SHAPE_WIDTH,
+        height: DEFAULT_CLAIM_SHAPE_HEIGHT,
     };
 
     const contributorSizing = computeContributorNodeSizing(built.model, {
@@ -215,8 +221,9 @@ async function main(): Promise<void> {
     const placed = await placeLayoutWithElk(built.model, {
         defaultClaimShapeSize,
         claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
-        claimShapeSpacing: 8,
-        layerSpacing: 180,
+        peerGap: PEER_GAP,
+        layerGap: LAYER_GAP,
+        connectorClaimShapeGap: CONNECTOR_CLAIM_SHAPE_GAP,
         favorStraightEdges: true,
         bkFixedAlignment: "LEFTUP",
     });

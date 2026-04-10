@@ -92,9 +92,9 @@ export interface LayoutModel {
 export interface PlaceLayoutWithElkOptions {
     defaultClaimShapeSize?: ClaimShapeSize;
     claimShapeSizeByClaimShapeId?: Record<string, ClaimShapeSize>;
-    claimShapeSpacing?: number;
-    layerSpacing?: number;
-    connectorClaimShapeSpacing?: number;
+    peerGap?: number;
+    layerGap?: number;
+    connectorClaimShapeGap?: number;
     preserveInputOrder?: boolean;
     favorStraightEdges?: boolean;
     bkFixedAlignment?: "NONE" | "BALANCED" | "LEFTUP" | "RIGHTUP" | "LEFTDOWN" | "RIGHTDOWN";

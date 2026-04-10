@@ -5,16 +5,8 @@
       "path": ".."
     },
     {
-      "name": "Documentation",
+      "name": "Root",
       "path": "../../../../"
-    },
-    {
-      "name": "Old Reason Tracker",
-      "path": "../../../../../../../GitHub/bentley/reason-tracker"
-    },
-    {
-      "name": "Old RS Editor",
-      "path": "../../../../../../../GitHub/ReasonScore/rs-editor"
     }
   ],
   "settings": {

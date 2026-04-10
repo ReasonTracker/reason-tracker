@@ -55,9 +55,9 @@ export async function placeLayoutWithElk(
 
     const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
     const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
-    const claimShapeSpacing = options.claimShapeSpacing ?? 40;
-    const layerSpacing = options.layerSpacing ?? 96;
-    const connectorClaimShapeSpacing = options.connectorClaimShapeSpacing ?? 32;
+    const peerGap = options.peerGap ?? 40;
+    const layerGap = options.layerGap ?? 96;
+    const connectorClaimShapeGap = options.connectorClaimShapeGap ?? 32;
     const preserveInputOrder = options.preserveInputOrder ?? true;
     const favorStraightEdges = options.favorStraightEdges ?? false;
     const bkFixedAlignment = options.bkFixedAlignment ?? "BALANCED";
@@ -95,9 +95,9 @@ export async function placeLayoutWithElk(
         layoutOptions: {
             "elk.algorithm": "layered",
             "elk.direction": "RIGHT",
-            "elk.spacing.nodeNode": String(claimShapeSpacing),
-            "elk.layered.spacing.nodeNodeBetweenLayers": String(layerSpacing),
-            "elk.spacing.edgeNode": String(connectorClaimShapeSpacing),
+            "elk.spacing.nodeNode": String(peerGap),
+            "elk.layered.spacing.nodeNodeBetweenLayers": String(layerGap),
+            "elk.spacing.edgeNode": String(connectorClaimShapeGap),
             "elk.layered.cycleBreaking.strategy": "GREEDY",
             "elk.layered.nodePlacement.favorStraightEdges": favorStraightEdges ? "true" : "false",
             "elk.layered.nodePlacement.bk.fixedAlignment": bkFixedAlignment,
