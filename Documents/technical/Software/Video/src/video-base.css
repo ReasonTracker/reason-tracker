@@ -1,0 +1,73 @@
+@import "../../website/site/css/brand.css";
+
+.rt-episode-frame,
+.rt-episode-frame * {
+  box-sizing: border-box;
+}
+
+.rt-episode-frame {
+  position: relative;
+  background-color: #000;
+}
+
+.rt-episode-frame__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 72px;
+}
+
+.rt-episode-title {
+  margin: 0;
+  text-align: center;
+  font-size: 180px;
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  background-image: linear-gradient(135deg, var(--pro) 0%, var(--con) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-wrap: balance;
+}
+
+.rt-brand-sequence {
+  display: grid;
+  justify-content: center;
+  align-content: center;
+  justify-items: center;
+  gap: 0.08em;
+  width: 100%;
+  font-size: 176px;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  text-transform: none;
+  transform: rotate(-15deg);
+  transform-origin: center;
+}
+
+.rt-brand-sequence__reason,
+.rt-brand-sequence__tracker {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+.rt-brand-sequence__reason {
+  color: var(--pro);
+}
+
+.rt-brand-sequence__tracker {
+  color: var(--con);
+}
+
+@media (max-width: 1400px) {
+  .rt-episode-title {
+    font-size: 148px;
+  }
+
+  .rt-brand-sequence {
+    font-size: 136px;
+  }
+}
