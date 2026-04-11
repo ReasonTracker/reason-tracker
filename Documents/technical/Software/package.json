@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
+    "command-center",
     "website",
     "contracts",
     "engine",
@@ -11,7 +12,7 @@
     "Video"
   ],
   "scripts": {
-    "command-center": "node ./scripts/command-center.mjs",
+    "command-center": "pnpm run -F @reasontracker/command-center dev",
     "dev:website": "vp run reason-tracker-repo-website#dev",
     "build:website": "vp run reason-tracker-repo-website#build",
     "publish-website": "vp run reason-tracker-repo-website#publish-website",

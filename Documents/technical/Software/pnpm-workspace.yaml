@@ -1,4 +1,5 @@
 packages:
+  - command-center
   - website
   - contracts
   - engine

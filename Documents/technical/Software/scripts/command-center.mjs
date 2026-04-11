@@ -14,6 +14,9 @@ import {
 const rootDir = process.cwd();
 const docsVideosDir = resolve(rootDir, "../../Videos");
 const standaloneScriptsDir = resolve(rootDir, "scripts");
+const websiteDir = resolve(rootDir, "website");
+const websiteSiteDir = resolve(websiteDir, "site");
+const websiteBrandCssPath = resolve(websiteSiteDir, "css", "brand.css");
 const port = Number.parseInt(process.env.COMMAND_CENTER_PORT ?? "4780", 10);
 const recentVideoLimit = Number.parseInt(process.env.COMMAND_CENTER_RECENT_VIDEOS ?? "6", 10);
 const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
@@ -74,6 +77,254 @@ function shellQuote(value) {
   }
 
   return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function renderSharedBrandLink() {
+  return '<link rel="stylesheet" href="/assets/website/brand.css" />';
+}
+
+function renderCommandCenterChrome({ title, pageClass = "", bodyClass = "", content }) {
+  const htmlClass = pageClass ? ` class="${pageClass}"` : "";
+  const bodyClassAttribute = bodyClass ? ` class="${bodyClass}"` : "";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    ${renderSharedBrandLink()}
+    <style>
+      :root {
+        --bg: #0f0f10;
+        --panel: #171719;
+        --panel-2: #1d1d21;
+        --panel-3: #24242a;
+        --text: #ffffff;
+        --muted: #b8b8c0;
+        --border: #2a2a2f;
+        --code-bg: #222228;
+        --surface-glow: color-mix(in srgb, var(--con) 18%, transparent);
+        --surface-glow-2: color-mix(in srgb, var(--pro) 16%, transparent);
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+        --sans: "Segoe UI", system-ui, sans-serif;
+        --serif: Georgia, "Times New Roman", serif;
+        --mono: Consolas, "Cascadia Mono", monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: var(--sans);
+        background:
+          radial-gradient(circle at top left, var(--surface-glow), transparent 24%),
+          radial-gradient(circle at top right, var(--surface-glow-2), transparent 28%),
+          linear-gradient(180deg, #0c0c0d 0%, var(--bg) 100%);
+      }
+      main {
+        width: min(1200px, calc(100vw - 32px));
+        margin: 24px auto 40px;
+        display: grid;
+        gap: 18px;
+      }
+      .panel {
+        position: relative;
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        border: 2px solid transparent;
+        border-image: linear-gradient(135deg, var(--pro), color-mix(in srgb, var(--text) 16%, transparent) 40%, var(--con)) 1;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 35%),
+          radial-gradient(circle at top right, color-mix(in srgb, var(--con) 22%, transparent), transparent 30%),
+          radial-gradient(circle at bottom left, color-mix(in srgb, var(--pro) 20%, transparent), transparent 28%);
+        opacity: 0.95;
+      }
+      .panel-inner {
+        position: relative;
+        z-index: 1;
+        padding: 24px;
+      }
+      .eyebrow, .section-topline, .card-topline, .label {
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      h1, h2, h3 {
+        margin: 0;
+        font-family: var(--serif);
+        font-weight: 700;
+        line-height: 0.98;
+      }
+      h1 {
+        margin-top: 14px;
+        font-size: clamp(40px, 6vw, 78px);
+      }
+      h2 {
+        margin-top: 12px;
+        font-size: 20px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-family: var(--sans);
+      }
+      h3 {
+        margin-top: 10px;
+        font-size: 28px;
+      }
+      p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 16px;
+      }
+      strong {
+        color: var(--text);
+      }
+      code, pre {
+        font-family: var(--mono);
+      }
+      code {
+        display: block;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        color: color-mix(in srgb, white 88%, var(--muted));
+        font-size: 13px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        margin: 18px 0 0;
+        padding: 18px;
+        border-radius: 18px;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        color: color-mix(in srgb, white 88%, var(--muted));
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .hero-grid, .episode-grid, .command-grid, .package-grid, .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .hero-grid, .result-grid {
+        margin-top: 22px;
+      }
+      .hero-spotlight, .hero-side, .spotlight, .episode-card, .command-card, .package-card, .result-card {
+        min-height: 100%;
+        padding: 20px;
+        background: color-mix(in srgb, var(--panel-2) 88%, black);
+        border: 1px solid var(--border);
+      }
+      .big-value, .current-value {
+        margin-top: 12px;
+        font-size: clamp(30px, 5vw, 54px);
+        line-height: 1;
+        color: var(--text);
+        text-wrap: balance;
+      }
+      .big-value .brand-pro, .current-value .brand-pro, .brand-pro {
+        color: var(--pro);
+      }
+      .big-value .brand-con, .current-value .brand-con, .brand-con {
+        color: var(--con);
+      }
+      .muted {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .video-list {
+        list-style: none;
+        margin: 18px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+      .video-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: color-mix(in srgb, var(--panel-3) 86%, black);
+        border: 1px solid var(--border);
+      }
+      .meta-row, .actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .meta-row span {
+        padding: 6px 10px;
+        background: color-mix(in srgb, var(--panel-3) 84%, black);
+        border: 1px solid var(--border);
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        text-decoration: none;
+        color: var(--text);
+        background: linear-gradient(135deg, var(--pro), color-mix(in srgb, var(--pro) 60%, white));
+        border: 1px solid color-mix(in srgb, var(--pro) 40%, white 10%);
+        font-weight: 600;
+      }
+      .button.alt {
+        background: linear-gradient(135deg, var(--con), color-mix(in srgb, var(--con) 72%, white));
+        border-color: color-mix(in srgb, var(--con) 50%, white 10%);
+      }
+      .button.ghost {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .shell-copy {
+        max-width: 64ch;
+      }
+      .page-result main {
+        width: min(960px, calc(100vw - 32px));
+      }
+      .page-result .panel-inner {
+        padding: 28px;
+      }
+      .page-result h1 {
+        font-size: clamp(34px, 5vw, 54px);
+      }
+      @media (max-width: 720px) {
+        main {
+          width: min(100vw - 16px, 1200px);
+          margin: 8px auto 20px;
+        }
+        .panel-inner {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body${bodyClassAttribute}>
+    ${content}
+  </body>
+</html>`;
 }
 
 function categorizeScript(scriptKey, command) {
@@ -483,24 +734,26 @@ function renderVideoPanel(currentEpisodeId, recentVideos) {
     .join("");
 
   return `<section class="panel hero-panel">
-    <div class="eyebrow">Software Command Center</div>
-    <h1>Reason Tracker Operations</h1>
-    <p>The workspace home for dev servers, tests, publishing, and video workflows. Open this in a browser or VS Code Simple Browser.</p>
-    <div class="hero-grid">
-      <div class="hero-spotlight">
-        <div class="label">Current Video</div>
-        <div class="big-value">${escapeHtml(currentEpisodeLabel)}</div>
-        <div class="muted">${escapeHtml(currentEpisodeId)}</div>
-        <div class="muted">Stored in ${escapeHtml(getCommandCenterStateFilePath())}</div>
-        <div class="actions-row">
-          <a class="button" href="/video/render-current">Render Current</a>
-          <a class="button alt" href="/video/open-studio">Open Studio</a>
-          <a class="button ghost" href="/video">Open Video Page</a>
+    <div class="panel-inner">
+      <div class="eyebrow">Software Command Center</div>
+      <h1><span class="brand-pro">Reason</span> <span class="brand-con">Tracker</span> Operations</h1>
+      <p class="shell-copy">The workspace home for dev servers, tests, publishing, and video workflows, restyled to share the website brand system instead of carrying a separate palette.</p>
+      <div class="hero-grid">
+        <div class="hero-spotlight">
+          <div class="label">Current Video</div>
+          <div class="big-value">${escapeHtml(currentEpisodeLabel)}</div>
+          <div class="muted">${escapeHtml(currentEpisodeId)}</div>
+          <div class="muted">Stored in ${escapeHtml(getCommandCenterStateFilePath())}</div>
+          <div class="actions-row">
+            <a class="button" href="/video/render-current">Render Current</a>
+            <a class="button alt" href="/video/open-studio">Open Studio</a>
+            <a class="button ghost" href="/video">Open Video Page</a>
+          </div>
         </div>
-      </div>
-      <div class="hero-side">
-        <div class="label">Recent Videos</div>
-        <ul class="video-list">${recentItems}</ul>
+        <div class="hero-side">
+          <div class="label">Recent Videos</div>
+          <ul class="video-list">${recentItems}</ul>
+        </div>
       </div>
     </div>
   </section>`;
@@ -525,177 +778,50 @@ function renderVideoPage(currentEpisodeId, recentVideos, commands) {
     .join("");
   const commandCards = videoCommands.map(renderCommandCard).join("");
 
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reason Tracker Video</title>
-    <style>
-      :root {
-        --bg: #eef4ee;
-        --panel: rgba(255, 255, 255, 0.9);
-        --ink: #17202a;
-        --muted: #52606d;
-        --accent: #14532d;
-        --accent-2: #0f766e;
-        --line: rgba(23, 32, 42, 0.1);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: Georgia, "Segoe UI", serif;
-        color: var(--ink);
-        background:
-          radial-gradient(circle at top left, rgba(20, 83, 45, 0.16), transparent 26%),
-          radial-gradient(circle at right, rgba(15, 118, 110, 0.12), transparent 30%),
-          linear-gradient(180deg, #f7fbf7 0%, var(--bg) 100%);
-      }
-      main {
-        width: min(1200px, calc(100vw - 40px));
-        margin: 32px auto 48px;
-        display: grid;
-        gap: 20px;
-      }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 28px;
-        padding: 24px;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
-      }
-      .hero {
-        padding: 28px;
-      }
-      .eyebrow, .card-topline, .section-topline {
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      h1 {
-        margin: 12px 0 0;
-        font-size: clamp(38px, 6vw, 76px);
-        color: var(--accent);
-        line-height: 0.95;
-      }
-      h2 {
-        margin: 0;
-        font-size: 18px;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-      }
-      h3 {
-        margin: 12px 0 0;
-        font-size: 28px;
-        line-height: 1.05;
-      }
-      p {
-        margin: 12px 0 0;
-        color: var(--muted);
-        line-height: 1.55;
-        font-size: 17px;
-      }
-      code {
-        display: block;
-        margin-top: 14px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        background: rgba(23, 32, 42, 0.05);
-        font-family: Consolas, monospace;
-        overflow-wrap: anywhere;
-      }
-      .hero-grid, .episode-grid, .command-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 18px;
-      }
-      .hero-grid { margin-top: 22px; }
-      .spotlight, .episode-card, .command-card {
-        border-radius: 22px;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid rgba(23, 32, 42, 0.08);
-      }
-      .current-value {
-        margin-top: 10px;
-        font-size: clamp(30px, 5vw, 54px);
-        color: var(--accent-2);
-        line-height: 1;
-      }
-      .meta-row, .actions-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 14px;
-      }
-      .meta-row span {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(23, 32, 42, 0.06);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-      }
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 42px;
-        padding: 0 16px;
-        border-radius: 999px;
-        background: var(--accent);
-        color: white;
-        text-decoration: none;
-        font-weight: 600;
-      }
-      .button.alt { background: var(--accent-2); }
-      .button.ghost {
-        background: transparent;
-        color: var(--ink);
-        border: 1px solid var(--line);
-      }
-    </style>
-  </head>
-  <body>
-    <main>
+  return renderCommandCenterChrome({
+    title: "Reason Tracker Video",
+    pageClass: "page-video",
+    content: `<main>
       <section class="panel hero">
-        <div class="eyebrow">Video Workspace</div>
-        <h1>${escapeHtml(currentEpisodeLabel)}</h1>
-        <p>This is the focused video page inside the new Software command center. The old dedicated video launcher has been absorbed here.</p>
-        <div class="hero-grid">
-          <div class="spotlight">
-            <h2>Current Episode</h2>
-            <div class="current-value">${escapeHtml(currentEpisodeLabel)}</div>
-            <p>${escapeHtml(currentEpisodeId)}</p>
-            <p>The current-video record lives in the command center, not the Video package.</p>
-            <div class="actions-row">
-              <a class="button" href="/video/render-current">Render Current</a>
-              <a class="button alt" href="/video/open-studio">Open Studio</a>
+        <div class="panel-inner">
+          <div class="eyebrow">Video Workspace</div>
+          <h1><span class="brand-pro">${escapeHtml(currentEpisodeLabel)}</span></h1>
+          <p class="shell-copy">This is the focused video page inside the Software command center. It now uses the same brand color system as the website instead of a separate green theme.</p>
+          <div class="hero-grid">
+            <div class="spotlight">
+              <h2>Current Episode</h2>
+              <div class="current-value">${escapeHtml(currentEpisodeLabel)}</div>
+              <p>${escapeHtml(currentEpisodeId)}</p>
+              <p>The current-video record lives in the command center, not the Video package.</p>
+              <div class="actions-row">
+                <a class="button" href="/video/render-current">Render Current</a>
+                <a class="button alt" href="/video/open-studio">Open Studio</a>
+              </div>
             </div>
-          </div>
-          <div class="spotlight">
-            <h2>Navigation</h2>
-            <p>Use the root page for the whole workspace, or stay here when you only care about the current episode and video commands.</p>
-            <div class="actions-row">
-              <a class="button ghost" href="/">Back To Command Center</a>
+            <div class="spotlight">
+              <h2>Navigation</h2>
+              <p>Use the root page for the whole workspace, or stay here when you only care about the current episode and video commands.</p>
+              <div class="actions-row">
+                <a class="button ghost" href="/">Back To Command Center</a>
+              </div>
             </div>
           </div>
         </div>
       </section>
       <section class="panel">
-        <div class="section-topline">Recent Videos</div>
-        <div class="episode-grid">${recentItems}</div>
+        <div class="panel-inner">
+          <div class="section-topline">Recent Videos</div>
+          <div class="episode-grid">${recentItems}</div>
+        </div>
       </section>
       <section class="panel">
-        <div class="section-topline">Video Commands</div>
-        <div class="command-grid">${commandCards}</div>
+        <div class="panel-inner">
+          <div class="section-topline">Video Commands</div>
+          <div class="command-grid">${commandCards}</div>
+        </div>
       </section>
-    </main>
-  </body>
-</html>`;
+    </main>`,
+  });
 }
 
 function renderPackagePanel(commands) {
@@ -725,8 +851,10 @@ function renderPackagePanel(commands) {
     .join("");
 
   return `<section class="panel">
-    <div class="section-topline">Packages</div>
-    <div class="package-grid">${items}</div>
+    <div class="panel-inner">
+      <div class="section-topline">Packages</div>
+      <div class="package-grid">${items}</div>
+    </div>
   </section>`;
 }
 
@@ -746,8 +874,10 @@ function renderCommandGroups(commands) {
     .map((key) => {
       const cards = groups.get(key).map(renderCommandCard).join("");
       return `<section class="panel">
-        <div class="section-topline">${escapeHtml(titles.get(key) ?? key)}</div>
-        <div class="command-grid">${cards}</div>
+        <div class="panel-inner">
+          <div class="section-topline">${escapeHtml(titles.get(key) ?? key)}</div>
+          <div class="command-grid">${cards}</div>
+        </div>
       </section>`;
     })
     .join("");
@@ -760,185 +890,15 @@ async function renderHomePage() {
     readCurrentEpisodeId(),
   ]);
 
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reason Tracker Command Center</title>
-    <style>
-      :root {
-        --bg: #f4efe5;
-        --panel: rgba(255, 251, 245, 0.9);
-        --ink: #17202a;
-        --muted: #5c6773;
-        --accent: #9a3412;
-        --accent-2: #14532d;
-        --line: rgba(23, 32, 42, 0.12);
-        --shadow: 0 24px 60px rgba(17, 24, 39, 0.08);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: Georgia, "Segoe UI", serif;
-        color: var(--ink);
-        background:
-          radial-gradient(circle at top left, rgba(154, 52, 18, 0.15), transparent 28%),
-          radial-gradient(circle at top right, rgba(20, 83, 45, 0.14), transparent 34%),
-          linear-gradient(180deg, #f8f2e7 0%, #f4efe5 100%);
-      }
-      main {
-        width: min(1280px, calc(100vw - 40px));
-        margin: 32px auto 48px;
-        display: grid;
-        gap: 20px;
-      }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 28px;
-        box-shadow: var(--shadow);
-        padding: 24px;
-      }
-      .hero-panel {
-        padding: 28px;
-      }
-      .eyebrow, .section-topline, .card-topline, .label {
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      h1 {
-        margin: 12px 0 0;
-        font-size: clamp(42px, 6vw, 82px);
-        line-height: 0.95;
-        color: var(--accent);
-      }
-      h3 {
-        margin: 10px 0 0;
-        font-size: 28px;
-        line-height: 1.05;
-      }
-      p {
-        margin: 12px 0 0;
-        font-size: 17px;
-        line-height: 1.55;
-        color: var(--muted);
-      }
-      code {
-        display: block;
-        margin-top: 14px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        background: rgba(23, 32, 42, 0.05);
-        font-family: Consolas, monospace;
-        font-size: 13px;
-        line-height: 1.4;
-        overflow-wrap: anywhere;
-      }
-      .hero-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-        gap: 20px;
-        margin-top: 22px;
-      }
-      .hero-spotlight, .hero-side {
-        border-radius: 24px;
-        padding: 22px;
-        background: rgba(255, 255, 255, 0.58);
-        border: 1px solid rgba(23, 32, 42, 0.08);
-      }
-      .big-value {
-        margin-top: 10px;
-        font-size: clamp(30px, 4vw, 52px);
-        line-height: 1;
-        color: var(--accent-2);
-      }
-      .muted {
-        margin-top: 8px;
-        color: var(--muted);
-        font-size: 16px;
-      }
-      .video-list {
-        list-style: none;
-        margin: 18px 0 0;
-        padding: 0;
-        display: grid;
-        gap: 12px;
-      }
-      .video-list li {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 12px 14px;
-        border-radius: 16px;
-        background: rgba(23, 32, 42, 0.04);
-        font-size: 15px;
-      }
-      .command-grid, .package-grid {
-        margin-top: 16px;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 16px;
-      }
-      .command-card, .package-card {
-        border-radius: 22px;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.65);
-        border: 1px solid rgba(23, 32, 42, 0.08);
-      }
-      .meta-row, .actions-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 14px;
-      }
-      .meta-row span {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(23, 32, 42, 0.06);
-        font-size: 12px;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-      }
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 42px;
-        padding: 0 16px;
-        border-radius: 999px;
-        text-decoration: none;
-        color: white;
-        background: var(--accent);
-        font-weight: 600;
-      }
-      .button.alt {
-        background: var(--accent-2);
-      }
-      .button.ghost {
-        background: transparent;
-        color: var(--ink);
-        border: 1px solid var(--line);
-      }
-      @media (max-width: 900px) {
-        .hero-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main>
+  return renderCommandCenterChrome({
+    title: "Reason Tracker Command Center",
+    pageClass: "page-home",
+    content: `<main>
       ${renderVideoPanel(currentEpisodeId, recentVideos)}
       ${renderPackagePanel(commands)}
       ${renderCommandGroups(commands)}
-    </main>
-  </body>
-</html>`;
+    </main>`,
+  });
 }
 
 function renderRunResult(command, result) {
@@ -946,129 +906,66 @@ function renderRunResult(command, result) {
   const title = escapeHtml(command.displayName);
   const packageName = escapeHtml(command.packageName);
 
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: #f6f1e7;
-        color: #17202a;
-        font-family: Georgia, "Segoe UI", serif;
-      }
-      main {
-        width: min(860px, calc(100vw - 32px));
-        margin: 40px auto;
-        padding: 24px;
-        border-radius: 28px;
-        background: rgba(255, 251, 245, 0.94);
-        border: 1px solid rgba(23, 32, 42, 0.12);
-      }
-      h1 { margin: 12px 0 0; font-size: 42px; color: #9a3412; }
-      p { color: #5c6773; line-height: 1.55; }
-      pre {
-        padding: 18px;
-        border-radius: 18px;
-        background: #1b2430;
-        color: #f8fafc;
-        overflow-x: auto;
-        white-space: pre-wrap;
-      }
-      .eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: #5c6773; }
-      .actions { display: flex; gap: 12px; margin-top: 18px; }
-      a {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 42px;
-        padding: 0 16px;
-        border-radius: 999px;
-        background: #14532d;
-        color: white;
-        text-decoration: none;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="eyebrow">${packageName}</div>
-      <h1>${title}</h1>
-      <p>Status: ${result.status} | Mode: ${result.mode}</p>
-      <pre>${output}</pre>
-      <div class="actions">
-        <a href="/">Back To Command Center</a>
-      </div>
-    </main>
-  </body>
-</html>`;
+  return renderCommandCenterChrome({
+    title,
+    pageClass: "page-result",
+    content: `<main>
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="eyebrow">${packageName}</div>
+          <h1>${title}</h1>
+          <div class="result-grid">
+            <div class="result-card">
+              <div class="label">Execution</div>
+              <p>Status: ${result.status}</p>
+              <p>Mode: ${result.mode}</p>
+            </div>
+            <div class="result-card">
+              <div class="label">Navigation</div>
+              <p>Return to the command center to launch another workflow.</p>
+              <div class="actions-row">
+                <a class="button alt" href="/">Back To Command Center</a>
+              </div>
+            </div>
+          </div>
+          <pre>${output}</pre>
+        </div>
+      </section>
+    </main>`,
+  });
 }
 
 function renderVideoActionResult({ body, title }) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)}</title>
-    <style>
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: #f6f1e7;
-        color: #17202a;
-        font-family: Georgia, "Segoe UI", serif;
-      }
-      main {
-        width: min(860px, calc(100vw - 32px));
-        margin: 40px auto;
-        padding: 24px;
-        border-radius: 28px;
-        background: rgba(255, 251, 245, 0.94);
-        border: 1px solid rgba(23, 32, 42, 0.12);
-      }
-      h1 { margin: 12px 0 0; font-size: 42px; color: #14532d; }
-      p { color: #5c6773; line-height: 1.55; }
-      .eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: #5c6773; }
-      .actions { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
-      a {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 42px;
-        padding: 0 16px;
-        border-radius: 999px;
-        background: #14532d;
-        color: white;
-        text-decoration: none;
-      }
-      a.ghost {
-        background: transparent;
-        color: #17202a;
-        border: 1px solid rgba(23, 32, 42, 0.12);
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="eyebrow">Video Command Center</div>
-      <h1>${escapeHtml(title)}</h1>
-      ${body}
-      <div class="actions">
-        <a href="/video">Back To Video Page</a>
-        <a class="ghost" href="/">Back To Command Center</a>
-      </div>
-    </main>
-  </body>
-</html>`;
+  return renderCommandCenterChrome({
+    title: escapeHtml(title),
+    pageClass: "page-result",
+    content: `<main>
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="eyebrow">Video Command Center</div>
+          <h1>${escapeHtml(title)}</h1>
+          ${body}
+          <div class="actions-row">
+            <a class="button alt" href="/video">Back To Video Page</a>
+            <a class="button ghost" href="/">Back To Command Center</a>
+          </div>
+        </div>
+      </section>
+    </main>`,
+  });
 }
 
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url ?? "/", `http://localhost:${port}`);
+
+    if (requestUrl.pathname === "/assets/website/brand.css") {
+      const css = await readFile(websiteBrandCssPath, "utf8");
+      response.writeHead(200, { "Content-Type": "text/css; charset=utf-8" });
+      response.end(css);
+      return;
+    }
+
     const commands = await discoverCommands();
 
     if (requestUrl.pathname.startsWith("/video/set-current/")) {

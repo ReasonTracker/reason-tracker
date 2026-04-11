@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const stateFilePath = resolve(process.cwd(), "command-center-state.json");
+const softwareDir = resolve(import.meta.dirname, "..");
+const stateFilePath = resolve(softwareDir, "command-center-state.json");
 
 export function normalizeEpisodeId(value) {
   const trimmed = String(value ?? "").trim();

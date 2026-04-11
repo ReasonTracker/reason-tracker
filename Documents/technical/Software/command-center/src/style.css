@@ -1,0 +1,327 @@
+@import "../../website/site/css/brand.css";
+
+:root {
+  --bg: #0f0f10;
+  --panel: #171719;
+  --panel-2: #1d1d21;
+  --panel-3: #24242a;
+  --text: #ffffff;
+  --muted: #b8b8c0;
+  --border: #2a2a2f;
+  --code-bg: #222228;
+  --surface-glow: color-mix(in srgb, var(--con) 18%, transparent);
+  --surface-glow-2: color-mix(in srgb, var(--pro) 16%, transparent);
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  --mono: Consolas, "Cascadia Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--text);
+  font-family: var(--sans);
+  background:
+    radial-gradient(circle at top left, var(--surface-glow), transparent 24%),
+    radial-gradient(circle at top right, var(--surface-glow-2), transparent 28%),
+    linear-gradient(180deg, #0c0c0d 0%, var(--bg) 100%);
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#app {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 24px auto 40px;
+}
+
+.shell {
+  display: grid;
+  gap: 18px;
+}
+
+.panel {
+  position: relative;
+  background: color-mix(in srgb, var(--panel) 92%, black);
+  border: 2px solid transparent;
+  border-image: linear-gradient(135deg, var(--pro), color-mix(in srgb, var(--text) 16%, transparent) 40%, var(--con)) 1;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 35%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--con) 22%, transparent), transparent 30%),
+    radial-gradient(circle at bottom left, color-mix(in srgb, var(--pro) 20%, transparent), transparent 28%);
+  opacity: 0.95;
+}
+
+.panel-inner {
+  position: relative;
+  z-index: 1;
+  padding: 24px;
+}
+
+.eyebrow,
+.section-topline,
+.card-topline,
+.label,
+.status-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 700;
+  line-height: 0.98;
+}
+
+h1 {
+  margin-top: 14px;
+  font-size: clamp(40px, 6vw, 78px);
+}
+
+h2 {
+  margin-top: 12px;
+  font-size: 20px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-family: var(--sans);
+}
+
+h3 {
+  margin-top: 10px;
+  font-size: 28px;
+}
+
+p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+strong {
+  color: var(--text);
+}
+
+code,
+pre {
+  font-family: var(--mono);
+}
+
+code,
+pre,
+.video-list li,
+.meta-row span,
+.button,
+.nav-link {
+  border-radius: 0;
+}
+
+code {
+  display: block;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, white 88%, var(--muted));
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  margin: 18px 0 0;
+  padding: 18px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, white 88%, var(--muted));
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.hero-grid,
+.episode-grid,
+.command-grid,
+.package-grid,
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.hero-grid,
+.result-grid {
+  margin-top: 22px;
+}
+
+.hero-spotlight,
+.hero-side,
+.spotlight,
+.episode-card,
+.command-card,
+.package-card,
+.result-card,
+.nav-bar {
+  min-height: 100%;
+  padding: 20px;
+  background: color-mix(in srgb, var(--panel-2) 88%, black);
+  border: 1px solid var(--border);
+}
+
+.big-value,
+.current-value {
+  margin-top: 12px;
+  font-size: clamp(30px, 5vw, 54px);
+  line-height: 1;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.brand-pro {
+  color: var(--pro);
+}
+
+.brand-con {
+  color: var(--con);
+}
+
+.muted {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.video-list {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.video-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--panel-3) 86%, black);
+  border: 1px solid var(--border);
+}
+
+.meta-row,
+.actions-row,
+.nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.meta-row span {
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--panel-3) 84%, black);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.button,
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  text-decoration: none;
+  color: var(--text);
+  background: linear-gradient(135deg, var(--pro), color-mix(in srgb, var(--pro) 60%, white));
+  border: 1px solid color-mix(in srgb, var(--pro) 40%, white 10%);
+  font-weight: 600;
+}
+
+.button.alt {
+  background: linear-gradient(135deg, var(--con), color-mix(in srgb, var(--con) 72%, white));
+  border-color: color-mix(in srgb, var(--con) 50%, white 10%);
+}
+
+.button.ghost,
+.nav-link {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.button[disabled] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.shell-copy {
+  max-width: 64ch;
+}
+
+.status-banner {
+  padding: 16px 18px;
+  background: color-mix(in srgb, var(--panel-2) 90%, black);
+  border: 1px solid var(--border);
+}
+
+.status-banner.error {
+  border-color: color-mix(in srgb, var(--con) 60%, black);
+}
+
+.status-banner.success {
+  border-color: color-mix(in srgb, var(--pro) 60%, black);
+}
+
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  #app {
+    width: min(100vw - 16px, 1200px);
+    margin: 8px auto 20px;
+  }
+
+  .panel-inner {
+    padding: 18px;
+  }
+}
