@@ -9,12 +9,12 @@
   const host = document.createElement("div");
   host.className = "rt-home-brand-sequence";
 
-  const { mountHomeBrandSequence } = await import("/modules/home-brand-sequence.js");
-
   heading.replaceWith(host);
   if (tagline instanceof Element) {
     tagline.remove();
   }
+
+  const { mountHomeBrandSequence } = await import("/modules/home-brand-sequence.js");
 
   mountHomeBrandSequence(host, { playbackMode: "intro-only" });
 })().catch((error) => {
