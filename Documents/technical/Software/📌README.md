@@ -1,4 +1,4 @@
-# 📌 Software Assets
+# 📌 Software
 
 ## Organization Pattern
 

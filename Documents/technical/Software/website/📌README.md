@@ -13,7 +13,7 @@ This folder contains a Git-based static website builder for the repository.
 
 ## Workspace Usage
 
-From `Documents/technical/Software Assets`:
+From `Documents/technical/Software`:
 
 ```bash
 npm run dev:website

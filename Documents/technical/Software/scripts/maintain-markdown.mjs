@@ -10,7 +10,7 @@ const WEBSITE_CONFIG_PATH = path.join(
   REPO_DIR,
   "Documents",
   "technical",
-  "Software Assets",
+  "Software",
   "website",
   "site",
   "site-config.json",
