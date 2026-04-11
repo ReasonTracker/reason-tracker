@@ -1,14 +1,24 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
-import { extname, join, relative, resolve } from "node:path";
-import { readCurrentEpisodeId, toEpisodeDisplayName } from "../Video/scripts/episode-utils.mjs";
+import net from "node:net";
+import { resolve } from "node:path";
+import {
+  getCommandCenterStateFilePath,
+  normalizeEpisodeId,
+  readCurrentEpisodeId,
+  toEpisodeDisplayName,
+  writeCurrentEpisodeId,
+} from "./video-episode-state.mjs";
 
 const rootDir = process.cwd();
 const docsVideosDir = resolve(rootDir, "../../Videos");
 const standaloneScriptsDir = resolve(rootDir, "scripts");
 const port = Number.parseInt(process.env.COMMAND_CENTER_PORT ?? "4780", 10);
 const recentVideoLimit = Number.parseInt(process.env.COMMAND_CENTER_RECENT_VIDEOS ?? "6", 10);
+const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
+const commandCenterUrl = `http://localhost:${port}`;
+const studioUrl = `http://localhost:${studioPort}`;
 
 const curatedStandaloneScripts = [
   {
@@ -37,7 +47,7 @@ const hiddenScriptKeys = new Set(["command-center", "video:launcher", "launcher"
 
 const packageDescriptions = new Map([
   ["Software", "Root workspace scripts and orchestration commands."],
-  ["@reasontracker/video", "Remotion episodes, shared media, and current-episode workflows."],
+  ["@reasontracker/video", "Remotion episodes, shared media, and episode-specific render and studio workflows."],
   ["@reasontracker/renderer", "Layout preview and rendering tools."],
   ["reason-tracker-repo-website", "Local website dev, preview, and publish flows."],
   ["@reasontracker/engine", "Core engine commands and tests."],
@@ -56,6 +66,14 @@ function escapeHtml(value) {
 
 function looksLikePlaceholder(command) {
   return command.includes("Build script pending");
+}
+
+function shellQuote(value) {
+  if (/^[A-Za-z0-9_./:-]+$/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replaceAll('"', '\\"')}"`;
 }
 
 function categorizeScript(scriptKey, command) {
@@ -114,14 +132,6 @@ function getDisplayName(scriptKey, packageName) {
 function getDescription(scriptKey, command, packageName) {
   if (packageName === "Software" && scriptKey === "preview") {
     return "Starts the renderer preview watcher and local live server.";
-  }
-
-  if (packageName === "Software" && scriptKey === "video:render:current") {
-    return "Renders the episode configured as current in the Video package.";
-  }
-
-  if (packageName === "Software" && scriptKey === "video:studio:current") {
-    return "Opens or reuses Remotion Studio for the current episode context without forcing composition selection.";
   }
 
   if (packageName === "Software" && scriptKey === "maintain:markdown") {
@@ -298,6 +308,98 @@ function getCommandBySlug(commands, slug) {
   return commands.find((command) => commandSlug(command.packageName, command.scriptKey, command.source) === slug) ?? null;
 }
 
+function isPortOpen(portToCheck) {
+  return new Promise((resolvePromise) => {
+    const socket = net.connect({ host: "127.0.0.1", port: portToCheck }, () => {
+      socket.end();
+      resolvePromise(true);
+    });
+
+    socket.on("error", () => {
+      resolvePromise(false);
+    });
+  });
+}
+
+function openUrl(url) {
+  if (process.platform === "win32") {
+    const child = spawn("cmd.exe", ["/d", "/s", "/c", "start", "", url], {
+      detached: true,
+      shell: false,
+      stdio: "ignore",
+    });
+    child.unref();
+    return;
+  }
+
+  if (process.platform === "darwin") {
+    const child = spawn("open", [url], {
+      detached: true,
+      shell: false,
+      stdio: "ignore",
+    });
+    child.unref();
+    return;
+  }
+
+  const child = spawn("xdg-open", [url], {
+    detached: true,
+    shell: false,
+    stdio: "ignore",
+  });
+  child.unref();
+}
+
+function runShellCommand(commandText, isBackground) {
+  const executable = process.platform === "win32" ? "cmd.exe" : commandText.split(" ")[0];
+  const args =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", commandText]
+      : commandText.split(" ").slice(1);
+
+  const child = spawn(executable, args, {
+    cwd: rootDir,
+    detached: isBackground && process.platform !== "win32",
+    shell: false,
+    stdio: isBackground ? "ignore" : "pipe",
+  });
+
+  if (isBackground) {
+    child.unref();
+
+    return Promise.resolve({
+      mode: "background",
+      output: `Started ${commandText}.`,
+      status: 0,
+    });
+  }
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      rejectPromise(error);
+    });
+
+    child.on("close", (status) => {
+      resolvePromise({
+        mode: "oneshot",
+        output: `${stdout}${stderr}`.trim(),
+        status: status ?? 0,
+      });
+    });
+  });
+}
+
 function runCommand(command) {
   const commandText = command.triggerCommand;
   const executable = process.platform === "win32" ? "cmd.exe" : commandText.split(" ")[0];
@@ -389,9 +491,10 @@ function renderVideoPanel(currentEpisodeId, recentVideos) {
         <div class="label">Current Video</div>
         <div class="big-value">${escapeHtml(currentEpisodeLabel)}</div>
         <div class="muted">${escapeHtml(currentEpisodeId)}</div>
+        <div class="muted">Stored in ${escapeHtml(getCommandCenterStateFilePath())}</div>
         <div class="actions-row">
-          <a class="button" href="/run/${encodeURIComponent("package:Software:video:render:current")}">Render Current</a>
-          <a class="button alt" href="/run/${encodeURIComponent("package:Software:video:studio:current")}">Open Studio</a>
+          <a class="button" href="/video/render-current">Render Current</a>
+          <a class="button alt" href="/video/open-studio">Open Studio</a>
           <a class="button ghost" href="/video">Open Video Page</a>
         </div>
       </div>
@@ -413,6 +516,10 @@ function renderVideoPage(currentEpisodeId, recentVideos, commands) {
         <h3>${escapeHtml(video.label)}</h3>
         <p>${escapeHtml(video.episodeId)} lives in ${escapeHtml(video.relativePath)}.</p>
         <div class="meta-row"><span>${video.episodeNumber}</span></div>
+        <div class="actions-row">
+          <a class="button ghost" href="/video/set-current/${encodeURIComponent(video.episodeId)}">Make Current</a>
+          <a class="button" href="/video/render/${encodeURIComponent(video.episodeId)}">Render</a>
+        </div>
       </article>`,
     )
     .join("");
@@ -563,9 +670,10 @@ function renderVideoPage(currentEpisodeId, recentVideos, commands) {
             <h2>Current Episode</h2>
             <div class="current-value">${escapeHtml(currentEpisodeLabel)}</div>
             <p>${escapeHtml(currentEpisodeId)}</p>
+            <p>The current-video record lives in the command center, not the Video package.</p>
             <div class="actions-row">
-              <a class="button" href="/run/${encodeURIComponent("package:Software:video:render:current")}">Render Current</a>
-              <a class="button alt" href="/run/${encodeURIComponent("package:Software:video:studio:current")}">Open Studio</a>
+              <a class="button" href="/video/render-current">Render Current</a>
+              <a class="button alt" href="/video/open-studio">Open Studio</a>
             </div>
           </div>
           <div class="spotlight">
@@ -899,10 +1007,144 @@ function renderRunResult(command, result) {
 </html>`;
 }
 
+function renderVideoActionResult({ body, title }) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #f6f1e7;
+        color: #17202a;
+        font-family: Georgia, "Segoe UI", serif;
+      }
+      main {
+        width: min(860px, calc(100vw - 32px));
+        margin: 40px auto;
+        padding: 24px;
+        border-radius: 28px;
+        background: rgba(255, 251, 245, 0.94);
+        border: 1px solid rgba(23, 32, 42, 0.12);
+      }
+      h1 { margin: 12px 0 0; font-size: 42px; color: #14532d; }
+      p { color: #5c6773; line-height: 1.55; }
+      .eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 12px; color: #5c6773; }
+      .actions { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+      a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 999px;
+        background: #14532d;
+        color: white;
+        text-decoration: none;
+      }
+      a.ghost {
+        background: transparent;
+        color: #17202a;
+        border: 1px solid rgba(23, 32, 42, 0.12);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Video Command Center</div>
+      <h1>${escapeHtml(title)}</h1>
+      ${body}
+      <div class="actions">
+        <a href="/video">Back To Video Page</a>
+        <a class="ghost" href="/">Back To Command Center</a>
+      </div>
+    </main>
+  </body>
+</html>`;
+}
+
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url ?? "/", `http://localhost:${port}`);
     const commands = await discoverCommands();
+
+    if (requestUrl.pathname.startsWith("/video/set-current/")) {
+      const rawEpisodeId = decodeURIComponent(requestUrl.pathname.slice("/video/set-current/".length));
+      const episodeId = normalizeEpisodeId(rawEpisodeId);
+
+      if (!episodeId) {
+        response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Invalid episode id.");
+        return;
+      }
+
+      await writeCurrentEpisodeId(episodeId);
+      response.writeHead(302, { Location: "/video" });
+      response.end();
+      return;
+    }
+
+    if (requestUrl.pathname === "/video/render-current") {
+      const episodeId = await readCurrentEpisodeId();
+      const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
+      const html = renderRunResult(
+        {
+          displayName: `Render ${toEpisodeDisplayName(episodeId)}`,
+          packageName: "Software",
+        },
+        result,
+      );
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(html);
+      return;
+    }
+
+    if (requestUrl.pathname.startsWith("/video/render/")) {
+      const rawEpisodeId = decodeURIComponent(requestUrl.pathname.slice("/video/render/".length));
+      const episodeId = normalizeEpisodeId(rawEpisodeId);
+
+      if (!episodeId) {
+        response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+        response.end("Invalid episode id.");
+        return;
+      }
+
+      const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
+      const html = renderRunResult(
+        {
+          displayName: `Render ${toEpisodeDisplayName(episodeId)}`,
+          packageName: "Software",
+        },
+        result,
+      );
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(html);
+      return;
+    }
+
+    if (requestUrl.pathname === "/video/open-studio") {
+      const episodeId = await readCurrentEpisodeId();
+      const studioAlreadyRunning = await isPortOpen(studioPort);
+
+      if (studioAlreadyRunning) {
+        openUrl(studioUrl);
+      } else {
+        await runShellCommand("pnpm run -F @reasontracker/video studio", true);
+      }
+
+      const html = renderVideoActionResult({
+        title: `Studio Opened For ${toEpisodeDisplayName(episodeId)}`,
+        body: `<p>The command center owns the current video state, and the current video is ${escapeHtml(toEpisodeDisplayName(episodeId))} (${escapeHtml(episodeId)}).</p>
+<p>Remotion Studio itself still opens as a general workspace and does not accept a composition-selection flag, so select ${escapeHtml(episodeId)} inside Studio after it opens.</p>
+<p>${studioAlreadyRunning ? `Reused the existing Studio server at ${escapeHtml(studioUrl)}.` : `Started Studio in the background at ${escapeHtml(studioUrl)}.`}</p>`,
+      });
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      response.end(html);
+      return;
+    }
 
     if (requestUrl.pathname === "/video") {
       const [recentVideos, currentEpisodeId] = await Promise.all([
@@ -941,8 +1183,17 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(port, () => {
-  process.stdout.write(`Command center ready at http://localhost:${port}\n`);
-  process.stdout.write(`Focused video page at http://localhost:${port}/video\n`);
-  process.stdout.write("Open this URL in a browser or VS Code Simple Browser.\n");
-});
+const commandCenterAlreadyRunning = await isPortOpen(port);
+
+if (commandCenterAlreadyRunning) {
+  openUrl(commandCenterUrl);
+  process.stdout.write(`Command center already running at ${commandCenterUrl}\n`);
+  process.stdout.write("Opened the existing command center instance in your browser.\n");
+} else {
+  server.listen(port, () => {
+    process.stdout.write(`Command center ready at ${commandCenterUrl}\n`);
+    process.stdout.write(`Focused video page at ${commandCenterUrl}/video\n`);
+    process.stdout.write("Open this URL in a browser or VS Code Simple Browser.\n");
+    openUrl(commandCenterUrl);
+  });
+}

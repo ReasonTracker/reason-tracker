@@ -1,13 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { normalizeEpisodeId, readCurrentEpisodeId, toEpisodeDisplayName } from "./episode-utils.mjs";
+import { normalizeEpisodeId, toEpisodeDisplayName } from "./episode-utils.mjs";
 
 async function resolveEpisodeId(rawValue) {
-  if (rawValue?.trim().toLowerCase() === "current") {
-    return readCurrentEpisodeId();
-  }
-
   const normalizedFromArg = rawValue ? normalizeEpisodeId(rawValue) : null;
 
   if (normalizedFromArg) {

@@ -14,10 +14,7 @@
   "scripts": {
     "build": "echo \"Build script pending\"",
     "studio": "remotion studio src/index.ts",
-    "studio:current": "node ./scripts/studio-current.mjs",
-    "current": "node ./scripts/print-current-episode.mjs",
     "render": "node ./scripts/render-episode.mjs",
-    "render:current": "node ./scripts/render-episode.mjs current",
     "render:episode": "node ./scripts/render-episode.mjs",
     "render:1": "node ./scripts/render-episode.mjs Episode0001",
     "render:2": "node ./scripts/render-episode.mjs Episode0002",
