@@ -1,20 +1,22 @@
-(() => {
-  const heading = document.querySelector(".markdown-body > h1, h1");
-  if (!heading) {
+(async () => {
+  const article = document.querySelector(".markdown-body");
+  const heading = article?.querySelector(":scope > h1");
+  if (!(article instanceof Element) || !(heading instanceof Element)) {
     return;
   }
 
-  const words = heading.textContent.trim().split(/\s+/).filter(Boolean);
-  if (words.length !== 2) {
-    return;
+  const tagline = article.querySelector(":scope > blockquote");
+  const host = document.createElement("div");
+  host.className = "rt-home-brand-sequence";
+
+  const { mountHomeBrandSequence } = await import("/modules/home-brand-sequence.js");
+
+  heading.replaceWith(host);
+  if (tagline instanceof Element) {
+    tagline.remove();
   }
 
-  heading.textContent = "";
-
-  words.forEach((word, index) => {
-    const part = document.createElement("div");
-    part.className = `split-${index + 1}`;
-    part.textContent = word;
-    heading.appendChild(part);
-  });
-})();
+  mountHomeBrandSequence(host, { playbackMode: "intro-only" });
+})().catch((error) => {
+  console.error("Failed to mount homepage brand sequence.", error);
+});

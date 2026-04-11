@@ -1,3 +1,5 @@
+@import "/css/brand-sequence.css";
+
 @property --doc-shell-angle {
 	syntax: "<angle>";
 	inherits: true;
@@ -50,44 +52,17 @@
 	display: none;
 }
 
-.markdown-body > h1 {
-	display: grid;
-	width: min-content;
-	margin-inline: auto;
-	text-align: center;
-	padding-top: 0px;
-	font-size: clamp(3rem, 9vw, 7rem);
-	line-height: 0.95;
-	transform: rotate(-15deg);
-	transform-origin: center;
-	gap: 0.1em;
-}
- 
-.markdown-body > h1 .split-1,
-.markdown-body > h1 .split-2 {
-	display: block;
-	white-space: nowrap;
+.rt-home-brand-sequence {
+	display: flex;
+	justify-content: center;
+	margin: 0 auto 28px;
+	padding-top: 0;
 }
 
-.markdown-body > h1 .split-1 {
-	color: var(--pro);
-	transform: translateX(-1ch);
-}
-
-.markdown-body > h1 .split-2 {
-	color: var(--con);
-	transform: translateX(1ch);
-}
-
-.markdown-body > blockquote {
-	text-align: center;
-	border-left-style: none;
-	padding-top: 28px;
-	font-size: clamp(1.2rem, 2.3vw, 1.6rem);
-	color: var(--highlight);
-	text-shadow:
-		0 0 0.4em color-mix(in srgb, currentColor 90%, transparent),
-		0 0 2em color-mix(in srgb, currentColor 50%, transparent);
+.rt-home-brand-sequence .rt-brand-sequence {
+	--rt-brand-lockup-size: clamp(3rem, 9vw, 7rem);
+	--rt-brand-tagline-size: clamp(1.2rem, 2.3vw, 1.6rem);
+	--rt-brand-gap: 28px;
 }
 
 .markdown-body > h2 {

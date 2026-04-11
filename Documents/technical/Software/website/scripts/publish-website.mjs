@@ -13,7 +13,7 @@ const SITE_DIR = path.join(WEBSITE_DIR, "site");
 const SITE_CONFIG_PATH = path.join(WEBSITE_DIR, "site", "site-config.json");
 const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-report.md");
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
-const RESERVED_SITE_PREFIXES = ["css/", "icons/"];
+const RESERVED_SITE_PREFIXES = ["css/", "icons/", "modules/"];
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
 const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
 const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
@@ -104,6 +104,7 @@ async function resetDist({ preserveExisting = false } = {}) {
 async function copyStaticAssets() {
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "css"), path.join(DIST_DIR, "css"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "icons"), path.join(DIST_DIR, "icons"));
+  await copyIfPresent(path.join(WEBSITE_DIR, "site", "modules"), path.join(DIST_DIR, "modules"));
 }
 
 async function resolveSiteConfig() {

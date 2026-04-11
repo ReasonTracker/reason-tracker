@@ -52,7 +52,7 @@ npm run preview
 - Example: source `README.md` is augmented by `site/README.css`.
 - Example: source `README.md` is augmented by `site/README.js`.
 - Nested paths are supported. Example: source `Documents/technical/notes/Plan.md` maps to `site/technical/notes/Plan.css`.
-- Static folders `site/css/` and `site/icons/`, and `site/site-config.json` remain reserved and are not treated as augmentations.
+- Static folders `site/css/`, `site/icons/`, and `site/modules/`, and `site/site-config.json` remain reserved and are not treated as augmentations.
 - Augmentation collisions that normalize to the same key fail the build with a clear error.
 - The output route stays source-driven; augmentation files never change page URLs.
 
