@@ -16,10 +16,10 @@ This folder contains a Git-based static website builder for the repository.
 From `Documents/technical/Software`:
 
 ```bash
-npm run dev:website
-npm run build:website
-npm run publish-website
-npm run preview:website
+npm run website:dev
+npm run website:build
+npm run website:publish
+npm run website:preview
 npm run maintain:markdown
 ```
 

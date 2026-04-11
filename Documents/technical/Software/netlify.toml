@@ -1,16 +1,16 @@
 [build]
-  command = "npm run build:website"
+  command = "npm run website:build"
   publish = "website/dist"
   ignore = "false"
 
 [context.production]
-  command = "npm run build:website"
+  command = "npm run website:build"
   publish = "website/dist"
 
 [context.deploy-preview]
-  command = "npm run build:website"
+  command = "npm run website:build"
   publish = "website/dist"
 
 [context.branch-deploy]
-  command = "npm run build:website"
+  command = "npm run website:build"
   publish = "website/dist"

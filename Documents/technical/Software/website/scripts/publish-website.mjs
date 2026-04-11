@@ -580,7 +580,7 @@ function createRoutePlan(tree, indexCandidateKeys) {
       }
 
       const normalizedDirectoryPath = normalizedDirectoryPathBySource.get(directoryPath) || "";
-      const outputRelPath = toFileOutputRelativePath(normalizedDirectoryPath, sourcePath);
+      const outputRelPath = toFileOutputRelativePath(normalizedDirectoryPath, sourcePath, directoryEntry.files);
 
       claimOutputPath(routeOwners, outputRelPath, `file:${sourcePath}`);
       filePages.push({
@@ -626,7 +626,7 @@ function normalizeDirectoryPath(directoryPath) {
   return segments.map((segment) => normalizeSegment(segment)).join("/");
 }
 
-function toFileOutputRelativePath(normalizedDirectoryPath, sourcePath) {
+function toFileOutputRelativePath(normalizedDirectoryPath, sourcePath, siblingFiles = null) {
   const parsed = parseSourcePath(sourcePath);
 
   if (parsed.extension === ".md") {
@@ -634,9 +634,11 @@ function toFileOutputRelativePath(normalizedDirectoryPath, sourcePath) {
     return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
   }
 
+  const hasCompanionMarkdown = siblingFiles?.has?.(`${parsed.fileName}.md`) || false;
+
   const slug = parsed.extension
-    ? normalizeSegment(`${parsed.name}-${parsed.extension.slice(1)}`)
-    : normalizeSegment(parsed.name);
+    ? normalizeSegment(`${parsed.name}-${parsed.extension.slice(1)}${hasCompanionMarkdown ? "-file" : ""}`)
+    : normalizeSegment(`${parsed.name}${hasCompanionMarkdown ? "-file" : ""}`);
 
   return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
 }
@@ -661,7 +663,7 @@ async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsB
       })
       .map(([fileName, sourcePath]) => {
         const href = toHrefFromOutputPath(
-          toFileOutputRelativePath(page.normalizedDirectoryPath, sourcePath),
+          toFileOutputRelativePath(page.normalizedDirectoryPath, sourcePath, directoryEntry.files),
         );
 
         return {

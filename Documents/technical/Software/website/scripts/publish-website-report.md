@@ -1,13 +1,13 @@
 # Publish Website Report
 
-Last updated: 2026-04-08
+Last updated: 2026-04-11
 
 Run type: Publish website
 
 ## Summary
 
-- Source files published: 32
-- Site files scanned: 10
+- Source files published: 130
+- Site files scanned: 11
 - Augmentation files loaded: 2
 - Matched augmentation links: 2
 - Unmatched augmentation files: 0
@@ -31,6 +31,7 @@ No unmatched augmentations.
 ## Skipped Site Files
 
 - css/📌README.md
+- css/brand.css
 - css/style.css
 - icons/📌README.md
 - icons/favicon.svg

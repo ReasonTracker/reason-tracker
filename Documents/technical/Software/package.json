@@ -12,22 +12,16 @@
     "Video"
   ],
   "scripts": {
-    "command-center": "pnpm run -F @reasontracker/command-center dev",
-    "dev:website": "vp run reason-tracker-repo-website#dev",
-    "build:website": "vp run reason-tracker-repo-website#build",
-    "publish-website": "vp run reason-tracker-repo-website#publish-website",
+    "command-center:dev": "pnpm run -F @reasontracker/command-center dev",
+    "website:dev": "vp run -F reason-tracker-repo-website dev",
+    "website:build": "vp run -F reason-tracker-repo-website build",
+    "website:publish": "vp run -F reason-tracker-repo-website publish-website",
+    "website:preview": "vp run -F reason-tracker-repo-website preview",
     "preview": "node ./scripts/preview-live.mjs",
-    "video:studio": "pnpm run -F @reasontracker/video studio",
-    "video:render": "pnpm run -F @reasontracker/video render",
-    "video:render:1": "pnpm run -F @reasontracker/video render:1",
-    "video:render:2": "pnpm run -F @reasontracker/video render:2",
-    "video:render:episode0001": "pnpm run -F @reasontracker/video render:episode0001",
-    "video:render:episode0002": "pnpm run -F @reasontracker/video render:episode0002",
-    "test": "vp test",
     "test:all": "vp test",
     "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",
-    "test:engine-tests": "vp run -F @reasontracker/engine-tests test",
-    "test:engine-tests:watch": "vp run -F @reasontracker/engine-tests test:watch"
+    "engine-tests:test": "vp run -F @reasontracker/engine-tests test",
+    "engine-tests:test:watch": "vp run -F @reasontracker/engine-tests test:watch"
   },
   "packageManager": "pnpm@10.33.0"
 }

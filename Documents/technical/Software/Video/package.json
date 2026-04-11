@@ -16,10 +16,6 @@
     "studio": "remotion studio src/index.ts",
     "render": "node ./scripts/render-episode.mjs",
     "render:episode": "node ./scripts/render-episode.mjs",
-    "render:1": "node ./scripts/render-episode.mjs Episode0001",
-    "render:2": "node ./scripts/render-episode.mjs Episode0002",
-    "render:episode0001": "node ./scripts/render-episode.mjs Episode0001",
-    "render:episode0002": "node ./scripts/render-episode.mjs Episode0002",
     "test": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {

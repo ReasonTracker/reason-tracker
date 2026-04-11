@@ -104,7 +104,15 @@ const curatedStandaloneScripts = [
   },
 ] as const;
 
-const hiddenScriptKeys = new Set(["command-center", "video:launcher", "launcher"]);
+const hiddenScriptKeys = new Set(["command-center:dev", "video:launcher", "launcher"]);
+
+function getScriptSegments(scriptKey: string) {
+  return scriptKey.split(":");
+}
+
+function hasScriptSegment(scriptKey: string, value: string) {
+  return getScriptSegments(scriptKey).includes(value);
+}
 
 const packageDescriptions = new Map([
   ["Software", "Root workspace scripts and orchestration commands."],
@@ -369,7 +377,14 @@ function shellQuote(value: string) {
 }
 
 function categorizeScript(scriptKey: string, command: string): CommandCategory {
-  if (scriptKey.includes("video") || scriptKey.startsWith("render") || scriptKey.startsWith("studio") || scriptKey === "current") {
+  const segments = getScriptSegments(scriptKey);
+
+  if (
+    scriptKey.includes("video") ||
+    hasScriptSegment(scriptKey, "render") ||
+    hasScriptSegment(scriptKey, "studio") ||
+    segments.at(-1) === "current"
+  ) {
     return "video";
   }
 
@@ -377,11 +392,11 @@ function categorizeScript(scriptKey: string, command: string): CommandCategory {
     return "test";
   }
 
-  if (scriptKey.startsWith("dev") || scriptKey.startsWith("preview")) {
+  if (hasScriptSegment(scriptKey, "dev") || hasScriptSegment(scriptKey, "preview")) {
     return "preview";
   }
 
-  if (scriptKey.includes("publish") || scriptKey.startsWith("build")) {
+  if (scriptKey.includes("publish") || hasScriptSegment(scriptKey, "build")) {
     return "build";
   }
 
@@ -399,8 +414,8 @@ function categorizeScript(scriptKey: string, command: string): CommandCategory {
 function isBackgroundCommand(scriptKey: string, command: string) {
   return (
     scriptKey.includes("watch") ||
-    scriptKey.startsWith("dev") ||
-    scriptKey === "preview" ||
+    hasScriptSegment(scriptKey, "dev") ||
+    hasScriptSegment(scriptKey, "preview") ||
     scriptKey.includes("studio") ||
     scriptKey.includes("launcher") ||
     command.includes("--watch") ||
@@ -410,7 +425,7 @@ function isBackgroundCommand(scriptKey: string, command: string) {
 }
 
 function getDisplayName(scriptKey: string, packageName: string) {
-  if (packageName === "Software" && scriptKey === "command-center") {
+  if (packageName === "Software" && scriptKey === "command-center:dev") {
     return "Open Command Center";
   }
 
