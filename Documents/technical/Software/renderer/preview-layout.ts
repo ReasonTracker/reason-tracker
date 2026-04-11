@@ -34,7 +34,7 @@ const PREVIEW_LAYOUT_CONFIG = {
         bkFixedAlignment: "LEFTUP" as const,
     },
     connectorGeometry: {
-        connectorPathShape: "elk-bends" as const,
+        connectorPathShape: "curved" as const,
         sourceSideStraightSegmentPercent: 0.5,
         targetSideStraightSegmentPercent: 0.3,
         spreadTargetAnchorY: true,

@@ -23,7 +23,10 @@ export const EpisodeBrandSequence = () => {
         className="rt-brand-sequence__tagline"
         style={{ opacity: taglineOpacity, transform: `translate(${TAGLINE_CENTER_OFFSET}px, ${taglineY}px)` }}
       >
-        {BRAND_SEQUENCE_TAGLINE}
+        <span className="rt-brand-sequence__tagline-shadow" aria-hidden="true">
+          {BRAND_SEQUENCE_TAGLINE}
+        </span>
+        <span className="rt-brand-sequence__tagline-text">{BRAND_SEQUENCE_TAGLINE}</span>
       </span>
     </div>
   );

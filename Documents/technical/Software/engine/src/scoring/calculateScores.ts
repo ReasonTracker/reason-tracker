@@ -58,7 +58,7 @@ export function calculateScores(debate: Debate): CalculateScoresResult {
             calculateConfidence(confidenceChildren);
 
         scores[id] = {
-            id: id as Score["id"],
+            id: id as unknown as Score["id"],
             claimId: id,
             relevance: calculateRelevance(relevanceChildren),
             confidence: claim.forceConfidence ?? confidence,

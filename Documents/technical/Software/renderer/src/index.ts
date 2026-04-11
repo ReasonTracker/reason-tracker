@@ -34,8 +34,11 @@ export type {
 } from "./layout/types.ts";
 
 export {
+    renderWebGraph,
     renderWebCss,
     renderWebDocument,
+    type RenderWebGraphOptions,
     type RenderWebDocumentOptions,
+    type WebGraph,
     type WebDocument,
 } from "./renderWebDocument.ts";

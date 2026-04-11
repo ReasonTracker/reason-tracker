@@ -126,8 +126,12 @@ export async function placeLayoutWithElk(
             "elk.layered.cycleBreaking.strategy": "GREEDY",
             "elk.layered.nodePlacement.strategy": "LINEAR_SEGMENTS",
             "elk.layered.nodePlacement.favorStraightEdges": options.favorStraightEdges ? "true" : "false",
-            "elk.layered.nodePlacement.bk.fixedAlignment": options.bkFixedAlignment,
             "elk.layered.compaction.connectedComponents": "false",
+            ...(options.bkFixedAlignment
+                ? {
+                      "elk.layered.nodePlacement.bk.fixedAlignment": options.bkFixedAlignment,
+                  }
+                : {}),
             ...(preserveInputOrder
                 ? {
                       "elk.layered.considerModelOrder": "NODES_AND_EDGES",

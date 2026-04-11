@@ -16,6 +16,8 @@ export function withConnectorGeometry(
         elkPathDByConnectorShapeId?: Record<string, string>;
     } = {},
 ): Record<string, ConnectorShape> {
+    const sourceSideStraightSegmentPercent = options.sourceSideStraightSegmentPercent ?? 0.5;
+    const targetSideStraightSegmentPercent = options.targetSideStraightSegmentPercent ?? 0.5;
     const connectorShapeStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeReferenceStrokeWidthByConnectorShapeId: Record<string, number> = {};
     const connectorShapeIdsByTargetClaimShapeId: Record<string, string[]> = {};
@@ -120,8 +122,8 @@ export function withConnectorGeometry(
                     sourceSideX,
                     sourceSideY,
                     targetHorizontalGap,
-                    options.sourceSideStraightSegmentPercent,
-                    options.targetSideStraightSegmentPercent,
+                    sourceSideStraightSegmentPercent,
+                    targetSideStraightSegmentPercent,
                 )
                 : options.connectorPathShape === "sharp-corners"
                     ? buildSharpCornerConnectorPathD(
@@ -130,8 +132,8 @@ export function withConnectorGeometry(
                         sourceSideX,
                         sourceSideY,
                         targetHorizontalGap,
-                        options.sourceSideStraightSegmentPercent,
-                        options.targetSideStraightSegmentPercent,
+                        sourceSideStraightSegmentPercent,
+                        targetSideStraightSegmentPercent,
                     )
                     : `M ${targetSideX} ${targetSideY} L ${sourceSideX} ${sourceSideY}`;
 

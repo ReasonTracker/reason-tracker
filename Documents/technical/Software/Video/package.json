@@ -19,6 +19,9 @@
     "test": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
+    "@reasontracker/contracts": "workspace:*",
+    "@reasontracker/engine": "workspace:*",
+    "@reasontracker/renderer": "workspace:*",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "remotion": "^4.0.448"

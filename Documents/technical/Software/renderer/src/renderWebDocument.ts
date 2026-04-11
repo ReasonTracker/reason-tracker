@@ -19,9 +19,31 @@ export interface RenderWebDocumentOptions {
     };
 }
 
+export interface RenderWebGraphOptions {
+    includeScore?: boolean;
+    useClaimShapeTransformScale?: boolean;
+    claimShapeScaleByClaimShapeId?: Record<string, number>;
+    claimShapeTransformBaseSize?: {
+        width: number;
+        height: number;
+    };
+}
+
 export interface WebDocument {
     html: string;
     css: string;
+}
+
+export interface WebGraph {
+    html: string;
+    width: number;
+    height: number;
+    claimBoundsByClaimId: Record<string, {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    }>;
 }
 
 export function renderWebDocument(
@@ -29,17 +51,9 @@ export function renderWebDocument(
     options: RenderWebDocumentOptions = {},
 ): WebDocument {
     const title = options.title ?? "Reason Tracker";
-    const includeScore = options.includeScore ?? true;
     const brandCssHref = options.brandCssHref?.trim();
-    const useClaimShapeTransformScale = options.useClaimShapeTransformScale ?? false;
-    const claimShapeScaleByClaimShapeId = options.claimShapeScaleByClaimShapeId ?? {};
-    const claimShapeTransformBaseSize = options.claimShapeTransformBaseSize;
     const css = renderWebCss();
-    const bodyContent = renderLayoutContent(model, includeScore, {
-        useClaimShapeTransformScale,
-        claimShapeScaleByClaimShapeId,
-        claimShapeTransformBaseSize,
-    });
+    const graph = renderWebGraph(model, options);
 
     const html = [
         "<!doctype html>",
@@ -57,7 +71,9 @@ export function renderWebDocument(
         `<main data-cycle-mode="${escapeHtml(model.cycleMode)}">`,
         `<h1>${escapeHtml(title)}</h1>`,
         `<p>Root: ${escapeHtml(model.rootClaimShapeId)}</p>`,
-        bodyContent,
+        `<section class="rt-layout-stage" aria-label="Graph layout canvas">`,
+        graph.html,
+        "</section>",
         "</main>",
         "</body>",
         "</html>",
@@ -66,6 +82,39 @@ export function renderWebDocument(
     return {
         html,
         css,
+    };
+}
+
+export function renderWebGraph(
+    model: LayoutModel,
+    options: RenderWebGraphOptions = {},
+): WebGraph {
+    const includeScore = options.includeScore ?? true;
+    const useClaimShapeTransformScale = options.useClaimShapeTransformScale ?? false;
+    const claimShapeScaleByClaimShapeId = options.claimShapeScaleByClaimShapeId ?? {};
+    const claimShapeTransformBaseSize = options.claimShapeTransformBaseSize;
+    const canvasSize = getLayoutCanvasSize(model);
+    const html = renderLayoutCanvas(model, canvasSize, includeScore, {
+        useClaimShapeTransformScale,
+        claimShapeScaleByClaimShapeId,
+        claimShapeTransformBaseSize,
+    });
+
+    return {
+        html,
+        width: canvasSize.width,
+        height: canvasSize.height,
+        claimBoundsByClaimId: Object.fromEntries(
+            Object.values(model.claimShapes).map((claimShape) => [
+                claimShape.claimId,
+                {
+                    x: claimShape.x,
+                    y: claimShape.y,
+                    width: claimShape.width,
+                    height: claimShape.height,
+                },
+            ]),
+        ),
     };
 }
 
@@ -221,8 +270,30 @@ function renderLayoutContent(
     includeScore: boolean,
     options: RenderClaimShapeOptions,
 ): string {
-    const canvasWidth = Math.max(1, Math.ceil(model.layoutBounds.width));
-    const canvasHeight = Math.max(1, Math.ceil(model.layoutBounds.height));
+    const canvasSize = getLayoutCanvasSize(model);
+
+    return [
+        `<section class="rt-layout-stage" aria-label="Graph layout canvas">`,
+        renderLayoutCanvas(model, canvasSize, includeScore, options),
+        "</section>",
+    ].join("\n");
+}
+
+function getLayoutCanvasSize(model: LayoutModel): { width: number; height: number } {
+    return {
+        width: Math.max(1, Math.ceil(model.layoutBounds.width)),
+        height: Math.max(1, Math.ceil(model.layoutBounds.height)),
+    };
+}
+
+function renderLayoutCanvas(
+    model: LayoutModel,
+    canvasSize: { width: number; height: number },
+    includeScore: boolean,
+    options: RenderClaimShapeOptions,
+): string {
+    const canvasWidth = canvasSize.width;
+    const canvasHeight = canvasSize.height;
 
     const sortedConnectorShapes = model.connectorShapeRenderOrder
         .map((connectorShapeId) => model.connectorShapes[connectorShapeId])
@@ -264,7 +335,6 @@ function renderLayoutContent(
         .join("\n");
 
     return [
-        `<section class="rt-layout-stage" aria-label="Graph layout canvas">`,
         `<div class="rt-layout-canvas" style="width:${canvasWidth}px;height:${canvasHeight}px;">`,
         `<svg class="rt-connector-layer" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" aria-hidden="true">`,
         potentialConfidenceConnectorShapeLines,
@@ -272,7 +342,6 @@ function renderLayoutContent(
         "</svg>",
         claimShapeBlocks,
         "</div>",
-        "</section>",
     ].join("\n");
 }
 

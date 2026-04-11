@@ -1,10 +1,10 @@
-export { runCli } from "./cli";
+export { runCli } from "./cli.ts";
 export {
     runCliFromArgv,
     runCliFromProcess,
     type CliIoResult,
-} from "./cli-io";
-export { calculateScores, type CalculateScoresResult } from "./scoring/calculateScores";
+} from "./cli-io.ts";
+export { calculateScores, type CalculateScoresResult } from "./scoring/calculateScores.ts";
 
 export type {
     Affects,
