@@ -1,0 +1,41 @@
+{
+  "name": "@reasontracker/video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remotion-based video compositions and shared assets for Reason Tracker.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "public",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "echo \"Build script pending\"",
+    "studio": "remotion studio src/index.ts",
+    "studio:current": "node ./scripts/studio-current.mjs",
+    "current": "node ./scripts/print-current-episode.mjs",
+    "render": "node ./scripts/render-episode.mjs",
+    "render:current": "node ./scripts/render-episode.mjs current",
+    "render:episode": "node ./scripts/render-episode.mjs",
+    "render:1": "node ./scripts/render-episode.mjs Episode0001",
+    "render:2": "node ./scripts/render-episode.mjs Episode0002",
+    "render:episode0001": "node ./scripts/render-episode.mjs Episode0001",
+    "render:episode0002": "node ./scripts/render-episode.mjs Episode0002",
+    "test": "tsc --noEmit -p ./tsconfig.json"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "remotion": "^4.0.448"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.448",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3",
+    "vite-plus": "^0.1.16"
+  }
+}
