@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { Children, isValidElement, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { ClaimId, Debate } from "@reasontracker/contracts";
 import { runCli } from "@reasontracker/engine";
 import {
@@ -8,9 +8,11 @@ import {
   renderWebGraph,
   type WebGraph,
 } from "@reasontracker/renderer";
-import { cancelRender, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
+import { cancelRender, continueRender, delayRender, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { getZoomMotionState } from "./zoomMotion.ts";
 
+// AGENT NOTE: Keep GraphView tuning constants grouped here when adjusting layout or camera motion.
+const DEFAULT_GRAPH_FROM = 0;
 const DEFAULT_GRAPH_SCALE = 1.65;
 const DEFAULT_ZOOM_SCALE = 3.4;
 const DEFAULT_ZOOM_DURATION_FRAMES = 78;
@@ -19,6 +21,27 @@ const DEFAULT_ZOOM_PADDING = 120;
 type GraphZoomTarget =
   | { claimId: ClaimId }
   | { x: number; y: number; width?: number; height?: number };
+
+export type CameraMoveProps = {
+  from: number;
+  durationInFrames?: number;
+  reset?: boolean;
+  claimId?: ClaimId;
+  target?: GraphZoomTarget;
+  scale?: number;
+  padding?: number;
+  name?: string;
+};
+
+type ResolvedCameraMove = {
+  from: number;
+  durationInFrames: number;
+  reset: boolean;
+  target?: GraphZoomTarget;
+  scale: number;
+  padding: number;
+  name: string;
+};
 
 const GRAPH_VIEW_CONFIG = {
   sizing: {
@@ -46,7 +69,10 @@ const GRAPH_VIEW_CONFIG = {
 
 type GraphViewProps = {
   debate: Debate;
+  from?: number;
+  durationInFrames?: number;
   scale?: number;
+  children?: ReactNode;
   zoomClaimId?: ClaimId;
   zoomTarget?: GraphZoomTarget;
   zoomScale?: number;
@@ -54,6 +80,86 @@ type GraphViewProps = {
   zoomDurationInFrames?: number;
   zoomPadding?: number;
 };
+
+export const CameraMove = (_props: CameraMoveProps) => null;
+
+type GraphViewContentProps = Omit<GraphViewProps, "from" | "durationInFrames">;
+
+function resolveCameraMoveTarget({ claimId, target }: CameraMoveProps): GraphZoomTarget | undefined {
+  return target ?? (claimId ? { claimId } : undefined);
+}
+
+function getSequenceName(move: CameraMoveProps, index: number): string {
+  if (move.name) {
+    return move.name;
+  }
+
+  if (move.reset) {
+    return "CameraMove Reset";
+  }
+
+  if (move.claimId) {
+    return `CameraMove ${move.claimId}`;
+  }
+
+  return `CameraMove ${index + 1}`;
+}
+
+function resolveCameraMoves(
+  children: ReactNode,
+  zoomClaimId: ClaimId | undefined,
+  zoomTarget: GraphZoomTarget | undefined,
+  zoomScale: number,
+  zoomStartFrame: number | undefined,
+  zoomDurationInFrames: number,
+  zoomPadding: number,
+): ResolvedCameraMove[] {
+  const cameraMoves: ResolvedCameraMove[] = [];
+
+  if (zoomStartFrame != null) {
+    const legacyTarget = zoomTarget ?? (zoomClaimId ? { claimId: zoomClaimId } : undefined);
+
+    if (legacyTarget) {
+      cameraMoves.push({
+        from: zoomStartFrame,
+        durationInFrames: zoomDurationInFrames,
+        reset: false,
+        target: legacyTarget,
+        scale: zoomScale,
+        padding: zoomPadding,
+        name: zoomClaimId ? `CameraMove ${zoomClaimId}` : "CameraMove 1",
+      });
+    }
+  }
+
+  for (const [index, child] of Children.toArray(children).entries()) {
+    if (!isValidElement<CameraMoveProps>(child)) {
+      continue;
+    }
+
+    if (child.type !== CameraMove) {
+      continue;
+    }
+
+    const target = resolveCameraMoveTarget(child.props);
+
+    if (!child.props.reset && !target) {
+      throw new Error("CameraMove requires either claimId or target.");
+    }
+
+    cameraMoves.push({
+      from: child.props.from,
+      durationInFrames: child.props.durationInFrames ?? DEFAULT_ZOOM_DURATION_FRAMES,
+      reset: child.props.reset ?? false,
+      target,
+      scale: child.props.scale ?? DEFAULT_ZOOM_SCALE,
+      padding: child.props.padding ?? DEFAULT_ZOOM_PADDING,
+      name: getSequenceName(child.props, index),
+    });
+  }
+
+  return [...cameraMoves].sort((left, right) => left.from - right.from);
+}
 
 function getZoomTargetData(
   graph: WebGraph,
@@ -139,20 +245,25 @@ async function renderGraph(debate: Debate): Promise<WebGraph> {
   });
 }
 
-export const GraphView = ({
+const GraphViewContent = ({
   debate,
   scale = DEFAULT_GRAPH_SCALE,
+  children,
   zoomClaimId,
   zoomTarget,
   zoomScale = DEFAULT_ZOOM_SCALE,
   zoomStartFrame,
   zoomDurationInFrames = DEFAULT_ZOOM_DURATION_FRAMES,
   zoomPadding = DEFAULT_ZOOM_PADDING,
-}: GraphViewProps) => {
+}: GraphViewContentProps) => {
   const frame = useCurrentFrame();
   const { width: frameWidth, height: frameHeight } = useVideoConfig();
   const [graph, setGraph] = useState<WebGraph | null>(null);
   const [renderHandle] = useState(() => delayRender("Build graph view"));
+  const cameraMoves = useMemo(
+    () => resolveCameraMoves(children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding),
+    [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -179,22 +290,63 @@ export const GraphView = ({
     return null;
   }
 
-  const zoomTargetData = getZoomTargetData(graph, zoomClaimId, zoomTarget);
-  const resolvedZoomScale = resolveZoomScale(zoomTargetData, frameWidth, frameHeight, zoomPadding, zoomScale);
-  const zoomMotion = zoomTargetData != null && zoomStartFrame != null
-    ? getZoomMotionState({
-        frame,
-        startFrame: zoomStartFrame,
-        durationInFrames: zoomDurationInFrames,
-        startScale: scale,
-        endScale: resolvedZoomScale,
-        targetOffsetX: graph.width / 2 - zoomTargetData.x,
-        targetOffsetY: graph.height / 2 - zoomTargetData.y,
-      })
-    : undefined;
-  const animatedScale = zoomMotion?.scale ?? scale;
-  const contentTranslateX = zoomMotion?.translateX ?? 0;
-  const contentTranslateY = zoomMotion?.translateY ?? 0;
+  let animatedScale = scale;
+  let contentTranslateX = 0;
+  let contentTranslateY = 0;
+
+  for (const cameraMove of cameraMoves) {
+    if (frame < cameraMove.from) {
+      break;
+    }
+
+    let resolvedZoomScale = cameraMove.reset ? scale : cameraMove.scale;
+    let targetTranslateX = 0;
+    let targetTranslateY = 0;
+
+    if (!cameraMove.reset) {
+      const zoomTargetData = getZoomTargetData(graph, undefined, cameraMove.target);
+
+      if (!zoomTargetData) {
+        continue;
+      }
+
+      resolvedZoomScale = resolveZoomScale(
+        zoomTargetData,
+        frameWidth,
+        frameHeight,
+        cameraMove.padding,
+        cameraMove.scale,
+      );
+      targetTranslateX = (graph.width / 2 - zoomTargetData.x) * resolvedZoomScale;
+      targetTranslateY = (graph.height / 2 - zoomTargetData.y) * resolvedZoomScale;
+    }
+
+    const moveEndFrame = cameraMove.from + cameraMove.durationInFrames;
+
+    if (frame >= moveEndFrame) {
+      animatedScale = resolvedZoomScale;
+      contentTranslateX = targetTranslateX;
+      contentTranslateY = targetTranslateY;
+      continue;
+    }
+
+    const zoomMotion = getZoomMotionState({
+      frame,
+      startFrame: cameraMove.from,
+      durationInFrames: cameraMove.durationInFrames,
+      startScale: animatedScale,
+      endScale: resolvedZoomScale,
+      startTranslateX: contentTranslateX,
+      endTranslateX: targetTranslateX,
+      startTranslateY: contentTranslateY,
+      endTranslateY: targetTranslateY,
+    });
+
+    animatedScale = zoomMotion.scale;
+    contentTranslateX = zoomMotion.translateX;
+    contentTranslateY = zoomMotion.translateY;
+    break;
+  }
 
   const wrapperStyle = {
     width: graph.width * animatedScale,
@@ -208,8 +360,32 @@ export const GraphView = ({
   } satisfies CSSProperties;
 
   return (
-    <div className="rt-graph-view" style={wrapperStyle} aria-label="Reason Tracker graph">
-      <div className="rt-graph-view__content" style={contentStyle} dangerouslySetInnerHTML={{ __html: graph.html }} />
-    </div>
+    <>
+      <div className="rt-graph-view" style={wrapperStyle} aria-label="Reason Tracker graph">
+        <div className="rt-graph-view__content" style={contentStyle} dangerouslySetInnerHTML={{ __html: graph.html }} />
+      </div>
+      {cameraMoves.map((cameraMove) => (
+        <Sequence
+          key={`${cameraMove.name}-${cameraMove.from}-${cameraMove.durationInFrames}`}
+          from={cameraMove.from}
+          durationInFrames={cameraMove.durationInFrames}
+          name={cameraMove.name}
+        >
+          <span style={{ display: "none" }} />
+        </Sequence>
+      ))}
+    </>
+  );
+};
+
+export const GraphView = ({
+  from = DEFAULT_GRAPH_FROM,
+  durationInFrames,
+  ...contentProps
+}: GraphViewProps) => {
+  return (
+    <Sequence from={from} durationInFrames={durationInFrames} name="GraphView" layout="none">
+      <GraphViewContent {...contentProps} />
+    </Sequence>
   );
 };

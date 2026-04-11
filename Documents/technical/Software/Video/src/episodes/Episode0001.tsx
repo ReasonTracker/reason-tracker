@@ -1,32 +1,63 @@
-import { Sequence } from "remotion";
+import { Composition } from "remotion";
 import type { ClaimId } from "@reasontracker/contracts";
 import type { EpisodeCompositionProps } from "../shared/episode.ts";
 import { episode0001Debate } from "./Episode0001/graphData.ts";
 import { EpisodeBrandSequence } from "../shared/EpisodeBrandSequence.tsx";
-import { GraphView } from "../shared/GraphView.tsx";
+import { CameraMove, GraphView } from "../shared/GraphView.tsx";
 import { EpisodeTemplate } from "../shared/EpisodeTemplate.tsx";
 
-const BRAND_SEQUENCE_START = 60;
-const BRAND_SEQUENCE_FRAMES = 150;
-const FRAMES_PER_SECOND = 30;
-const GRAPH_ZOOM_START = BRAND_SEQUENCE_START + BRAND_SEQUENCE_FRAMES + FRAMES_PER_SECOND;
-const GRAPH_ZOOM_CLAIM_ID = "a" as ClaimId;
-const GRAPH_ZOOM_DURATION = 90;
-const GRAPH_ZOOM_PADDING = 36;
+const EPISODE_ID = "Episode0001";
+const EPISODE_TITLE = "Episode 1";
+const TOTAL_EPISODE_FRAMES = 300;
+
+const zoomMotionOptions = {
+  durationInFrames: 50,
+  padding: 200,
+};
 
 export const Episode0001 = (_props: EpisodeCompositionProps) => {
   return (
     <EpisodeTemplate>
-      <GraphView
-        debate={episode0001Debate}
-        zoomClaimId={GRAPH_ZOOM_CLAIM_ID}
-        zoomDurationInFrames={GRAPH_ZOOM_DURATION}
-        zoomPadding={GRAPH_ZOOM_PADDING}
-        zoomStartFrame={GRAPH_ZOOM_START}
-      />
-      <Sequence from={BRAND_SEQUENCE_START} durationInFrames={BRAND_SEQUENCE_FRAMES}>
-        <EpisodeBrandSequence />
-      </Sequence>
+      <GraphView debate={episode0001Debate}>
+        <CameraMove
+        {...zoomMotionOptions}
+          from={30}
+          claimId={"main" as ClaimId}
+        />
+        <CameraMove
+          from={100}
+          claimId={"b" as ClaimId}
+        {...zoomMotionOptions}
+        />
+        <CameraMove
+          from={190}
+          claimId={"a" as ClaimId}
+        {...zoomMotionOptions}
+        />
+        <CameraMove
+          from={250}
+          durationInFrames={50}
+          reset
+        />
+      </GraphView>
+      <EpisodeBrandSequence from={60} duration={100} />
     </EpisodeTemplate>
+  );
+};
+
+export const Episode0001Composition = () => {
+  return (
+    <Composition
+      id={EPISODE_ID}
+      component={Episode0001}
+      durationInFrames={TOTAL_EPISODE_FRAMES}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{
+        episodeId: EPISODE_ID,
+        title: EPISODE_TITLE,
+      }}
+    />
   );
 };

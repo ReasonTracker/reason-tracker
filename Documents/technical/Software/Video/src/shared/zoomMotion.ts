@@ -10,8 +10,10 @@ export type ZoomMotionOptions = {
   durationInFrames: number;
   startScale: number;
   endScale: number;
-  targetOffsetX: number;
-  targetOffsetY: number;
+  startTranslateX: number;
+  endTranslateX: number;
+  startTranslateY: number;
+  endTranslateY: number;
 };
 
 export type ZoomMotionState = {
@@ -26,8 +28,10 @@ export function getZoomMotionState({
   durationInFrames,
   startScale,
   endScale,
-  targetOffsetX,
-  targetOffsetY,
+  startTranslateX,
+  endTranslateX,
+  startTranslateY,
+  endTranslateY,
 }: ZoomMotionOptions): ZoomMotionState {
   const panDurationInFrames = Math.max(1, Math.round(durationInFrames * DEFAULT_PAN_DURATION_RATIO));
 
@@ -44,8 +48,14 @@ export function getZoomMotionState({
   });
 
   const scale = interpolate(zoomProgress, [0, 1], [startScale, endScale]);
-  const translateX = interpolate(panProgress, [0, 1], [0, targetOffsetX * scale]);
-  const translateY = interpolate(panProgress, [0, 1], [0, targetOffsetY * scale]);
+  const startOffsetX = startTranslateX / Math.max(startScale, Number.EPSILON);
+  const endOffsetX = endTranslateX / Math.max(endScale, Number.EPSILON);
+  const startOffsetY = startTranslateY / Math.max(startScale, Number.EPSILON);
+  const endOffsetY = endTranslateY / Math.max(endScale, Number.EPSILON);
+  const offsetX = interpolate(panProgress, [0, 1], [startOffsetX, endOffsetX]);
+  const offsetY = interpolate(panProgress, [0, 1], [startOffsetY, endOffsetY]);
+  const translateX = offsetX * scale;
+  const translateY = offsetY * scale;
 
   return {
     scale,
