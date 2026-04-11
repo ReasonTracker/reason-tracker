@@ -12,8 +12,6 @@
   --max-width: 860px;
   --sans: "Segoe UI", system-ui, sans-serif;
   --mono: Consolas, "Cascadia Mono", monospace;
-
-  --highlight: yellow;
 }
 
 * {

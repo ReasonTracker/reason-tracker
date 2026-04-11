@@ -6,4 +6,6 @@
   --con-h: 30.21;
   --con-l: 42%;
   --con: hsl(var(--con-h), 100%, var(--con-l));
+
+  --highlight: yellow;
 }
