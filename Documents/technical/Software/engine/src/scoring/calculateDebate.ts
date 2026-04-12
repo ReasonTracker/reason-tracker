@@ -1,4 +1,6 @@
 import {
+    type BuildPropagationAnimationRequest,
+    type BuildPropagationAnimationResult,
     type CalculateDebateDiagnostic,
     type CalculateDebateOptions,
     type CalculateDebateRequest,
@@ -11,6 +13,7 @@ import {
     type Debate,
     type DebateAction,
     type Score,
+    type PropagationAnimationKeyState,
     type ScorePropagationChange,
 } from "@reasontracker/contracts";
 import { calculateConfidence } from "./calculateConfidence.ts";
@@ -36,6 +39,11 @@ type ValidationFailure = {
 
 const MAX_SIMULATION_RUNS = 8;
 
+type SupportedPropagationCycleHandling = Extract<
+    CalculateDebateRequest["cycleHandling"],
+    "fail" | "cut"
+>;
+
 export function calculateDebate<
     O extends CalculateDebateOptions | undefined = undefined,
 >(request: CalculateDebateRequest<O>): CalculateDebateResult<O> {
@@ -49,6 +57,154 @@ export function calculateDebate<
     }
 
     return runFailMode(request) as CalculateDebateResult<O>;
+}
+
+export function buildPropagationAnimation(
+    request: BuildPropagationAnimationRequest,
+): BuildPropagationAnimationResult {
+    const diagnostics: CalculateDebateDiagnostic[] = [];
+
+    if (!Number.isFinite(request.fps) || request.fps <= 0) {
+        return {
+            ok: false,
+            reason: "invalidRequest",
+            message: "fps must be a positive finite number.",
+            diagnostics,
+        };
+    }
+
+    const cycleHandling: SupportedPropagationCycleHandling =
+        request.cycleHandling ?? "fail";
+
+    let workingDebate = toDebate(request.debate);
+    const initialScoreResult = calculateDebate({
+        debate: workingDebate,
+        cycleHandling,
+    });
+
+    diagnostics.push(...(initialScoreResult.diagnostics ?? []));
+
+    if (!initialScoreResult.ok) {
+        return {
+            ok: false,
+            reason: initialScoreResult.reason,
+            message: initialScoreResult.message ?? "Failed to score initial debate.",
+            diagnostics,
+        };
+    }
+
+    let previousScores = initialScoreResult.scores;
+    const keyStates: PropagationAnimationKeyState[] = [];
+
+    const sortedDirectives = [...request.directives].sort((left, right) => {
+        if (left.startAtSeconds !== right.startAtSeconds) {
+            return left.startAtSeconds - right.startAtSeconds;
+        }
+        return left.id.localeCompare(right.id);
+    });
+
+    for (const directive of sortedDirectives) {
+        if (!Number.isFinite(directive.startAtSeconds) || directive.startAtSeconds < 0) {
+            return {
+                ok: false,
+                reason: "invalidRequest",
+                message: `Directive ${directive.id} has an invalid startAtSeconds value.`,
+                diagnostics,
+                directiveId: directive.id,
+            };
+        }
+
+        if (!Number.isFinite(directive.durationSeconds) || directive.durationSeconds <= 0) {
+            return {
+                ok: false,
+                reason: "invalidRequest",
+                message: `Directive ${directive.id} has an invalid durationSeconds value.`,
+                diagnostics,
+                directiveId: directive.id,
+            };
+        }
+
+        const actionCount = directive.actions.length;
+        if (actionCount < 1) {
+            continue;
+        }
+
+        const startFrame = Math.round(directive.startAtSeconds * request.fps);
+        const durationFrames = Math.max(1, Math.round(directive.durationSeconds * request.fps));
+
+        for (let actionIndex = 0; actionIndex < actionCount; actionIndex += 1) {
+            workingDebate = applyAction(
+                workingDebate,
+                directive.actions[actionIndex],
+                actionIndex,
+                diagnostics,
+            );
+
+            const actionValidationFailure = validateDebate(workingDebate);
+            if (actionValidationFailure) {
+                return {
+                    ok: false,
+                    reason: "invalidRequest",
+                    message: actionValidationFailure.message,
+                    diagnostics,
+                    directiveId: directive.id,
+                    actionIndex,
+                };
+            }
+
+            const actionScoreResult = calculateDebate({
+                debate: workingDebate,
+                cycleHandling,
+            });
+
+            diagnostics.push(...(actionScoreResult.diagnostics ?? []));
+
+            if (!actionScoreResult.ok) {
+                return {
+                    ok: false,
+                    reason: actionScoreResult.reason,
+                    message:
+                        actionScoreResult.message ??
+                        `Failed to score directive ${directive.id} action ${String(actionIndex)}.`,
+                    diagnostics,
+                    directiveId: directive.id,
+                    actionIndex,
+                };
+            }
+
+            const actionEndFrame = actionCount <= 1
+                ? startFrame
+                : startFrame + Math.round((actionIndex * durationFrames) / (actionCount - 1));
+
+            keyStates.push({
+                directiveId: directive.id,
+                directiveName: directive.name,
+                actionIndex,
+                frame: actionEndFrame,
+                atSeconds: actionEndFrame / request.fps,
+                debate: workingDebate,
+                scores: actionScoreResult.scores,
+                changes: createPropagationChanges(
+                    actionIndex,
+                    previousScores,
+                    actionScoreResult.scores,
+                ),
+            });
+
+            previousScores = actionScoreResult.scores;
+        }
+    }
+
+    return {
+        ok: true,
+        diagnostics,
+        initialScores: initialScoreResult.scores,
+        keyStates,
+        finalDebate: {
+            ...workingDebate,
+            scores: previousScores,
+        },
+    };
 }
 
 function runFailMode<O extends CalculateDebateOptions | undefined>(

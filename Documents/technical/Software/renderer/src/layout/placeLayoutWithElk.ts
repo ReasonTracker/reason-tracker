@@ -76,8 +76,9 @@ export async function placeLayoutWithElk(
     const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
     const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
     const preserveInputOrder = options.preserveInputOrder ?? true;
+    const siblingOrderingMode = options.siblingOrderingMode ?? "auto-reorder";
 
-    const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
+    const orderedClaimShapeIds = orderClaimShapeIdsForElk(model, siblingOrderingMode);
 
     const children: ElkClaimShapeLayout[] = orderedClaimShapeIds.map((claimShapeId) => {
         const size = claimShapeSizeByClaimShapeId[claimShapeId] ?? defaultClaimShapeSize;
@@ -319,7 +320,7 @@ function extractElkConnectorGeometryByConnectorShapeId(laidOutGraph: ElkGraph): 
 function buildPathDFromElkSections(sections: ElkConnectorSectionLayout[]): string | undefined {
     const commands: string[] = [];
 
-    for (const section of sections) {
+    for (const section of [...sections].reverse()) {
         const start = section.startPoint;
         const end = section.endPoint;
         if (start?.x == null || start?.y == null || end?.x == null || end?.y == null) {
@@ -327,15 +328,15 @@ function buildPathDFromElkSections(sections: ElkConnectorSectionLayout[]): strin
         }
 
         if (commands.length === 0) {
-            commands.push(`M ${start.x} ${start.y}`);
+            commands.push(`M ${end.x} ${end.y}`);
         }
 
-        for (const bendPoint of section.bendPoints ?? []) {
+        for (const bendPoint of [...(section.bendPoints ?? [])].reverse()) {
             if (bendPoint.x == null || bendPoint.y == null) continue;
             commands.push(`L ${bendPoint.x} ${bendPoint.y}`);
         }
 
-        commands.push(`L ${end.x} ${end.y}`);
+        commands.push(`L ${start.x} ${start.y}`);
     }
 
     if (commands.length === 0) return undefined;

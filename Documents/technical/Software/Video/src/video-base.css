@@ -93,7 +93,7 @@
   left: 50%;
   top: 50%;
   transform-origin: center center;
-  transform: translate(-50%, -50%) scale(var(--rt-claim-shape-scale, 1));
+  transform: translate(-50%, -50%) scale(calc(var(--rt-claim-shape-scale, 1) * var(--rt-claim-insert-scale, 1)));
 }
 
 .rt-graph-view .rt-claim-shape-shell {

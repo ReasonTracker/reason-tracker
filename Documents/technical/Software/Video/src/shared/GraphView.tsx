@@ -1,22 +1,26 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import type { ClaimId, Debate } from "@reasontracker/contracts";
+import type { ClaimId, ConnectorId, Debate, PropagationAnimationKeyState, Score } from "@reasontracker/contracts";
 import { calculateScores } from "@reasontracker/engine";
 import {
+  buildGraphAnimationSnapshot,
   buildLayoutModel,
   computeContributorNodeSizing,
   placeLayoutWithElk,
-  renderWebGraph,
-  type WebGraph,
+  type GraphAnimationSnapshot,
+  type GraphClaimVisualState,
+  type GraphConnectorVisualState,
+  type SiblingOrderingMode,
 } from "@reasontracker/renderer";
 import { cancelRender, continueRender, delayRender, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { getZoomMotionState } from "./zoomMotion.ts";
 
-// AGENT NOTE: Keep GraphView tuning constants grouped here when adjusting layout or camera motion.
 const DEFAULT_GRAPH_FROM = 0;
 const DEFAULT_GRAPH_SCALE = 1.65;
 const DEFAULT_ZOOM_SCALE = 3.4;
 const DEFAULT_ZOOM_DURATION_FRAMES = 78;
 const DEFAULT_ZOOM_PADDING = 120;
+const CLAIM_TRANSITION_FRAMES = 18;
+const CONNECTOR_TRANSITION_FRAMES = 18;
 
 type GraphZoomTarget =
   | { claimId: ClaimId }
@@ -41,6 +45,43 @@ type ResolvedCameraMove = {
   scale: number;
   padding: number;
   name: string;
+};
+
+type SnapshotFrame = {
+  frame: number;
+  snapshot: GraphAnimationSnapshot;
+};
+
+type GraphPresentationStage = {
+  kind: "claims" | "connectors";
+  startFrame: number;
+  endFrame: number;
+  fromSnapshot: GraphAnimationSnapshot;
+  toSnapshot: GraphAnimationSnapshot;
+  insertedClaimIds: ClaimId[];
+  removedClaimIds: ClaimId[];
+  insertedConnectorIds: ConnectorId[];
+  removedConnectorIds: ConnectorId[];
+};
+
+type ActiveClaimRender = GraphClaimVisualState & {
+  displayedConfidence: number;
+  opacity: number;
+  insertScale: number;
+};
+
+type ActiveConnectorRender = GraphConnectorVisualState & {
+  mode: "stable" | "grow" | "shrink";
+  revealProgress: number;
+};
+
+type ActiveGraphRenderState = {
+  width: number;
+  height: number;
+  claimRenderOrder: ClaimId[];
+  connectorRenderOrder: ConnectorId[];
+  claimByClaimId: Record<ClaimId, ActiveClaimRender>;
+  connectorByConnectorId: Record<ConnectorId, ActiveConnectorRender>;
 };
 
 const GRAPH_VIEW_CONFIG = {
@@ -73,12 +114,15 @@ type GraphViewProps = {
   durationInFrames?: number;
   scale?: number;
   children?: ReactNode;
+  propagationKeyStates?: PropagationAnimationKeyState[];
+  siblingOrderingMode?: SiblingOrderingMode;
   zoomClaimId?: ClaimId;
   zoomTarget?: GraphZoomTarget;
   zoomScale?: number;
   zoomStartFrame?: number;
   zoomDurationInFrames?: number;
   zoomPadding?: number;
+  cameraFrameOffset?: number;
 };
 
 export const CameraMove = (_props: CameraMoveProps) => null;
@@ -113,6 +157,7 @@ function resolveCameraMoves(
   zoomStartFrame: number | undefined,
   zoomDurationInFrames: number,
   zoomPadding: number,
+  cameraFrameOffset: number,
 ): ResolvedCameraMove[] {
   const cameraMoves: ResolvedCameraMove[] = [];
 
@@ -121,7 +166,7 @@ function resolveCameraMoves(
 
     if (legacyTarget) {
       cameraMoves.push({
-        from: zoomStartFrame,
+        from: zoomStartFrame + cameraFrameOffset,
         durationInFrames: zoomDurationInFrames,
         reset: false,
         target: legacyTarget,
@@ -142,13 +187,12 @@ function resolveCameraMoves(
     }
 
     const target = resolveCameraMoveTarget(child.props);
-
     if (!child.props.reset && !target) {
       throw new Error("CameraMove requires either claimId or target.");
     }
 
     cameraMoves.push({
-      from: child.props.from,
+      from: child.props.from + cameraFrameOffset,
       durationInFrames: child.props.durationInFrames ?? DEFAULT_ZOOM_DURATION_FRAMES,
       reset: child.props.reset ?? false,
       target,
@@ -162,27 +206,26 @@ function resolveCameraMoves(
 }
 
 function getZoomTargetData(
-  graph: WebGraph,
+  graph: ActiveGraphRenderState,
   zoomClaimId: ClaimId | undefined,
   zoomTarget: GraphZoomTarget | undefined,
 ): { x: number; y: number; width?: number; height?: number } | undefined {
   const resolvedTarget = zoomTarget ?? (zoomClaimId ? { claimId: zoomClaimId } : undefined);
-
   if (!resolvedTarget) {
     return undefined;
   }
 
   if ("claimId" in resolvedTarget) {
-    const focusBounds = graph.claimBoundsByClaimId[resolvedTarget.claimId];
-    if (!focusBounds) {
+    const claim = graph.claimByClaimId[resolvedTarget.claimId];
+    if (!claim) {
       return undefined;
     }
 
     return {
-      x: focusBounds.x + focusBounds.width / 2,
-      y: focusBounds.y + focusBounds.height / 2,
-      width: focusBounds.width,
-      height: focusBounds.height,
+      x: claim.x + claim.width / 2,
+      y: claim.y + claim.height / 2,
+      width: claim.width,
+      height: claim.height,
     };
   }
 
@@ -205,11 +248,17 @@ function resolveZoomScale(
   return Math.min(availableWidth / zoomTargetData.width, availableHeight / zoomTargetData.height);
 }
 
-async function renderGraph(debate: Debate): Promise<WebGraph> {
-  const calculation = calculateScores({
-    debate,
-    cycleHandling: "fail",
-  });
+async function buildGraphSnapshot(
+  debate: Debate,
+  siblingOrderingMode: SiblingOrderingMode,
+  scoresOverride?: Record<ClaimId, Score>,
+): Promise<GraphAnimationSnapshot> {
+  const calculation = scoresOverride
+    ? { ok: true as const, scores: scoresOverride }
+    : calculateScores({
+      debate,
+      cycleHandling: "fail",
+    });
 
   if (!calculation.ok) {
     throw new Error(
@@ -223,6 +272,7 @@ async function renderGraph(debate: Debate): Promise<WebGraph> {
       scores: calculation.scores,
     },
     cycleMode: "preserve",
+    siblingOrderingMode,
   });
 
   if (!built.ok) {
@@ -231,6 +281,7 @@ async function renderGraph(debate: Debate): Promise<WebGraph> {
 
   const contributorSizing = computeContributorNodeSizing(built.model, GRAPH_VIEW_CONFIG.sizing);
   const placed = await placeLayoutWithElk(built.model, {
+    siblingOrderingMode,
     defaultClaimShapeSize: GRAPH_VIEW_CONFIG.sizing.defaultClaimShapeSize,
     claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
     ...GRAPH_VIEW_CONFIG.elk,
@@ -241,18 +292,462 @@ async function renderGraph(debate: Debate): Promise<WebGraph> {
     throw new Error(`placeLayoutWithElk failed: ${placed.error.code} ${placed.error.message}`);
   }
 
-  return renderWebGraph(placed.model, {
-    includeScore: true,
-    useClaimShapeTransformScale: true,
+  return buildGraphAnimationSnapshot(placed.model, {
     claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
-    claimShapeTransformBaseSize: GRAPH_VIEW_CONFIG.sizing.defaultClaimShapeSize,
   });
+}
+
+function lerp(from: number, to: number, progress: number): number {
+  return from + (to - from) * progress;
+}
+
+function isNumericSvgToken(token: string): boolean {
+  return /^-?\d*\.?\d+(?:e[-+]?\d+)?$/i.test(token);
+}
+
+function formatSvgNumber(value: number): string {
+  const rounded = Number(value.toFixed(3));
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}
+
+function interpolatePathData(fromD: string | null, toD: string | null, progress: number): string | undefined {
+  if (!fromD || !toD) {
+    return undefined;
+  }
+
+  const tokenPattern = /[A-Za-z]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
+  const fromTokens = fromD.match(tokenPattern);
+  const toTokens = toD.match(tokenPattern);
+
+  if (!fromTokens || !toTokens || fromTokens.length !== toTokens.length) {
+    return undefined;
+  }
+
+  const out: string[] = [];
+  for (let index = 0; index < fromTokens.length; index += 1) {
+    const fromToken = fromTokens[index];
+    const toToken = toTokens[index];
+    const fromIsNumber = isNumericSvgToken(fromToken);
+    const toIsNumber = isNumericSvgToken(toToken);
+
+    if (fromIsNumber !== toIsNumber) {
+      return undefined;
+    }
+
+    if (!fromIsNumber) {
+      if (fromToken !== toToken) {
+        return undefined;
+      }
+
+      out.push(fromToken);
+      continue;
+    }
+
+    out.push(formatSvgNumber(lerp(Number(fromToken), Number(toToken), progress)));
+  }
+
+  return out.join(" ");
+}
+
+function formatScorePercent(score: number): string {
+  return `${Math.round(score * 100)}%`;
+}
+
+function buildUnionOrder<T extends string>(preferred: readonly T[], fallback: readonly T[]): T[] {
+  return Array.from(new Set([...preferred, ...fallback]));
+}
+
+function diffIds<T extends string>(fromIds: readonly T[], toIds: readonly T[]): { inserted: T[]; removed: T[] } {
+  const fromSet = new Set(fromIds);
+  const toSet = new Set(toIds);
+
+  return {
+    inserted: toIds.filter((id) => !fromSet.has(id)),
+    removed: fromIds.filter((id) => !toSet.has(id)),
+  };
+}
+
+function buildPresentationStages(
+  initialSnapshot: GraphAnimationSnapshot,
+  stateFrames: SnapshotFrame[],
+): GraphPresentationStage[] {
+  const stages: GraphPresentationStage[] = [];
+  let previousSnapshot = initialSnapshot;
+
+  for (let index = 0; index < stateFrames.length; index += 1) {
+    const stateFrame = stateFrames[index];
+    const nextStartFrame = stateFrames[index + 1]?.frame;
+    const claimDiff = diffIds(previousSnapshot.claimRenderOrder, stateFrame.snapshot.claimRenderOrder);
+    const connectorDiff = diffIds(previousSnapshot.connectorRenderOrder, stateFrame.snapshot.connectorRenderOrder);
+    const nextStateFrame = stateFrames[index + 1];
+    const nextClaimDiff = nextStateFrame
+      ? diffIds(stateFrame.snapshot.claimRenderOrder, nextStateFrame.snapshot.claimRenderOrder)
+      : { inserted: [], removed: [] };
+    const nextConnectorDiff = nextStateFrame
+      ? diffIds(stateFrame.snapshot.connectorRenderOrder, nextStateFrame.snapshot.connectorRenderOrder)
+      : { inserted: [], removed: [] };
+    const shouldCollapseIntoConnectedClaimStage =
+      claimDiff.inserted.length > 0
+      && claimDiff.removed.length < 1
+      && !!nextStateFrame
+      && nextClaimDiff.inserted.length < 1
+      && nextClaimDiff.removed.length < 1
+      && (nextConnectorDiff.inserted.length > 0 || nextConnectorDiff.removed.length > 0);
+    const effectiveSnapshot = shouldCollapseIntoConnectedClaimStage && nextStateFrame
+      ? nextStateFrame.snapshot
+      : stateFrame.snapshot;
+    const effectiveConnectorDiff = shouldCollapseIntoConnectedClaimStage && nextStateFrame
+      ? diffIds(previousSnapshot.connectorRenderOrder, nextStateFrame.snapshot.connectorRenderOrder)
+      : connectorDiff;
+    const kind = claimDiff.inserted.length > 0 || claimDiff.removed.length > 0
+      ? "claims"
+      : "connectors";
+    const defaultDuration = kind === "claims" ? CLAIM_TRANSITION_FRAMES : CONNECTOR_TRANSITION_FRAMES;
+    const unclampedEndFrame = stateFrame.frame + defaultDuration;
+    const endFrame = nextStartFrame == null
+      ? unclampedEndFrame
+      : Math.max(stateFrame.frame + 1, Math.min(unclampedEndFrame, nextStartFrame));
+
+    stages.push({
+      kind,
+      startFrame: stateFrame.frame,
+      endFrame,
+      fromSnapshot: previousSnapshot,
+      toSnapshot: effectiveSnapshot,
+      insertedClaimIds: claimDiff.inserted,
+      removedClaimIds: claimDiff.removed,
+      insertedConnectorIds: kind === "claims" ? [] : effectiveConnectorDiff.inserted,
+      removedConnectorIds: kind === "claims" ? [] : effectiveConnectorDiff.removed,
+    });
+
+    previousSnapshot = effectiveSnapshot;
+
+    if (shouldCollapseIntoConnectedClaimStage) {
+      const connectorStageStartFrame = endFrame;
+      const connectorStageEndFrame = connectorStageStartFrame + CONNECTOR_TRANSITION_FRAMES;
+      stages.push({
+        kind: "connectors",
+        startFrame: connectorStageStartFrame,
+        endFrame: connectorStageEndFrame,
+        fromSnapshot: effectiveSnapshot,
+        toSnapshot: effectiveSnapshot,
+        insertedClaimIds: [],
+        removedClaimIds: [],
+        insertedConnectorIds: nextConnectorDiff.inserted,
+        removedConnectorIds: nextConnectorDiff.removed,
+      });
+      index += 1;
+    }
+  }
+
+  return stages;
+}
+
+function createHoldRenderState(snapshot: GraphAnimationSnapshot): ActiveGraphRenderState {
+  const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
+  const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
+
+  for (const claimId of snapshot.claimRenderOrder) {
+    const claim = snapshot.claimVisualByClaimId[claimId];
+    if (!claim) continue;
+
+    claimByClaimId[claimId] = {
+      ...claim,
+      displayedConfidence: claim.confidence,
+      opacity: 1,
+      insertScale: 1,
+    };
+  }
+
+  for (const connectorId of snapshot.connectorRenderOrder) {
+    const connector = snapshot.connectorVisualByConnectorId[connectorId];
+    if (!connector) continue;
+
+    connectorByConnectorId[connectorId] = {
+      ...connector,
+      mode: "stable",
+      revealProgress: 1,
+    };
+  }
+
+  return {
+    width: snapshot.width,
+    height: snapshot.height,
+    claimRenderOrder: [...snapshot.claimRenderOrder],
+    connectorRenderOrder: [...snapshot.connectorRenderOrder],
+    claimByClaimId,
+    connectorByConnectorId,
+  };
+}
+
+function resolveClaimsStage(stage: GraphPresentationStage, progress: number): ActiveGraphRenderState {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const claimRenderOrder = buildUnionOrder(stage.toSnapshot.claimRenderOrder, stage.fromSnapshot.claimRenderOrder);
+  const connectorRenderOrder = buildUnionOrder(stage.toSnapshot.connectorRenderOrder, stage.fromSnapshot.connectorRenderOrder);
+  const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
+  const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
+
+  for (const claimId of claimRenderOrder) {
+    const fromClaim = stage.fromSnapshot.claimVisualByClaimId[claimId];
+    const toClaim = stage.toSnapshot.claimVisualByClaimId[claimId];
+
+    if (fromClaim && toClaim) {
+      claimByClaimId[claimId] = {
+        ...toClaim,
+        x: lerp(fromClaim.x, toClaim.x, clamped),
+        y: lerp(fromClaim.y, toClaim.y, clamped),
+        width: lerp(fromClaim.width, toClaim.width, clamped),
+        height: lerp(fromClaim.height, toClaim.height, clamped),
+        scale: lerp(fromClaim.scale, toClaim.scale, clamped),
+        displayedConfidence: lerp(fromClaim.confidence, toClaim.confidence, clamped),
+        opacity: 1,
+        insertScale: 1,
+      };
+      continue;
+    }
+
+    if (toClaim) {
+      claimByClaimId[claimId] = {
+        ...toClaim,
+        displayedConfidence: toClaim.confidence * clamped,
+        opacity: 1,
+        insertScale: clamped,
+      };
+      continue;
+    }
+
+    if (fromClaim) {
+      claimByClaimId[claimId] = {
+        ...fromClaim,
+        displayedConfidence: fromClaim.confidence * (1 - clamped),
+        opacity: 1 - clamped,
+        insertScale: 1 - clamped,
+      };
+    }
+  }
+
+  for (const connectorId of connectorRenderOrder) {
+    const fromConnector = stage.fromSnapshot.connectorVisualByConnectorId[connectorId];
+    const toConnector = stage.toSnapshot.connectorVisualByConnectorId[connectorId];
+
+    if (fromConnector && toConnector) {
+      connectorByConnectorId[connectorId] = {
+        ...toConnector,
+        pathD: interpolatePathData(fromConnector.pathD, toConnector.pathD, clamped) ?? (clamped < 0.5 ? fromConnector.pathD : toConnector.pathD),
+        strokeWidth: lerp(fromConnector.strokeWidth, toConnector.strokeWidth, clamped),
+        referenceStrokeWidth: lerp(fromConnector.referenceStrokeWidth, toConnector.referenceStrokeWidth, clamped),
+        mode: "stable",
+        revealProgress: 1,
+      };
+      continue;
+    }
+
+    if (fromConnector) {
+      connectorByConnectorId[connectorId] = {
+        ...fromConnector,
+        mode: "stable",
+        revealProgress: 1,
+      };
+    }
+  }
+
+  return {
+    width: lerp(stage.fromSnapshot.width, stage.toSnapshot.width, clamped),
+    height: lerp(stage.fromSnapshot.height, stage.toSnapshot.height, clamped),
+    claimRenderOrder,
+    connectorRenderOrder,
+    claimByClaimId,
+    connectorByConnectorId,
+  };
+}
+
+function resolveConnectorsStage(stage: GraphPresentationStage, progress: number): ActiveGraphRenderState {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const claimRenderOrder = [...stage.toSnapshot.claimRenderOrder];
+  const connectorRenderOrder = buildUnionOrder(stage.toSnapshot.connectorRenderOrder, stage.fromSnapshot.connectorRenderOrder);
+  const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
+  const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
+  const insertedConnectorIds = new Set(stage.insertedConnectorIds);
+  const removedConnectorIds = new Set(stage.removedConnectorIds);
+
+  for (const claimId of claimRenderOrder) {
+    const fromClaim = stage.fromSnapshot.claimVisualByClaimId[claimId];
+    const toClaim = stage.toSnapshot.claimVisualByClaimId[claimId];
+    const claim = toClaim ?? fromClaim;
+    if (!claim) continue;
+
+    claimByClaimId[claimId] = {
+      ...claim,
+      displayedConfidence: lerp(fromClaim?.confidence ?? claim.confidence, toClaim?.confidence ?? claim.confidence, clamped),
+      opacity: 1,
+      insertScale: 1,
+    };
+  }
+
+  for (const connectorId of connectorRenderOrder) {
+    const fromConnector = stage.fromSnapshot.connectorVisualByConnectorId[connectorId];
+    const toConnector = stage.toSnapshot.connectorVisualByConnectorId[connectorId];
+
+    if (insertedConnectorIds.has(connectorId) && toConnector) {
+      connectorByConnectorId[connectorId] = {
+        ...toConnector,
+        mode: "grow",
+        revealProgress: clamped,
+      };
+      continue;
+    }
+
+    if (removedConnectorIds.has(connectorId) && fromConnector) {
+      connectorByConnectorId[connectorId] = {
+        ...fromConnector,
+        mode: "shrink",
+        revealProgress: 1 - clamped,
+      };
+      continue;
+    }
+
+    const connector = toConnector ?? fromConnector;
+    if (!connector) continue;
+
+    connectorByConnectorId[connectorId] = {
+      ...connector,
+      mode: "stable",
+      revealProgress: 1,
+    };
+  }
+
+  return {
+    width: stage.toSnapshot.width,
+    height: stage.toSnapshot.height,
+    claimRenderOrder,
+    connectorRenderOrder,
+    claimByClaimId,
+    connectorByConnectorId,
+  };
+}
+
+function resolveActiveGraphRenderState(
+  initialSnapshot: GraphAnimationSnapshot,
+  stages: GraphPresentationStage[],
+  frame: number,
+): ActiveGraphRenderState {
+  let settledSnapshot = initialSnapshot;
+
+  for (const stage of stages) {
+    if (frame < stage.startFrame) {
+      return createHoldRenderState(settledSnapshot);
+    }
+
+    if (frame < stage.endFrame) {
+      const progress = (frame - stage.startFrame) / Math.max(1, stage.endFrame - stage.startFrame);
+      return stage.kind === "claims"
+        ? resolveClaimsStage(stage, progress)
+        : resolveConnectorsStage(stage, progress);
+    }
+
+    settledSnapshot = stage.toSnapshot;
+  }
+
+  return createHoldRenderState(settledSnapshot);
+}
+
+function getConnectorPathStyle(
+  connector: ActiveConnectorRender,
+  strokeWidth: number,
+): CSSProperties {
+  const style: CSSProperties = {
+    strokeWidth,
+    strokeLinecap: connector.mode === "stable" ? "butt" : "round",
+    strokeLinejoin: connector.mode === "stable" ? "miter" : "round",
+  };
+
+  if (connector.mode === "grow") {
+    style.strokeDasharray = `${Math.max(0.001, connector.revealProgress)} 1`;
+    style.strokeDashoffset = 0;
+  }
+
+  if (connector.mode === "shrink") {
+    style.strokeDasharray = `${Math.max(0.001, connector.revealProgress)} 1`;
+    style.strokeDashoffset = 0;
+  }
+
+  return style;
+}
+
+function renderConnectorPath(
+  connector: ActiveConnectorRender,
+  useReferenceWidth: boolean,
+): ReactNode {
+  if (connector.mode === "grow" && useReferenceWidth) {
+    return null;
+  }
+
+  const classes = ["rt-connector"];
+  if (useReferenceWidth) {
+    classes.push("rt-connector-potential-confidence");
+  }
+
+  return (
+    <path
+      key={`${useReferenceWidth ? "reference" : "actual"}-${connector.connectorId}`}
+      className={classes.join(" ")}
+      data-affects={connector.affects}
+      data-connector-side={connector.side}
+      data-connector-id={connector.connectorId}
+      d={connector.pathD}
+      pathLength={1}
+      style={getConnectorPathStyle(
+        connector,
+        useReferenceWidth ? connector.referenceStrokeWidth : connector.strokeWidth,
+      )}
+    />
+  );
+}
+
+function renderClaim(claim: ActiveClaimRender): ReactNode {
+  const shellStyle = {
+    left: claim.x,
+    top: claim.y,
+    width: claim.width,
+    height: claim.height,
+    opacity: claim.opacity,
+  } satisfies CSSProperties;
+
+  const claimShapeStyle = {
+    width: GRAPH_VIEW_CONFIG.sizing.defaultClaimShapeSize.width,
+    height: GRAPH_VIEW_CONFIG.sizing.defaultClaimShapeSize.height,
+    "--rt-claim-shape-scale": String(claim.scale),
+    "--rt-claim-insert-scale": String(claim.insertScale),
+  } as CSSProperties;
+
+  return (
+    <article
+      key={claim.claimId}
+      className="rt-claim-shape-shell"
+      style={shellStyle}
+      data-claim-id={claim.claimId}
+      data-score-id={claim.scoreId ?? undefined}
+      data-claim-side={claim.side}
+    >
+      <div className="rt-claim-shape" style={claimShapeStyle}>
+        <article className="rt-claim-shape-body">
+          <h2>{claim.label}</h2>
+          <small data-score={claim.displayedConfidence} data-score-id={claim.scoreId ?? undefined}>
+            {formatScorePercent(claim.displayedConfidence)}
+          </small>
+        </article>
+      </div>
+    </article>
+  );
 }
 
 const GraphViewContent = ({
   debate,
   scale = DEFAULT_GRAPH_SCALE,
   children,
+  propagationKeyStates = [],
+  siblingOrderingMode = "auto-reorder",
+  cameraFrameOffset = 0,
   zoomClaimId,
   zoomTarget,
   zoomScale = DEFAULT_ZOOM_SCALE,
@@ -262,37 +757,86 @@ const GraphViewContent = ({
 }: GraphViewContentProps) => {
   const frame = useCurrentFrame();
   const { width: frameWidth, height: frameHeight } = useVideoConfig();
-  const [graph, setGraph] = useState<WebGraph | null>(null);
+  const [snapshotTimeline, setSnapshotTimeline] = useState<SnapshotFrame[] | null>(null);
   const [renderHandle] = useState(() => delayRender("Build graph view"));
   const cameraMoves = useMemo(
-    () => resolveCameraMoves(children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding),
-    [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding],
+    () => resolveCameraMoves(
+      children,
+      zoomClaimId,
+      zoomTarget,
+      zoomScale,
+      zoomStartFrame,
+      zoomDurationInFrames,
+      zoomPadding,
+      cameraFrameOffset,
+    ),
+    [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding, cameraFrameOffset],
   );
+  const propagationSequences = useMemo(() => {
+    if (propagationKeyStates.length < 1) {
+      return [];
+    }
+
+    const sorted = [...propagationKeyStates].sort((left, right) => left.frame - right.frame);
+    return sorted.map((state, index) => ({
+      from: state.frame,
+      durationInFrames: Math.max(1, (sorted[index + 1]?.frame ?? state.frame + 1) - state.frame),
+      name: `${state.directiveName ?? state.directiveId} Step ${state.actionIndex + 1}`,
+    }));
+  }, [propagationKeyStates]);
 
   useEffect(() => {
     let isActive = true;
 
-    renderGraph(debate)
-      .then((nextGraph) => {
-        if (!isActive) {
-          return;
-        }
+    const run = async () => {
+      const initialSnapshot = await buildGraphSnapshot(debate, siblingOrderingMode);
+      const sortedKeyStates = [...propagationKeyStates].sort((left, right) => left.frame - right.frame);
+      const frames: SnapshotFrame[] = [];
 
-        setGraph(nextGraph);
-        continueRender(renderHandle);
-      })
-      .catch((error: unknown) => {
-        cancelRender(error instanceof Error ? error : new Error(String(error)));
-      });
+      for (const keyState of sortedKeyStates) {
+        frames.push({
+          frame: keyState.frame,
+          snapshot: await buildGraphSnapshot(keyState.debate, siblingOrderingMode, keyState.scores),
+        });
+      }
+
+      if (!isActive) {
+        return;
+      }
+
+      setSnapshotTimeline([{ frame: 0, snapshot: initialSnapshot }, ...frames]);
+      continueRender(renderHandle);
+    };
+
+    run().catch((error: unknown) => {
+      cancelRender(error instanceof Error ? error : new Error(String(error)));
+    });
 
     return () => {
       isActive = false;
     };
-  }, [debate, renderHandle]);
+  }, [debate, propagationKeyStates, renderHandle, siblingOrderingMode]);
 
-  if (!graph) {
+  const presentationStages = useMemo(() => {
+    if (!snapshotTimeline || snapshotTimeline.length < 2) {
+      return [];
+    }
+
+    return buildPresentationStages(
+      snapshotTimeline[0].snapshot,
+      snapshotTimeline.slice(1),
+    );
+  }, [snapshotTimeline]);
+
+  if (!snapshotTimeline || snapshotTimeline.length < 1) {
     return null;
   }
+
+  const activeGraph = resolveActiveGraphRenderState(
+    snapshotTimeline[0].snapshot,
+    presentationStages,
+    frame,
+  );
 
   let animatedScale = scale;
   let contentTranslateX = 0;
@@ -308,8 +852,7 @@ const GraphViewContent = ({
     let targetTranslateY = 0;
 
     if (!cameraMove.reset) {
-      const zoomTargetData = getZoomTargetData(graph, undefined, cameraMove.target);
-
+      const zoomTargetData = getZoomTargetData(activeGraph, undefined, cameraMove.target);
       if (!zoomTargetData) {
         continue;
       }
@@ -321,12 +864,11 @@ const GraphViewContent = ({
         cameraMove.padding,
         cameraMove.scale,
       );
-      targetTranslateX = (graph.width / 2 - zoomTargetData.x) * resolvedZoomScale;
-      targetTranslateY = (graph.height / 2 - zoomTargetData.y) * resolvedZoomScale;
+      targetTranslateX = (activeGraph.width / 2 - zoomTargetData.x) * resolvedZoomScale;
+      targetTranslateY = (activeGraph.height / 2 - zoomTargetData.y) * resolvedZoomScale;
     }
 
     const moveEndFrame = cameraMove.from + cameraMove.durationInFrames;
-
     if (frame >= moveEndFrame) {
       animatedScale = resolvedZoomScale;
       contentTranslateX = targetTranslateX;
@@ -353,20 +895,35 @@ const GraphViewContent = ({
   }
 
   const wrapperStyle = {
-    width: graph.width * animatedScale,
-    height: graph.height * animatedScale,
+    width: activeGraph.width * animatedScale,
+    height: activeGraph.height * animatedScale,
   } satisfies CSSProperties;
 
   const contentStyle = {
-    width: graph.width,
-    height: graph.height,
+    width: activeGraph.width,
+    height: activeGraph.height,
     transform: `translate(-50%, -50%) translate(${contentTranslateX}px, ${contentTranslateY}px) scale(${animatedScale})`,
   } satisfies CSSProperties;
 
   return (
     <>
       <div className="rt-graph-view" style={wrapperStyle} aria-label="Reason Tracker graph">
-        <div className="rt-graph-view__content" style={contentStyle} dangerouslySetInnerHTML={{ __html: graph.html }} />
+        <div className="rt-graph-view__content" style={contentStyle}>
+          <div className="rt-layout-canvas" style={{ width: activeGraph.width, height: activeGraph.height }}>
+            <svg className="rt-connector-layer" width={activeGraph.width} height={activeGraph.height} viewBox={`0 0 ${activeGraph.width} ${activeGraph.height}`} aria-hidden="true">
+              {activeGraph.connectorRenderOrder.flatMap((connectorId) => {
+                const connector = activeGraph.connectorByConnectorId[connectorId];
+                return connector
+                  ? [renderConnectorPath(connector, true), renderConnectorPath(connector, false)]
+                  : [];
+              })}
+            </svg>
+            {activeGraph.claimRenderOrder.map((claimId) => {
+              const claim = activeGraph.claimByClaimId[claimId];
+              return claim ? renderClaim(claim) : null;
+            })}
+          </div>
+        </div>
       </div>
       {cameraMoves.map((cameraMove) => (
         <Sequence
@@ -374,6 +931,18 @@ const GraphViewContent = ({
           from={cameraMove.from}
           durationInFrames={cameraMove.durationInFrames}
           name={cameraMove.name}
+          layout="none"
+        >
+          <span style={{ display: "none" }} />
+        </Sequence>
+      ))}
+      {propagationSequences.map((sequence) => (
+        <Sequence
+          key={`${sequence.name}-${sequence.from}-${sequence.durationInFrames}`}
+          from={sequence.from}
+          durationInFrames={sequence.durationInFrames}
+          name={`Propagation ${sequence.name}`}
+          layout="none"
         >
           <span style={{ display: "none" }} />
         </Sequence>

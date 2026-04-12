@@ -3,11 +3,20 @@ export {
     runCliFromProcess,
     type CliIoResult,
 } from "./cli/cli-io.ts";
-export { calculateDebate } from "./scoring/calculateDebate.ts";
-export { calculateDebate as calculateScores } from "./scoring/calculateDebate.ts";
+export {
+    buildPropagationAnimation,
+    calculateDebate,
+} from "./scoring/calculateDebate.ts";
+export {
+    calculateDebate as calculateScores,
+} from "./scoring/calculateDebate.ts";
 
 export type {
     Affects,
+    BuildPropagationAnimationFailure,
+    BuildPropagationAnimationRequest,
+    BuildPropagationAnimationResult,
+    BuildPropagationAnimationSuccess,
     CalculateDebateDiagnostic,
     CalculateDebateCliRequest,
     CalculateDebateCliSuccess,
@@ -28,6 +37,8 @@ export type {
     DebateId,
     CalculatedDebate,
     DebateAction,
+    PropagationAnimationDirective,
+    PropagationAnimationKeyState,
     Score,
     ScorePropagationChange,
     ScoreId,

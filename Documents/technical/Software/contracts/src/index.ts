@@ -17,6 +17,10 @@ export {
 } from "./Connector.ts";
 
 export {
+    type BuildPropagationAnimationFailure,
+    type BuildPropagationAnimationRequest,
+    type BuildPropagationAnimationResult,
+    type BuildPropagationAnimationSuccess,
     isCalculated,
     newDebate,
     type CalculateDebateDiagnostic,
@@ -29,6 +33,8 @@ export {
     type Debate,
     type DebateAction,
     type DebateId,
+    type PropagationAnimationDirective,
+    type PropagationAnimationKeyState,
     type ProtoDebate,
     type ScorePropagationChange,
 } from "./Debate.ts";

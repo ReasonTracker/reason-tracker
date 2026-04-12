@@ -1,4 +1,4 @@
-import type { ConnectorShape, DraftLayoutModel, LayoutModel } from "./types.ts";
+import type { ConnectorShape, DraftLayoutModel, LayoutModel, SiblingOrderingMode } from "./types.ts";
 
 export function compareConnectorPreference(
     model: {
@@ -23,7 +23,14 @@ export function compareConnectorPreference(
     return connectorShapeIdA.localeCompare(connectorShapeIdB);
 }
 
-export function orderClaimShapeIdsForElk(model: DraftLayoutModel): string[] {
+export function orderClaimShapeIdsForElk(
+    model: DraftLayoutModel,
+    siblingOrderingMode: SiblingOrderingMode = "auto-reorder",
+): string[] {
+    if (siblingOrderingMode === "preserve-input") {
+        return Object.keys(model.claimShapes);
+    }
+
     const connectorShapeIdsBySourceClaimShapeId: Record<string, string[]> = {};
     for (const connectorShape of Object.values(model.connectorShapes)) {
         (connectorShapeIdsBySourceClaimShapeId[connectorShape.sourceClaimShapeId] ??= []).push(connectorShape.id);

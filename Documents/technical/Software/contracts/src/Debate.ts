@@ -129,6 +129,53 @@ export type CalculateDebateResult<
     | (CalculateDebateSuccessBase & CalculateDebateSuccessExtras<O>)
     | CalculateDebateFailure;
 
+export type PropagationAnimationDirective = {
+    id: string;
+    name?: string;
+    startAtSeconds: number;
+    durationSeconds: number;
+    actions: DebateAction[];
+};
+
+export type PropagationAnimationKeyState = {
+    directiveId: string;
+    directiveName?: string;
+    actionIndex: number;
+    frame: number;
+    atSeconds: number;
+    debate: Debate;
+    scores: Record<ClaimId, Score>;
+    changes: ScorePropagationChange[];
+};
+
+export type BuildPropagationAnimationRequest = {
+    debate: Debate | CalculatedDebate;
+    directives: PropagationAnimationDirective[];
+    fps: number;
+    cycleHandling?: Extract<CalculateDebateCycleHandling, "fail" | "cut">;
+};
+
+export type BuildPropagationAnimationSuccess = {
+    ok: true;
+    diagnostics: CalculateDebateDiagnostic[];
+    initialScores: Record<ClaimId, Score>;
+    keyStates: PropagationAnimationKeyState[];
+    finalDebate: CalculatedDebate;
+};
+
+export type BuildPropagationAnimationFailure = {
+    ok: false;
+    reason: "invalidRequest" | "cycleDetected";
+    message: string;
+    diagnostics: CalculateDebateDiagnostic[];
+    directiveId?: string;
+    actionIndex?: number;
+};
+
+export type BuildPropagationAnimationResult =
+    | BuildPropagationAnimationSuccess
+    | BuildPropagationAnimationFailure;
+
 export type ProtoDebate = Partial<Debate> & Pick<Debate, 'mainClaimId'>;
 
 /** Populates defaults */

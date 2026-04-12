@@ -135,7 +135,7 @@ export function withConnectorGeometry(
                         sourceSideStraightSegmentPercent,
                         targetSideStraightSegmentPercent,
                     )
-                    : `M ${targetSideX} ${targetSideY} L ${sourceSideX} ${sourceSideY}`;
+                    : `M ${sourceSideX} ${sourceSideY} L ${targetSideX} ${targetSideY}`;
 
         if (options.debugConnectorOrder) {
             console.log(
@@ -228,7 +228,7 @@ function buildCurvedConnectorPathD(
     const sourceSideStraightSegment = targetHorizontalGap * sourceSideStraightSegmentPercent;
     const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
     const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
-    return `M ${targetSideX} ${targetSideY} C ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${sourceElbowX} ${sourceSideY}, ${sourceSideX} ${sourceSideY}`;
+    return `M ${sourceSideX} ${sourceSideY} C ${sourceElbowX} ${sourceSideY}, ${targetSideX + targetSideStraightSegment} ${targetSideY}, ${targetSideX} ${targetSideY}`;
 }
 
 function buildSharpCornerConnectorPathD(
@@ -244,9 +244,9 @@ function buildSharpCornerConnectorPathD(
     const targetSideStraightSegment = targetHorizontalGap * targetSideStraightSegmentPercent;
     const sourceElbowX = targetSideX + targetHorizontalGap - sourceSideStraightSegment;
     return [
-        `M ${targetSideX} ${targetSideY}`,
-        `L ${targetSideX + targetSideStraightSegment} ${targetSideY}`,
+        `M ${sourceSideX} ${sourceSideY}`,
         `L ${sourceElbowX} ${sourceSideY}`,
-        `L ${sourceSideX} ${sourceSideY}`,
+        `L ${targetSideX + targetSideStraightSegment} ${targetSideY}`,
+        `L ${targetSideX} ${targetSideY}`,
     ].join(" ");
 }

@@ -1,11 +1,16 @@
+import { useMemo } from "react";
 import { Composition } from "remotion";
 import type { ClaimId } from "@reasontracker/contracts";
 import type { EpisodeCompositionProps } from "../shared/episode.ts";
-import { episode0001Debate } from "./Episode0001/graphData.ts";
+import {
+  episode0001Debate,
+  episode0001PropagationDirectives,
+} from "./Episode0001/graphData.ts";
 import { EpisodeBrandSequence } from "../shared/EpisodeBrandSequence.tsx";
 import { CameraMove, GraphView } from "../shared/GraphView.tsx";
 import { EpisodeTemplate } from "../shared/EpisodeTemplate.tsx";
 import { Fade } from "../shared/Fade.tsx";
+import { buildEpisodePropagationPlan } from "../shared/propagationAnimation.ts";
 import { useMarkdownTimelineDocument } from "../shared/timelineMarkdown.ts";
 
 const EPISODE_ID = "Episode0001";
@@ -19,6 +24,15 @@ const cameraMoveOptions = {
 };
 
 export const Episode0001 = (_props: EpisodeCompositionProps) => {
+  const propagationPlan = useMemo(
+    () => buildEpisodePropagationPlan({
+      debate: episode0001Debate,
+      directives: episode0001PropagationDirectives,
+      fps: EPISODE_FPS,
+      cycleHandling: "fail",
+    }),
+    [],
+  );
   const timelineDocument = useMarkdownTimelineDocument({
     src: TIMELINE_MARKDOWN_SRC,
     fps: EPISODE_FPS,
@@ -26,6 +40,10 @@ export const Episode0001 = (_props: EpisodeCompositionProps) => {
 
   if (!timelineDocument) {
     return null;
+  }
+
+  if (!propagationPlan.animationResult.ok) {
+    throw new Error(propagationPlan.animationResult.message);
   }
 
   const backgroundTimes = timelineDocument.timelines.background.times;
@@ -40,7 +58,12 @@ export const Episode0001 = (_props: EpisodeCompositionProps) => {
         fadeOutSeconds={0.7}
         name="Graph Fade"
       >
-        <GraphView debate={episode0001Debate}>
+        <GraphView
+          debate={episode0001Debate}
+          cameraFrameOffset={propagationPlan.cameraFrameOffset}
+          propagationKeyStates={propagationPlan.animationResult.keyStates}
+          siblingOrderingMode="preserve-input"
+        >
           <CameraMove
             {...cameraMoveOptions}
             {...cameraTimes.mainCamera}

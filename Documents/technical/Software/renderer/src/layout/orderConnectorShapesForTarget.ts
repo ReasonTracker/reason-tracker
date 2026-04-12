@@ -1,4 +1,3 @@
-import { compareConnectorPreference } from "./ordering.ts";
 import type { ConnectorShape } from "./types.ts";
 
 export function orderConnectorShapeIdsForTarget(
@@ -15,20 +14,6 @@ export function orderConnectorShapeIdsForTarget(
         const connectorShapeB = model.connectorShapes[b];
         if (!connectorShapeA || !connectorShapeB) return a.localeCompare(b);
 
-        const elkTargetYA = model.targetAnchorYByConnectorShapeId?.[a];
-        const elkTargetYB = model.targetAnchorYByConnectorShapeId?.[b];
-        if (elkTargetYA != null && elkTargetYB != null) {
-            const elkTargetYOrder = elkTargetYA - elkTargetYB;
-            if (elkTargetYOrder !== 0) return elkTargetYOrder;
-        }
-
-        const elkSourceYA = model.sourceAnchorYByConnectorShapeId?.[a];
-        const elkSourceYB = model.sourceAnchorYByConnectorShapeId?.[b];
-        if (elkSourceYA != null && elkSourceYB != null) {
-            const elkSourceYOrder = elkSourceYA - elkSourceYB;
-            if (elkSourceYOrder !== 0) return elkSourceYOrder;
-        }
-
         const sourceClaimShapeA = model.claimShapes[connectorShapeA.sourceClaimShapeId];
         const sourceClaimShapeB = model.claimShapes[connectorShapeB.sourceClaimShapeId];
         if (!sourceClaimShapeA || !sourceClaimShapeB) return a.localeCompare(b);
@@ -37,8 +22,8 @@ export function orderConnectorShapeIdsForTarget(
             - (sourceClaimShapeB.y + sourceClaimShapeB.height / 2);
         if (sourceYOrder !== 0) return sourceYOrder;
 
-        const preferenceOrder = compareConnectorPreference(model, a, b);
-        if (preferenceOrder !== 0) return preferenceOrder;
+        const sourceTopOrder = sourceClaimShapeA.y - sourceClaimShapeB.y;
+        if (sourceTopOrder !== 0) return sourceTopOrder;
 
         return a.localeCompare(b);
     });

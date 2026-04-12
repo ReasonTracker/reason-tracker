@@ -10,6 +10,10 @@ export {
     computeContributorNodeSizing,
 } from "./layout/computeContributorNodeSizing.ts";
 
+export {
+    buildGraphAnimationSnapshot,
+} from "./layout/buildGraphAnimationSnapshot.ts";
+
 export type {
     BuildLayoutModelFailure,
     BuildLayoutModelRequest,
@@ -24,6 +28,9 @@ export type {
     ClaimShapeSize,
     CycleMode,
     DagOptions,
+    GraphAnimationSnapshot,
+    GraphClaimVisualState,
+    GraphConnectorVisualState,
     LayoutDiagnostic,
     LayoutModel,
     PlacedClaimShape,
@@ -31,6 +38,7 @@ export type {
     PlaceLayoutWithElkOptions,
     PlaceLayoutWithElkResult,
     PlaceLayoutWithElkSuccess,
+    SiblingOrderingMode,
 } from "./layout/types.ts";
 
 export {

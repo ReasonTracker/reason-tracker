@@ -1,13 +1,17 @@
 import type {
     Affects,
     CalculatedDebate,
+    ClaimSide,
     ClaimId,
     ConnectorId,
     DebateId,
+    ScoreId,
     TargetRelation,
 } from "@reasontracker/contracts";
 
 export type CycleMode = "preserve" | "unroll-dag";
+
+export type SiblingOrderingMode = "preserve-input" | "auto-reorder";
 
 export interface DagOptions {
     maxInstancesMultiplier?: number;
@@ -18,6 +22,7 @@ export interface BuildLayoutModelRequest {
     calculatedDebate: CalculatedDebate;
     cycleMode?: CycleMode;
     dagOptions?: DagOptions;
+    siblingOrderingMode?: SiblingOrderingMode;
 }
 
 export interface ClaimShape {
@@ -89,7 +94,47 @@ export interface LayoutModel {
     };
 }
 
+export interface GraphClaimVisualState {
+    claimId: ClaimId;
+    scoreId?: ScoreId;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scale: number;
+    side: ClaimSide;
+    label: string;
+    content: string;
+    confidence: number;
+    reversibleConfidence: number;
+    relevance: number;
+}
+
+export interface GraphConnectorVisualState {
+    connectorId: ConnectorId;
+    sourceClaimId: ClaimId;
+    targetClaimId: ClaimId;
+    affects: Affects;
+    side: ClaimSide;
+    pathD: string;
+    strokeWidth: number;
+    referenceStrokeWidth: number;
+    sourceSideY: number;
+    targetSideY: number;
+}
+
+export interface GraphAnimationSnapshot {
+    debateId: DebateId;
+    width: number;
+    height: number;
+    claimVisualByClaimId: Record<ClaimId, GraphClaimVisualState>;
+    connectorVisualByConnectorId: Record<ConnectorId, GraphConnectorVisualState>;
+    claimRenderOrder: ClaimId[];
+    connectorRenderOrder: ConnectorId[];
+}
+
 export interface LayoutOptions {
+    siblingOrderingMode?: SiblingOrderingMode;
     defaultClaimShapeSize?: ClaimShapeSize;
     claimShapeSizeByClaimShapeId?: Record<string, ClaimShapeSize>;
     peerGap?: number;

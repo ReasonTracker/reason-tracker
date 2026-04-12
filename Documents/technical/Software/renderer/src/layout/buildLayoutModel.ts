@@ -12,6 +12,7 @@ import type {
     LayoutDiagnostic,
     ConnectorShape,
     ClaimShape,
+    SiblingOrderingMode,
 } from "./types.ts";
 
 interface TraversalItem {
@@ -29,6 +30,7 @@ interface ConnectorIndexes {
 export function buildLayoutModel(request: BuildLayoutModelRequest): BuildLayoutModelResult {
     const debate = request.calculatedDebate;
     const cycleMode: CycleMode = request.cycleMode ?? "preserve";
+    const siblingOrderingMode: SiblingOrderingMode = request.siblingOrderingMode ?? "auto-reorder";
 
     if (!(debate.mainClaimId in debate.claims)) {
         return {
@@ -50,13 +52,21 @@ export function buildLayoutModel(request: BuildLayoutModelRequest): BuildLayoutM
     }
 
     if (cycleMode === "preserve") {
-        return buildPreservedLayoutModel(debate);
+        return buildPreservedLayoutModel(debate, siblingOrderingMode);
     }
 
-    return buildUnrolledDagLayoutModel(debate, request.dagOptions?.maxInstancesMultiplier ?? 2, request.dagOptions?.connectorOrder ?? "id-asc");
+    return buildUnrolledDagLayoutModel(
+        debate,
+        request.dagOptions?.maxInstancesMultiplier ?? 2,
+        request.dagOptions?.connectorOrder ?? "id-asc",
+        siblingOrderingMode,
+    );
 }
 
-function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelResult {
+function buildPreservedLayoutModel(
+    debate: CalculatedDebate,
+    siblingOrderingMode: SiblingOrderingMode,
+): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
     const claimShapes: Record<string, ClaimShape> = {};
     const connectorShapes: Record<string, ConnectorShape> = {};
@@ -64,7 +74,11 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
     const indexes = createConnectorIndexes(debate, "id-asc");
     const depths = computeShortestDepthFromSink(debate.mainClaimId, indexes);
 
-    for (const claimId of Object.keys(debate.claims).sort() as ClaimId[]) {
+    const orderedClaimIds = siblingOrderingMode === "preserve-input"
+        ? (Object.keys(debate.claims) as ClaimId[])
+        : ([...Object.keys(debate.claims)].sort() as ClaimId[]);
+
+    for (const claimId of orderedClaimIds) {
         const incoming = indexes.byTarget[claimId] ?? [];
         claimShapes[claimId] = {
             id: claimId,
@@ -77,9 +91,11 @@ function buildPreservedLayoutModel(debate: CalculatedDebate): BuildLayoutModelRe
         };
     }
 
-    const sortedConnectors = Object.values(debate.connectors).sort((a, b) =>
-        String(a.id).localeCompare(String(b.id)),
-    );
+    const sortedConnectors = siblingOrderingMode === "preserve-input"
+        ? Object.values(debate.connectors)
+        : Object.values(debate.connectors).sort((a, b) =>
+            String(a.id).localeCompare(String(b.id)),
+        );
 
     for (const connector of sortedConnectors) {
         const connectorShapeId = String(connector.id);
@@ -130,6 +146,7 @@ function buildUnrolledDagLayoutModel(
     debate: CalculatedDebate,
     maxInstancesMultiplier: number,
     connectorOrder: "id-asc" | "source-asc-then-id",
+    siblingOrderingMode: SiblingOrderingMode,
 ): BuildLayoutModelResult {
     const diagnostics: LayoutDiagnostic[] = [];
     const claimShapes: Record<string, ClaimShape> = {};
@@ -137,7 +154,10 @@ function buildUnrolledDagLayoutModel(
 
     const claimCount = Object.keys(debate.claims).length;
     const maxInstances = Math.max(1, Math.floor(claimCount * maxInstancesMultiplier));
-    const indexes = createConnectorIndexes(debate, connectorOrder);
+    const indexes = createConnectorIndexes(
+        debate,
+        siblingOrderingMode === "preserve-input" ? "id-asc" : connectorOrder,
+    );
 
     let instanceCounter = 0;
     let connectorShapeCounter = 0;
