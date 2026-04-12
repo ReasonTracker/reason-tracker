@@ -1,6 +1,6 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import type { ClaimId, ConnectorId, Debate, PropagationAnimationKeyState, Score } from "@reasontracker/contracts";
-import { calculateScores } from "@reasontracker/engine";
+import type { ClaimId, ConnectorId, Debate, DebateAction, PropagationAnimationKeyState, Score } from "@reasontracker/contracts";
+import { buildPropagationAnimation, calculateScores } from "@reasontracker/engine";
 import {
   buildGraphAnimationSnapshot,
   buildLayoutModel,
@@ -23,17 +23,26 @@ const CLAIM_TRANSITION_FRAMES = 18;
 const CONNECTOR_TRANSITION_FRAMES = 18;
 
 type GraphZoomTarget =
-  | { claimId: ClaimId }
+  | { claimId: string | readonly string[] }
   | { x: number; y: number; width?: number; height?: number };
 
 export type CameraMoveProps = {
   from: number;
   durationInFrames?: number;
   reset?: boolean;
-  claimId?: ClaimId;
+  // Design choice exception: CameraMove is authored manually in episode files, so it accepts plain strings instead of branded ClaimId values.
+  claimId?: string | readonly string[];
   target?: GraphZoomTarget;
   scale?: number;
   padding?: number;
+  name?: string;
+};
+
+export type GraphEventsProps = {
+  from: number;
+  durationInFrames?: number;
+  actions: readonly DebateAction[];
+  id?: string;
   name?: string;
 };
 
@@ -44,6 +53,14 @@ type ResolvedCameraMove = {
   target?: GraphZoomTarget;
   scale: number;
   padding: number;
+  name: string;
+};
+
+type ResolvedGraphEvent = {
+  from: number;
+  durationInFrames: number;
+  actions: readonly DebateAction[];
+  id?: string;
   name: string;
 };
 
@@ -122,15 +139,69 @@ type GraphViewProps = {
   zoomStartFrame?: number;
   zoomDurationInFrames?: number;
   zoomPadding?: number;
-  cameraFrameOffset?: number;
 };
 
 export const CameraMove = (_props: CameraMoveProps) => null;
+export const GraphEvents = (_props: GraphEventsProps) => null;
 
 type GraphViewContentProps = Omit<GraphViewProps, "from" | "durationInFrames">;
 
+function getCameraMoveClaimIds(claimId: string | readonly string[]): string[] {
+  if (typeof claimId === "string") {
+    return [claimId];
+  }
+
+  return [...claimId];
+}
+
+function getCameraMoveClaimLabel(claimId: string | readonly string[]): string {
+  return getCameraMoveClaimIds(claimId).join(", ");
+}
+
+function hasCameraMoveClaimTarget(claimId: string | readonly string[]): boolean {
+  return getCameraMoveClaimIds(claimId).length > 0;
+}
+
+function getLooseClaimRender(graph: ActiveGraphRenderState, claimId: string): ActiveClaimRender | undefined {
+  return (graph.claimByClaimId as Record<string, ActiveClaimRender | undefined>)[claimId];
+}
+
+function getClaimBoundsForTarget(
+  graph: ActiveGraphRenderState,
+  claimIds: string | readonly string[],
+): { x: number; y: number; width: number; height: number } | undefined {
+  const resolvedClaims = getCameraMoveClaimIds(claimIds)
+    .map((claimId) => getLooseClaimRender(graph, claimId));
+
+  if (resolvedClaims.some((claim) => !claim)) {
+    return undefined;
+  }
+
+  const claims = resolvedClaims as ActiveClaimRender[];
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const claim of claims) {
+    minX = Math.min(minX, claim.x);
+    minY = Math.min(minY, claim.y);
+    maxX = Math.max(maxX, claim.x + claim.width);
+    maxY = Math.max(maxY, claim.y + claim.height);
+  }
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  return {
+    x: minX + width / 2,
+    y: minY + height / 2,
+    width,
+    height,
+  };
+}
+
 function resolveCameraMoveTarget({ claimId, target }: CameraMoveProps): GraphZoomTarget | undefined {
-  return target ?? (claimId ? { claimId } : undefined);
+  return target ?? (claimId && hasCameraMoveClaimTarget(claimId) ? { claimId } : undefined);
 }
 
 function getSequenceName(move: CameraMoveProps, index: number): string {
@@ -143,7 +214,7 @@ function getSequenceName(move: CameraMoveProps, index: number): string {
   }
 
   if (move.claimId) {
-    return `CameraMove ${move.claimId}`;
+    return `CameraMove ${getCameraMoveClaimLabel(move.claimId)}`;
   }
 
   return `CameraMove ${index + 1}`;
@@ -157,7 +228,6 @@ function resolveCameraMoves(
   zoomStartFrame: number | undefined,
   zoomDurationInFrames: number,
   zoomPadding: number,
-  cameraFrameOffset: number,
 ): ResolvedCameraMove[] {
   const cameraMoves: ResolvedCameraMove[] = [];
 
@@ -166,7 +236,7 @@ function resolveCameraMoves(
 
     if (legacyTarget) {
       cameraMoves.push({
-        from: zoomStartFrame + cameraFrameOffset,
+        from: zoomStartFrame,
         durationInFrames: zoomDurationInFrames,
         reset: false,
         target: legacyTarget,
@@ -192,7 +262,7 @@ function resolveCameraMoves(
     }
 
     cameraMoves.push({
-      from: child.props.from + cameraFrameOffset,
+      from: child.props.from,
       durationInFrames: child.props.durationInFrames ?? DEFAULT_ZOOM_DURATION_FRAMES,
       reset: child.props.reset ?? false,
       target,
@@ -203,6 +273,75 @@ function resolveCameraMoves(
   }
 
   return [...cameraMoves].sort((left, right) => left.from - right.from);
+}
+
+function getGraphEventName(graphEvent: GraphEventsProps, index: number): string {
+  if (graphEvent.name) {
+    return graphEvent.name;
+  }
+
+  if (graphEvent.id) {
+    return graphEvent.id;
+  }
+
+  return `GraphEvents ${index + 1}`;
+}
+
+function resolveGraphEvents(children: ReactNode): ResolvedGraphEvent[] {
+  const graphEvents: ResolvedGraphEvent[] = [];
+
+  for (const [index, child] of Children.toArray(children).entries()) {
+    if (!isValidElement<GraphEventsProps>(child)) {
+      continue;
+    }
+
+    if (child.type !== GraphEvents) {
+      continue;
+    }
+
+    if (child.props.actions.length < 1) {
+      throw new Error("GraphEvents requires at least one action.");
+    }
+
+    graphEvents.push({
+      from: child.props.from,
+      durationInFrames: child.props.durationInFrames ?? 1,
+      actions: child.props.actions,
+      id: child.props.id,
+      name: getGraphEventName(child.props, index),
+    });
+  }
+
+  return [...graphEvents].sort((left, right) => left.from - right.from);
+}
+
+function buildGraphEventKeyStates(
+  debate: Debate,
+  graphEvents: ResolvedGraphEvent[],
+  fps: number,
+): PropagationAnimationKeyState[] {
+  if (graphEvents.length < 1) {
+    return [];
+  }
+
+  const animationResult = buildPropagationAnimation({
+    debate,
+    fps,
+    cycleHandling: "fail",
+    directives: graphEvents.map((graphEvent, index) => ({
+      id: graphEvent.id ?? `graph-event-${index + 1}`,
+      name: graphEvent.name,
+      startAtSeconds: graphEvent.from / fps,
+      durationSeconds: graphEvent.durationInFrames / fps,
+      actions: [...graphEvent.actions],
+    })),
+  });
+
+  if (!animationResult.ok) {
+    throw new Error(animationResult.message);
+  }
+
+  return animationResult.keyStates;
 }
 
 function getZoomTargetData(
@@ -216,17 +355,7 @@ function getZoomTargetData(
   }
 
   if ("claimId" in resolvedTarget) {
-    const claim = graph.claimByClaimId[resolvedTarget.claimId];
-    if (!claim) {
-      return undefined;
-    }
-
-    return {
-      x: claim.x + claim.width / 2,
-      y: claim.y + claim.height / 2,
-      width: claim.width,
-      height: claim.height,
-    };
+    return getClaimBoundsForTarget(graph, resolvedTarget.claimId);
   }
 
   return resolvedTarget;
@@ -747,7 +876,6 @@ const GraphViewContent = ({
   children,
   propagationKeyStates = [],
   siblingOrderingMode = "auto-reorder",
-  cameraFrameOffset = 0,
   zoomClaimId,
   zoomTarget,
   zoomScale = DEFAULT_ZOOM_SCALE,
@@ -756,7 +884,7 @@ const GraphViewContent = ({
   zoomPadding = DEFAULT_ZOOM_PADDING,
 }: GraphViewContentProps) => {
   const frame = useCurrentFrame();
-  const { width: frameWidth, height: frameHeight } = useVideoConfig();
+  const { width: frameWidth, height: frameHeight, fps } = useVideoConfig();
   const [snapshotTimeline, setSnapshotTimeline] = useState<SnapshotFrame[] | null>(null);
   const [renderHandle] = useState(() => delayRender("Build graph view"));
   const cameraMoves = useMemo(
@@ -768,29 +896,37 @@ const GraphViewContent = ({
       zoomStartFrame,
       zoomDurationInFrames,
       zoomPadding,
-      cameraFrameOffset,
     ),
-    [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding, cameraFrameOffset],
+    [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding],
+  );
+  const graphEvents = useMemo(() => resolveGraphEvents(children), [children]);
+  const graphEventKeyStates = useMemo(
+    () => buildGraphEventKeyStates(debate, graphEvents, fps),
+    [debate, fps, graphEvents],
+  );
+  const resolvedPropagationKeyStates = useMemo(
+    () => [...propagationKeyStates, ...graphEventKeyStates].sort((left, right) => left.frame - right.frame),
+    [graphEventKeyStates, propagationKeyStates],
   );
   const propagationSequences = useMemo(() => {
-    if (propagationKeyStates.length < 1) {
+    if (resolvedPropagationKeyStates.length < 1) {
       return [];
     }
 
-    const sorted = [...propagationKeyStates].sort((left, right) => left.frame - right.frame);
+    const sorted = [...resolvedPropagationKeyStates];
     return sorted.map((state, index) => ({
       from: state.frame,
       durationInFrames: Math.max(1, (sorted[index + 1]?.frame ?? state.frame + 1) - state.frame),
       name: `${state.directiveName ?? state.directiveId} Step ${state.actionIndex + 1}`,
     }));
-  }, [propagationKeyStates]);
+  }, [resolvedPropagationKeyStates]);
 
   useEffect(() => {
     let isActive = true;
 
     const run = async () => {
       const initialSnapshot = await buildGraphSnapshot(debate, siblingOrderingMode);
-      const sortedKeyStates = [...propagationKeyStates].sort((left, right) => left.frame - right.frame);
+      const sortedKeyStates = [...resolvedPropagationKeyStates];
       const frames: SnapshotFrame[] = [];
 
       for (const keyState of sortedKeyStates) {
@@ -815,7 +951,7 @@ const GraphViewContent = ({
     return () => {
       isActive = false;
     };
-  }, [debate, propagationKeyStates, renderHandle, siblingOrderingMode]);
+  }, [debate, renderHandle, resolvedPropagationKeyStates, siblingOrderingMode]);
 
   const presentationStages = useMemo(() => {
     if (!snapshotTimeline || snapshotTimeline.length < 2) {

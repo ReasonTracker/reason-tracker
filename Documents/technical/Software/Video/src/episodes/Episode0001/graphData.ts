@@ -5,7 +5,6 @@ import type {
   ConnectorId,
   Debate,
   DebateId,
-  PropagationAnimationDirective,
 } from "@reasontracker/contracts";
 
 function asClaimId(value: string): ClaimId {
@@ -37,7 +36,6 @@ const cW = asClaimId("w");
 const cX = asClaimId("x");
 const cY = asClaimId("y");
 const cZ = asClaimId("z");
-const cR = asClaimId("r");
 
 const claims: Record<ClaimId, Claim> = {
   [cMain]: { id: cMain, content: "Main claim", side: "proMain" },
@@ -166,31 +164,3 @@ export const episode0001Debate: Debate = {
   claims,
   connectors,
 };
-
-export const episode0001PropagationDirectives: PropagationAnimationDirective[] = [
-  {
-    id: "episode0001-propagation-1",
-    name: "Episode0001 Node Insert",
-    startAtSeconds: 2,
-    durationSeconds: 5,
-    actions: [
-      {
-        kind: "claim.upsert",
-        claim: {
-          id: cR,
-          content: "Additional evidence R",
-          side: "proMain",
-        },
-      },
-      {
-        kind: "connector.upsert",
-        connector: {
-          id: asConnectorId("connector:27"),
-          source: cR,
-          target: cB,
-          affects: "confidence",
-        },
-      },
-    ],
-  },
-];

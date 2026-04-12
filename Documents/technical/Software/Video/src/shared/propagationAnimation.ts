@@ -22,7 +22,6 @@ export type BuildEpisodePropagationRequest = {
 export type EpisodePropagationPlan = {
   animationResult: BuildPropagationAnimationResult;
   window: PropagationWindow;
-  cameraFrameOffset: number;
 };
 
 export function getPropagationWindow(
@@ -69,6 +68,5 @@ export function buildEpisodePropagationPlan(
   return {
     animationResult,
     window,
-    cameraFrameOffset: window.endFrame,
   };
 }

@@ -1,91 +1,105 @@
-import { useMemo } from "react";
 import { Composition } from "remotion";
-import type { ClaimId } from "@reasontracker/contracts";
+import type { ClaimId, ConnectorId } from "@reasontracker/contracts";
 import type { EpisodeCompositionProps } from "../shared/episode.ts";
-import {
-  episode0001Debate,
-  episode0001PropagationDirectives,
-} from "./Episode0001/graphData.ts";
+import { wait, buildTimelineTimes } from "../shared/timeline.ts";
+import { episode0001Debate } from "./Episode0001/graphData.ts";
 import { EpisodeBrandSequence } from "../shared/EpisodeBrandSequence.tsx";
-import { CameraMove, GraphView } from "../shared/GraphView.tsx";
+import { CameraMove, GraphEvents, GraphView } from "../shared/GraphView.tsx";
 import { EpisodeTemplate } from "../shared/EpisodeTemplate.tsx";
 import { Fade } from "../shared/Fade.tsx";
-import { buildEpisodePropagationPlan } from "../shared/propagationAnimation.ts";
-import { useMarkdownTimelineDocument } from "../shared/timelineMarkdown.ts";
 
 const EPISODE_ID = "Episode0001";
 const EPISODE_TITLE = "Episode 1";
 const EPISODE_FPS = 30;
-const TOTAL_EPISODE_FRAMES = 300;
-const TIMELINE_MARKDOWN_SRC = "episodes/Episode0001/timeline.md";
 
 const cameraMoveOptions = {
   padding: 200,
 };
+const claimRId = "r" as ClaimId;
+const claimBId = "b" as ClaimId;
+const connector27Id = "connector:27" as ConnectorId;
+
+const graphEvents = buildTimelineTimes([
+  ["BackgroundFadeIn", 0.7],
+  ["brand", 3.3],
+  ["mainCamera", 1.7],
+  [wait, 0.7],
+  ["bCamera", 1.7],
+  ["addClaimR", 5],
+  [wait, 1],
+  ["aCamera", 1.7],
+  [wait, 0.3],
+  ["resetCamera", 1.7],
+  ["BackgroundFadeout", 0.7],
+] as const, EPISODE_FPS);
+
+const TOTAL_EPISODE_FRAMES = graphEvents.totalDurationInFrames;
 
 export const Episode0001 = (_props: EpisodeCompositionProps) => {
-  const propagationPlan = useMemo(
-    () => buildEpisodePropagationPlan({
-      debate: episode0001Debate,
-      directives: episode0001PropagationDirectives,
-      fps: EPISODE_FPS,
-      cycleHandling: "fail",
-    }),
-    [],
-  );
-  const timelineDocument = useMarkdownTimelineDocument({
-    src: TIMELINE_MARKDOWN_SRC,
-    fps: EPISODE_FPS,
-  });
-
-  if (!timelineDocument) {
-    return null;
-  }
-
-  if (!propagationPlan.animationResult.ok) {
-    throw new Error(propagationPlan.animationResult.message);
-  }
-
-  const backgroundTimes = timelineDocument.timelines.background.times;
-  const overlayTimes = timelineDocument.timelines.overlay.times;
-  const cameraTimes = timelineDocument.timelines.camera.times;
+  const graphEventTimes = graphEvents.times;
+  const graphFadeFrom = graphEventTimes.BackgroundFadeIn.from;
+  const graphFadeDurationInFrames = graphEventTimes.BackgroundFadeout.from
+    + graphEventTimes.BackgroundFadeout.durationInFrames
+    - graphFadeFrom;
 
   return (
     <EpisodeTemplate>
       <Fade
-        {...backgroundTimes.graph}
-        fadeInSeconds={0.7}
-        fadeOutSeconds={0.7}
+        from={graphFadeFrom}
+        durationInFrames={graphFadeDurationInFrames}
+        fadeInFrames={graphEventTimes.BackgroundFadeIn.durationInFrames}
+        fadeOutFrames={graphEventTimes.BackgroundFadeout.durationInFrames}
         name="Graph Fade"
       >
         <GraphView
           debate={episode0001Debate}
-          cameraFrameOffset={propagationPlan.cameraFrameOffset}
-          propagationKeyStates={propagationPlan.animationResult.keyStates}
           siblingOrderingMode="preserve-input"
         >
           <CameraMove
             {...cameraMoveOptions}
-            {...cameraTimes.mainCamera}
-            claimId={"main" as ClaimId}
+            {...graphEventTimes.mainCamera}
+            claimId="main"
+          />
+          <GraphEvents
+            {...graphEventTimes.addClaimR}
+            id="addClaimR"
+            actions={[
+              {
+                kind: "claim.upsert",
+                claim: {
+                  id: claimRId,
+                  content: "Additional evidence R",
+                  side: "proMain",
+                },
+              },
+              {
+                kind: "connector.upsert",
+                connector: {
+                  id: connector27Id,
+                  source: claimRId,
+                  target: claimBId,
+                  affects: "confidence",
+                },
+              },
+            ]}
           />
           <CameraMove
-            {...cameraTimes.bCamera}
-            claimId={"b" as ClaimId}
             {...cameraMoveOptions}
+            {...graphEventTimes.bCamera}
+            claimId={["b", "e", "f", "i", "o"]}
           />
           <CameraMove
-            {...cameraTimes.aCamera}
-            claimId={"a" as ClaimId}
             {...cameraMoveOptions}
+            {...graphEventTimes.aCamera}
+            claimId="a"
           />
           <CameraMove
-            {...cameraTimes.resetCamera}
+            {...graphEventTimes.resetCamera}
             reset
           />
         </GraphView>
       </Fade>
-      <EpisodeBrandSequence {...overlayTimes.brand} />
+      <EpisodeBrandSequence {...graphEventTimes.brand} />
     </EpisodeTemplate>
   );
 };
