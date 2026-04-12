@@ -1,11 +1,18 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import type { ClaimId, ConnectorId, Debate, DebateAction, PropagationAnimationKeyState, Score } from "@reasontracker/contracts";
-import { buildPropagationAnimation, calculateScores } from "@reasontracker/engine";
+import type {
+  CalculatedDebate,
+  ClaimId,
+  ConnectorId,
+  Debate,
+  GraphAction,
+  PropagationAnimationDirective,
+  PropagationAnimationKeyState,
+  StageMode,
+} from "@reasontracker/contracts";
+import { buildPropagationAnimation } from "@reasontracker/engine";
 import {
   buildGraphAnimationSnapshot,
-  buildLayoutModel,
-  computeContributorNodeSizing,
-  placeLayoutWithElk,
+  layoutDebate,
   type GraphAnimationSnapshot,
   type GraphClaimVisualState,
   type GraphConnectorVisualState,
@@ -41,7 +48,8 @@ export type CameraMoveProps = {
 export type GraphEventsProps = {
   from: number;
   durationInFrames?: number;
-  actions: readonly DebateAction[];
+  actions: readonly GraphAction[];
+  applyMode?: StageMode;
   id?: string;
   name?: string;
 };
@@ -59,7 +67,8 @@ type ResolvedCameraMove = {
 type ResolvedGraphEvent = {
   from: number;
   durationInFrames: number;
-  actions: readonly DebateAction[];
+  actions: readonly GraphAction[];
+  applyMode: StageMode;
   id?: string;
   name: string;
 };
@@ -69,16 +78,19 @@ type SnapshotFrame = {
   snapshot: GraphAnimationSnapshot;
 };
 
+type PresentationSnapshot = {
+  visualSnapshot: GraphAnimationSnapshot;
+  layoutSnapshot: GraphAnimationSnapshot;
+};
+
 type GraphPresentationStage = {
   kind: "claims" | "connectors";
   startFrame: number;
   endFrame: number;
-  fromSnapshot: GraphAnimationSnapshot;
-  toSnapshot: GraphAnimationSnapshot;
+  fromState: PresentationSnapshot;
+  toState: PresentationSnapshot;
   insertedClaimIds: ClaimId[];
   removedClaimIds: ClaimId[];
-  insertedConnectorIds: ConnectorId[];
-  removedConnectorIds: ConnectorId[];
 };
 
 type ActiveClaimRender = GraphClaimVisualState & {
@@ -87,10 +99,7 @@ type ActiveClaimRender = GraphClaimVisualState & {
   insertScale: number;
 };
 
-type ActiveConnectorRender = GraphConnectorVisualState & {
-  mode: "stable" | "grow" | "shrink";
-  revealProgress: number;
-};
+type ActiveConnectorRender = GraphConnectorVisualState;
 
 type ActiveGraphRenderState = {
   width: number;
@@ -100,6 +109,43 @@ type ActiveGraphRenderState = {
   claimByClaimId: Record<ClaimId, ActiveClaimRender>;
   connectorByConnectorId: Record<ConnectorId, ActiveConnectorRender>;
 };
+
+function buildGraphEventDirectives(
+  graphEvents: ResolvedGraphEvent[],
+  fps: number,
+): PropagationAnimationDirective[] {
+  const directives: PropagationAnimationDirective[] = [];
+
+  for (const [index, graphEvent] of graphEvents.entries()) {
+    const graphEventId = graphEvent.id ?? `graph-event-${index + 1}`;
+
+    if (graphEvent.applyMode === "all-at-once" || graphEvent.actions.length < 2) {
+      directives.push({
+        id: graphEventId,
+        name: graphEvent.name,
+        startAtSeconds: graphEvent.from / fps,
+        durationSeconds: graphEvent.durationInFrames / fps,
+        actions: graphEvent.actions.map((entry) => entry.action),
+      });
+      continue;
+    }
+
+    for (const [actionIndex, entry] of graphEvent.actions.entries()) {
+      const startFrame = graphEvent.from
+        + Math.round((actionIndex * graphEvent.durationInFrames) / (graphEvent.actions.length - 1));
+
+      directives.push({
+        id: `${graphEventId}:${entry.id}`,
+        name: `${graphEvent.name} ${actionIndex + 1}`,
+        startAtSeconds: startFrame / fps,
+        durationSeconds: 1 / fps,
+        actions: [entry.action],
+      });
+    }
+  }
+
+  return directives;
+}
 
 const GRAPH_VIEW_CONFIG = {
   sizing: {
@@ -307,41 +353,13 @@ function resolveGraphEvents(children: ReactNode): ResolvedGraphEvent[] {
       from: child.props.from,
       durationInFrames: child.props.durationInFrames ?? 1,
       actions: child.props.actions,
+      applyMode: child.props.applyMode ?? "per-action",
       id: child.props.id,
       name: getGraphEventName(child.props, index),
     });
   }
 
   return [...graphEvents].sort((left, right) => left.from - right.from);
-}
-
-function buildGraphEventKeyStates(
-  debate: Debate,
-  graphEvents: ResolvedGraphEvent[],
-  fps: number,
-): PropagationAnimationKeyState[] {
-  if (graphEvents.length < 1) {
-    return [];
-  }
-
-  const animationResult = buildPropagationAnimation({
-    debate,
-    fps,
-    cycleHandling: "fail",
-    directives: graphEvents.map((graphEvent, index) => ({
-      id: graphEvent.id ?? `graph-event-${index + 1}`,
-      name: graphEvent.name,
-      startAtSeconds: graphEvent.from / fps,
-      durationSeconds: graphEvent.durationInFrames / fps,
-      actions: [...graphEvent.actions],
-    })),
-  });
-
-  if (!animationResult.ok) {
-    throw new Error(animationResult.message);
-  }
-
-  return animationResult.keyStates;
 }
 
 function getZoomTargetData(
@@ -378,51 +396,31 @@ function resolveZoomScale(
 }
 
 async function buildGraphSnapshot(
-  debate: Debate,
+  debate: CalculatedDebate,
   siblingOrderingMode: SiblingOrderingMode,
-  scoresOverride?: Record<ClaimId, Score>,
 ): Promise<GraphAnimationSnapshot> {
-  const calculation = scoresOverride
-    ? { ok: true as const, scores: scoresOverride }
-    : calculateScores({
-      debate,
-      cycleHandling: "fail",
-    });
-
-  if (!calculation.ok) {
-    throw new Error(
-      `calculateDebate failed: ${calculation.reason} ${calculation.message ?? ""}`.trim(),
-    );
-  }
-
-  const built = buildLayoutModel({
-    calculatedDebate: {
-      ...debate,
-      scores: calculation.scores,
-    },
-    cycleMode: "preserve",
-    siblingOrderingMode,
-  });
-
-  if (!built.ok) {
-    throw new Error(`buildLayoutModel failed: ${built.error.code} ${built.error.message}`);
-  }
-
-  const contributorSizing = computeContributorNodeSizing(built.model, GRAPH_VIEW_CONFIG.sizing);
-  const placed = await placeLayoutWithElk(built.model, {
+  const laidOut = await layoutDebate(debate, {
     siblingOrderingMode,
     defaultClaimShapeSize: GRAPH_VIEW_CONFIG.sizing.defaultClaimShapeSize,
-    claimShapeSizeByClaimShapeId: contributorSizing.claimShapeSizeByClaimShapeId,
-    ...GRAPH_VIEW_CONFIG.elk,
-    ...GRAPH_VIEW_CONFIG.connectorGeometry,
+    applyConfidenceScale: GRAPH_VIEW_CONFIG.sizing.applyConfidenceScale,
+    applyRelevanceScale: GRAPH_VIEW_CONFIG.sizing.applyRelevanceScale,
+    peerGap: GRAPH_VIEW_CONFIG.elk.peerGap,
+    layerGap: GRAPH_VIEW_CONFIG.elk.layerGap,
+    connectorClaimShapeGap: GRAPH_VIEW_CONFIG.elk.connectorClaimShapeGap,
+    favorStraightEdges: GRAPH_VIEW_CONFIG.elk.favorStraightEdges,
+    bkFixedAlignment: GRAPH_VIEW_CONFIG.elk.bkFixedAlignment,
+    connectorPathShape: GRAPH_VIEW_CONFIG.connectorGeometry.connectorPathShape,
+    sourceSideStraightSegmentPercent: GRAPH_VIEW_CONFIG.connectorGeometry.sourceSideStraightSegmentPercent,
+    targetSideStraightSegmentPercent: GRAPH_VIEW_CONFIG.connectorGeometry.targetSideStraightSegmentPercent,
+    spreadTargetAnchorY: GRAPH_VIEW_CONFIG.connectorGeometry.spreadTargetAnchorY,
   });
 
-  if (!placed.ok) {
-    throw new Error(`placeLayoutWithElk failed: ${placed.error.code} ${placed.error.message}`);
+  if (!laidOut.ok) {
+    throw new Error(laidOut.message);
   }
 
-  return buildGraphAnimationSnapshot(placed.model, {
-    claimShapeScaleByClaimShapeId: contributorSizing.claimShapeScaleByClaimShapeId,
+  return buildGraphAnimationSnapshot(laidOut.layout, {
+    claimShapeScaleByClaimShapeId: laidOut.render.claimShapeScaleByClaimShapeId,
   });
 }
 
@@ -496,18 +494,70 @@ function diffIds<T extends string>(fromIds: readonly T[], toIds: readonly T[]): 
   };
 }
 
+function createPresentationSnapshot(
+  visualSnapshot: GraphAnimationSnapshot,
+  layoutSnapshot: GraphAnimationSnapshot = visualSnapshot,
+): PresentationSnapshot {
+  return {
+    visualSnapshot,
+    layoutSnapshot,
+  };
+}
+
+function mergeClaimVisualWithLayout(
+  visualClaim: GraphClaimVisualState | undefined,
+  layoutClaim: GraphClaimVisualState | undefined,
+): GraphClaimVisualState | undefined {
+  if (!visualClaim) {
+    return undefined;
+  }
+
+  if (!layoutClaim) {
+    return visualClaim;
+  }
+
+  return {
+    ...visualClaim,
+    x: layoutClaim.x,
+    y: layoutClaim.y,
+    width: layoutClaim.width,
+    height: layoutClaim.height,
+    scale: layoutClaim.scale,
+  };
+}
+
+function mergeConnectorVisualWithLayout(
+  visualConnector: GraphConnectorVisualState | undefined,
+  layoutConnector: GraphConnectorVisualState | undefined,
+): GraphConnectorVisualState | undefined {
+  if (!visualConnector) {
+    return undefined;
+  }
+
+  if (!layoutConnector) {
+    return visualConnector;
+  }
+
+  return {
+    ...visualConnector,
+    pathD: layoutConnector.pathD,
+    sourceSideY: layoutConnector.sourceSideY,
+    targetSideY: layoutConnector.targetSideY,
+  };
+}
+
 function buildPresentationStages(
   initialSnapshot: GraphAnimationSnapshot,
   stateFrames: SnapshotFrame[],
 ): GraphPresentationStage[] {
   const stages: GraphPresentationStage[] = [];
-  let previousSnapshot = initialSnapshot;
+  let previousState = createPresentationSnapshot(initialSnapshot);
 
   for (let index = 0; index < stateFrames.length; index += 1) {
     const stateFrame = stateFrames[index];
     const nextStartFrame = stateFrames[index + 1]?.frame;
-    const claimDiff = diffIds(previousSnapshot.claimRenderOrder, stateFrame.snapshot.claimRenderOrder);
-    const connectorDiff = diffIds(previousSnapshot.connectorRenderOrder, stateFrame.snapshot.connectorRenderOrder);
+    const claimDiff = diffIds(previousState.visualSnapshot.claimRenderOrder, stateFrame.snapshot.claimRenderOrder);
+    const connectorDiff = diffIds(previousState.visualSnapshot.connectorRenderOrder, stateFrame.snapshot.connectorRenderOrder);
     const nextStateFrame = stateFrames[index + 1];
     const nextClaimDiff = nextStateFrame
       ? diffIds(stateFrame.snapshot.claimRenderOrder, nextStateFrame.snapshot.claimRenderOrder)
@@ -515,19 +565,19 @@ function buildPresentationStages(
     const nextConnectorDiff = nextStateFrame
       ? diffIds(stateFrame.snapshot.connectorRenderOrder, nextStateFrame.snapshot.connectorRenderOrder)
       : { inserted: [], removed: [] };
-    const shouldCollapseIntoConnectedClaimStage =
+    const shouldAnchorClaimStageToNextLayout =
       claimDiff.inserted.length > 0
       && claimDiff.removed.length < 1
       && !!nextStateFrame
       && nextClaimDiff.inserted.length < 1
       && nextClaimDiff.removed.length < 1
       && (nextConnectorDiff.inserted.length > 0 || nextConnectorDiff.removed.length > 0);
-    const effectiveSnapshot = shouldCollapseIntoConnectedClaimStage && nextStateFrame
-      ? nextStateFrame.snapshot
-      : stateFrame.snapshot;
-    const effectiveConnectorDiff = shouldCollapseIntoConnectedClaimStage && nextStateFrame
-      ? diffIds(previousSnapshot.connectorRenderOrder, nextStateFrame.snapshot.connectorRenderOrder)
-      : connectorDiff;
+    const nextState = createPresentationSnapshot(
+      stateFrame.snapshot,
+      shouldAnchorClaimStageToNextLayout && nextStateFrame
+        ? nextStateFrame.snapshot
+        : stateFrame.snapshot,
+    );
     const kind = claimDiff.inserted.length > 0 || claimDiff.removed.length > 0
       ? "claims"
       : "connectors";
@@ -541,43 +591,27 @@ function buildPresentationStages(
       kind,
       startFrame: stateFrame.frame,
       endFrame,
-      fromSnapshot: previousSnapshot,
-      toSnapshot: effectiveSnapshot,
+      fromState: previousState,
+      toState: nextState,
       insertedClaimIds: claimDiff.inserted,
       removedClaimIds: claimDiff.removed,
-      insertedConnectorIds: kind === "claims" ? [] : effectiveConnectorDiff.inserted,
-      removedConnectorIds: kind === "claims" ? [] : effectiveConnectorDiff.removed,
     });
 
-    previousSnapshot = effectiveSnapshot;
-
-    if (shouldCollapseIntoConnectedClaimStage) {
-      const connectorStageStartFrame = endFrame;
-      const connectorStageEndFrame = connectorStageStartFrame + CONNECTOR_TRANSITION_FRAMES;
-      stages.push({
-        kind: "connectors",
-        startFrame: connectorStageStartFrame,
-        endFrame: connectorStageEndFrame,
-        fromSnapshot: effectiveSnapshot,
-        toSnapshot: effectiveSnapshot,
-        insertedClaimIds: [],
-        removedClaimIds: [],
-        insertedConnectorIds: nextConnectorDiff.inserted,
-        removedConnectorIds: nextConnectorDiff.removed,
-      });
-      index += 1;
-    }
+    previousState = nextState;
   }
 
   return stages;
 }
 
-function createHoldRenderState(snapshot: GraphAnimationSnapshot): ActiveGraphRenderState {
+function createHoldRenderState(snapshot: PresentationSnapshot): ActiveGraphRenderState {
   const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
   const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
 
-  for (const claimId of snapshot.claimRenderOrder) {
-    const claim = snapshot.claimVisualByClaimId[claimId];
+  for (const claimId of snapshot.visualSnapshot.claimRenderOrder) {
+    const claim = mergeClaimVisualWithLayout(
+      snapshot.visualSnapshot.claimVisualByClaimId[claimId],
+      snapshot.layoutSnapshot.claimVisualByClaimId[claimId],
+    );
     if (!claim) continue;
 
     claimByClaimId[claimId] = {
@@ -588,22 +622,23 @@ function createHoldRenderState(snapshot: GraphAnimationSnapshot): ActiveGraphRen
     };
   }
 
-  for (const connectorId of snapshot.connectorRenderOrder) {
-    const connector = snapshot.connectorVisualByConnectorId[connectorId];
+  for (const connectorId of snapshot.visualSnapshot.connectorRenderOrder) {
+    const connector = mergeConnectorVisualWithLayout(
+      snapshot.visualSnapshot.connectorVisualByConnectorId[connectorId],
+      snapshot.layoutSnapshot.connectorVisualByConnectorId[connectorId],
+    );
     if (!connector) continue;
 
     connectorByConnectorId[connectorId] = {
       ...connector,
-      mode: "stable",
-      revealProgress: 1,
     };
   }
 
   return {
-    width: snapshot.width,
-    height: snapshot.height,
-    claimRenderOrder: [...snapshot.claimRenderOrder],
-    connectorRenderOrder: [...snapshot.connectorRenderOrder],
+    width: snapshot.layoutSnapshot.width,
+    height: snapshot.layoutSnapshot.height,
+    claimRenderOrder: [...snapshot.visualSnapshot.claimRenderOrder],
+    connectorRenderOrder: [...snapshot.visualSnapshot.connectorRenderOrder],
     claimByClaimId,
     connectorByConnectorId,
   };
@@ -611,14 +646,26 @@ function createHoldRenderState(snapshot: GraphAnimationSnapshot): ActiveGraphRen
 
 function resolveClaimsStage(stage: GraphPresentationStage, progress: number): ActiveGraphRenderState {
   const clamped = Math.max(0, Math.min(1, progress));
-  const claimRenderOrder = buildUnionOrder(stage.toSnapshot.claimRenderOrder, stage.fromSnapshot.claimRenderOrder);
-  const connectorRenderOrder = buildUnionOrder(stage.toSnapshot.connectorRenderOrder, stage.fromSnapshot.connectorRenderOrder);
+  const claimRenderOrder = buildUnionOrder(
+    stage.toState.visualSnapshot.claimRenderOrder,
+    stage.fromState.visualSnapshot.claimRenderOrder,
+  );
+  const connectorRenderOrder = buildUnionOrder(
+    stage.toState.visualSnapshot.connectorRenderOrder,
+    stage.fromState.visualSnapshot.connectorRenderOrder,
+  );
   const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
   const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
 
   for (const claimId of claimRenderOrder) {
-    const fromClaim = stage.fromSnapshot.claimVisualByClaimId[claimId];
-    const toClaim = stage.toSnapshot.claimVisualByClaimId[claimId];
+    const fromClaim = mergeClaimVisualWithLayout(
+      stage.fromState.visualSnapshot.claimVisualByClaimId[claimId],
+      stage.fromState.layoutSnapshot.claimVisualByClaimId[claimId],
+    );
+    const toClaim = mergeClaimVisualWithLayout(
+      stage.toState.visualSnapshot.claimVisualByClaimId[claimId],
+      stage.toState.layoutSnapshot.claimVisualByClaimId[claimId],
+    );
 
     if (fromClaim && toClaim) {
       claimByClaimId[claimId] = {
@@ -656,8 +703,14 @@ function resolveClaimsStage(stage: GraphPresentationStage, progress: number): Ac
   }
 
   for (const connectorId of connectorRenderOrder) {
-    const fromConnector = stage.fromSnapshot.connectorVisualByConnectorId[connectorId];
-    const toConnector = stage.toSnapshot.connectorVisualByConnectorId[connectorId];
+    const fromConnector = mergeConnectorVisualWithLayout(
+      stage.fromState.visualSnapshot.connectorVisualByConnectorId[connectorId],
+      stage.fromState.layoutSnapshot.connectorVisualByConnectorId[connectorId],
+    );
+    const toConnector = mergeConnectorVisualWithLayout(
+      stage.toState.visualSnapshot.connectorVisualByConnectorId[connectorId],
+      stage.toState.layoutSnapshot.connectorVisualByConnectorId[connectorId],
+    );
 
     if (fromConnector && toConnector) {
       connectorByConnectorId[connectorId] = {
@@ -665,8 +718,6 @@ function resolveClaimsStage(stage: GraphPresentationStage, progress: number): Ac
         pathD: interpolatePathData(fromConnector.pathD, toConnector.pathD, clamped) ?? (clamped < 0.5 ? fromConnector.pathD : toConnector.pathD),
         strokeWidth: lerp(fromConnector.strokeWidth, toConnector.strokeWidth, clamped),
         referenceStrokeWidth: lerp(fromConnector.referenceStrokeWidth, toConnector.referenceStrokeWidth, clamped),
-        mode: "stable",
-        revealProgress: 1,
       };
       continue;
     }
@@ -674,15 +725,13 @@ function resolveClaimsStage(stage: GraphPresentationStage, progress: number): Ac
     if (fromConnector) {
       connectorByConnectorId[connectorId] = {
         ...fromConnector,
-        mode: "stable",
-        revealProgress: 1,
       };
     }
   }
 
   return {
-    width: lerp(stage.fromSnapshot.width, stage.toSnapshot.width, clamped),
-    height: lerp(stage.fromSnapshot.height, stage.toSnapshot.height, clamped),
+    width: lerp(stage.fromState.layoutSnapshot.width, stage.toState.layoutSnapshot.width, clamped),
+    height: lerp(stage.fromState.layoutSnapshot.height, stage.toState.layoutSnapshot.height, clamped),
     claimRenderOrder,
     connectorRenderOrder,
     claimByClaimId,
@@ -692,62 +741,86 @@ function resolveClaimsStage(stage: GraphPresentationStage, progress: number): Ac
 
 function resolveConnectorsStage(stage: GraphPresentationStage, progress: number): ActiveGraphRenderState {
   const clamped = Math.max(0, Math.min(1, progress));
-  const claimRenderOrder = [...stage.toSnapshot.claimRenderOrder];
-  const connectorRenderOrder = buildUnionOrder(stage.toSnapshot.connectorRenderOrder, stage.fromSnapshot.connectorRenderOrder);
+  const propagationProgress = clamped;
+  const claimRenderOrder = [...stage.toState.visualSnapshot.claimRenderOrder];
+  const connectorRenderOrder = buildUnionOrder(
+    stage.toState.visualSnapshot.connectorRenderOrder,
+    stage.fromState.visualSnapshot.connectorRenderOrder,
+  );
   const claimByClaimId = {} as ActiveGraphRenderState["claimByClaimId"];
   const connectorByConnectorId = {} as ActiveGraphRenderState["connectorByConnectorId"];
-  const insertedConnectorIds = new Set(stage.insertedConnectorIds);
-  const removedConnectorIds = new Set(stage.removedConnectorIds);
 
   for (const claimId of claimRenderOrder) {
-    const fromClaim = stage.fromSnapshot.claimVisualByClaimId[claimId];
-    const toClaim = stage.toSnapshot.claimVisualByClaimId[claimId];
+    const fromClaim = mergeClaimVisualWithLayout(
+      stage.fromState.visualSnapshot.claimVisualByClaimId[claimId],
+      stage.fromState.layoutSnapshot.claimVisualByClaimId[claimId],
+    );
+    const toClaim = mergeClaimVisualWithLayout(
+      stage.toState.visualSnapshot.claimVisualByClaimId[claimId],
+      stage.toState.layoutSnapshot.claimVisualByClaimId[claimId],
+    );
+    if (fromClaim && toClaim) {
+      claimByClaimId[claimId] = {
+        ...toClaim,
+        x: lerp(fromClaim.x, toClaim.x, propagationProgress),
+        y: lerp(fromClaim.y, toClaim.y, propagationProgress),
+        width: lerp(fromClaim.width, toClaim.width, propagationProgress),
+        height: lerp(fromClaim.height, toClaim.height, propagationProgress),
+        scale: lerp(fromClaim.scale, toClaim.scale, propagationProgress),
+        displayedConfidence: lerp(fromClaim.confidence, toClaim.confidence, propagationProgress),
+        opacity: 1,
+        insertScale: 1,
+      };
+      continue;
+    }
+
     const claim = toClaim ?? fromClaim;
     if (!claim) continue;
 
     claimByClaimId[claimId] = {
       ...claim,
-      displayedConfidence: lerp(fromClaim?.confidence ?? claim.confidence, toClaim?.confidence ?? claim.confidence, clamped),
+      displayedConfidence: lerp(
+        fromClaim?.confidence ?? claim.confidence,
+        toClaim?.confidence ?? claim.confidence,
+        propagationProgress,
+      ),
       opacity: 1,
       insertScale: 1,
     };
   }
 
   for (const connectorId of connectorRenderOrder) {
-    const fromConnector = stage.fromSnapshot.connectorVisualByConnectorId[connectorId];
-    const toConnector = stage.toSnapshot.connectorVisualByConnectorId[connectorId];
-
-    if (insertedConnectorIds.has(connectorId) && toConnector) {
-      connectorByConnectorId[connectorId] = {
-        ...toConnector,
-        mode: "grow",
-        revealProgress: clamped,
-      };
-      continue;
-    }
-
-    if (removedConnectorIds.has(connectorId) && fromConnector) {
-      connectorByConnectorId[connectorId] = {
-        ...fromConnector,
-        mode: "shrink",
-        revealProgress: 1 - clamped,
-      };
-      continue;
-    }
+    const fromConnector = mergeConnectorVisualWithLayout(
+      stage.fromState.visualSnapshot.connectorVisualByConnectorId[connectorId],
+      stage.fromState.layoutSnapshot.connectorVisualByConnectorId[connectorId],
+    );
+    const toConnector = mergeConnectorVisualWithLayout(
+      stage.toState.visualSnapshot.connectorVisualByConnectorId[connectorId],
+      stage.toState.layoutSnapshot.connectorVisualByConnectorId[connectorId],
+    );
 
     const connector = toConnector ?? fromConnector;
     if (!connector) continue;
 
     connectorByConnectorId[connectorId] = {
       ...connector,
-      mode: "stable",
-      revealProgress: 1,
+      pathD: interpolatePathData(fromConnector?.pathD ?? null, toConnector?.pathD ?? null, propagationProgress) ?? connector.pathD,
+      strokeWidth: lerp(
+        fromConnector?.strokeWidth ?? connector.strokeWidth,
+        toConnector?.strokeWidth ?? connector.strokeWidth,
+        propagationProgress,
+      ),
+      referenceStrokeWidth: lerp(
+        fromConnector?.referenceStrokeWidth ?? connector.referenceStrokeWidth,
+        toConnector?.referenceStrokeWidth ?? connector.referenceStrokeWidth,
+        propagationProgress,
+      ),
     };
   }
 
   return {
-    width: stage.toSnapshot.width,
-    height: stage.toSnapshot.height,
+    width: stage.toState.layoutSnapshot.width,
+    height: stage.toState.layoutSnapshot.height,
     claimRenderOrder,
     connectorRenderOrder,
     claimByClaimId,
@@ -760,7 +833,7 @@ function resolveActiveGraphRenderState(
   stages: GraphPresentationStage[],
   frame: number,
 ): ActiveGraphRenderState {
-  let settledSnapshot = initialSnapshot;
+  let settledSnapshot = createPresentationSnapshot(initialSnapshot);
 
   for (const stage of stages) {
     if (frame < stage.startFrame) {
@@ -774,43 +847,24 @@ function resolveActiveGraphRenderState(
         : resolveConnectorsStage(stage, progress);
     }
 
-    settledSnapshot = stage.toSnapshot;
+    settledSnapshot = stage.toState;
   }
 
   return createHoldRenderState(settledSnapshot);
 }
 
-function getConnectorPathStyle(
-  connector: ActiveConnectorRender,
-  strokeWidth: number,
-): CSSProperties {
-  const style: CSSProperties = {
+function getConnectorPathStyle(strokeWidth: number): CSSProperties {
+  return {
     strokeWidth,
-    strokeLinecap: connector.mode === "stable" ? "butt" : "round",
-    strokeLinejoin: connector.mode === "stable" ? "miter" : "round",
+    strokeLinecap: "butt",
+    strokeLinejoin: "miter",
   };
-
-  if (connector.mode === "grow") {
-    style.strokeDasharray = `${Math.max(0.001, connector.revealProgress)} 1`;
-    style.strokeDashoffset = 0;
-  }
-
-  if (connector.mode === "shrink") {
-    style.strokeDasharray = `${Math.max(0.001, connector.revealProgress)} 1`;
-    style.strokeDashoffset = 0;
-  }
-
-  return style;
 }
 
 function renderConnectorPath(
   connector: ActiveConnectorRender,
   useReferenceWidth: boolean,
 ): ReactNode {
-  if (connector.mode === "grow" && useReferenceWidth) {
-    return null;
-  }
-
   const classes = ["rt-connector"];
   if (useReferenceWidth) {
     classes.push("rt-connector-potential-confidence");
@@ -825,10 +879,7 @@ function renderConnectorPath(
       data-connector-id={connector.connectorId}
       d={connector.pathD}
       pathLength={1}
-      style={getConnectorPathStyle(
-        connector,
-        useReferenceWidth ? connector.referenceStrokeWidth : connector.strokeWidth,
-      )}
+      style={getConnectorPathStyle(useReferenceWidth ? connector.referenceStrokeWidth : connector.strokeWidth)}
     />
   );
 }
@@ -900,13 +951,32 @@ const GraphViewContent = ({
     [children, zoomClaimId, zoomTarget, zoomScale, zoomStartFrame, zoomDurationInFrames, zoomPadding],
   );
   const graphEvents = useMemo(() => resolveGraphEvents(children), [children]);
-  const graphEventKeyStates = useMemo(
-    () => buildGraphEventKeyStates(debate, graphEvents, fps),
-    [debate, fps, graphEvents],
+  const graphEventDirectives = useMemo(
+    () => buildGraphEventDirectives(graphEvents, fps),
+    [fps, graphEvents],
+  );
+  const plannedGraphAnimation = useMemo(
+    () => buildPropagationAnimation({
+      debate,
+      directives: graphEventDirectives,
+      fps,
+      cycleHandling: "fail",
+    }),
+    [debate, fps, graphEventDirectives],
+  );
+  if (!plannedGraphAnimation.ok) {
+    throw new Error(plannedGraphAnimation.message);
+  }
+  const initialCalculatedDebate = useMemo<CalculatedDebate>(
+    () => ({
+      ...debate,
+      scores: plannedGraphAnimation.initialScores,
+    }),
+    [debate, plannedGraphAnimation],
   );
   const resolvedPropagationKeyStates = useMemo(
-    () => [...propagationKeyStates, ...graphEventKeyStates].sort((left, right) => left.frame - right.frame),
-    [graphEventKeyStates, propagationKeyStates],
+    () => [...propagationKeyStates, ...plannedGraphAnimation.keyStates].sort((left, right) => left.frame - right.frame),
+    [plannedGraphAnimation, propagationKeyStates],
   );
   const propagationSequences = useMemo(() => {
     if (resolvedPropagationKeyStates.length < 1) {
@@ -925,14 +995,17 @@ const GraphViewContent = ({
     let isActive = true;
 
     const run = async () => {
-      const initialSnapshot = await buildGraphSnapshot(debate, siblingOrderingMode);
+      const initialSnapshot = await buildGraphSnapshot(initialCalculatedDebate, siblingOrderingMode);
       const sortedKeyStates = [...resolvedPropagationKeyStates];
       const frames: SnapshotFrame[] = [];
 
       for (const keyState of sortedKeyStates) {
         frames.push({
           frame: keyState.frame,
-          snapshot: await buildGraphSnapshot(keyState.debate, siblingOrderingMode, keyState.scores),
+          snapshot: await buildGraphSnapshot({
+            ...keyState.debate,
+            scores: keyState.scores,
+          }, siblingOrderingMode),
         });
       }
 
@@ -951,7 +1024,7 @@ const GraphViewContent = ({
     return () => {
       isActive = false;
     };
-  }, [debate, renderHandle, resolvedPropagationKeyStates, siblingOrderingMode]);
+  }, [initialCalculatedDebate, renderHandle, resolvedPropagationKeyStates, siblingOrderingMode]);
 
   const presentationStages = useMemo(() => {
     if (!snapshotTimeline || snapshotTimeline.length < 2) {

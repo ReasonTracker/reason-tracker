@@ -21,11 +21,12 @@ const connector27Id = "connector:27" as ConnectorId;
 
 const graphEvents = buildTimelineTimes([
   ["BackgroundFadeIn", 0.7],
+  ["addClaimR", 3],
+  [wait, 2],
   ["brand", 3.3],
   ["mainCamera", 1.7],
   [wait, 0.7],
   ["bCamera", 1.7],
-  ["addClaimR", 5],
   [wait, 1],
   ["aCamera", 1.7],
   [wait, 0.3],
@@ -63,22 +64,29 @@ export const Episode0001 = (_props: EpisodeCompositionProps) => {
           <GraphEvents
             {...graphEventTimes.addClaimR}
             id="addClaimR"
+            applyMode="per-action"
             actions={[
               {
-                kind: "claim.upsert",
-                claim: {
-                  id: claimRId,
-                  content: "Additional evidence R",
-                  side: "proMain",
+                id: "add-claim-r",
+                action: {
+                  kind: "claim.upsert",
+                  claim: {
+                    id: claimRId,
+                    content: "Additional evidence R",
+                    side: "proMain",
+                  },
                 },
               },
               {
-                kind: "connector.upsert",
-                connector: {
-                  id: connector27Id,
-                  source: claimRId,
-                  target: claimBId,
-                  affects: "confidence",
+                id: "add-connector-27",
+                action: {
+                  kind: "connector.upsert",
+                  connector: {
+                    id: connector27Id,
+                    source: claimRId,
+                    target: claimBId,
+                    affects: "confidence",
+                  },
                 },
               },
             ]}

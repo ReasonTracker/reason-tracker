@@ -44,6 +44,12 @@ export type DebateAction =
           connector: Pick<Connector, "id"> & Partial<Omit<Connector, "id">>;
       }
     | { kind: "connector.delete"; connector: Pick<Connector, "id"> };
+export type StageMode = "per-action" | "all-at-once";
+
+export type GraphAction = {
+    id: string;
+    action: DebateAction;
+};
 
 export type CalculateDebateDiagnostic = {
     severity: "warning" | "recoverableError";

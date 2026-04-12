@@ -11,6 +11,10 @@ export {
 } from "./layout/computeContributorNodeSizing.ts";
 
 export {
+    layoutDebate,
+} from "./layout/layoutCalculatedDebate.ts";
+
+export {
     buildGraphAnimationSnapshot,
 } from "./layout/buildGraphAnimationSnapshot.ts";
 

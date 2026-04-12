@@ -33,10 +33,12 @@ export {
     type Debate,
     type DebateAction,
     type DebateId,
+    type GraphAction,
     type PropagationAnimationDirective,
     type PropagationAnimationKeyState,
     type ProtoDebate,
     type ScorePropagationChange,
+    type StageMode,
 } from "./Debate.ts";
 
 export {
