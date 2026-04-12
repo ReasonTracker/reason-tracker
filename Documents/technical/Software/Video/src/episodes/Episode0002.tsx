@@ -17,7 +17,7 @@ export const Episode0002 = ({ title }: EpisodeCompositionProps) => {
       <Sequence from={0} durationInFrames={TOTAL_EPISODE_FRAMES}>
         <EpisodeTitleCard title={title} />
       </Sequence>
-      <EpisodeBrandSequence from={FIRST_TITLE_FRAMES} duration={BRAND_SEQUENCE_FRAMES} />
+      <EpisodeBrandSequence from={FIRST_TITLE_FRAMES} durationInFrames={BRAND_SEQUENCE_FRAMES} />
     </EpisodeTemplate>
   );
 };

@@ -12,12 +12,12 @@ const DEFAULT_BRAND_SEQUENCE_DURATION = BRAND_SEQUENCE_END_FRAME;
 
 type EpisodeBrandSequenceProps = {
   from?: number;
-  duration?: number;
+  durationInFrames?: number;
 };
 
-const EpisodeBrandSequenceContent = ({ duration = DEFAULT_BRAND_SEQUENCE_DURATION }: Pick<EpisodeBrandSequenceProps, "duration">) => {
+const EpisodeBrandSequenceContent = ({ durationInFrames = DEFAULT_BRAND_SEQUENCE_DURATION }: Pick<EpisodeBrandSequenceProps, "durationInFrames">) => {
   const frame = useCurrentFrame();
-  const motionFrame = getScaledBrandSequenceFrame(frame, duration);
+  const motionFrame = getScaledBrandSequenceFrame(frame, durationInFrames);
   const { reasonX, trackerX, wordOpacity, taglineY, taglineOpacity } = getBrandSequenceState(motionFrame);
 
   return (
@@ -45,11 +45,11 @@ const EpisodeBrandSequenceContent = ({ duration = DEFAULT_BRAND_SEQUENCE_DURATIO
 
 export const EpisodeBrandSequence = ({
   from = DEFAULT_BRAND_SEQUENCE_FROM,
-  duration = DEFAULT_BRAND_SEQUENCE_DURATION,
+  durationInFrames = DEFAULT_BRAND_SEQUENCE_DURATION,
 }: EpisodeBrandSequenceProps) => {
   return (
-    <Sequence from={from} durationInFrames={duration}>
-      <EpisodeBrandSequenceContent duration={duration} />
+    <Sequence from={from} durationInFrames={durationInFrames}>
+      <EpisodeBrandSequenceContent durationInFrames={durationInFrames} />
     </Sequence>
   );
 };

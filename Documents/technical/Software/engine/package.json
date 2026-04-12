@@ -13,6 +13,7 @@
     "@reasontracker/contracts": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "vite-plus": "^0.1.16"
   },
   "scripts": {

@@ -5,42 +5,64 @@ import { episode0001Debate } from "./Episode0001/graphData.ts";
 import { EpisodeBrandSequence } from "../shared/EpisodeBrandSequence.tsx";
 import { CameraMove, GraphView } from "../shared/GraphView.tsx";
 import { EpisodeTemplate } from "../shared/EpisodeTemplate.tsx";
+import { Fade } from "../shared/Fade.tsx";
+import { useMarkdownTimelineDocument } from "../shared/timelineMarkdown.ts";
 
 const EPISODE_ID = "Episode0001";
 const EPISODE_TITLE = "Episode 1";
+const EPISODE_FPS = 30;
 const TOTAL_EPISODE_FRAMES = 300;
+const TIMELINE_MARKDOWN_SRC = "episodes/Episode0001/timeline.md";
 
-const zoomMotionOptions = {
-  durationInFrames: 50,
+const cameraMoveOptions = {
   padding: 200,
 };
 
 export const Episode0001 = (_props: EpisodeCompositionProps) => {
+  const timelineDocument = useMarkdownTimelineDocument({
+    src: TIMELINE_MARKDOWN_SRC,
+    fps: EPISODE_FPS,
+  });
+
+  if (!timelineDocument) {
+    return null;
+  }
+
+  const backgroundTimes = timelineDocument.timelines.background.times;
+  const overlayTimes = timelineDocument.timelines.overlay.times;
+  const cameraTimes = timelineDocument.timelines.camera.times;
+
   return (
     <EpisodeTemplate>
-      <GraphView debate={episode0001Debate}>
-        <CameraMove
-        {...zoomMotionOptions}
-          from={30}
-          claimId={"main" as ClaimId}
-        />
-        <CameraMove
-          from={100}
-          claimId={"b" as ClaimId}
-        {...zoomMotionOptions}
-        />
-        <CameraMove
-          from={190}
-          claimId={"a" as ClaimId}
-        {...zoomMotionOptions}
-        />
-        <CameraMove
-          from={250}
-          durationInFrames={50}
-          reset
-        />
-      </GraphView>
-      <EpisodeBrandSequence from={60} duration={100} />
+      <Fade
+        {...backgroundTimes.graph}
+        fadeInSeconds={0.7}
+        fadeOutSeconds={0.7}
+        name="Graph Fade"
+      >
+        <GraphView debate={episode0001Debate}>
+          <CameraMove
+            {...cameraMoveOptions}
+            {...cameraTimes.mainCamera}
+            claimId={"main" as ClaimId}
+          />
+          <CameraMove
+            {...cameraTimes.bCamera}
+            claimId={"b" as ClaimId}
+            {...cameraMoveOptions}
+          />
+          <CameraMove
+            {...cameraTimes.aCamera}
+            claimId={"a" as ClaimId}
+            {...cameraMoveOptions}
+          />
+          <CameraMove
+            {...cameraTimes.resetCamera}
+            reset
+          />
+        </GraphView>
+      </Fade>
+      <EpisodeBrandSequence {...overlayTimes.brand} />
     </EpisodeTemplate>
   );
 };
@@ -51,7 +73,7 @@ export const Episode0001Composition = () => {
       id={EPISODE_ID}
       component={Episode0001}
       durationInFrames={TOTAL_EPISODE_FRAMES}
-      fps={30}
+      fps={EPISODE_FPS}
       width={1920}
       height={1080}
       defaultProps={{
