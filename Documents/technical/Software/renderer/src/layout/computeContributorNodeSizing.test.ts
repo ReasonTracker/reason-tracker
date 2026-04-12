@@ -51,10 +51,15 @@ function connectorShape(
 }
 
 function layoutModel(claimShapes: Record<string, ClaimShape>, connectorShapes: Record<string, ConnectorShape>): DraftLayoutModel {
+    const claimShapeInputOrder = Object.keys(claimShapes);
+    const connectorShapeInputOrder = Object.keys(connectorShapes);
+
     return {
         rootClaimShapeId: "target",
         claimShapes,
         connectorShapes,
+        claimShapeInputOrder,
+        connectorShapeInputOrder,
         cycleMode: "preserve",
         sourceDebateId: asDebateId("debate:test"),
     };

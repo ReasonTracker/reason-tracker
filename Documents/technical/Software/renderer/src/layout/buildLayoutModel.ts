@@ -4,6 +4,7 @@ import type {
     Connector,
 } from "@reasontracker/contracts";
 import { deriveTargetRelation } from "@reasontracker/contracts";
+import { sortDraftLayoutModel } from "./ordering.ts";
 import type {
     BuildLayoutModelRequest,
     BuildLayoutModelResult,
@@ -121,9 +122,15 @@ function buildPreservedLayoutModel(
         rootClaimShapeId: debate.mainClaimId,
         claimShapes,
         connectorShapes,
+        claimShapeInputOrder: [],
+        connectorShapeInputOrder: [],
         cycleMode: "preserve",
         sourceDebateId: debate.id,
     };
+
+    const sorted = sortDraftLayoutModel(model, siblingOrderingMode);
+    model.claimShapeInputOrder = sorted.claimShapeIds;
+    model.connectorShapeInputOrder = sorted.connectorShapeIds;
 
     diagnostics.push({
         level: "info",
@@ -287,12 +294,16 @@ function buildUnrolledDagLayoutModel(
         },
     });
 
+    const sorted = sortDraftLayoutModel({ claimShapes, connectorShapes }, siblingOrderingMode);
+
     return {
         ok: true,
         model: {
             rootClaimShapeId,
             claimShapes,
             connectorShapes,
+            claimShapeInputOrder: sorted.claimShapeIds,
+            connectorShapeInputOrder: sorted.connectorShapeIds,
             cycleMode: "unroll-dag",
             sourceDebateId: debate.id,
         },

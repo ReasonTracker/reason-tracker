@@ -9,7 +9,6 @@ import type {
     PlaceLayoutWithElkResult,
     PlacedClaimShape,
 } from "./types.ts";
-import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
 import { withConnectorGeometry } from "./computeConnectorGeometry.ts";
 import { orderConnectorShapeIdsForTarget } from "./orderConnectorShapesForTarget.ts";
 
@@ -76,9 +75,8 @@ export async function placeLayoutWithElk(
     const defaultClaimShapeSize = options.defaultClaimShapeSize ?? DEFAULT_CLAIM_SHAPE_SIZE;
     const claimShapeSizeByClaimShapeId = options.claimShapeSizeByClaimShapeId ?? {};
     const preserveInputOrder = options.preserveInputOrder ?? true;
-    const siblingOrderingMode = options.siblingOrderingMode ?? "auto-reorder";
 
-    const orderedClaimShapeIds = orderClaimShapeIdsForElk(model, siblingOrderingMode);
+    const orderedClaimShapeIds = model.claimShapeInputOrder;
 
     const children: ElkClaimShapeLayout[] = orderedClaimShapeIds.map((claimShapeId) => {
         const size = claimShapeSizeByClaimShapeId[claimShapeId] ?? defaultClaimShapeSize;
@@ -96,8 +94,9 @@ export async function placeLayoutWithElk(
         };
     });
 
-    const connectorShapes: ElkConnectorLayout[] = Object.values(model.connectorShapes)
-        .sort((a, b) => compareConnectorPreference(model, a.id, b.id))
+    const connectorShapes: ElkConnectorLayout[] = model.connectorShapeInputOrder
+        .map((connectorShapeId) => model.connectorShapes[connectorShapeId])
+        .filter((connectorShape): connectorShape is NonNullable<typeof connectorShape> => Boolean(connectorShape))
         .map((connectorShape) => {
             const sourceClaimShape = model.claimShapes[connectorShape.sourceClaimShapeId];
             const sourceClaimShapeSize = claimShapeSizeByClaimShapeId[connectorShape.sourceClaimShapeId] ?? defaultClaimShapeSize;

@@ -1,5 +1,21 @@
 import type { ConnectorShape, DraftLayoutModel, LayoutModel, SiblingOrderingMode } from "./types.ts";
 
+export function sortDraftLayoutModel(
+    model: Pick<DraftLayoutModel, "claimShapes" | "connectorShapes">,
+    siblingOrderingMode: SiblingOrderingMode = "auto-reorder",
+): {
+    claimShapeIds: string[];
+    connectorShapeIds: string[];
+} {
+    const connectorShapeIds = orderConnectorShapeIds(model, siblingOrderingMode);
+    const claimShapeIds = orderClaimShapeIds(model, connectorShapeIds, siblingOrderingMode);
+
+    return {
+        claimShapeIds,
+        connectorShapeIds,
+    };
+}
+
 export function compareConnectorPreference(
     model: {
         claimShapes: Record<string, { score?: { confidence: number } }>;
@@ -23,24 +39,35 @@ export function compareConnectorPreference(
     return connectorShapeIdA.localeCompare(connectorShapeIdB);
 }
 
-export function orderClaimShapeIdsForElk(
-    model: DraftLayoutModel,
-    siblingOrderingMode: SiblingOrderingMode = "auto-reorder",
+function orderClaimShapeIds(
+    model: Pick<DraftLayoutModel, "claimShapes" | "connectorShapes">,
+    connectorShapeIdsInOrder: string[],
+    siblingOrderingMode: SiblingOrderingMode,
 ): string[] {
-    if (siblingOrderingMode === "preserve-input") {
-        return Object.keys(model.claimShapes);
+    const inputClaimShapeIndexById: Record<string, number> = {};
+    for (const [index, claimShapeId] of Object.keys(model.claimShapes).entries()) {
+        inputClaimShapeIndexById[claimShapeId] = index;
     }
 
     const connectorShapeIdsBySourceClaimShapeId: Record<string, string[]> = {};
-    for (const connectorShape of Object.values(model.connectorShapes)) {
+    for (const connectorShapeId of connectorShapeIdsInOrder) {
+        const connectorShape = model.connectorShapes[connectorShapeId];
+        if (!connectorShape) {
+            continue;
+        }
+
         (connectorShapeIdsBySourceClaimShapeId[connectorShape.sourceClaimShapeId] ??= []).push(connectorShape.id);
     }
 
     const preferredConnectorShapeIdBySourceClaimShapeId: Record<string, string> = {};
+    const connectorOrderIndexById: Record<string, number> = {};
+    for (const [index, connectorShapeId] of connectorShapeIdsInOrder.entries()) {
+        connectorOrderIndexById[connectorShapeId] = index;
+    }
+
     for (const [sourceClaimShapeId, connectorShapeIds] of Object.entries(connectorShapeIdsBySourceClaimShapeId)) {
-        const sortedConnectorShapeIds = [...connectorShapeIds].sort((a, b) => compareConnectorPreference(model, a, b));
-        if (sortedConnectorShapeIds.length > 0) {
-            preferredConnectorShapeIdBySourceClaimShapeId[sourceClaimShapeId] = sortedConnectorShapeIds[0];
+        if (connectorShapeIds.length > 0) {
+            preferredConnectorShapeIdBySourceClaimShapeId[sourceClaimShapeId] = connectorShapeIds[0];
         }
     }
 
@@ -53,7 +80,10 @@ export function orderClaimShapeIdsForElk(
         const preferredConnectorShapeIdA = preferredConnectorShapeIdBySourceClaimShapeId[claimShapeIdA];
         const preferredConnectorShapeIdB = preferredConnectorShapeIdBySourceClaimShapeId[claimShapeIdB];
         if (preferredConnectorShapeIdA && preferredConnectorShapeIdB) {
-            const connectorOrder = compareConnectorPreference(model, preferredConnectorShapeIdA, preferredConnectorShapeIdB);
+            const connectorOrder = siblingOrderingMode === "preserve-input"
+                ? (connectorOrderIndexById[preferredConnectorShapeIdA] ?? Number.MAX_SAFE_INTEGER)
+                    - (connectorOrderIndexById[preferredConnectorShapeIdB] ?? Number.MAX_SAFE_INTEGER)
+                : compareConnectorPreference(model, preferredConnectorShapeIdA, preferredConnectorShapeIdB);
             if (connectorOrder !== 0) return connectorOrder;
         } else if (preferredConnectorShapeIdA) {
             return -1;
@@ -61,8 +91,35 @@ export function orderClaimShapeIdsForElk(
             return 1;
         }
 
+        if (siblingOrderingMode === "preserve-input") {
+            return (inputClaimShapeIndexById[claimShapeIdA] ?? Number.MAX_SAFE_INTEGER)
+                - (inputClaimShapeIndexById[claimShapeIdB] ?? Number.MAX_SAFE_INTEGER);
+        }
+
         return claimShapeIdA.localeCompare(claimShapeIdB);
     });
+}
+
+function orderConnectorShapeIds(
+    model: Pick<DraftLayoutModel, "claimShapes" | "connectorShapes">,
+    siblingOrderingMode: SiblingOrderingMode,
+): string[] {
+    if (siblingOrderingMode === "preserve-input") {
+        return Object.keys(model.connectorShapes).sort((a, b) => {
+            const connectorShapeA = model.connectorShapes[a];
+            const connectorShapeB = model.connectorShapes[b];
+            if (!connectorShapeA || !connectorShapeB) {
+                return a.localeCompare(b);
+            }
+
+            const relationOrder = relationPriority(connectorShapeA.targetRelation) - relationPriority(connectorShapeB.targetRelation);
+            if (relationOrder !== 0) return relationOrder;
+
+            return 0;
+        });
+    }
+
+    return Object.keys(model.connectorShapes).sort((a, b) => compareConnectorPreference(model, a, b));
 }
 
 export function orderConnectorShapeIdsForTargetByPreference(

@@ -69,6 +69,8 @@ export interface DraftLayoutModel {
     rootClaimShapeId: string;
     claimShapes: Record<string, ClaimShape>;
     connectorShapes: Record<string, ConnectorShape>;
+    claimShapeInputOrder: string[];
+    connectorShapeInputOrder: string[];
     cycleMode: CycleMode;
     sourceDebateId: DebateId;
 }

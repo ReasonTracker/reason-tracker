@@ -4,7 +4,6 @@ import type {
     ContributorNodeSizingResult,
     DraftLayoutModel,
 } from "./types.ts";
-import { orderClaimShapeIdsForElk } from "./ordering.ts";
 
 const DEFAULT_CLAIM_SHAPE_SIZE: ClaimShapeSize = {
     width: 320,
@@ -65,7 +64,7 @@ export function computeContributorNodeSizing(
                 : 1;
     }
 
-    const orderedClaimShapeIds = orderClaimShapeIdsForElk(model);
+    const orderedClaimShapeIds = model.claimShapeInputOrder;
 
     confidenceCascadeScaleByClaimShapeId[model.rootClaimShapeId] = 1;
 

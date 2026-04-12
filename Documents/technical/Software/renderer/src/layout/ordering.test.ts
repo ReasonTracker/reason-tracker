@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareConnectorPreference, orderClaimShapeIdsForElk } from "./ordering.ts";
+import { compareConnectorPreference, sortDraftLayoutModel } from "./ordering.ts";
 import { connectorShapeToTarget, layoutModel, claimShape } from "./testLayoutBuilders.ts";
 
 // Test fixture naming rule: every fixture string must include the literal token "id" (for example claim-id:* and connector-id:*).
@@ -101,11 +101,41 @@ describe("layout ordering shared preference", () => {
             },
         );
 
-        expect(orderClaimShapeIdsForElk(inputModel)).toEqual([
+        expect(sortDraftLayoutModel(inputModel).claimShapeIds).toEqual([
             "target",
             "claim-id:pro:high",
             "claim-id:pro:low",
             "claim-id:con:high",
         ]);
+    });
+
+    it("keeps preserve-input order within relation buckets", () => {
+        const inputModel = layoutModel(
+            {
+                target: claimShape("target", 1, 0),
+                "claim-id:pro:first": claimShape("claim-id:pro:first", 0.2, 1),
+                "claim-id:con:last": claimShape("claim-id:con:last", 0.9, 1),
+                "claim-id:pro:inserted": claimShape("claim-id:pro:inserted", 0.1, 1),
+            },
+            {
+                "connector-id:pro:first": connectorShapeToTarget("connector-id:pro:first", "claim-id:pro:first", "proTarget"),
+                "connector-id:con:last": connectorShapeToTarget("connector-id:con:last", "claim-id:con:last", "conTarget"),
+                "connector-id:pro:inserted": connectorShapeToTarget("connector-id:pro:inserted", "claim-id:pro:inserted", "proTarget"),
+            },
+        );
+
+        expect(sortDraftLayoutModel(inputModel, "preserve-input")).toEqual({
+            connectorShapeIds: [
+                "connector-id:pro:first",
+                "connector-id:pro:inserted",
+                "connector-id:con:last",
+            ],
+            claimShapeIds: [
+                "target",
+                "claim-id:pro:first",
+                "claim-id:pro:inserted",
+                "claim-id:con:last",
+            ],
+        });
     });
 });
