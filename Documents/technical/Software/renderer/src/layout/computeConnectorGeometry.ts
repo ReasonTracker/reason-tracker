@@ -7,7 +7,7 @@ import type { ConnectorShape, LayoutOptions, PlacedClaimShape } from "./types.ts
 export function withConnectorGeometry(
     claimShapes: Record<string, PlacedClaimShape>,
     connectorShapes: Record<string, ConnectorShape>,
-    options: LayoutOptions,
+    options: LayoutOptions = {},
     context: {
         targetAnchorYByConnectorShapeId?: Record<string, number>;
         sourceAnchorYByConnectorShapeId?: Record<string, number>;

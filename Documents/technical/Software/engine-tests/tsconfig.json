@@ -6,6 +6,7 @@
     "resolveJsonModule": true,
     "strict": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "types": ["node", "vitest/globals"],
     "erasableSyntaxOnly": true

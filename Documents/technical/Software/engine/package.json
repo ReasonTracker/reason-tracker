@@ -19,6 +19,7 @@
   "scripts": {
     "cli": "node --experimental-strip-types ./src/cli-main.ts",
     "build": "echo \"Build script pending\"",
-    "test": "vp test --passWithNoTests"
+    "test": "vp test --passWithNoTests",
+    "typecheck": "tsc --noEmit -p ./tsconfig.json"
   }
 }

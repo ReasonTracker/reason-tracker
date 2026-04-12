@@ -7,7 +7,7 @@ import type {
     Score,
 } from "@reasontracker/contracts";
 import { isCalculated } from "@reasontracker/contracts";
-import { calculateScores } from "./scoring/calculateScores.ts";
+import { calculateDebate } from "../scoring/calculateDebate.ts";
 
 const MAX_SIMULATION_RUNS = 8;
 
@@ -40,7 +40,11 @@ export function runCli(request: CalculateDebateCliRequest): CliResponse {
         return runDeterministicCut(request.command, baseDebate);
     }
 
-    const scoreResult = calculateScores(baseDebate);
+    const scoreResult = calculateDebate({
+        debate: baseDebate,
+        actions: request.actions,
+        options: request.options,
+    });
     if (!scoreResult.ok) {
         return {
             ok: false,
@@ -60,6 +64,36 @@ export function runCli(request: CalculateDebateCliRequest): CliResponse {
             ...baseDebate,
             scores: scoreResult.scores,
         },
+        diagnostics: scoreResult.diagnostics,
+        // Option-dependent fields are present only when requested.
+        // The CLI request options are runtime booleans, so this narrow is runtime-based.
+        ...(request.options?.includeInitialScores
+            ? {
+                  initialScores: (scoreResult as { initialScores?: Record<ClaimId, Score> })
+                      .initialScores,
+              }
+            : {}),
+        ...(request.options?.includePropagationScoreChanges
+            ? {
+                  propagationScoreChanges:
+                      (
+                          scoreResult as {
+                              propagationScoreChanges?: {
+                                  actionIndex: number;
+                                  step: number;
+                                  claimId: ClaimId;
+                                  before: Score;
+                                  after: Score;
+                                  delta: {
+                                      confidence: number;
+                                      reversibleConfidence: number;
+                                      relevance: number;
+                                  };
+                              }[];
+                          }
+                      ).propagationScoreChanges,
+              }
+            : {}),
     };
 }
 
@@ -71,7 +105,7 @@ function runDeterministicCut(
     const maxIterations = Object.keys(baseDebate.connectors).length + 1;
 
     for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-        const scoreResult = calculateScores(workingDebate);
+        const scoreResult = calculateDebate({ debate: workingDebate });
         if (scoreResult.ok) {
             return {
                 ok: true,
@@ -80,6 +114,7 @@ function runDeterministicCut(
                     ...workingDebate,
                     scores: scoreResult.scores,
                 },
+                diagnostics: scoreResult.diagnostics,
             };
         }
 
@@ -122,7 +157,7 @@ function runSimulateAllSingleCuts(
 ): CliResponse {
     const sccClaimIds = getCycleSccClaimIds(baseDebate);
     if (sccClaimIds.length < 1) {
-        const scoreResult = calculateScores(baseDebate);
+        const scoreResult = calculateDebate({ debate: baseDebate });
         if (!scoreResult.ok) {
             return {
                 ok: false,
@@ -142,6 +177,7 @@ function runSimulateAllSingleCuts(
                 ...baseDebate,
                 scores: scoreResult.scores,
             },
+            diagnostics: scoreResult.diagnostics,
             simulations: [],
         };
     }
@@ -173,7 +209,7 @@ function runSimulateAllSingleCuts(
             connectors: nextConnectors,
         };
 
-        const scoreResult = calculateScores(simulatedDebate);
+        const scoreResult = calculateDebate({ debate: simulatedDebate });
         if (!scoreResult.ok) continue;
 
         simulations.push({
@@ -201,6 +237,7 @@ function runSimulateAllSingleCuts(
             ...baseDebate,
             scores: averageScores(simulations),
         },
+        diagnostics: [],
         simulations,
     };
 }

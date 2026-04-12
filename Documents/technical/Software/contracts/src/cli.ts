@@ -1,4 +1,13 @@
-import type { CalculatedDebate, Debate } from "./Debate.ts";
+import type {
+    CalculatedDebate,
+    CalculateDebateDiagnostic,
+    CalculateDebateOptions,
+    Debate,
+    DebateAction,
+    ScorePropagationChange,
+} from "./Debate.ts";
+import type { ClaimId } from "./Claim.ts";
+import type { Score } from "./Score.ts";
 
 export type CliCommand = "calculateDebate";
 export type CycleHandlingMode = "fail" | "cut" | "simulateAllSingleCuts";
@@ -7,6 +16,8 @@ export interface CalculateDebateCliRequest {
     command: "calculateDebate";
     debate: Debate | CalculatedDebate;
     cycleHandling?: CycleHandlingMode;
+    actions?: DebateAction[];
+    options?: CalculateDebateOptions;
 }
 
 export interface CliError {
@@ -21,6 +32,9 @@ export interface CalculateDebateCliSuccess {
     command: "calculateDebate";
     calculatedDebate: CalculatedDebate;
     simulations?: CalculatedDebate[];
+    diagnostics: CalculateDebateDiagnostic[];
+    initialScores?: Record<ClaimId, Score>;
+    propagationScoreChanges?: ScorePropagationChange[];
 }
 
 export interface CliFailure {

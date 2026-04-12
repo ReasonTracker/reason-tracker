@@ -23,6 +23,7 @@
     "build": "echo \"Build script pending\"",
     "preview": "tsx ./preview-layout.ts",
     "preview:watch": "node --watch --watch-path=src --watch-path=preview-layout.ts --watch-path=../website/site/css/brand.css --watch-preserve-output --import tsx ./preview-layout.ts",
-    "test": "vp test --passWithNoTests"
+    "test": "vp test --passWithNoTests",
+    "typecheck": "tsc --noEmit -p ./tsconfig.json"
   }
 }

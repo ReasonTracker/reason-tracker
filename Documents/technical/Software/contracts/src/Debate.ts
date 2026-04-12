@@ -31,6 +31,93 @@ export type CalculatedDebate = Debate & {
     scores: Record<ClaimId, Score>
 };
 
+export type DebateAction =
+    | { kind: "claim.upsert"; claim: Claim }
+    | {
+          kind: "claim.patch";
+          claim: Pick<Claim, "id"> & Partial<Omit<Claim, "id">>;
+      }
+    | { kind: "claim.delete"; claim: Pick<Claim, "id"> }
+    | { kind: "connector.upsert"; connector: Connector }
+    | {
+          kind: "connector.patch";
+          connector: Pick<Connector, "id"> & Partial<Omit<Connector, "id">>;
+      }
+    | { kind: "connector.delete"; connector: Pick<Connector, "id"> };
+
+export type CalculateDebateDiagnostic = {
+    severity: "warning" | "recoverableError";
+    code:
+        | "CLAIM_NOT_FOUND"
+        | "CONNECTOR_NOT_FOUND"
+        | "PATCH_NO_FIELDS"
+        | "PATCH_REFERENCES_UNKNOWN_CLAIM"
+        | "CONNECTOR_ENDPOINT_MISSING"
+        | "ACTION_CONFLICT"
+        | "ACTION_IGNORED";
+    message: string;
+    actionIndex?: number;
+    entityType?: "claim" | "connector";
+    entityId?: string;
+    details?: Record<string, unknown>;
+};
+
+export type ScorePropagationChange = {
+    actionIndex: number;
+    step: number;
+    claimId: ClaimId;
+    before: Score;
+    after: Score;
+    delta: {
+        confidence: number;
+        reversibleConfidence: number;
+        relevance: number;
+    };
+};
+
+export type CalculateDebateOptions = {
+    includeInitialScores?: boolean;
+    includePropagationScoreChanges?: boolean;
+};
+
+export type CalculateDebateRequest<
+    O extends CalculateDebateOptions | undefined = undefined,
+> = {
+    debate: Debate | CalculatedDebate;
+    actions?: DebateAction[];
+    options?: O;
+};
+
+type CalculateDebateSuccessBase = {
+    ok: true;
+    fatal: false;
+    diagnostics: CalculateDebateDiagnostic[];
+    scores: Record<ClaimId, Score>;
+};
+
+type CalculateDebateSuccessExtras<
+    O extends CalculateDebateOptions | undefined,
+> = (O extends { includeInitialScores: true }
+    ? { initialScores: Record<ClaimId, Score> }
+    : {}) &
+    (O extends { includePropagationScoreChanges: true }
+        ? { propagationScoreChanges: ScorePropagationChange[] }
+        : {});
+
+export type CalculateDebateFailure = {
+    ok: false;
+    fatal: true;
+    reason: "cycleDetected" | "invalidRequest";
+    cycleClaimIds?: ClaimId[];
+    diagnostics?: CalculateDebateDiagnostic[];
+};
+
+export type CalculateDebateResult<
+    O extends CalculateDebateOptions | undefined = undefined,
+> =
+    | (CalculateDebateSuccessBase & CalculateDebateSuccessExtras<O>)
+    | CalculateDebateFailure;
+
 export type ProtoDebate = Partial<Debate> & Pick<Debate, 'mainClaimId'>;
 
 /** Populates defaults */

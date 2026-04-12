@@ -59,6 +59,10 @@ if (!appElement) {
   throw new Error("#app was not found.");
 }
 
+function getAppElement() {
+  return appElement as HTMLDivElement;
+}
+
 const state = {
   appData: null as AppData | null,
   busyKey: "" as string,
@@ -144,12 +148,12 @@ async function requestJson<T>(input: string, init?: RequestInit) {
 }
 
 function renderLoading() {
-  appElement.innerHTML = '<div class="loading">Loading Command Center</div>';
+  getAppElement().innerHTML = '<div class="loading">Loading Command Center</div>';
 }
 
 function renderApp() {
   if (!state.appData) {
-    appElement.innerHTML = `<div class="shell">${renderFlash()}</div>`;
+    getAppElement().innerHTML = `<div class="shell">${renderFlash()}</div>`;
     return;
   }
 
@@ -157,7 +161,7 @@ function renderApp() {
   const flash = renderFlash();
   const result = renderResult();
   const content = state.appData.kind === "home" ? renderHome(state.appData.payload) : renderVideo(state.appData.payload);
-  appElement.innerHTML = `<div class="shell">${nav}${flash}${result}${content}</div>`;
+  getAppElement().innerHTML = `<div class="shell">${nav}${flash}${result}${content}</div>`;
   bindActionHandlers();
 }
 

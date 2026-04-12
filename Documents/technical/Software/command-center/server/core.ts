@@ -150,7 +150,7 @@ export async function getVideoPayload(): Promise<VideoPayload> {
   ]);
 
   return {
-    commands: commands.filter((command) => command.category === "video"),
+    commands: commands.filter((command: CommandRecord) => command.category === "video"),
     currentEpisodeId,
     currentEpisodeLabel: toEpisodeDisplayName(currentEpisodeId),
     recentVideos,
@@ -357,7 +357,7 @@ function summarizePackages(commands: CommandRecord[]) {
 
   return [...packageMap.entries()]
     .sort((left, right) => left[0].localeCompare(right[0]))
-    .map(([packageName, commandCount]) => ({
+    .map(([packageName, commandCount]: [string, number]) => ({
       commandCount,
       packageName,
       summary: packageDescriptions.get(packageName) ?? "Workspace package commands.",
@@ -505,12 +505,12 @@ async function runCommand(command: CommandRecord) {
     let stdout = "";
     let stderr = "";
 
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
     });
 
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
     });
 
     child.on("error", (error) => {
@@ -551,12 +551,12 @@ function runShellCommand(commandText: string, isBackground: boolean) {
     let stdout = "";
     let stderr = "";
 
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
     });
 
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
     });
 
     child.on("error", (error) => {

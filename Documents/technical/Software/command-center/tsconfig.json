@@ -10,5 +10,5 @@
     "erasableSyntaxOnly": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/**/*.ts", "server/**/*.ts", "vite.config.mts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "server/**/*.ts", "server/**/*.d.ts", "vite.config.mts"]
 }

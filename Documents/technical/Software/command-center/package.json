@@ -7,7 +7,8 @@
     "dev": "vite --host --open",
     "build": "vite build",
     "preview": "vite preview --host",
-    "test": "tsc --noEmit -p ./tsconfig.json"
+    "test": "tsc --noEmit -p ./tsconfig.json",
+    "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

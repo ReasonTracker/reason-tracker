@@ -19,10 +19,17 @@ export {
 export {
     isCalculated,
     newDebate,
+    type CalculateDebateDiagnostic,
+    type CalculateDebateFailure,
+    type CalculateDebateOptions,
+    type CalculateDebateRequest,
+    type CalculateDebateResult,
     type CalculatedDebate,
     type Debate,
+    type DebateAction,
     type DebateId,
     type ProtoDebate,
+    type ScorePropagationChange,
 } from "./Debate.ts";
 
 export {

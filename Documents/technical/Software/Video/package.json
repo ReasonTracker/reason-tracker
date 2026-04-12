@@ -16,7 +16,8 @@
     "studio": "remotion studio src/index.ts",
     "render": "node ./scripts/render-episode.mjs",
     "render:episode": "node ./scripts/render-episode.mjs",
-    "test": "tsc --noEmit -p ./tsconfig.json"
+    "test": "tsc --noEmit -p ./tsconfig.json",
+    "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
     "@reasontracker/contracts": "workspace:*",

@@ -105,6 +105,8 @@ function parseRequest(
         command: "calculateDebate",
         debate: (payload as { debate: CalculateDebateCliRequest["debate"] }).debate,
         cycleHandling: cycleHandling as CycleHandlingMode | undefined,
+        actions: (payload as { actions?: CalculateDebateCliRequest["actions"] }).actions,
+        options: (payload as { options?: CalculateDebateCliRequest["options"] }).options,
     };
 
     return {

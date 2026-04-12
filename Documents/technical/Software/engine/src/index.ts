@@ -1,15 +1,20 @@
-export { runCli } from "./cli.ts";
+export { runCli } from "./cli/cli.ts";
 export {
     runCliFromArgv,
     runCliFromProcess,
     type CliIoResult,
-} from "./cli-io.ts";
-export { calculateScores, type CalculateScoresResult } from "./scoring/calculateScores.ts";
+} from "./cli/cli-io.ts";
+export { calculateDebate as calculateScores } from "./scoring/calculateDebate.ts";
 
 export type {
     Affects,
+    CalculateDebateDiagnostic,
     CalculateDebateCliRequest,
     CalculateDebateCliSuccess,
+    CalculateDebateFailure,
+    CalculateDebateOptions,
+    CalculateDebateRequest,
+    CalculateDebateResult,
     CycleHandlingMode,
     Claim,
     ClaimId,
@@ -22,6 +27,8 @@ export type {
     Debate,
     DebateId,
     CalculatedDebate,
+    DebateAction,
     Score,
+    ScorePropagationChange,
     ScoreId,
 } from "@reasontracker/contracts";
