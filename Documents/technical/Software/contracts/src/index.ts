@@ -20,6 +20,7 @@ export {
     isCalculated,
     newDebate,
     type CalculateDebateDiagnostic,
+    type CalculateDebateCycleHandling,
     type CalculateDebateFailure,
     type CalculateDebateOptions,
     type CalculateDebateRequest,

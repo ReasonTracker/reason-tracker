@@ -1,4 +1,5 @@
 import type {
+    CalculateDebateCycleHandling,
     CalculatedDebate,
     CalculateDebateDiagnostic,
     CalculateDebateOptions,
@@ -10,7 +11,7 @@ import type { ClaimId } from "./Claim.ts";
 import type { Score } from "./Score.ts";
 
 export type CliCommand = "calculateDebate";
-export type CycleHandlingMode = "fail" | "cut" | "simulateAllSingleCuts";
+export type CycleHandlingMode = CalculateDebateCycleHandling;
 
 export interface CalculateDebateCliRequest {
     command: "calculateDebate";
@@ -21,7 +22,11 @@ export interface CalculateDebateCliRequest {
 }
 
 export interface CliError {
-    code: "CYCLE_DETECTED" | "INVALID_REQUEST" | "SIMULATION_LIMIT_EXCEEDED";
+    code:
+        | "CYCLE_DETECTED"
+        | "INVALID_REQUEST"
+        | "INVALID_DEBATE"
+        | "SIMULATION_LIMIT_EXCEEDED";
     message: string;
     sccClaimIds?: string[][];
     details?: Record<string, unknown>;

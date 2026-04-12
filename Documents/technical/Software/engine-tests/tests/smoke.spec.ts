@@ -115,6 +115,54 @@ describe("engine CLI fixture tests", () => {
     expect(response.simulations.length).toBeGreaterThan(0);
   });
 
+  test("rejects debate when a connector references a missing claim", () => {
+    const result = runCliFromArgv(
+      ["calculateDebate"],
+      JSON.stringify({
+        debate: {
+          id: "invalid-endpoint",
+          name: "invalid endpoint",
+          description: "",
+          mainClaimId: "A",
+          claims: {
+            A: { id: "A", content: "A", side: "proMain" },
+          },
+          connectors: {
+            c1: { id: "c1", source: "B", target: "A", affects: "confidence" },
+          },
+        },
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    const response = JSON.parse(result.stdout) as any;
+    expect(response.ok).toBe(false);
+    expect(response.error.code).toBe("INVALID_DEBATE");
+  });
+
+  test("rejects debate when mainClaimId does not exist in claims", () => {
+    const result = runCliFromArgv(
+      ["calculateDebate"],
+      JSON.stringify({
+        debate: {
+          id: "invalid-main",
+          name: "invalid main",
+          description: "",
+          mainClaimId: "Z",
+          claims: {
+            A: { id: "A", content: "A", side: "proMain" },
+          },
+          connectors: {},
+        },
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    const response = JSON.parse(result.stdout) as any;
+    expect(response.ok).toBe(false);
+    expect(response.error.code).toBe("INVALID_DEBATE");
+  });
+
   test("derives connector relation from claim side changes", () => {
     const baseDebate = {
       id: "side-derivation",

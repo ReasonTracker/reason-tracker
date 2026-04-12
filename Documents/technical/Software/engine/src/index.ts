@@ -1,9 +1,9 @@
-export { runCli } from "./cli/cli.ts";
 export {
     runCliFromArgv,
     runCliFromProcess,
     type CliIoResult,
 } from "./cli/cli-io.ts";
+export { calculateDebate } from "./scoring/calculateDebate.ts";
 export { calculateDebate as calculateScores } from "./scoring/calculateDebate.ts";
 
 export type {

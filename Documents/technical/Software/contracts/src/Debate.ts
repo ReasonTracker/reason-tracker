@@ -75,6 +75,11 @@ export type ScorePropagationChange = {
     };
 };
 
+export type CalculateDebateCycleHandling =
+    | "fail"
+    | "cut"
+    | "simulateAllSingleCuts";
+
 export type CalculateDebateOptions = {
     includeInitialScores?: boolean;
     includePropagationScoreChanges?: boolean;
@@ -84,6 +89,7 @@ export type CalculateDebateRequest<
     O extends CalculateDebateOptions | undefined = undefined,
 > = {
     debate: Debate | CalculatedDebate;
+    cycleHandling?: CalculateDebateCycleHandling;
     actions?: DebateAction[];
     options?: O;
 };
@@ -93,6 +99,7 @@ type CalculateDebateSuccessBase = {
     fatal: false;
     diagnostics: CalculateDebateDiagnostic[];
     scores: Record<ClaimId, Score>;
+    simulations?: CalculatedDebate[];
 };
 
 type CalculateDebateSuccessExtras<
@@ -109,6 +116,10 @@ export type CalculateDebateFailure = {
     fatal: true;
     reason: "cycleDetected" | "invalidRequest";
     cycleClaimIds?: ClaimId[];
+    sccClaimIds?: string[][];
+    message?: string;
+    details?: Record<string, unknown>;
+    validationErrorCode?: "INVALID_DEBATE" | "SIMULATION_LIMIT_EXCEEDED";
     diagnostics?: CalculateDebateDiagnostic[];
 };
 

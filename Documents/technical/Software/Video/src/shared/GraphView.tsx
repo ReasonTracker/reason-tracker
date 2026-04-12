@@ -1,6 +1,6 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { ClaimId, Debate } from "@reasontracker/contracts";
-import { runCli } from "@reasontracker/engine";
+import { calculateScores } from "@reasontracker/engine";
 import {
   buildLayoutModel,
   computeContributorNodeSizing,
@@ -206,18 +206,22 @@ function resolveZoomScale(
 }
 
 async function renderGraph(debate: Debate): Promise<WebGraph> {
-  const calculation = runCli({
-    command: "calculateDebate",
+  const calculation = calculateScores({
     debate,
     cycleHandling: "fail",
   });
 
   if (!calculation.ok) {
-    throw new Error(`calculateDebate failed: ${calculation.error.code} ${calculation.error.message}`);
+    throw new Error(
+      `calculateDebate failed: ${calculation.reason} ${calculation.message ?? ""}`.trim(),
+    );
   }
 
   const built = buildLayoutModel({
-    calculatedDebate: calculation.calculatedDebate,
+    calculatedDebate: {
+      ...debate,
+      scores: calculation.scores,
+    },
     cycleMode: "preserve",
   });
 

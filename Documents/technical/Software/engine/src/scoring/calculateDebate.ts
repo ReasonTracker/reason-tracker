@@ -3,6 +3,7 @@ import {
     type CalculateDebateOptions,
     type CalculateDebateRequest,
     type CalculateDebateResult,
+    type CalculatedDebate,
     type Claim,
     deriveTargetRelation,
     type ClaimId,
@@ -27,22 +28,60 @@ type InternalScoreResult =
           cycleClaimIds: ClaimId[];
       };
 
+type ValidationFailure = {
+    code: "INVALID_DEBATE";
+    message: string;
+    details?: Record<string, unknown>;
+};
+
+const MAX_SIMULATION_RUNS = 8;
+
 export function calculateDebate<
     O extends CalculateDebateOptions | undefined = undefined,
 >(request: CalculateDebateRequest<O>): CalculateDebateResult<O> {
+    const cycleHandling = request.cycleHandling ?? "fail";
+    if (cycleHandling === "cut") {
+        return runDeterministicCut(request) as CalculateDebateResult<O>;
+    }
+
+    if (cycleHandling === "simulateAllSingleCuts") {
+        return runSimulateAllSingleCuts(request) as CalculateDebateResult<O>;
+    }
+
+    return runFailMode(request) as CalculateDebateResult<O>;
+}
+
+function runFailMode<O extends CalculateDebateOptions | undefined>(
+    request: CalculateDebateRequest<O>,
+): CalculateDebateResult<O> {
     const diagnostics: CalculateDebateDiagnostic[] = [];
     const includeInitialScores = request.options?.includeInitialScores === true;
     const includePropagationScoreChanges =
         request.options?.includePropagationScoreChanges === true;
 
     let workingDebate = toDebate(request.debate);
+    const initialValidationFailure = validateDebate(workingDebate);
+    if (initialValidationFailure) {
+        return {
+            ok: false,
+            fatal: true,
+            reason: "invalidRequest",
+            validationErrorCode: initialValidationFailure.code,
+            message: initialValidationFailure.message,
+            details: initialValidationFailure.details,
+            diagnostics,
+        } as CalculateDebateResult<O>;
+    }
+
     const initialResult = calculateScores(workingDebate);
     if (!initialResult.ok) {
+        const sccClaimIds = getCycleSccClaimIds(workingDebate);
         return {
             ok: false,
             fatal: true,
             reason: "cycleDetected",
             cycleClaimIds: initialResult.cycleClaimIds,
+            sccClaimIds,
             diagnostics,
         } as CalculateDebateResult<O>;
     }
@@ -55,13 +94,28 @@ export function calculateDebate<
         const action = actions[actionIndex];
         workingDebate = applyAction(workingDebate, action, actionIndex, diagnostics);
 
+        const actionValidationFailure = validateDebate(workingDebate);
+        if (actionValidationFailure) {
+            return {
+                ok: false,
+                fatal: true,
+                reason: "invalidRequest",
+                validationErrorCode: actionValidationFailure.code,
+                message: actionValidationFailure.message,
+                details: actionValidationFailure.details,
+                diagnostics,
+            } as CalculateDebateResult<O>;
+        }
+
         const actionScoreResult = calculateScores(workingDebate);
         if (!actionScoreResult.ok) {
+            const sccClaimIds = getCycleSccClaimIds(workingDebate);
             return {
                 ok: false,
                 fatal: true,
                 reason: "cycleDetected",
                 cycleClaimIds: actionScoreResult.cycleClaimIds,
+                sccClaimIds,
                 diagnostics,
             } as CalculateDebateResult<O>;
         }
@@ -93,6 +147,160 @@ export function calculateDebate<
     return success as CalculateDebateResult<O>;
 }
 
+function runDeterministicCut<O extends CalculateDebateOptions | undefined>(
+    request: CalculateDebateRequest<O>,
+): CalculateDebateResult<O> {
+    const diagnostics: CalculateDebateDiagnostic[] = [];
+    let workingDebate = toDebate(request.debate);
+    const initialValidationFailure = validateDebate(workingDebate);
+    if (initialValidationFailure) {
+        return {
+            ok: false,
+            fatal: true,
+            reason: "invalidRequest",
+            validationErrorCode: initialValidationFailure.code,
+            message: initialValidationFailure.message,
+            details: initialValidationFailure.details,
+            diagnostics,
+        } as CalculateDebateResult<O>;
+    }
+
+    const maxIterations = Object.keys(workingDebate.connectors).length + 1;
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+        const scoreResult = calculateScores(workingDebate);
+        if (scoreResult.ok) {
+            return {
+                ok: true,
+                fatal: false,
+                diagnostics,
+                scores: scoreResult.scores,
+            } as CalculateDebateResult<O>;
+        }
+
+        const sccClaimIds = getCycleSccClaimIds(workingDebate);
+        const cutCandidate = getCycleConnectorIds(workingDebate, sccClaimIds)[0];
+        if (!cutCandidate) {
+            return {
+                ok: false,
+                fatal: true,
+                reason: "cycleDetected",
+                cycleClaimIds: scoreResult.cycleClaimIds,
+                sccClaimIds,
+                message: "Cycle detected and deterministic cut could not resolve it.",
+                diagnostics,
+            } as CalculateDebateResult<O>;
+        }
+
+        const nextConnectors = { ...workingDebate.connectors };
+        delete nextConnectors[cutCandidate as keyof typeof nextConnectors];
+        workingDebate = {
+            ...workingDebate,
+            connectors: nextConnectors,
+        };
+    }
+
+    const finalSortResult = sortSourceIdsFirst(workingDebate);
+    return {
+        ok: false,
+        fatal: true,
+        reason: "cycleDetected",
+        cycleClaimIds: finalSortResult.ok
+            ? []
+            : finalSortResult.cycleClaimIds,
+        sccClaimIds: getCycleSccClaimIds(workingDebate),
+        message: "Cycle detected and deterministic cut exceeded iteration limit.",
+        diagnostics,
+    } as CalculateDebateResult<O>;
+}
+
+function runSimulateAllSingleCuts<O extends CalculateDebateOptions | undefined>(
+    request: CalculateDebateRequest<O>,
+): CalculateDebateResult<O> {
+    const diagnostics: CalculateDebateDiagnostic[] = [];
+    const baseDebate = toDebate(request.debate);
+    const initialValidationFailure = validateDebate(baseDebate);
+    if (initialValidationFailure) {
+        return {
+            ok: false,
+            fatal: true,
+            reason: "invalidRequest",
+            validationErrorCode: initialValidationFailure.code,
+            message: initialValidationFailure.message,
+            details: initialValidationFailure.details,
+            diagnostics,
+        } as CalculateDebateResult<O>;
+    }
+
+    const cycleResult = calculateScores(baseDebate);
+    if (cycleResult.ok) {
+        return {
+            ok: true,
+            fatal: false,
+            diagnostics,
+            scores: cycleResult.scores,
+            simulations: [],
+        } as CalculateDebateResult<O>;
+    }
+
+    const sccClaimIds = getCycleSccClaimIds(baseDebate);
+    const cycleConnectorIds = getCycleConnectorIds(baseDebate, sccClaimIds);
+    if (cycleConnectorIds.length > MAX_SIMULATION_RUNS) {
+        return {
+            ok: false,
+            fatal: true,
+            reason: "invalidRequest",
+            validationErrorCode: "SIMULATION_LIMIT_EXCEEDED",
+            message: "Simulation aborted because projected work exceeded limits.",
+            details: {
+                projectedSimulations: cycleConnectorIds.length,
+                maxSimulations: MAX_SIMULATION_RUNS,
+            },
+            cycleClaimIds: cycleResult.cycleClaimIds,
+            sccClaimIds,
+            diagnostics,
+        } as CalculateDebateResult<O>;
+    }
+
+    const simulations: CalculatedDebate[] = [];
+    for (const connectorId of cycleConnectorIds) {
+        const nextConnectors = { ...baseDebate.connectors };
+        delete nextConnectors[connectorId as keyof typeof nextConnectors];
+
+        const simulatedDebate: Debate = {
+            ...baseDebate,
+            connectors: nextConnectors,
+        };
+
+        const scoreResult = calculateScores(simulatedDebate);
+        if (!scoreResult.ok) continue;
+
+        simulations.push({
+            ...simulatedDebate,
+            scores: scoreResult.scores,
+        });
+    }
+
+    if (simulations.length < 1) {
+        return {
+            ok: false,
+            fatal: true,
+            reason: "cycleDetected",
+            cycleClaimIds: cycleResult.cycleClaimIds,
+            sccClaimIds,
+            message: "No valid DAG simulations produced by simulateAllSingleCuts.",
+            diagnostics,
+        } as CalculateDebateResult<O>;
+    }
+
+    return {
+        ok: true,
+        fatal: false,
+        diagnostics,
+        scores: averageScores(simulations),
+        simulations,
+    } as CalculateDebateResult<O>;
+}
+
 function toDebate(input: Debate | (Debate & { scores?: Record<ClaimId, Score> })): Debate {
     if ("scores" in input) {
         const { scores: _scores, ...debate } = input;
@@ -100,6 +308,74 @@ function toDebate(input: Debate | (Debate & { scores?: Record<ClaimId, Score> })
     }
 
     return input;
+}
+
+function validateDebate(debate: Debate): ValidationFailure | undefined {
+    if (!debate || typeof debate !== "object") {
+        return {
+            code: "INVALID_DEBATE",
+            message: "Debate must be an object.",
+        };
+    }
+
+    const claims = debate.claims;
+    const connectors = debate.connectors;
+    if (!claims || typeof claims !== "object") {
+        return {
+            code: "INVALID_DEBATE",
+            message: "Debate claims must be an object.",
+        };
+    }
+
+    if (!connectors || typeof connectors !== "object") {
+        return {
+            code: "INVALID_DEBATE",
+            message: "Debate connectors must be an object.",
+        };
+    }
+
+    if (!debate.mainClaimId || !(debate.mainClaimId in claims)) {
+        return {
+            code: "INVALID_DEBATE",
+            message: "Debate mainClaimId must reference an existing claim.",
+            details: {
+                mainClaimId: debate.mainClaimId,
+            },
+        };
+    }
+
+    for (const connector of Object.values(connectors)) {
+        if (!connector || typeof connector !== "object") {
+            return {
+                code: "INVALID_DEBATE",
+                message: "Every connector must be an object.",
+            };
+        }
+
+        if (typeof connector.source !== "string" || typeof connector.target !== "string") {
+            return {
+                code: "INVALID_DEBATE",
+                message: "Every connector must include string source and target fields.",
+                details: {
+                    connectorId: String(connector.id),
+                },
+            };
+        }
+
+        if (!(connector.source in claims) || !(connector.target in claims)) {
+            return {
+                code: "INVALID_DEBATE",
+                message: "Connector endpoints must reference existing claims.",
+                details: {
+                    connectorId: String(connector.id),
+                    source: connector.source,
+                    target: connector.target,
+                },
+            };
+        }
+    }
+
+    return undefined;
 }
 
 function calculateScores(debate: Debate): InternalScoreResult {
@@ -450,4 +726,144 @@ function createPropagationChanges(
         after: entry.after,
         delta: entry.delta,
     }));
+}
+
+function averageScores(simulations: CalculatedDebate[]): Record<ClaimId, Score> {
+    const sums = new Map<
+        string,
+        {
+            confidence: number;
+            reversibleConfidence: number;
+            relevance: number;
+            count: number;
+        }
+    >();
+
+    for (const simulation of simulations) {
+        for (const [claimId, score] of Object.entries(simulation.scores)) {
+            const sum = sums.get(claimId) ?? {
+                confidence: 0,
+                reversibleConfidence: 0,
+                relevance: 0,
+                count: 0,
+            };
+
+            sum.confidence += score.confidence;
+            sum.reversibleConfidence += score.reversibleConfidence;
+            sum.relevance += score.relevance;
+            sum.count += 1;
+            sums.set(claimId, sum);
+        }
+    }
+
+    const averaged = {} as Record<ClaimId, Score>;
+    const sortedClaimIds = Array.from(sums.keys()).sort();
+    for (const claimId of sortedClaimIds) {
+        const sum = sums.get(claimId);
+        if (!sum || sum.count < 1) continue;
+
+        averaged[claimId as ClaimId] = {
+            id: claimId as Score["id"],
+            claimId: claimId as ClaimId,
+            confidence: sum.confidence / sum.count,
+            reversibleConfidence: sum.reversibleConfidence / sum.count,
+            relevance: sum.relevance / sum.count,
+        };
+    }
+
+    return averaged;
+}
+
+function getCycleSccClaimIds(debate: Debate): string[][] {
+    const adjacency = new Map<string, string[]>();
+    const allNodes = new Set<string>(Object.keys(debate.claims));
+
+    for (const connector of Object.values(debate.connectors)) {
+        allNodes.add(connector.source);
+        allNodes.add(connector.target);
+    }
+
+    for (const nodeId of allNodes) {
+        adjacency.set(nodeId, []);
+    }
+
+    for (const connector of Object.values(debate.connectors)) {
+        adjacency.get(connector.source)?.push(connector.target);
+    }
+
+    let index = 0;
+    const stack: string[] = [];
+    const onStack = new Set<string>();
+    const indices = new Map<string, number>();
+    const lowLink = new Map<string, number>();
+    const sccs: string[][] = [];
+
+    function strongConnect(nodeId: string): void {
+        indices.set(nodeId, index);
+        lowLink.set(nodeId, index);
+        index += 1;
+        stack.push(nodeId);
+        onStack.add(nodeId);
+
+        for (const next of adjacency.get(nodeId) ?? []) {
+            if (!indices.has(next)) {
+                strongConnect(next);
+                lowLink.set(
+                    nodeId,
+                    Math.min(lowLink.get(nodeId) ?? 0, lowLink.get(next) ?? 0),
+                );
+            } else if (onStack.has(next)) {
+                lowLink.set(
+                    nodeId,
+                    Math.min(lowLink.get(nodeId) ?? 0, indices.get(next) ?? 0),
+                );
+            }
+        }
+
+        if (lowLink.get(nodeId) !== indices.get(nodeId)) return;
+
+        const component: string[] = [];
+        while (stack.length > 0) {
+            const popped = stack.pop()!;
+            onStack.delete(popped);
+            component.push(popped);
+            if (popped === nodeId) break;
+        }
+
+        const hasSelfLoop = (adjacency.get(component[0]) ?? []).includes(component[0]);
+        if (component.length > 1 || hasSelfLoop) {
+            component.sort();
+            sccs.push(component);
+        }
+    }
+
+    for (const nodeId of Array.from(allNodes).sort()) {
+        if (!indices.has(nodeId)) {
+            strongConnect(nodeId);
+        }
+    }
+
+    sccs.sort((a, b) => a.join("|").localeCompare(b.join("|")));
+    return sccs;
+}
+
+function getCycleConnectorIds(debate: Debate, sccClaimIds: string[][]): string[] {
+    const nodeToGroup = new Map<string, number>();
+    for (const [groupIndex, group] of sccClaimIds.entries()) {
+        for (const nodeId of group) {
+            nodeToGroup.set(nodeId, groupIndex);
+        }
+    }
+
+    const connectorIds: string[] = [];
+    for (const connector of Object.values(debate.connectors)) {
+        const sourceGroup = nodeToGroup.get(connector.source);
+        const targetGroup = nodeToGroup.get(connector.target);
+        if (sourceGroup === undefined || targetGroup === undefined) continue;
+        if (sourceGroup !== targetGroup) continue;
+        connectorIds.push(String(connector.id));
+    }
+
+    connectorIds.sort();
+    return connectorIds;
 }

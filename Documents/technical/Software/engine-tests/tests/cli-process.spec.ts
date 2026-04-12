@@ -43,7 +43,7 @@ describe("engine CLI process integration", () => {
 });
 
 function runCliProcess(argv: string[], stdinPayload: unknown) {
-  const cliMainPath = resolve(SOFTWARE_ASSETS_ROOT, "engine", "src", "cli-main.ts");
+  const cliMainPath = resolve(SOFTWARE_ASSETS_ROOT, "engine", "src", "cli", "cli-main.ts");
   return spawnSync(
     process.execPath,
     ["--experimental-strip-types", cliMainPath, ...argv],

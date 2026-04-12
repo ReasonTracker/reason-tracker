@@ -1,6 +1,6 @@
 ﻿import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { runCli } from "@reasontracker/engine";
+import { calculateScores } from "@reasontracker/engine";
 import type {
     Claim,
     ClaimId,
@@ -207,18 +207,22 @@ function buildSampleDebate(): Debate {
 async function main(): Promise<void> {
     const debate = buildSampleDebate();
 
-    const calculation = runCli({
-        command: "calculateDebate",
+    const calculation = calculateScores({
         debate,
         cycleHandling: "fail",
     });
 
     if (!calculation.ok) {
-        throw new Error(`calculateDebate failed: ${calculation.error.code} ${calculation.error.message}`);
+        throw new Error(
+            `calculateDebate failed: ${calculation.reason} ${calculation.message ?? ""}`.trim(),
+        );
     }
 
     const built = buildLayoutModel({
-        calculatedDebate: calculation.calculatedDebate,
+        calculatedDebate: {
+            ...debate,
+            scores: calculation.scores,
+        },
         cycleMode: "preserve",
     });
 
