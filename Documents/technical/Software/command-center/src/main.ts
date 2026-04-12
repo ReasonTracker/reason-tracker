@@ -196,7 +196,7 @@ function renderHome(payload: HomePayload) {
     <section class="panel hero-panel">
       <div class="panel-inner">
         <div class="eyebrow">Software Command Center</div>
-        <h1><span class="brand-pro">Reason</span> <span class="brand-con">Tracker</span> Operations</h1>
+        <h1><span class="brand-pro">Reason</span> <span class="brand-con">Tracker</span> Command Center</h1>
         <p class="shell-copy">The workspace home for dev servers, tests, publishing, and video workflows.</p>
         <div class="hero-grid">
           <div class="hero-spotlight">
@@ -301,6 +301,10 @@ function bindActionHandlers() {
 }
 
 async function runAction(action: string, episodeId: string, slug: string) {
+  if (state.busyKey.length > 0) {
+    return;
+  }
+
   state.busyKey = [action, episodeId, slug].join(":");
   state.flash = null;
   renderApp();

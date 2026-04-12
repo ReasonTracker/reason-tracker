@@ -105,7 +105,7 @@ h3 {
 
 h1 {
   margin-top: 14px;
-  font-size: clamp(40px, 6vw, 78px);
+  font-size: clamp(32px, 4.8vw, 62px);
 }
 
 h2 {
