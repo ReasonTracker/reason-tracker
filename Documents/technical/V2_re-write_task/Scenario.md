@@ -27,19 +27,19 @@
     - Step count: one wave step containing many ordered mutation records.
     - Step type: `RecalculationWaveStep`.
     - For each reached score, the score updates first.
-        - Mutation type: `ScoreValuesChangedMutation`.
+        - Mutation type: `ScoreCoreValuesChangedMutation`.
         - Stored data: `scoreId`, `before`, `after`, and `direction`.
         - The `after` values include changes to `confidence`, `reversibleConfidence`, and `relevance`.
     - If the source-scale contribution changes, that is recorded separately.
         - Mutation type: `ScaleOfSourcesChangedMutation`.
         - Stored data: `scoreId`, `before`, `after`, and `direction` for `scaleOfSources`.
     - The receiving claim reached through those connectors then updates its own score.
-        - This is another `ScoreValuesChangedMutation` for the next reached score.
+        - This is another `ScoreCoreValuesChangedMutation` for the next reached score.
     - Connector width, layout, and node-position changes are downstream effects of changed score values such as `scaleOfSources`, not separate stored mutation records in this domain model.
     - The same ordered sequence repeats for the next reached part of the graph until no more scores need to be changed.
 - Re-sort sources: an optional full sort may run later only if a rule requires re-ordering existing sources, not just inserting a new one.
     - Step count: one atomic step.
-    - Step type: `ResortSourcesStep`.
+    - Step type: `IncomingSourcesResortedStep`.
     - Stored data: `scoreId` and the fully re-ordered `incomingConnectorIds`.
 
 ## Ordering Terms

@@ -43,16 +43,16 @@ export type Intent =
 export type Step =
     | AppliedAddLeafClaimStep
     | RecalculationWaveStep
-    | ResortSourcesStep;
+    | IncomingSourcesResortedStep;
 
 export type Mutation =
-    | ScoreValuesChangedMutation
+    | ScoreCoreValuesChangedMutation
     | ScaleOfSourcesChangedMutation;
 
 /** Received event: add a new claim to an existing graph as a leaf. */
 export interface ReceivedAddLeafClaimIntent {
     id: RecordId
-    kind: "claim.addedAsLeaf.received"
+    type: "ReceivedAddLeafClaimIntent"
     claim: Claim
     connector: Connector
 }
@@ -60,21 +60,21 @@ export interface ReceivedAddLeafClaimIntent {
 /** Received event: add a connection between two existing claims. */
 export interface ReceivedAddConnectionIntent {
     id: RecordId
-    kind: "connector.added.received"
+    type: "ReceivedAddConnectionIntent"
     connector: Connector
 }
 
 /** Received event: remove an existing connection between two claims. */
 export interface ReceivedRemoveConnectionIntent {
     id: RecordId
-    kind: "connector.removed.received"
+    type: "ReceivedRemoveConnectionIntent"
     connectorId: ConnectorId
 }
 
 /** Received event: move an existing claim to a different target in the graph. */
 export interface ReceivedMoveClaimIntent {
     id: RecordId
-    kind: "claim.moved.received"
+    type: "ReceivedMoveClaimIntent"
     claimId: ClaimId
     targetClaimId: ClaimId
 }
@@ -82,14 +82,14 @@ export interface ReceivedMoveClaimIntent {
 /** Received event: remove an existing claim from the graph. */
 export interface ReceivedRemoveClaimIntent {
     id: RecordId
-    kind: "claim.removed.received"
+    type: "ReceivedRemoveClaimIntent"
     claimId: ClaimId
 }
 
 /** Applied action: add the new claim, connector, and score to the Debate data. */
 export interface AppliedAddLeafClaimStep {
     id: RecordId
-    kind: "claim.addedAsLeaf.applied"
+    type: "AppliedAddLeafClaimStep"
     claim: Claim
     connector: Connector
     score: Score
@@ -105,14 +105,14 @@ export interface AppliedAddLeafClaimStep {
  */
 export interface RecalculationWaveStep {
     id: RecordId
-    kind: "scores.recalculatedInWave"
+    type: "RecalculationWaveStep"
     mutations: Mutation[]
 }
 
 /** The calculated values on a Score change as propagation reaches it. */
-export interface ScoreValuesChangedMutation {
+export interface ScoreCoreValuesChangedMutation {
     id: RecordId
-    kind: "score.values.changed"
+    type: "ScoreCoreValuesChangedMutation"
     scoreId: ScoreId
     before: Pick<Score, "confidence" | "reversibleConfidence" | "relevance">
     after: Pick<Score, "confidence" | "reversibleConfidence" | "relevance">
@@ -122,7 +122,7 @@ export interface ScoreValuesChangedMutation {
 /** The scale contributed by source Scores changes as propagation reaches it. */
 export interface ScaleOfSourcesChangedMutation {
     id: RecordId
-    kind: "score.scaleOfSources.changed"
+    type: "ScaleOfSourcesChangedMutation"
     scoreId: ScoreId
     before: Pick<Score, "scaleOfSources">
     after: Pick<Score, "scaleOfSources">
@@ -132,9 +132,9 @@ export interface ScaleOfSourcesChangedMutation {
 /**
  * The target-side Score owns the canonical order of the displayed incoming connectors.
  */
-export interface ResortSourcesStep {
+export interface IncomingSourcesResortedStep {
     id: RecordId
-    kind: "score.incomingSources.resorted"
+    type: "IncomingSourcesResortedStep"
     scoreId: ScoreId
     incomingConnectorIds: ConnectorId[]
 }

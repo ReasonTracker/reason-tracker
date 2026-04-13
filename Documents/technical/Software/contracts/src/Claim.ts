@@ -23,10 +23,10 @@ export interface Claim{
     forceConfidence?: number
 }
 
-export type ProtoClaim = Partial<Claim>;
+export type ClaimCreate = Partial<Claim>;
 
 /** Populates defaults */
-export function newClaim<T extends ProtoClaim = ProtoClaim>(partialItem: T = {} as T): T & Claim {
+export function newClaim<T extends ClaimCreate = ClaimCreate>(partialItem: T = {} as T): T & Claim {
     const newItem = {
         ...partialItem,
         content: partialItem.content ?? "",

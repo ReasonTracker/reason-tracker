@@ -1,7 +1,7 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import { newId } from "./newId.ts";
-import type { ClaimSide } from "./Claim.ts";
+import type { ClaimId, ClaimSide } from "./Claim.ts";
 
 export type ConnectorId = string & { readonly __brand: "ConnectorId" };
 export type TargetRelation = "proTarget" | "conTarget";
@@ -16,19 +16,19 @@ export interface Connector {
     id: ConnectorId
 
     /** the id of the claim that is being attacked or supported. */
-    target: string
+    target: ClaimId
 
     /** the id of the claim that is doing the attacking or supporting of the target claim. */
-    source: string
+    source: ClaimId
 
     /** indicates if the source claim is affecting the target claim's confidence or relevance */
     affects: Affects
 }
 
-export type ProtoConnector = Partial<Connector> & Pick<Connector, 'target' | 'source'>;
+export type ConnectorCreate = Partial<Connector> & Pick<Connector, "target" | "source">;
 
 /** Populates defaults */
-export function newConnector<T extends ProtoConnector>(partialItem: T): T & Connector {
+export function newConnector<T extends ConnectorCreate>(partialItem: T): T & Connector {
     const newItem = {
         ...partialItem,
         id: partialItem.id ?? (newId() as ConnectorId),
