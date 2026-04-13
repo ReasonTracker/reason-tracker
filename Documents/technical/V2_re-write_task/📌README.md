@@ -3,7 +3,7 @@
 This project is to rewrite most of the core code of reason-tracker into V2 code that has very different types.
 
 ## Current task
-I am working in the contracts folder and have only really worked on Score. It is probably completed and is the standard for the rest of the contracts. Double check Score one more time then move on to the other files.
+Done with contracts and data structures, next: Start on engine?
 
 ## Old code for reference
 
