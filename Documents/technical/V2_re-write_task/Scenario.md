@@ -14,33 +14,33 @@
 - Received add leaf claim: the initiating action is recorded as `Add leaf claim`.
     - This record is important, but by itself it does not update the Debate data.
     - Intent type: `ReceivedAddLeafClaimIntent`.
-    - Stored data: the new `claim` and `connector`.
+    - Stored data: the new `claim`, `connector`, and `targetScoreId`.
 - Applied add leaf claim: the Debate data is updated to add the new claim, connector, and score.
     - This step also places the new source into the target score's incoming source order without re-ordering the existing sources.
     - Step count: one atomic step.
     - Step type: `AppliedAddLeafClaimStep`.
-    - Stored data: the new `claim`, `connector`, and `score`, plus the canonical `incomingConnectorIds` order for the affected target score.
+    - Stored data: the new `claim`, `connector`, and `score`, plus the canonical `incomingScoreIds` order for the affected target score.
     - Downstream in the system, the layout function moves the positions of claims and connector end points to adjust for the new object.
     The UI recognizes this step as the time to visually grow the new claim (or fade in etc...) and draw the line for the new connector.
 - Recalculation wave: score and connector-width changes propagate through the graph from the changed node according to the scoring algorithm.
     - This is one step, not many separate steps.
-    - Step count: one wave step containing many ordered mutation records.
+    - Step count: one wave step containing many ordered change records.
     - Step type: `RecalculationWaveStep`.
     - For each reached score, the score updates first.
-        - Mutation type: `ScoreCoreValuesChangedMutation`.
+        - Change type: `ScoreCoreValuesChanged`.
         - Stored data: `scoreId`, `before`, `after`, and `direction`.
         - The `after` values include changes to `confidence`, `reversibleConfidence`, and `relevance`.
     - If the source-scale contribution changes, that is recorded separately.
-        - Mutation type: `ScaleOfSourcesChangedMutation`.
+        - Change type: `ScaleOfSourcesChanged`.
         - Stored data: `scoreId`, `before`, `after`, and `direction` for `scaleOfSources`.
     - The receiving claim reached through those connectors then updates its own score.
-        - This is another `ScoreCoreValuesChangedMutation` for the next reached score.
-    - Connector width, layout, and node-position changes are downstream effects of changed score values such as `scaleOfSources`, not separate stored mutation records in this domain model.
+        - This is another `ScoreCoreValuesChanged` for the next reached score.
+    - Connector width, layout, and node-position changes are downstream effects of changed score values such as `scaleOfSources`, not separate stored change records in this domain model.
     - The same ordered sequence repeats for the next reached part of the graph until no more scores need to be changed.
 - Re-sort sources: an optional full sort may run later only if a rule requires re-ordering existing sources, not just inserting a new one.
     - Step count: one atomic step.
     - Step type: `IncomingSourcesResortedStep`.
-    - Stored data: `scoreId` and the fully re-ordered `incomingConnectorIds`.
+    - Stored data: `scoreId` and the fully re-ordered `incomingScoreIds`.
 
 ## Ordering Terms
 

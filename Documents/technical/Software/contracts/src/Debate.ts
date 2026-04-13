@@ -3,7 +3,7 @@
 import { newId } from "./newId.ts";
 import type { Claim, ClaimId } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
-import type { Score } from "./Score.ts";
+import type { Score, ScoreId } from "./Score.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
 
@@ -31,10 +31,10 @@ export interface Debate {
     /** The source data for connectors of the graph but not actually what is displayed. */
     connectors: Record<ConnectorId, Connector>
 
-    /** The calculated scores for each claim in the debate.
+    /** The calculated scores for each displayed score location in the debate.
      * This includes the calculations and the connection between the displayed nodes of the graph.
      * And some display information */
-    scores: Record<ClaimId, Score>
+    scores: Record<ScoreId, Score>
 
 }
 

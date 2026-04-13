@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Claim, ClaimId } from "./Claim.ts";
+import type { Claim, ClaimId, ClaimSide } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
 import type { Score, ScoreId } from "./Score.ts";
 
@@ -31,23 +31,36 @@ export interface IntentSequence {
  *
  * Intents are received records.
  * Steps are the semantic stages that follow from an intent.
- * A recalculation wave step contains ordered mutation records.
+ * A recalculation wave step contains ordered change records.
  */
 export type Intent =
     | ReceivedAddLeafClaimIntent
     | ReceivedAddConnectionIntent
-    | ReceivedRemoveConnectionIntent
+    | ReceivedChangeClaimIntent
+    | ReceivedChangeConnectionIntent
     | ReceivedMoveClaimIntent
+    | ReceivedRemoveConnectionIntent
     | ReceivedRemoveClaimIntent;
 
 export type Step =
     | AppliedAddLeafClaimStep
+    | AppliedAddConnectionStep
+    | AppliedChangeClaimStep
+    | AppliedRemoveConnectionStep
+    | AppliedRemoveClaimStep
     | RecalculationWaveStep
     | IncomingSourcesResortedStep;
 
-export type Mutation =
-    | ScoreCoreValuesChangedMutation
-    | ScaleOfSourcesChangedMutation;
+export type Change =
+    | ScoreCoreValuesChanged
+    | ScaleOfSourcesChanged;
+
+export type ConnectionChange =
+    | AddConnection
+    | ChangeConnection
+    | RemoveConnection;
+
+export type ClaimChange = Partial<Pick<Claim, "content" | "side" | "forceConfidence">>;
 
 /** Received event: add a new claim to an existing graph as a leaf. */
 export interface ReceivedAddLeafClaimIntent {
@@ -55,6 +68,7 @@ export interface ReceivedAddLeafClaimIntent {
     type: "ReceivedAddLeafClaimIntent"
     claim: Claim
     connector: Connector
+    targetScoreId: ScoreId
 }
 
 /** Received event: add a connection between two existing claims. */
@@ -62,6 +76,14 @@ export interface ReceivedAddConnectionIntent {
     id: RecordId
     type: "ReceivedAddConnectionIntent"
     connector: Connector
+    targetScoreId: ScoreId
+}
+
+/** Received event: change one connection in the graph. */
+export interface ReceivedChangeConnectionIntent {
+    id: RecordId
+    type: "ReceivedChangeConnectionIntent"
+    change: ConnectionChange
 }
 
 /** Received event: remove an existing connection between two claims. */
@@ -71,12 +93,20 @@ export interface ReceivedRemoveConnectionIntent {
     connectorId: ConnectorId
 }
 
-/** Received event: move an existing claim to a different target in the graph. */
+/** Received event: move an existing claim by applying ordered connection changes. */
 export interface ReceivedMoveClaimIntent {
     id: RecordId
     type: "ReceivedMoveClaimIntent"
     claimId: ClaimId
-    targetClaimId: ClaimId
+    connectionChanges: ConnectionChange[]
+}
+
+/** Received event: change one claim's stored fields. */
+export interface ReceivedChangeClaimIntent {
+    id: RecordId
+    type: "ReceivedChangeClaimIntent"
+    claimId: ClaimId
+    change: ClaimChange
 }
 
 /** Received event: remove an existing claim from the graph. */
@@ -84,6 +114,27 @@ export interface ReceivedRemoveClaimIntent {
     id: RecordId
     type: "ReceivedRemoveClaimIntent"
     claimId: ClaimId
+}
+
+/** Add a connection and create a new displayed score location under one target score. */
+export interface AddConnection {
+    type: "AddConnection"
+    connector: Connector
+    targetScoreId: ScoreId
+}
+
+/** Remove one existing connection from the graph. */
+export interface RemoveConnection {
+    type: "RemoveConnection"
+    connectorId: ConnectorId
+}
+
+/** Replace one existing connection while selecting the resulting target score location. */
+export interface ChangeConnection {
+    type: "ChangeConnection"
+    connectorId: ConnectorId
+    connector: Connector
+    targetScoreId: ScoreId
 }
 
 /** Applied action: add the new claim, connector, and score to the Debate data. */
@@ -94,7 +145,42 @@ export interface AppliedAddLeafClaimStep {
     connector: Connector
     score: Score
     targetScoreId: ScoreId
-    incomingConnectorIds: ConnectorId[]
+    incomingScoreIds: ScoreId[]
+}
+
+/** Applied action: add one connection and one displayed score location to the Debate data. */
+export interface AppliedAddConnectionStep {
+    id: RecordId
+    type: "AppliedAddConnectionStep"
+    connector: Connector
+    score: Score
+    targetScoreId: ScoreId
+    incomingScoreIds: ScoreId[]
+}
+
+/** Applied action: remove one connection and its displayed score location from the Debate data. */
+export interface AppliedRemoveConnectionStep {
+    id: RecordId
+    type: "AppliedRemoveConnectionStep"
+    connector: Connector
+    score: Score
+    targetScoreId: ScoreId
+    incomingScoreIds: ScoreId[]
+}
+
+/** Applied action: update one claim's stored fields in the Debate data. */
+export interface AppliedChangeClaimStep {
+    id: RecordId
+    type: "AppliedChangeClaimStep"
+    claimBefore: Claim
+    claimAfter: Claim
+}
+
+/** Applied action: remove one claim from the Debate data after its scores are removed. */
+export interface AppliedRemoveClaimStep {
+    id: RecordId
+    type: "AppliedRemoveClaimStep"
+    claim: Claim
 }
 
 /**
@@ -106,13 +192,13 @@ export interface AppliedAddLeafClaimStep {
 export interface RecalculationWaveStep {
     id: RecordId
     type: "RecalculationWaveStep"
-    mutations: Mutation[]
+    changes: Change[]
 }
 
 /** The calculated values on a Score change as propagation reaches it. */
-export interface ScoreCoreValuesChangedMutation {
+export interface ScoreCoreValuesChanged {
     id: RecordId
-    type: "ScoreCoreValuesChangedMutation"
+    type: "ScoreCoreValuesChanged"
     scoreId: ScoreId
     before: Pick<Score, "confidence" | "reversibleConfidence" | "relevance">
     after: Pick<Score, "confidence" | "reversibleConfidence" | "relevance">
@@ -120,9 +206,9 @@ export interface ScoreCoreValuesChangedMutation {
 }
 
 /** The scale contributed by source Scores changes as propagation reaches it. */
-export interface ScaleOfSourcesChangedMutation {
+export interface ScaleOfSourcesChanged {
     id: RecordId
-    type: "ScaleOfSourcesChangedMutation"
+    type: "ScaleOfSourcesChanged"
     scoreId: ScoreId
     before: Pick<Score, "scaleOfSources">
     after: Pick<Score, "scaleOfSources">
@@ -130,11 +216,11 @@ export interface ScaleOfSourcesChangedMutation {
 }
 
 /**
- * The target-side Score owns the canonical order of the displayed incoming connectors.
+ * The target-side Score owns the canonical order of the displayed incoming scores.
  */
 export interface IncomingSourcesResortedStep {
     id: RecordId
     type: "IncomingSourcesResortedStep"
     scoreId: ScoreId
-    incomingConnectorIds: ConnectorId[]
+    incomingScoreIds: ScoreId[]
 }

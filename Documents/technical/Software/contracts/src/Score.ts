@@ -24,13 +24,20 @@ export interface Score {
     claimId: ClaimId
 
     /**
-     * The ordered connectors feeding into this displayed location.
+     * The connector that places this displayed location into the graph.
+     *
+     * Root or detached scores may omit this.
+     */
+    connectorId?: ConnectorId
+
+    /**
+     * The ordered scores feeding into this displayed location.
      *
      * This is the single stored owner of incoming display order for this Score.
      * Reverse lookup structures should be built as derived indexes rather than
      * duplicated in stored contract data.
      */
-    incomingConnectorIds: ConnectorId[]
+    incomingScoreIds: ScoreId[]
 
     /** How confident we should be in this displayed Claim. Ranges from 0 to 1. */
     confidence: number
@@ -60,7 +67,7 @@ export function newScore<T extends ScoreCreate>(partialItem: T): T & Score {
     const newItem = {
         ...partialItem,
         id: partialItem.id ?? (newId() as ScoreId),
-        incomingConnectorIds: partialItem.incomingConnectorIds ?? [],
+        incomingScoreIds: partialItem.incomingScoreIds ?? [],
         relevance: partialItem.relevance ?? 1,
         confidence: partialItem.confidence ?? 1,
         reversibleConfidence: partialItem.reversibleConfidence ?? 1,
