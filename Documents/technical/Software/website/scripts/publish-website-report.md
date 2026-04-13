@@ -1,12 +1,12 @@
 # Publish Website Report
 
-Last updated: 2026-04-11
+Last updated: 2026-04-13
 
 Run type: Publish website
 
 ## Summary
 
-- Source files published: 134
+- Source files published: 77
 - Site files scanned: 14
 - Augmentation files loaded: 2
 - Matched augmentation links: 2

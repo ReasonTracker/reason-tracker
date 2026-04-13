@@ -9,6 +9,26 @@ New assets should be created as direct children of this folder (for example, `en
 
 Run `pnpm run command-center:dev` from this folder to open the local Software command center. It is the default launcher for workspace operations, including the focused Video page and command discovery across package scripts.
 
+## Fresh Machine Tooling
+
+This repo expects `rg` (ripgrep) to be available in the local developer shell by default for fast code search.
+
+On a fresh Windows machine, run this once from the `Documents/technical/Software` folder:
+
+- `vp run developer:setup-machine`
+
+Then verify the shell tooling from the same folder:
+
+- `vp run developer:doctor`
+
+If Vite Plus is not available yet in the current shell, the direct fallback commands are:
+
+- `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1`
+- `node ./scripts/check-tooling.mjs`
+
+The bootstrap script installs `rg` and `fd` with the first supported Windows package manager it finds: `winget`, Chocolatey, or Scoop.
+These tools are for local development ergonomics and are not a CI requirement.
+
 <!-- autonav:start -->
 - [Engine](./engine/📌README.md)
 - [Renderer](./renderer/📌README.md)

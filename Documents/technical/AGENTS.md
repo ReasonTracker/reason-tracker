@@ -51,3 +51,15 @@
 
 ## Coding Conventions Pointer
 - While coding, read and follow `Documents/technical/Coding Guidelines.md` for code-structure conventions (for example folder creation and `index.ts` usage).
+
+## Tooling Conventions
+- Treat Vite Plus as the primary monorepo command entrypoint in `Documents/technical/Software`.
+- AI agents may have a default bias toward `pnpm` commands; do not use that default here when an equivalent direct `vp` command exists.
+- Prefer direct `vp` commands over `pnpm run` or `pnpm exec vp` when an equivalent Vite Plus command exists.
+- Prefer `vp run` for workspace and package script orchestration in the Software monorepo.
+- This repo expects `rg` to be available in the local developer shell for code search.
+- On a fresh Windows machine from `Documents/technical/Software`, run `vp run developer:setup-machine` to install `rg` and `fd`, then run `vp run developer:doctor` to verify the shell.
+- These local shell tools are not a CI requirement.
+- Canonical docs: https://viteplus.dev/
+- Product name and positioning: `Vite Plus - The Unified Toolchain for the Web`.
+- When command choice or workflow semantics are unclear, read the Vite Plus docs before falling back to package-manager conventions.

@@ -13,7 +13,7 @@
     "vite-plus": "^0.1.16"
   },
   "scripts": {
-    "build": "echo \"Build script pending\"",
+    "build": "echo \"No build output: @reasontracker/contracts is a source-only types/contracts package.\"",
     "test": "vp test --passWithNoTests",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   }
