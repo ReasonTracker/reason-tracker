@@ -60,12 +60,12 @@ export async function prepareAnimationSchedule(
 					stepId: step.id,
 					changes: [change],
 				}, request.layoutOptions);
-				unscheduledUnits.push({
-					name: `${step.type} / ${change.type} / ${change.scoreId}`,
-					from: workingPipeline,
-					to: nextPipeline,
-					animationSteps: nextPipeline.animationSteps ?? [],
-				});
+				pushTransitionUnits(
+					unscheduledUnits,
+					workingPipeline,
+					nextPipeline,
+					`${step.type} / ${change.type} / ${change.scoreId}`,
+				);
 				workingDebate = nextDebate;
 				workingPipeline = nextPipeline;
 			}
@@ -197,7 +197,11 @@ function resolveAnimationStepWeight(animationStep: AnimationStep | undefined): n
 			case "enter":
 			case "exit":
 				return 3;
-			case "update":
+			case "display":
+				return 2;
+			case "scale":
+				return 2;
+			case "layout":
 				return 2;
 		}
 	}

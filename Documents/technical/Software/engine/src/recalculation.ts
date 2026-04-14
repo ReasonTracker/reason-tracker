@@ -15,6 +15,7 @@ import {
 	calculateImpact,
 	clamp,
 	createScoreIndexes,
+	getScoresForClaimId,
 	getOutgoingTargetScoreIds,
 } from "./graph.ts";
 import { applyChange } from "./step-application.ts";
@@ -50,15 +51,13 @@ export function buildRecalculationWaveStep(
 			workingDebate = applyChange(workingDebate, scoreChange);
 		}
 
-		const refreshedScore = workingDebate.scores[scoreId];
-		const scaleChange = createScaleOfSourcesChanged(
-			refreshedScore,
-			recalculated.scaleOfSources,
-		);
-		if (scaleChange) {
+		const nextDebateWithScaleOfSources = synchronizeScoreScaleOfSources(workingDebate);
+		for (const scaleChange of createScaleOfSourcesChangedRecords(workingDebate, nextDebateWithScaleOfSources)) {
 			changes.push(scaleChange);
 			workingDebate = applyChange(workingDebate, scaleChange);
 		}
+
+		const refreshedScore = workingDebate.scores[scoreId];
 
 		for (const nextScoreId of getOutgoingTargetScoreIds(scoreIndexes, refreshedScore.id)) {
 			if (!processedScoreIds.has(nextScoreId)) {
@@ -124,14 +123,124 @@ function calculateScoreState(
 
 	const confidenceResult = calculateConfidence(confidenceChildren);
 	const relevance = calculateRelevance(relevanceChildren);
-	const scaleOfSources = calculateScaleOfSources(incomingChildren);
 
 	return {
 		confidence: confidenceResult.confidence,
 		reversibleConfidence: confidenceResult.reversibleConfidence,
 		relevance,
-		scaleOfSources,
+		scaleOfSources: score.scaleOfSources,
 	};
+}
+
+export function synchronizeScoreScaleOfSources(debate: Debate): Debate {
+	const scaleOfSourcesByScoreId = buildPropagatedScaleOfSourcesByScoreId(debate);
+	let hasChanges = false;
+	const nextScores = { ...debate.scores };
+
+	for (const [scoreId, score] of Object.entries(debate.scores) as Array<[ScoreId, Score]>) {
+		const nextScaleOfSources = scaleOfSourcesByScoreId[scoreId] ?? score.scaleOfSources;
+		if (score.scaleOfSources === nextScaleOfSources) {
+			continue;
+		}
+
+		hasChanges = true;
+		nextScores[scoreId] = {
+			...score,
+			scaleOfSources: nextScaleOfSources,
+		};
+	}
+
+	return hasChanges
+		? {
+			...debate,
+			scores: nextScores,
+		}
+		: debate;
+}
+
+function buildPropagatedScaleOfSourcesByScoreId(debate: Debate): Record<ScoreId, number> {
+	const rootScores = getScoresForClaimId(debate, debate.mainClaimId);
+	if (rootScores.length !== 1) {
+		throw new Error(`Expected exactly one root score for main claim ${debate.mainClaimId}, found ${rootScores.length}.`);
+	}
+
+	const rootScoreId = rootScores[0].id;
+	const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(debate, rootScoreId);
+	const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
+	const scaleOfSourcesByScoreId = {} as Record<ScoreId, number>;
+	const incomingScoreIdsByTargetScoreId = {} as Record<ScoreId, Set<ScoreId>>;
+
+	for (const scoreId of scoreIdsInLayoutOrder) {
+		confidenceCascadeScaleByScoreId[scoreId] = 1;
+		scaleOfSourcesByScoreId[scoreId] = scoreId === rootScoreId ? 1 : 0;
+		incomingScoreIdsByTargetScoreId[scoreId] = new Set(debate.scores[scoreId]?.incomingScoreIds ?? []);
+	}
+
+	const confidenceGroupScaleByTargetScoreId = {} as Record<ScoreId, number>;
+	for (const targetScoreId of scoreIdsInLayoutOrder) {
+		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
+		if (!incomingScoreIds || incomingScoreIds.size === 0) {
+			continue;
+		}
+
+		let totalPositiveConfidenceMass = 0;
+		for (const incomingScoreId of incomingScoreIds) {
+			const incomingScore = debate.scores[incomingScoreId];
+			if (!incomingScore) {
+				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+			}
+
+			if (incomingScore.confidence > 0) {
+				totalPositiveConfidenceMass += incomingScore.confidence;
+			}
+		}
+
+		confidenceGroupScaleByTargetScoreId[targetScoreId] = 1 / Math.max(1, totalPositiveConfidenceMass);
+	}
+
+	for (const targetScoreId of scoreIdsInLayoutOrder) {
+		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
+		if (!incomingScoreIds || incomingScoreIds.size === 0) {
+			continue;
+		}
+
+		const targetFinalScale = scaleOfSourcesByScoreId[targetScoreId] ?? 1;
+		const cascadedConfidenceScaleFromTarget = targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? 1);
+
+		let maxIncomingRelevance = 0;
+		for (const incomingScoreId of incomingScoreIds) {
+			const incomingScore = debate.scores[incomingScoreId];
+			if (!incomingScore) {
+				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+			}
+
+			maxIncomingRelevance = Math.max(maxIncomingRelevance, Math.max(0, incomingScore.relevance));
+		}
+		if (maxIncomingRelevance <= 0) {
+			maxIncomingRelevance = 1;
+		}
+
+		for (const incomingScoreId of incomingScoreIds) {
+			const incomingScore = debate.scores[incomingScoreId];
+			if (!incomingScore) {
+				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+			}
+
+			const nextConfidenceCascadeScale = Math.min(
+				confidenceCascadeScaleByScoreId[incomingScoreId] ?? 1,
+				cascadedConfidenceScaleFromTarget,
+			);
+			confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
+
+			const relevanceNormalizedScale = Math.min(
+				1,
+				Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
+			);
+			scaleOfSourcesByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
+		}
+	}
+
+	return scaleOfSourcesByScoreId;
 }
 
 function calculateConfidence(
@@ -188,25 +297,68 @@ function calculateRelevance(
 	return Math.max(relevance, 0);
 }
 
-function calculateScaleOfSources(children: Array<{ score: Score }>): number {
-	if (children.length < 1) {
-		return 0;
+function createScaleOfSourcesChangedRecords(beforeDebate: Debate, afterDebate: Debate): ScaleOfSourcesChanged[] {
+	const rootScores = getScoresForClaimId(afterDebate, afterDebate.mainClaimId);
+	if (rootScores.length !== 1) {
+		throw new Error(`Expected exactly one root score for main claim ${afterDebate.mainClaimId}, found ${rootScores.length}.`);
 	}
 
-	let totalWeight = 0;
-	let weightedScale = 0;
-	for (const child of children) {
-		const weight = Math.max(calculateImpact(child.score), 0);
-		const childScale = Math.max(child.score.scaleOfSources, child.score.confidence);
-		totalWeight += weight;
-		weightedScale += childScale * weight;
+	const orderedScoreIds = collectScoreIdsInLayoutOrder(afterDebate, rootScores[0].id);
+	const scaleChanges: ScaleOfSourcesChanged[] = [];
+
+	for (const scoreId of orderedScoreIds) {
+		const beforeScore = beforeDebate.scores[scoreId];
+		const afterScore = afterDebate.scores[scoreId];
+		if (!beforeScore || !afterScore || beforeScore.scaleOfSources === afterScore.scaleOfSources) {
+			continue;
+		}
+
+		scaleChanges.push({
+			id: newId() as RecordId,
+			type: "ScaleOfSourcesChanged",
+			scoreId,
+			before: {
+				scaleOfSources: beforeScore.scaleOfSources,
+			},
+			after: {
+				scaleOfSources: afterScore.scaleOfSources,
+			},
+			direction: "sourceToTarget",
+		});
 	}
 
-	if (totalWeight <= 0) {
-		return 0;
+	return scaleChanges;
+}
+
+function collectScoreIdsInLayoutOrder(debate: Debate, rootScoreId: ScoreId): ScoreId[] {
+	const visited = new Set<ScoreId>();
+	const ordered: ScoreId[] = [];
+
+	visitScore(rootScoreId);
+
+	for (const scoreId of Object.keys(debate.scores) as ScoreId[]) {
+		visitScore(scoreId);
 	}
 
-	return clamp(weightedScale / totalWeight, 0, 1);
+	return ordered;
+
+	function visitScore(scoreId: ScoreId): void {
+		if (visited.has(scoreId)) {
+			return;
+		}
+
+		const score = debate.scores[scoreId];
+		if (!score) {
+			throw new Error(`Score ${scoreId} was not found in the debate.`);
+		}
+
+		visited.add(scoreId);
+		ordered.push(scoreId);
+
+		for (const incomingScoreId of score.incomingScoreIds) {
+			visitScore(incomingScoreId);
+		}
+	}
 }
 
 function createScoreCoreValuesChanged(

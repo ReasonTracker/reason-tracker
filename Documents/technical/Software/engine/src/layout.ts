@@ -7,6 +7,7 @@ import type { AnimationStep, Change, Step } from "../../contracts/src/IntentSequ
 import type { Score, ScoreId } from "../../contracts/src/Score.ts";
 import type { DebatePipelineContext, IntentSequenceSelectionPipelineContext } from "./api.ts";
 import { getScoresForClaimId } from "./graph.ts";
+import { synchronizeScoreScaleOfSources } from "./recalculation.ts";
 
 // AGENT NOTE: keep tunable layout constants grouped here.
 const DEFAULT_SCORE_WIDTH = 320;
@@ -140,14 +141,15 @@ type LayoutElkPoint = {
 };
 
 export async function calculateLayout(request: CalculateLayoutRequest): Promise<DebateLayout> {
-	const rootScore = getRootScore(request.debate);
-	const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(request.debate, rootScore.id);
-	const elkGraph = buildElkGraph(request.debate, rootScore.id, scoreIdsInLayoutOrder, request.options);
+	const normalizedDebate = synchronizeScoreScaleOfSources(request.debate);
+	const rootScore = getRootScore(normalizedDebate);
+	const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(normalizedDebate, rootScore.id);
+	const elkGraph = buildElkGraph(normalizedDebate, rootScore.id, scoreIdsInLayoutOrder, request.options);
 	const elk = new (ELK as unknown as ElkConstructor)();
 	const laidOutGraph = await elk.layout(elkGraph);
 
 	return buildDebateLayout({
-		debate: request.debate,
+		debate: normalizedDebate,
 		rootScore,
 		scoreIdsInLayoutOrder,
 		laidOutGraph,
@@ -158,14 +160,16 @@ export async function calculateLayoutPipeline(
 	request: IntentSequenceSelectionPipelineContext,
 	options?: LayoutOptions,
 ): Promise<DebateLayoutPipelineContext> {
+	const normalizedDebate = synchronizeScoreScaleOfSources(request.debate);
 	const layout = await calculateLayout({
-		debate: request.debate,
+		debate: normalizedDebate,
 		options,
 	});
 
 	return {
 		...request,
-		animationSteps: request.animationSteps ?? buildAnimationStepsFromPipelineContext(request),
+		debate: normalizedDebate,
+		animationSteps: request.animationSteps ?? buildAnimationStepsFromPipelineContext({ ...request, debate: normalizedDebate }),
 		layout,
 	};
 }
@@ -238,30 +242,49 @@ function buildAnimationStepsFromPipelineContext(
 }
 
 function buildAnimationStepsFromChange(debate: Debate, change: Change): AnimationStep[] {
-	const animationSteps: AnimationStep[] = [];
-
-	const connectorId = debate.scores[change.scoreId]?.connectorId;
-	if (connectorId) {
-		animationSteps.push({
-			id: `${change.id}:connector-update` as never,
-			type: "ConnectorAnimationStep",
-			sourceRecordId: change.id,
-			connectorId,
-			phase: "update",
-			direction: change.direction,
-		});
+	if (change.type === "ScoreCoreValuesChanged") {
+		return [
+			{
+				id: `${change.id}:score-display` as never,
+				type: "ScoreAnimationStep",
+				sourceRecordId: change.id,
+				scoreId: change.scoreId,
+				phase: "display",
+				direction: change.direction,
+			},
+		];
 	}
 
-	animationSteps.push({
-		id: `${change.id}:score-update` as never,
-		type: "ScoreAnimationStep",
-		sourceRecordId: change.id,
-		scoreId: change.scoreId,
-		phase: "update",
-		direction: change.direction,
-	});
+	const score = debate.scores[change.scoreId];
+	if (!score) {
+		throw new Error(`Score ${change.scoreId} was not found in the debate.`);
+	}
 
-	return animationSteps;
+	const isRootScore = score.claimId === debate.mainClaimId;
+	const connectorId = score.connectorId;
+
+	return [
+		...(isRootScore
+			? []
+			: [{
+				id: `${change.id}:score-scale` as never,
+				type: "ScoreAnimationStep" as const,
+				sourceRecordId: change.id,
+				scoreId: change.scoreId,
+				phase: "scale" as const,
+				direction: change.direction,
+			}]),
+		...(connectorId
+			? [{
+				id: `${change.id}:connector-update` as never,
+				type: "ConnectorAnimationStep" as const,
+				sourceRecordId: change.id,
+				connectorId,
+				phase: "update" as const,
+				direction: change.direction,
+			}]
+			: []),
+	];
 }
 
 function assertNeverStep(value: never): never {
@@ -362,102 +385,14 @@ function computeScoreSizeByScoreId(
 	rootScoreId: ScoreId,
 	scoreIdsInLayoutOrder: ScoreId[],
 ): Record<ScoreId, { width: number; height: number }> {
-	const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
-	const relevanceNormalizedScaleByScoreId = {} as Record<ScoreId, number>;
-	const scaleByScoreId = {} as Record<ScoreId, number>;
 	const sizeByScoreId = {} as Record<ScoreId, { width: number; height: number }>;
 
-	for (const scoreId of scoreIdsInLayoutOrder) {
-		confidenceCascadeScaleByScoreId[scoreId] = 1;
-		relevanceNormalizedScaleByScoreId[scoreId] = 1;
-		scaleByScoreId[scoreId] = 1;
-		sizeByScoreId[scoreId] = {
-			width: DEFAULT_SCORE_WIDTH,
-			height: DEFAULT_SCORE_HEIGHT,
-		};
-	}
-
-	const incomingScoreIdsByTargetScoreId = {} as Record<ScoreId, Set<ScoreId>>;
 	for (const scoreId of scoreIdsInLayoutOrder) {
 		const score = debate.scores[scoreId];
 		if (!score) {
 			throw new Error(`Score ${scoreId} was not found in the debate.`);
 		}
-
-		incomingScoreIdsByTargetScoreId[scoreId] = new Set(score.incomingScoreIds);
-	}
-
-	const confidenceGroupScaleByTargetScoreId = {} as Record<ScoreId, number>;
-	for (const targetScoreId of scoreIdsInLayoutOrder) {
-		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-		if (!incomingScoreIds || incomingScoreIds.size === 0) {
-			continue;
-		}
-
-		let totalPositiveConfidenceMass = 0;
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			if (incomingScore.confidence > 0) {
-				totalPositiveConfidenceMass += incomingScore.confidence;
-			}
-		}
-
-		confidenceGroupScaleByTargetScoreId[targetScoreId] = 1 / Math.max(1, totalPositiveConfidenceMass);
-	}
-
-	confidenceCascadeScaleByScoreId[rootScoreId] = 1;
-	scaleByScoreId[rootScoreId] = 1;
-
-	for (const targetScoreId of scoreIdsInLayoutOrder) {
-		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-		if (!incomingScoreIds || incomingScoreIds.size === 0) {
-			continue;
-		}
-
-		const targetFinalScale = scaleByScoreId[targetScoreId] ?? 1;
-		const cascadedConfidenceScaleFromTarget =
-			targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? 1);
-
-		let maxIncomingRelevance = 0;
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			maxIncomingRelevance = Math.max(maxIncomingRelevance, Math.max(0, incomingScore.relevance));
-		}
-		if (maxIncomingRelevance <= 0) {
-			maxIncomingRelevance = 1;
-		}
-
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			const nextConfidenceCascadeScale = Math.min(
-				confidenceCascadeScaleByScoreId[incomingScoreId] ?? 1,
-				cascadedConfidenceScaleFromTarget,
-			);
-			confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
-
-			const relevanceNormalizedScale = Math.min(
-				1,
-				Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
-			);
-			relevanceNormalizedScaleByScoreId[incomingScoreId] = relevanceNormalizedScale;
-			scaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
-		}
-	}
-
-	for (const scoreId of scoreIdsInLayoutOrder) {
-		const scale = scaleByScoreId[scoreId] ?? 1;
+		const scale = scoreId === rootScoreId ? 1 : score.scaleOfSources;
 		sizeByScoreId[scoreId] = {
 			width: DEFAULT_SCORE_WIDTH * scale,
 			height: DEFAULT_SCORE_HEIGHT * scale,

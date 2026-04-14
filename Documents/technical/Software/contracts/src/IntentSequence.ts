@@ -69,6 +69,9 @@ export type AnimationStep =
 export type AnimationStepPhase =
     | "enter"
     | "exit"
+    | "display"
+    | "scale"
+    | "layout"
     | "update"
     | "grow"
     | "shrink"
@@ -79,7 +82,7 @@ export interface ScoreAnimationStep {
     type: "ScoreAnimationStep"
     sourceRecordId: RecordId
     scoreId: ScoreId
-    phase: Extract<AnimationStepPhase, "enter" | "exit" | "update">
+    phase: Extract<AnimationStepPhase, "enter" | "exit" | "display" | "scale" | "layout">
     direction?: PropagationDirection
 }
 

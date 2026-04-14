@@ -108,6 +108,9 @@ type ConnectorVisual = {
 	referenceAffects: Connector["affects"];
 	actualAffects: Connector["affects"];
 	referencePathBinding: ConnectorPathBinding;
+	referenceLineProgress: number;
+	referenceLineTravelOffset: number;
+	referenceOpacity: number;
 	actualPathBinding: ConnectorPathBinding;
 	strokeWidth: number;
 	referenceStrokeWidth: number;
@@ -349,7 +352,9 @@ const GraphViewContent = ({ prepared, cameraMoves }: GraphViewContentProps) => {
 };
 
 function renderPreparedTimelineMarkers(prepared: PreparedGraphView, graphFrom: number): ReactNode[] {
-	return prepared.segments.map((segment, index) => (
+	return prepared.segments
+		.filter((segment) => segment.animationSteps.length > 0 && segment.name !== "Hold final state")
+		.map((segment, index) => (
 		<Sequence
 			key={`graph-segment:${index}:${segment.timelineFrom}`}
 			from={graphFrom + segment.timelineFrom}
@@ -411,24 +416,374 @@ function buildGraphTransitionSegments(
 ): GraphTransitionSegment[] {
 	const transitionSegments: GraphTransitionSegment[] = [];
 	let segmentTimelineFrom = timelineFrom;
+	let currentSnapshot = fromSnapshot;
 	for (const unit of schedule.transitionUnits) {
-		const unitFromSnapshot = unit.from === schedule.initialPipeline
-			? fromSnapshot
-			: buildGraphSnapshotFromPipeline(unit.from);
-		const unitToSnapshot = buildGraphSnapshotFromPipeline(unit.to);
+		const actualUnitToSnapshot = buildGraphSnapshotFromPipeline(unit.to);
+		const unitToSnapshot = buildAnimationStepPhaseSnapshot(currentSnapshot, actualUnitToSnapshot, unit.animationSteps);
 		transitionSegments.push({
 			timelineFrom: segmentTimelineFrom,
 			name: unit.name,
-			fromSnapshot: unitFromSnapshot,
+			fromSnapshot: currentSnapshot,
 			toSnapshot: unitToSnapshot,
 			animationSteps: unit.animationSteps,
 			durationWeight: 1,
 			durationInFrames: unit.durationInFrames,
 		});
+		currentSnapshot = unitToSnapshot;
 		segmentTimelineFrom += unit.durationInFrames;
 	}
 
 	return transitionSegments;
+}
+
+function buildAnimationStepPhaseSnapshot(
+	fromSnapshot: GraphSnapshot,
+	toSnapshot: GraphSnapshot,
+	animationSteps: readonly AnimationStep[],
+): GraphSnapshot {
+	const scoreStep = animationSteps.find((animationStep): animationStep is Extract<AnimationStep, { type: "ScoreAnimationStep" }> => animationStep.type === "ScoreAnimationStep");
+	const connectorStep = animationSteps.find((animationStep): animationStep is Extract<AnimationStep, { type: "ConnectorAnimationStep" }> => animationStep.type === "ConnectorAnimationStep");
+	if (!scoreStep) {
+		if (connectorStep?.phase === "update") {
+			return {
+				pipeline: toSnapshot.pipeline,
+				renderState: buildConnectorUpdatePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
+			};
+		}
+
+		return toSnapshot;
+	}
+
+	if (scoreStep.phase === "enter") {
+		return {
+			pipeline: toSnapshot.pipeline,
+			renderState: buildEnterPhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
+		};
+	}
+
+	if (scoreStep.phase === "display") {
+		return {
+			pipeline: toSnapshot.pipeline,
+			renderState: buildDisplayPhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
+		};
+	}
+
+	if (scoreStep.phase === "scale") {
+		return {
+			pipeline: toSnapshot.pipeline,
+			renderState: buildScalePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
+		};
+	}
+
+	return toSnapshot;
+}
+
+function buildEnterPhaseRenderState(
+	fromState: GraphRenderState,
+	toState: GraphRenderState,
+): GraphRenderState {
+	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
+	const connectorRenderOrder = buildUnionOrder(fromState.connectorRenderOrder, toState.connectorRenderOrder);
+	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
+	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+
+	for (const claimId of claimRenderOrder) {
+		const fromClaim = fromState.claimByClaimId[claimId];
+		const toClaim = toState.claimByClaimId[claimId];
+		if (fromClaim && toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: fromClaim.opacity,
+				insertScale: fromClaim.insertScale,
+			};
+			continue;
+		}
+
+		if (toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: 0,
+				insertScale: 0,
+				confidence: 0,
+			};
+			continue;
+		}
+
+		if (fromClaim) {
+			claimByClaimId[claimId] = { ...fromClaim };
+		}
+	}
+
+	for (const connectorId of connectorRenderOrder) {
+		const fromConnector = fromState.connectorByConnectorId[connectorId];
+		const toConnector = toState.connectorByConnectorId[connectorId];
+		if (fromConnector && toConnector) {
+			connectorByConnectorId[connectorId] = {
+				...toConnector,
+				referenceLineProgress: fromConnector.referenceLineProgress,
+				referenceLineTravelOffset: fromConnector.referenceLineTravelOffset,
+				referenceOpacity: fromConnector.referenceOpacity,
+				actualLineProgress: fromConnector.actualLineProgress,
+				actualLineTravelOffset: fromConnector.actualLineTravelOffset,
+				actualOpacity: fromConnector.actualOpacity,
+				secondaryLineProgress: fromConnector.secondaryLineProgress,
+				secondaryLineTravelOffset: fromConnector.secondaryLineTravelOffset,
+				secondaryOpacity: fromConnector.secondaryOpacity,
+			};
+			continue;
+		}
+
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = { ...fromConnector };
+		}
+	}
+
+	return {
+		width: fromState.width,
+		height: fromState.height,
+		claimRenderOrder,
+		connectorRenderOrder,
+		claimByClaimId,
+		connectorByConnectorId,
+	};
+}
+
+function buildDisplayPhaseRenderState(
+	fromState: GraphRenderState,
+	toState: GraphRenderState,
+): GraphRenderState {
+	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
+	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
+	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
+	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+
+	for (const claimId of claimRenderOrder) {
+		const fromClaim = fromState.claimByClaimId[claimId];
+		const toClaim = toState.claimByClaimId[claimId];
+		if (fromClaim && toClaim) {
+			claimByClaimId[claimId] = {
+				...fromClaim,
+				content: toClaim.content,
+				side: toClaim.side,
+				confidence: toClaim.confidence,
+				relevance: toClaim.relevance,
+			};
+			continue;
+		}
+
+		if (toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: 0,
+				insertScale: 0,
+				confidence: 0,
+			};
+			continue;
+		}
+
+		if (fromClaim) {
+			claimByClaimId[claimId] = {
+				...fromClaim,
+			};
+		}
+	}
+
+	for (const connectorId of connectorRenderOrder) {
+		const fromConnector = fromState.connectorByConnectorId[connectorId];
+		const toConnector = toState.connectorByConnectorId[connectorId];
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = {
+				...fromConnector,
+				referenceAffects: toConnector?.referenceAffects ?? fromConnector.referenceAffects,
+				actualAffects: toConnector?.actualAffects ?? fromConnector.actualAffects,
+			};
+			continue;
+		}
+
+		if (toConnector) {
+			connectorByConnectorId[connectorId] = {
+				...toConnector,
+				actualLineProgress: 0,
+				actualLineTravelOffset: 0,
+				actualOpacity: 1,
+				secondaryLineProgress: 0,
+				secondaryLineTravelOffset: 0,
+				secondaryOpacity: 0,
+			};
+		}
+	}
+
+	return {
+		width: fromState.width,
+		height: fromState.height,
+		claimRenderOrder,
+		connectorRenderOrder,
+		claimByClaimId,
+		connectorByConnectorId,
+	};
+}
+
+function buildScalePhaseRenderState(
+	fromState: GraphRenderState,
+	toState: GraphRenderState,
+): GraphRenderState {
+	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
+	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
+	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
+	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+
+	for (const claimId of claimRenderOrder) {
+		const fromClaim = fromState.claimByClaimId[claimId];
+		const toClaim = toState.claimByClaimId[claimId];
+		if (fromClaim && toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: fromClaim.opacity,
+				insertScale: fromClaim.insertScale,
+			};
+			continue;
+		}
+
+		if (toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: 0,
+				insertScale: 0,
+				confidence: 0,
+			};
+			continue;
+		}
+
+		if (fromClaim) {
+			claimByClaimId[claimId] = {
+				...fromClaim,
+			};
+		}
+	}
+
+	for (const connectorId of connectorRenderOrder) {
+		const fromConnector = fromState.connectorByConnectorId[connectorId];
+		const toConnector = toState.connectorByConnectorId[connectorId];
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = {
+				...fromConnector,
+				referenceAffects: toConnector?.referenceAffects ?? fromConnector.referenceAffects,
+				actualAffects: toConnector?.actualAffects ?? fromConnector.actualAffects,
+				referencePathBinding: toConnector?.referencePathBinding ?? fromConnector.referencePathBinding,
+				actualPathBinding: toConnector?.actualPathBinding ?? fromConnector.actualPathBinding,
+			};
+			continue;
+		}
+
+		if (toConnector) {
+			connectorByConnectorId[connectorId] = {
+				...toConnector,
+				actualLineProgress: 0,
+				actualLineTravelOffset: 0,
+				actualOpacity: 1,
+				secondaryLineProgress: 0,
+				secondaryLineTravelOffset: 0,
+				secondaryOpacity: 0,
+			};
+			continue;
+		}
+
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = fromConnector;
+		}
+	}
+
+	return {
+		width: fromState.width,
+		height: fromState.height,
+		claimRenderOrder,
+		connectorRenderOrder,
+		claimByClaimId,
+		connectorByConnectorId,
+	};
+}
+
+function buildConnectorUpdatePhaseRenderState(
+	fromState: GraphRenderState,
+	toState: GraphRenderState,
+): GraphRenderState {
+	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
+	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
+	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
+	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+
+	for (const claimId of claimRenderOrder) {
+		const fromClaim = fromState.claimByClaimId[claimId];
+		const toClaim = toState.claimByClaimId[claimId];
+		if (fromClaim && toClaim) {
+			claimByClaimId[claimId] = {
+				...fromClaim,
+				content: toClaim.content,
+				side: toClaim.side,
+				confidence: toClaim.confidence,
+				relevance: toClaim.relevance,
+				scale: toClaim.scale,
+			};
+			continue;
+		}
+
+		if (toClaim) {
+			claimByClaimId[claimId] = {
+				...toClaim,
+				opacity: 0,
+				insertScale: 0,
+				confidence: 0,
+			};
+			continue;
+		}
+
+		if (fromClaim) {
+			claimByClaimId[claimId] = { ...fromClaim };
+		}
+	}
+
+	for (const connectorId of connectorRenderOrder) {
+		const fromConnector = fromState.connectorByConnectorId[connectorId];
+		const toConnector = toState.connectorByConnectorId[connectorId];
+		if (fromConnector && toConnector) {
+			connectorByConnectorId[connectorId] = {
+				...fromConnector,
+				referenceAffects: toConnector.referenceAffects,
+				actualAffects: toConnector.actualAffects,
+				referencePathBinding: toConnector.referencePathBinding,
+				actualPathBinding: toConnector.actualPathBinding,
+				strokeWidth: toConnector.strokeWidth,
+				referenceStrokeWidth: toConnector.referenceStrokeWidth,
+			};
+			continue;
+		}
+
+		if (toConnector) {
+			connectorByConnectorId[connectorId] = {
+				...toConnector,
+				actualLineProgress: 0,
+				actualLineTravelOffset: 0,
+				actualOpacity: 1,
+				secondaryLineProgress: 0,
+				secondaryLineTravelOffset: 0,
+				secondaryOpacity: 0,
+			};
+			continue;
+		}
+
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = { ...fromConnector };
+		}
+	}
+
+	return {
+		width: fromState.width,
+		height: fromState.height,
+		claimRenderOrder,
+		connectorRenderOrder,
+		claimByClaimId,
+		connectorByConnectorId,
+	};
 }
 
 function buildGraphSnapshotFromPipeline(pipeline: DebateLayoutPipelineContext): GraphSnapshot {
@@ -467,7 +822,8 @@ async function buildGraphSnapshot(state: AppliedGraphActionState): Promise<Graph
 function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderState {
 	const claimByClaimId = {} as Record<ClaimId, ClaimVisual>;
 	const connectorByConnectorId = {} as Record<ConnectorId, ConnectorVisual>;
-	const scaleByScoreId = buildScoreScaleByScoreId(debate);
+	const rootScores = Object.values(debate.scores).filter((score) => score.claimId === debate.mainClaimId);
+	const rootScoreId = rootScores.length === 1 ? rootScores[0].id : undefined;
 	const claimRenderOrder = Object.values(layout.scoreLayouts)
 		.slice()
 		.sort((left, right) => left.x - right.x || left.y - right.y)
@@ -493,7 +849,7 @@ function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderStat
 			y: scoreLayout.y,
 			width: scoreLayout.width,
 			height: scoreLayout.height,
-			scale: scaleByScoreId[score.id] ?? 1,
+			scale: score.id === rootScoreId ? 1 : score.scaleOfSources,
 			opacity: 1,
 			insertScale: 1,
 		};
@@ -544,6 +900,9 @@ function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderStat
 			referenceAffects: connector.affects,
 			actualAffects: connector.affects,
 			referencePathBinding: connectorPathBinding,
+			referenceLineProgress: 1,
+			referenceLineTravelOffset: 0,
+			referenceOpacity: 0.3,
 			actualPathBinding: connectorPathBinding,
 			strokeWidth: route.strokeWidth,
 			referenceStrokeWidth: referenceStrokeWidthByConnectorId[route.connectorId] ?? Math.max(2, sourceScoreLayout?.height ?? route.strokeWidth),
@@ -630,6 +989,9 @@ function resolveAnimationStepTransition(
 		}
 
 		if (animationStep.type === "ScoreAnimationStep") {
+			if (animationStep.phase === "scale") {
+				applyRenderedScalePhase(state, fromSnapshot, toSnapshot, stepProgress);
+			}
 			applyScoreAnimationStep(state, fromSnapshot, toSnapshot, animationStep, stepProgress);
 			continue;
 		}
@@ -638,6 +1000,27 @@ function resolveAnimationStepTransition(
 	}
 
 	return state;
+}
+
+function applyRenderedScalePhase(
+	state: GraphRenderState,
+	fromSnapshot: GraphSnapshot,
+	toSnapshot: GraphSnapshot,
+	progress: number,
+): void {
+	for (const claimId of state.claimRenderOrder) {
+		const workingClaim = state.claimByClaimId[claimId];
+		const fromClaim = fromSnapshot.renderState.claimByClaimId[claimId];
+		const toClaim = toSnapshot.renderState.claimByClaimId[claimId];
+		if (!workingClaim || !fromClaim || !toClaim) {
+			continue;
+		}
+
+		state.claimByClaimId[claimId] = {
+			...workingClaim,
+			scale: lerp(fromClaim.scale, toClaim.scale, progress),
+		};
+	}
 }
 
 function buildAnimationStepBaseState(
@@ -703,6 +1086,9 @@ function buildAnimationStepBaseState(
 				referenceAffects: toConnector.referenceAffects,
 				actualAffects: toConnector.actualAffects,
 				referencePathBinding: interpolatedPathBinding,
+				referenceLineProgress: lerp(fromConnector.referenceLineProgress, toConnector.referenceLineProgress, progress),
+				referenceLineTravelOffset: lerp(fromConnector.referenceLineTravelOffset, toConnector.referenceLineTravelOffset, progress),
+				referenceOpacity: lerp(fromConnector.referenceOpacity, toConnector.referenceOpacity, progress),
 				actualPathBinding: interpolatedPathBinding,
 				strokeWidth: lerp(fromConnector.strokeWidth, toConnector.strokeWidth, progress),
 				referenceStrokeWidth: lerp(fromConnector.referenceStrokeWidth, toConnector.referenceStrokeWidth, progress),
@@ -719,6 +1105,9 @@ function buildAnimationStepBaseState(
 		if (toConnector) {
 			connectorByConnectorId[connectorId] = {
 				...toConnector,
+				referenceLineProgress: 0,
+				referenceLineTravelOffset: 0,
+				referenceOpacity: 0.3,
 				actualLineProgress: 0,
 				actualLineTravelOffset: 0,
 				actualOpacity: 1,
@@ -731,6 +1120,9 @@ function buildAnimationStepBaseState(
 
 		connectorByConnectorId[connectorId] = {
 			...baseConnector,
+			referenceLineProgress: baseConnector.referenceLineProgress,
+			referenceLineTravelOffset: baseConnector.referenceLineTravelOffset,
+			referenceOpacity: baseConnector.referenceOpacity,
 			actualLineProgress: 1,
 			actualLineTravelOffset: 0,
 			actualOpacity: 1,
@@ -846,6 +1238,9 @@ function applyConnectorAnimationStep(
 		if ((animationStep.phase === "shrink" || animationStep.phase === "exit") && !toConnector && fromConnector) {
 			state.connectorByConnectorId[connectorId] = {
 				...fromConnector,
+				referenceLineProgress: 1,
+				referenceLineTravelOffset: 0,
+				referenceOpacity: 0.3,
 				actualLineProgress: 0,
 				actualLineTravelOffset: 0,
 				actualOpacity: 0,
@@ -859,6 +1254,9 @@ function applyConnectorAnimationStep(
 		if (toConnector) {
 			state.connectorByConnectorId[connectorId] = {
 				...toConnector,
+				referenceLineProgress: 1,
+				referenceLineTravelOffset: 0,
+				referenceOpacity: 0.3,
 				actualLineProgress: 1,
 				actualLineTravelOffset: 0,
 				actualOpacity: 1,
@@ -875,6 +1273,9 @@ function applyConnectorAnimationStep(
 		state.connectorByConnectorId[connectorId] = {
 			...workingConnector,
 			...toConnector,
+			referenceLineProgress: progress,
+			referenceLineTravelOffset: dashoffset,
+			referenceOpacity: 0.3,
 			actualLineProgress: progress,
 			actualLineTravelOffset: dashoffset,
 			actualOpacity: 1,
@@ -893,6 +1294,9 @@ function applyConnectorAnimationStep(
 			referenceAffects: fromConnector.referenceAffects,
 			actualAffects: fromConnector.actualAffects,
 			referencePathBinding: fromConnector.actualPathBinding,
+			referenceLineProgress: 1,
+			referenceLineTravelOffset: 0,
+			referenceOpacity: 0.3,
 			actualPathBinding: fromConnector.actualPathBinding,
 			referenceStrokeWidth: fromConnector.referenceStrokeWidth,
 			strokeWidth: fromConnector.strokeWidth,
@@ -914,6 +1318,9 @@ function applyConnectorAnimationStep(
 		state.connectorByConnectorId[connectorId] = {
 			...workingConnector,
 			...fromConnector,
+			referenceLineProgress: 1,
+			referenceLineTravelOffset: 0,
+			referenceOpacity: 0.3,
 			actualLineProgress: 1 - progress,
 			actualLineTravelOffset: dashoffset,
 			actualOpacity: 1,
@@ -1250,128 +1657,6 @@ function findTargetScoreId(debate: Debate, targetClaimId: ClaimId): ScoreId {
 	return score.id;
 }
 
-function buildScoreScaleByScoreId(debate: Debate): Record<ScoreId, number> {
-	const rootScores = Object.values(debate.scores).filter((score) => score.claimId === debate.mainClaimId);
-	if (rootScores.length !== 1) {
-		throw new Error(`Expected exactly one root score for main claim ${debate.mainClaimId}, found ${rootScores.length}.`);
-	}
-
-	const rootScoreId = rootScores[0].id;
-	const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(debate, rootScoreId);
-	const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
-	const relevanceNormalizedScaleByScoreId = {} as Record<ScoreId, number>;
-	const scaleByScoreId = {} as Record<ScoreId, number>;
-	const incomingScoreIdsByTargetScoreId = {} as Record<ScoreId, Set<ScoreId>>;
-
-	for (const scoreId of scoreIdsInLayoutOrder) {
-		confidenceCascadeScaleByScoreId[scoreId] = 1;
-		relevanceNormalizedScaleByScoreId[scoreId] = 1;
-		scaleByScoreId[scoreId] = 1;
-		incomingScoreIdsByTargetScoreId[scoreId] = new Set(debate.scores[scoreId]?.incomingScoreIds ?? []);
-	}
-
-	const confidenceGroupScaleByTargetScoreId = {} as Record<ScoreId, number>;
-	for (const targetScoreId of scoreIdsInLayoutOrder) {
-		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-		if (!incomingScoreIds || incomingScoreIds.size === 0) {
-			continue;
-		}
-
-		let totalPositiveConfidenceMass = 0;
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			if (incomingScore.confidence > 0) {
-				totalPositiveConfidenceMass += incomingScore.confidence;
-			}
-		}
-
-		confidenceGroupScaleByTargetScoreId[targetScoreId] = 1 / Math.max(1, totalPositiveConfidenceMass);
-	}
-
-	confidenceCascadeScaleByScoreId[rootScoreId] = 1;
-	scaleByScoreId[rootScoreId] = 1;
-
-	for (const targetScoreId of scoreIdsInLayoutOrder) {
-		const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-		if (!incomingScoreIds || incomingScoreIds.size === 0) {
-			continue;
-		}
-
-		const targetFinalScale = scaleByScoreId[targetScoreId] ?? 1;
-		const cascadedConfidenceScaleFromTarget = targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? 1);
-
-		let maxIncomingRelevance = 0;
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			maxIncomingRelevance = Math.max(maxIncomingRelevance, Math.max(0, incomingScore.relevance));
-		}
-		if (maxIncomingRelevance <= 0) {
-			maxIncomingRelevance = 1;
-		}
-
-		for (const incomingScoreId of incomingScoreIds) {
-			const incomingScore = debate.scores[incomingScoreId];
-			if (!incomingScore) {
-				throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-			}
-
-			const nextConfidenceCascadeScale = Math.min(
-				confidenceCascadeScaleByScoreId[incomingScoreId] ?? 1,
-				cascadedConfidenceScaleFromTarget,
-			);
-			confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
-
-			const relevanceNormalizedScale = Math.min(
-				1,
-				Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
-			);
-			relevanceNormalizedScaleByScoreId[incomingScoreId] = relevanceNormalizedScale;
-			scaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
-		}
-	}
-
-	return scaleByScoreId;
-}
-
-function collectScoreIdsInLayoutOrder(debate: Debate, rootScoreId: ScoreId): ScoreId[] {
-	const visited = new Set<ScoreId>();
-	const ordered: ScoreId[] = [];
-
-	visitScore(rootScoreId);
-
-	for (const scoreId of Object.keys(debate.scores) as ScoreId[]) {
-		visitScore(scoreId);
-	}
-
-	return ordered;
-
-	function visitScore(scoreId: ScoreId): void {
-		if (visited.has(scoreId)) {
-			return;
-		}
-
-		const score = debate.scores[scoreId];
-		if (!score) {
-			throw new Error(`Score ${scoreId} was not found in the debate.`);
-		}
-
-		visited.add(scoreId);
-		ordered.push(scoreId);
-
-		for (const incomingScoreId of score.incomingScoreIds) {
-			visitScore(incomingScoreId);
-		}
-	}
-}
-
 function buildUnionOrder<T extends string>(preferred: readonly T[], fallback: readonly T[]): T[] {
 	return Array.from(new Set([...preferred, ...fallback]));
 }
@@ -1396,9 +1681,9 @@ function ConnectorTransitionPaths({
 					pathBinding: connector.referencePathBinding,
 					affects: connector.referenceAffects,
 					strokeWidth: Math.max(2, connector.referenceStrokeWidth),
-					lineProgress: 1,
-					lineTravelOffset: 0,
-					opacity: connector.actualOpacity > 0 ? 0.3 : 0,
+					lineProgress: connector.referenceLineProgress,
+					lineTravelOffset: connector.referenceLineTravelOffset,
+					opacity: connector.referenceOpacity,
 				},
 				{
 					pathBinding: connector.actualPathBinding,
@@ -1456,8 +1741,6 @@ function renderConnectorStrokePair(
 				? renderConnectorStrokeLayer(`${pairKey}:reference`, stroke, {
 					...reference,
 					pathBinding: reference.pathBinding,
-					lineProgress: 1,
-					lineTravelOffset: 0,
 				}, sharedPathD)
 				: null}
 			{renderConnectorStrokeLayer(`${pairKey}:actual`, stroke, {
