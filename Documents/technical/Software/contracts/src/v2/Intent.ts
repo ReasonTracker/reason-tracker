@@ -226,20 +226,14 @@ interface DirectedScoreFieldChange<TKind extends string, TBefore, TAfter> {
 
 export type ScoreClaimConfidenceChangedChange = DirectedScoreFieldChange<
 	"ScoreClaimConfidenceChanged",
-	{ claimConfidence: number },
-	{ claimConfidence: number }
->;
-
-export type ScoreReversibleClaimConfidenceChangedChange = DirectedScoreFieldChange<
-	"ScoreReversibleClaimConfidenceChanged",
-	{ reversibleClaimConfidence: number },
-	{ reversibleClaimConfidence: number }
+	{ claimConfidence: number; reversibleClaimConfidence: number },
+	{ claimConfidence: number; reversibleClaimConfidence: number }
 >;
 
 export type ScoreConnectorConfidenceChangedChange = DirectedScoreFieldChange<
 	"ScoreConnectorConfidenceChanged",
-	{ connectorConfidence: number },
-	{ connectorConfidence: number }
+	{ connectorConfidence: number; reversibleConnectorConfidence: number },
+	{ connectorConfidence: number; reversibleConnectorConfidence: number }
 >;
 
 export type ScoreRelevanceChangedChange = DirectedScoreFieldChange<
@@ -271,7 +265,6 @@ export type Change =
 	| IncomingSourceRemovedChange
 	| IncomingSourcesResortedChange
 	| ScoreClaimConfidenceChangedChange
-	| ScoreReversibleClaimConfidenceChangedChange
 	| ScoreConnectorConfidenceChangedChange
 	| ScoreRelevanceChangedChange
 	| ScoreScaleOfSourcesChangedChange;

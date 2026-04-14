@@ -447,7 +447,6 @@ function buildDirectionByScoreId(changes: Change[]): Partial<Record<ScoreId, str
 	for (const change of changes) {
 		switch (change.kind) {
 			case "ScoreClaimConfidenceChanged":
-			case "ScoreReversibleClaimConfidenceChanged":
 			case "ScoreConnectorConfidenceChanged":
 			case "ScoreRelevanceChanged":
 			case "ScoreScaleOfSourcesChanged":
@@ -510,7 +509,6 @@ function isScoreScopedChange(change: Change, scoreId: ScoreId): boolean {
 		case "ScoreRemoved":
 			return change.score.id === scoreId;
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":

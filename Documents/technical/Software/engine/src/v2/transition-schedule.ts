@@ -131,7 +131,6 @@ function endsCommittedBoundary(change: Change): boolean {
 		case "ConnectorTargetChanged":
 		case "ConnectorAffectsChanged":
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
@@ -212,7 +211,6 @@ function resolveChangeWeight(change: Change): number {
 		case "IncomingSourcesResorted":
 			return 3;
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
@@ -232,7 +230,6 @@ function resolveChangeWeight(change: Change): number {
 function formatChangeName(change: Change, debate: Debate): string {
 	switch (change.kind) {
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged": {

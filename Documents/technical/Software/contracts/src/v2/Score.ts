@@ -14,6 +14,7 @@ export interface Score {
 	claimConfidence: number
 	reversibleClaimConfidence: number
 	connectorConfidence: number
+	reversibleConnectorConfidence: number
 	relevance: number
 	scaleOfSources: number
 }
@@ -28,6 +29,7 @@ export function newScore<T extends ScoreCreate>(partialItem: T): T & Score {
 		claimConfidence: partialItem.claimConfidence ?? 1,
 		reversibleClaimConfidence: partialItem.reversibleClaimConfidence ?? 1,
 		connectorConfidence: partialItem.connectorConfidence ?? 1,
+		reversibleConnectorConfidence: partialItem.reversibleConnectorConfidence ?? 1,
 		relevance: partialItem.relevance ?? 1,
 		scaleOfSources: partialItem.scaleOfSources ?? 0,
 	} satisfies Score;

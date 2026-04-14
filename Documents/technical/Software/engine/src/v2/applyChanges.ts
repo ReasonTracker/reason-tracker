@@ -112,14 +112,12 @@ export function applyChange(debate: Debate, change: Change): Debate {
 		case "ScoreClaimConfidenceChanged":
 			return updateScore(debate, change.scoreId, {
 				claimConfidence: change.after.claimConfidence,
-			});
-		case "ScoreReversibleClaimConfidenceChanged":
-			return updateScore(debate, change.scoreId, {
 				reversibleClaimConfidence: change.after.reversibleClaimConfidence,
 			});
 		case "ScoreConnectorConfidenceChanged":
 			return updateScore(debate, change.scoreId, {
 				connectorConfidence: change.after.connectorConfidence,
+				reversibleConnectorConfidence: change.after.reversibleConnectorConfidence,
 			});
 		case "ScoreRelevanceChanged":
 			return updateScore(debate, change.scoreId, {

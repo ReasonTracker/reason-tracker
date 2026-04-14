@@ -67,7 +67,15 @@ export function buildRecalculationChanges(
 function calculateScoreState(
 	debate: Debate,
 	score: Score,
-): Pick<Score, "claimConfidence" | "reversibleClaimConfidence" | "connectorConfidence" | "relevance" | "scaleOfSources"> {
+): Pick<
+	Score,
+	| "claimConfidence"
+	| "reversibleClaimConfidence"
+	| "connectorConfidence"
+	| "reversibleConnectorConfidence"
+	| "relevance"
+	| "scaleOfSources"
+> {
 	const claim = debate.claims[score.claimId];
 	if (!claim) {
 		throw new Error(`Claim ${score.claimId} was not found for score ${score.id}.`);
@@ -106,6 +114,7 @@ function calculateScoreState(
 			claimConfidence,
 			reversibleClaimConfidence: clamp(claim.forceConfidence, -1, 1),
 			connectorConfidence: claimConfidence,
+			reversibleConnectorConfidence: clamp(claim.forceConfidence, -1, 1),
 			relevance: 1,
 			scaleOfSources: 0,
 		};
@@ -120,6 +129,7 @@ function calculateScoreState(
 		claimConfidence: confidenceResult.claimConfidence,
 		reversibleClaimConfidence: confidenceResult.reversibleClaimConfidence,
 		connectorConfidence: confidenceResult.claimConfidence,
+		reversibleConnectorConfidence: confidenceResult.reversibleClaimConfidence,
 		relevance,
 		scaleOfSources: score.scaleOfSources,
 	};
@@ -292,39 +302,53 @@ function calculateRelevance(
 
 function createScoreFieldChanges(
 	before: Score,
-	after: Pick<Score, "claimConfidence" | "reversibleClaimConfidence" | "connectorConfidence" | "relevance">,
+	after: Pick<
+		Score,
+		| "claimConfidence"
+		| "reversibleClaimConfidence"
+		| "connectorConfidence"
+		| "reversibleConnectorConfidence"
+		| "relevance"
+	>,
 ): Change[] {
 	const changes: Change[] = [];
 
-	if (before.claimConfidence !== after.claimConfidence) {
+	if (
+		before.claimConfidence !== after.claimConfidence ||
+		before.reversibleClaimConfidence !== after.reversibleClaimConfidence
+	) {
 		changes.push({
 			id: newId() as ChangeId,
 			kind: "ScoreClaimConfidenceChanged",
 			scoreId: before.id,
-			before: { claimConfidence: before.claimConfidence },
-			after: { claimConfidence: after.claimConfidence },
+			before: {
+				claimConfidence: before.claimConfidence,
+				reversibleClaimConfidence: before.reversibleClaimConfidence,
+			},
+			after: {
+				claimConfidence: after.claimConfidence,
+				reversibleClaimConfidence: after.reversibleClaimConfidence,
+			},
 			direction: "sourceToTarget",
 		});
 	}
 
-	if (before.reversibleClaimConfidence !== after.reversibleClaimConfidence) {
-		changes.push({
-			id: newId() as ChangeId,
-			kind: "ScoreReversibleClaimConfidenceChanged",
-			scoreId: before.id,
-			before: { reversibleClaimConfidence: before.reversibleClaimConfidence },
-			after: { reversibleClaimConfidence: after.reversibleClaimConfidence },
-			direction: "sourceToTarget",
-		});
-	}
-
-	if (before.connectorConfidence !== after.connectorConfidence) {
+	if (
+		before.connectorConfidence !== after.connectorConfidence ||
+		before.reversibleConnectorConfidence !== after.reversibleConnectorConfidence
+	) {
 		changes.push({
 			id: newId() as ChangeId,
 			kind: "ScoreConnectorConfidenceChanged",
 			scoreId: before.id,
-			before: { connectorConfidence: before.connectorConfidence },
-			after: { connectorConfidence: after.connectorConfidence },
+			before: {
+				connectorConfidence: before.connectorConfidence,
+				reversibleConnectorConfidence: before.reversibleConnectorConfidence,
+			},
+			after: {
+				connectorConfidence: after.connectorConfidence,
+				reversibleConnectorConfidence: after.reversibleConnectorConfidence,
+			},
 			direction: "sourceToTarget",
 		});
 	}

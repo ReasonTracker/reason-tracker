@@ -15,7 +15,7 @@ const DEFAULT_CLAIM_WIDTH = 320;
 const DEFAULT_CLAIM_HEIGHT = 180;
 const SOURCE_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.5;
 const TARGET_SIDE_STRAIGHT_SEGMENT_PERCENT = 0.3;
-const CONNECTOR_TRANSITION_OVERLAP_PERCENT = 0.01;
+const CONNECTOR_TRANSITION_OVERLAP_PERCENT = 0.00;
 
 const GRAPH_LAYOUT_OPTIONS = {
 	scaleConnectionDistanceWithScore: true,
@@ -211,6 +211,110 @@ type GraphViewContentProps = {
 	cameraMoves: ResolvedCameraMove[];
 };
 
+const V1_VIDEO_GRAPH_VIEW_CSS = `
+	.rt-graph-view {
+		--pro-h: 276.37;
+		--pro-l: 65%;
+		--pro: hsl(var(--pro-h), 100%, var(--pro-l));
+		--con-h: 30.21;
+		--con-l: 42%;
+		--con: hsl(var(--con-h), 100%, var(--con-l));
+		--rt-connector-opacity: 90%;
+		--rt-connector-potential-opacity: 30%;
+		position: relative;
+	}
+
+	.rt-graph-view__content {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform-origin: center center;
+	}
+
+	.rt-graph-view .rt-layout-canvas {
+		position: relative;
+		background: #000000;
+	}
+
+	.rt-graph-view .rt-connector-layer {
+		position: absolute;
+		inset: 0;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.rt-graph-view .rt-connector {
+		fill: none;
+		stroke: #64748b;
+		opacity: var(--rt-connector-opacity);
+		stroke-linecap: butt;
+	}
+
+	.rt-graph-view .rt-connector.rt-connector-potential-confidence {
+		opacity: var(--rt-connector-potential-opacity);
+	}
+
+	.rt-graph-view .rt-connector[data-connector-side='proMain'] {
+		stroke: var(--pro);
+	}
+
+	.rt-graph-view .rt-connector[data-connector-side='conMain'] {
+		stroke: var(--con);
+	}
+
+	.rt-graph-view .rt-connector[data-affects='relevance'] {
+		stroke-dasharray: 6 5;
+	}
+
+	.rt-graph-view .rt-claim-shape {
+		box-sizing: border-box;
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform-origin: center center;
+		transform: translate(-50%, -50%) scale(calc(var(--rt-claim-shape-scale, 1) * var(--rt-claim-insert-scale, 1)));
+	}
+
+	.rt-graph-view .rt-claim-shape-shell {
+		position: absolute;
+		overflow: visible;
+	}
+
+	.rt-graph-view .rt-claim-shape-body {
+		box-sizing: border-box;
+		width: 100%;
+		height: 100%;
+		background: #000000;
+		color: #ffffff;
+		border: 4px solid #cbd5e1;
+		border-radius: 0;
+		box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+		padding: 0.5rem 0.75rem;
+		overflow: auto;
+	}
+
+	.rt-graph-view .rt-claim-shape-shell[data-claim-side='proMain'] .rt-claim-shape-body {
+		border-color: var(--pro);
+		background: hsl(var(--pro-h) 100% var(--pro-l) / var(--rt-connector-potential-opacity));
+	}
+
+	.rt-graph-view .rt-claim-shape-shell[data-claim-side='conMain'] .rt-claim-shape-body {
+		border-color: var(--con);
+		background: hsl(var(--con-h) 100% var(--con-l) / var(--rt-connector-potential-opacity));
+	}
+
+	.rt-graph-view h2 {
+		margin: 0;
+		font-size: 1.9rem;
+	}
+
+	.rt-graph-view small {
+		display: block;
+		margin-top: 0.35rem;
+		color: #d1d5db;
+	}
+`;
+
 export const GraphView = ({
 	debate,
 	from = DEFAULT_GRAPH_FROM,
@@ -300,65 +404,25 @@ const GraphViewContent = ({ prepared, cameraMoves }: GraphViewContentProps) => {
 	} satisfies React.CSSProperties;
 
 	return (
-		<div style={{ ...graphRootStyle, ...wrapperStyle }}>
-			<div style={{ ...graphContentStyle, ...contentStyle }}>
-				<div style={{ ...graphCanvasStyle, width: activeGraph.width, height: activeGraph.height }}>
-					<svg width={activeGraph.width} height={activeGraph.height} style={connectorLayerStyle}>
-						{activeGraph.connectorRenderOrder.map((connectorId) => {
-							const connector = activeGraph.connectorByConnectorId[connectorId];
-							if (!connector) {
-								return null;
-							}
-
-							return <ConnectorTransitionPaths key={connectorId} connector={connector} claimByClaimId={activeGraph.claimByClaimId} />;
+		<>
+			<style>{V1_VIDEO_GRAPH_VIEW_CSS}</style>
+			<div className="rt-graph-view" style={wrapperStyle} aria-label="Reason Tracker graph">
+				<div className="rt-graph-view__content" style={{ ...graphContentStyle, ...contentStyle }}>
+					<div className="rt-layout-canvas" style={{ width: activeGraph.width, height: activeGraph.height }}>
+						<svg className="rt-connector-layer" width={activeGraph.width} height={activeGraph.height} viewBox={`0 0 ${activeGraph.width} ${activeGraph.height}`} aria-hidden="true">
+							{activeGraph.connectorRenderOrder.flatMap((connectorId) => {
+								const connector = activeGraph.connectorByConnectorId[connectorId];
+								return connector ? renderConnectorPaths(connector, activeGraph.claimByClaimId) : [];
+							})}
+						</svg>
+						{activeGraph.claimRenderOrder.map((claimId) => {
+							const claim = activeGraph.claimByClaimId[claimId];
+							return claim ? renderClaim(claim) : null;
 						})}
-					</svg>
-					{activeGraph.claimRenderOrder.map((claimId) => {
-						const claim = activeGraph.claimByClaimId[claimId];
-						if (!claim) {
-							return null;
-						}
-
-						return (
-							<article
-								key={claimId}
-								style={{
-									...claimShellStyle,
-									left: claim.x,
-									top: claim.y,
-									width: claim.width,
-									height: claim.height,
-									opacity: claim.opacity,
-								}}
-							>
-								<div
-									style={{
-										...claimShapeStyle,
-										width: DEFAULT_CLAIM_WIDTH,
-										height: DEFAULT_CLAIM_HEIGHT,
-										"--rt-claim-shape-scale": String(claim.scale),
-										"--rt-claim-insert-scale": String(claim.insertScale),
-									} as React.CSSProperties}
-								>
-									<article
-										style={{
-											...claimCardStyle,
-											borderColor: claim.side === "proMain" ? "hsl(276.37 100% 65%)" : "hsl(30.21 100% 42%)",
-											background: claim.side === "proMain"
-												? "hsla(276.37, 100%, 65%, 0.26)"
-												: "hsla(30.21, 100%, 42%, 0.26)",
-										}}
-									>
-										<h2 style={claimContentStyle}>{claim.content}</h2>
-										<small style={claimScoreStyle}>{Math.round(claim.confidence * 100)}%</small>
-									</article>
-								</div>
-							</article>
-						);
-					})}
+					</div>
 				</div>
 			</div>
-		</div>
+		</>
 	);
 };
 
@@ -1688,120 +1752,139 @@ function buildUnionOrder<T extends string>(preferred: readonly T[], fallback: re
 	return Array.from(new Set([...preferred, ...fallback]));
 }
 
-function ConnectorTransitionPaths({
-	connector,
-	claimByClaimId,
-}: {
-	connector: ConnectorVisual;
-	claimByClaimId: GraphRenderState["claimByClaimId"];
-}): ReactNode {
-	const stroke = connector.sourceSide === "proMain" ? "hsl(276.37 100% 65%)" : "hsl(30.21 100% 42%)";
-	const secondaryAffects = connector.secondaryAffects ?? connector.actualAffects;
-
-	return (
-		<>
-			{renderConnectorStrokePair(
-				"primary",
-				stroke,
-				claimByClaimId,
-				{
-					pathBinding: connector.referencePathBinding,
-					affects: connector.referenceAffects,
-					strokeWidth: Math.max(2, connector.referenceStrokeWidth),
-					lineProgress: connector.referenceLineProgress,
-					lineTravelOffset: connector.referenceLineTravelOffset,
-					opacity: connector.referenceOpacity,
-				},
-				{
-					pathBinding: connector.actualPathBinding,
-					affects: connector.actualAffects,
-					strokeWidth: Math.max(2, connector.strokeWidth),
-					lineProgress: connector.actualLineProgress,
-					lineTravelOffset: connector.actualLineTravelOffset,
-					opacity: connector.actualOpacity,
-				},
-				true,
-			)}
-			{connector.secondaryOpacity > 0 && connector.secondaryPathBinding
-				? renderConnectorStrokePair(
-					"secondary",
-					stroke,
-					claimByClaimId,
-					{
-						pathBinding: connector.secondaryPathBinding,
-						affects: secondaryAffects,
-						strokeWidth: Math.max(2, connector.referenceStrokeWidth),
-						lineProgress: connector.secondaryLineProgress,
-						lineTravelOffset: connector.secondaryLineTravelOffset,
-						opacity: 0.3 * connector.secondaryOpacity,
-					},
-					{
-						pathBinding: connector.secondaryPathBinding,
-						affects: secondaryAffects,
-						strokeWidth: Math.max(2, connector.secondaryStrokeWidth ?? connector.strokeWidth),
-						lineProgress: connector.secondaryLineProgress,
-						lineTravelOffset: connector.secondaryLineTravelOffset,
-						opacity: connector.secondaryOpacity,
-					},
-					false,
-				)
-				: null}
-		</>
-	);
+function getConnectorPathStyle(strokeWidth: number): React.CSSProperties {
+	return {
+		strokeWidth,
+		strokeLinecap: "butt",
+		strokeLinejoin: "miter",
+	};
 }
 
-function renderConnectorStrokePair(
-	pairKey: string,
-	stroke: string,
-	claimByClaimId: GraphRenderState["claimByClaimId"],
-	reference: ConnectorStrokeVisual,
-	actual: ConnectorStrokeVisual,
-	renderReference: boolean,
-): ReactNode {
-	const actualPathD = resolveConnectorPathD(actual.pathBinding, claimByClaimId);
-	const referencePathD = resolveConnectorPathD(reference.pathBinding, claimByClaimId);
-	const sharedPathD = actualPathD.length > 0 ? actualPathD : referencePathD;
-
-	return (
-		<>
-			{renderReference
-				? renderConnectorStrokeLayer(`${pairKey}:reference`, stroke, {
-					...reference,
-					pathBinding: reference.pathBinding,
-				}, sharedPathD)
-				: null}
-			{renderConnectorStrokeLayer(`${pairKey}:actual`, stroke, {
-				...actual,
-				pathBinding: actual.pathBinding,
-				lineProgress: resolveConnectorDisplayProgress(actual.lineProgress),
-				lineTravelOffset: resolveConnectorDisplayTravelOffset(actual.lineProgress, actual.lineTravelOffset),
-			}, sharedPathD)}
-		</>
-	);
-}
-
-function renderConnectorStrokeLayer(
+function renderConnectorPath(
 	key: string,
-	stroke: string,
-	strokeVisual: ConnectorStrokeVisual,
+	connectorId: ConnectorId,
+	affects: Connector["affects"],
+	side: ClaimSide,
 	pathD: string,
+	strokeWidth: number,
+	lineProgress: number,
+	lineTravelOffset: number,
+	useReferenceWidth: boolean,
 ): ReactNode {
-	if (strokeVisual.opacity <= 0 || strokeVisual.lineProgress <= 0 || pathD.length === 0) {
+	if (lineProgress <= 0 || pathD.length === 0) {
 		return null;
+	}
+
+	const classes = ["rt-connector"];
+	if (useReferenceWidth) {
+		classes.push("rt-connector-potential-confidence");
 	}
 
 	return (
 		<path
 			key={key}
+			className={classes.join(" ")}
+			data-affects={affects}
+			data-connector-side={side}
+			data-connector-id={connectorId}
 			d={pathD}
-			fill="none"
-			stroke={stroke}
-			strokeWidth={strokeVisual.strokeWidth}
-			strokeDasharray={resolveConnectorDasharray(strokeVisual.lineProgress, strokeVisual.affects)}
-			strokeDashoffset={resolveConnectorDashoffset(strokeVisual.lineProgress, strokeVisual.lineTravelOffset)}
+			strokeDasharray={resolveConnectorDasharray(lineProgress, affects)}
+			strokeDashoffset={resolveConnectorDashoffset(lineProgress, lineTravelOffset)}
 			pathLength={1}
-			style={{ opacity: strokeVisual.opacity, filter: "drop-shadow(0 0 8px rgba(148,163,184,0.2))", strokeLinecap: "butt", strokeLinejoin: "miter" }}
+			style={getConnectorPathStyle(strokeWidth)}
 		/>
+	);
+}
+
+function renderConnectorPaths(
+	connector: ConnectorVisual,
+	claimByClaimId: GraphRenderState["claimByClaimId"],
+): ReactNode[] {
+	const referencePathD = resolveConnectorPathD(connector.referencePathBinding, claimByClaimId);
+	const actualPathD = resolveConnectorPathD(connector.actualPathBinding, claimByClaimId);
+	const sharedPathD = actualPathD.length > 0 ? actualPathD : referencePathD;
+	const layers: ReactNode[] = [];
+
+	if (connector.referenceOpacity > 0) {
+		layers.push(renderConnectorPath(
+			`reference-${connector.connectorId}`,
+			connector.connectorId,
+			connector.referenceAffects,
+			connector.sourceSide,
+			sharedPathD,
+			connector.referenceStrokeWidth,
+			connector.referenceLineProgress,
+			connector.referenceLineTravelOffset,
+			true,
+		));
+	}
+
+	if (connector.actualOpacity > 0) {
+		layers.push(renderConnectorPath(
+			`actual-${connector.connectorId}`,
+			connector.connectorId,
+			connector.actualAffects,
+			connector.sourceSide,
+			sharedPathD,
+			connector.strokeWidth,
+			resolveConnectorDisplayProgress(connector.actualLineProgress),
+			resolveConnectorDisplayTravelOffset(connector.actualLineProgress, connector.actualLineTravelOffset),
+			false,
+		));
+	}
+
+	if (connector.secondaryOpacity > 0 && connector.secondaryPathBinding) {
+		const secondaryPathD = resolveConnectorPathD(connector.secondaryPathBinding, claimByClaimId) || sharedPathD;
+		layers.push(renderConnectorPath(
+			`secondary-${connector.connectorId}`,
+			connector.connectorId,
+			connector.secondaryAffects ?? connector.actualAffects,
+			connector.sourceSide,
+			secondaryPathD,
+			connector.secondaryStrokeWidth ?? connector.strokeWidth,
+			resolveConnectorDisplayProgress(connector.secondaryLineProgress),
+			resolveConnectorDisplayTravelOffset(connector.secondaryLineProgress, connector.secondaryLineTravelOffset),
+			false,
+		));
+	}
+
+	return layers.filter(Boolean);
+}
+
+function renderClaim(claim: ClaimVisual): ReactNode {
+	const shellStyle = {
+		left: claim.x,
+		top: claim.y,
+		width: claim.width,
+		height: claim.height,
+		opacity: claim.opacity,
+	} satisfies React.CSSProperties;
+
+	const claimShapeStyle = {
+		width: DEFAULT_CLAIM_WIDTH,
+		height: DEFAULT_CLAIM_HEIGHT,
+		"--rt-claim-shape-scale": String(claim.scale),
+		"--rt-claim-insert-scale": String(claim.insertScale),
+	} as React.CSSProperties;
+
+	return (
+		<article
+			key={claim.claimId}
+			className="rt-claim-shape-shell"
+			style={shellStyle}
+			data-claim-id={claim.claimId}
+			data-score-id={claim.scoreId}
+			data-claim-side={claim.side}
+		>
+			<div className="rt-claim-shape" style={claimShapeStyle}>
+				<article className="rt-claim-shape-body">
+					<h2>{claim.content}</h2>
+					<small data-score={claim.confidence} data-score-id={claim.scoreId}>
+						{Math.round(claim.confidence * 100)}%
+					</small>
+				</article>
+			</div>
+		</article>
 	);
 }
 
@@ -1928,15 +2011,45 @@ function buildTransitionDirectivesFromChange(
 ): GraphTransitionDirective[] {
 	switch (change.kind) {
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
-		case "ScoreConnectorConfidenceChanged":
-		case "ScoreRelevanceChanged":
 			return [{
 				kind: "claim",
 				scoreId: change.scoreId,
 				effect: "display",
 				direction: change.direction,
 			}];
+		case "ScoreConnectorConfidenceChanged": {
+			const score = debate.scores[change.scoreId];
+			if (!score?.connectorId) {
+				return [];
+			}
+
+			return [{
+				kind: "connector",
+				connectorId: score.connectorId,
+				effect: "update",
+				direction: change.direction,
+			}];
+		}
+		case "ScoreRelevanceChanged": {
+			const score = debate.scores[change.scoreId];
+			const directives: GraphTransitionDirective[] = [{
+				kind: "claim",
+				scoreId: change.scoreId,
+				effect: "display",
+				direction: change.direction,
+			}];
+
+			if (score?.connectorId) {
+				directives.push({
+					kind: "connector",
+					connectorId: score.connectorId,
+					effect: "update",
+					direction: change.direction,
+				});
+			}
+
+			return directives;
+		}
 		case "ScoreScaleOfSourcesChanged": {
 			const score = debate.scores[change.scoreId];
 			if (!score) {
@@ -2279,7 +2392,6 @@ function formatChangeLabel(change: Change): string {
 		case "IncomingSourcesResorted":
 			return `${change.kind} ${change.targetScoreId}`;
 		case "ScoreClaimConfidenceChanged":
-		case "ScoreReversibleClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
@@ -2327,7 +2439,15 @@ function resolveConnectorDisplayTravelOffset(lineProgress: number, lineTravelOff
 const graphRootStyle = {
 	position: "relative",
 	background: "#000000",
-} satisfies React.CSSProperties;
+	"--pro-h": "276.37",
+	"--pro-l": "65%",
+	"--pro": "hsl(var(--pro-h), 100%, var(--pro-l))",
+	"--con-h": "30.21",
+	"--con-l": "42%",
+	"--con": "hsl(var(--con-h), 100%, var(--con-l))",
+	"--rt-connector-opacity": "90%",
+	"--rt-connector-potential-opacity": "30%",
+} as React.CSSProperties;
 
 const graphContentStyle = {
 	position: "absolute",

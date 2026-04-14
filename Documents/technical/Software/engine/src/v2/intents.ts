@@ -401,6 +401,13 @@ function applyConnectionChangeToChanges(
 			};
 		}
 		case "ChangeConnection": {
+			if (isNoOpConnectionChange(debate, connectionChange)) {
+				return {
+					changes: [],
+					finalDebate: debate,
+				};
+			}
+
 			const removeResult = applyConnectionChangeToChanges(debate, {
 				type: "RemoveConnection",
 				connectorId: connectionChange.connectorId,
@@ -418,6 +425,30 @@ function applyConnectionChangeToChanges(
 		default:
 			return assertNever(connectionChange);
 	}
+}
+
+function isNoOpConnectionChange(
+	debate: Debate,
+	connectionChange: ChangeConnectionOperation,
+): boolean {
+	const existingConnector = debate.connectors[connectionChange.connectorId];
+	if (!existingConnector) {
+		throw new Error(`Connector ${connectionChange.connectorId} was not found in the debate.`);
+	}
+
+	const existingScore = getScoreByConnectorId(debate, connectionChange.connectorId);
+	const existingTargetScoreId = getTargetScoreForIncomingScoreId(debate, existingScore.id)?.id;
+	if (!existingTargetScoreId) {
+		throw new Error(`Target score for connector ${connectionChange.connectorId} was not found in the debate.`);
+	}
+
+	return (
+		existingTargetScoreId === connectionChange.targetScoreId &&
+		existingConnector.id === connectionChange.connector.id &&
+		existingConnector.source === connectionChange.connector.source &&
+		existingConnector.target === connectionChange.connector.target &&
+		existingConnector.affects === connectionChange.connector.affects
+	);
 }
 
 function validateMoveClaimConnectionChange(
