@@ -3,7 +3,9 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { Debate } from "../../contracts/src/Debate.ts";
 import type { ConnectorId } from "../../contracts/src/Connector.ts";
+import type { AnimationStep, Change, Step } from "../../contracts/src/IntentSequence.ts";
 import type { Score, ScoreId } from "../../contracts/src/Score.ts";
+import type { DebatePipelineContext, IntentSequenceSelectionPipelineContext } from "./api.ts";
 import { getScoresForClaimId } from "./graph.ts";
 
 // AGENT NOTE: keep tunable layout constants grouped here.
@@ -15,7 +17,7 @@ const DEFAULT_CONNECTOR_NODE_GAP = 32;
 const MIN_CONNECTOR_STROKE_WIDTH = 2;
 const ELK_EDGE_THICKNESS_MULTIPLIER = 10;
 
-export interface CalculateLayoutRequest {
+export interface CalculateLayoutRequest extends DebatePipelineContext {
 	/**
 	 * The canonical incoming order is Score.incomingScoreIds.
 	 *
@@ -23,7 +25,6 @@ export interface CalculateLayoutRequest {
 	 * This API intentionally does not accept or return a second incoming-order
 	 * field, because layout is not allowed to create a competing source of truth.
 	 */
-	debate: Debate
 	options?: LayoutOptions
 }
 
@@ -74,6 +75,16 @@ export interface ConnectorRoute {
 	strokeWidth: number
 }
 
+/**
+	 * Pipeline payload extended with layout output.
+	 *
+	 * This is the grouped handoff shape later stages should build on instead of
+	 * reassembling debate, layout, and intent-sequence context separately.
+	 */
+export interface DebateLayoutPipelineContext extends IntentSequenceSelectionPipelineContext {
+	layout: DebateLayout
+}
+
 export interface LayoutPoint {
 	x: number
 	y: number
@@ -82,6 +93,10 @@ export interface LayoutPoint {
 export type CalculateLayout = (
 	request: CalculateLayoutRequest,
 ) => DebateLayout | Promise<DebateLayout>;
+
+export type CalculateLayoutPipeline = (
+	request: IntentSequenceSelectionPipelineContext,
+) => DebateLayoutPipelineContext | Promise<DebateLayoutPipelineContext>;
 
 type ElkConstructor = new () => ElkLayoutApi;
 
@@ -137,6 +152,120 @@ export async function calculateLayout(request: CalculateLayoutRequest): Promise<
 		scoreIdsInLayoutOrder,
 		laidOutGraph,
 	});
+}
+
+export async function calculateLayoutPipeline(
+	request: IntentSequenceSelectionPipelineContext,
+	options?: LayoutOptions,
+): Promise<DebateLayoutPipelineContext> {
+	const layout = await calculateLayout({
+		debate: request.debate,
+		options,
+	});
+
+	return {
+		...request,
+		animationSteps: request.animationSteps ?? buildAnimationStepsFromPipelineContext(request),
+		layout,
+	};
+}
+
+function buildAnimationStepsFromPipelineContext(
+	request: IntentSequenceSelectionPipelineContext,
+): AnimationStep[] {
+	if (!request.intentSequence) {
+		return [];
+	}
+
+	const selectedStep = request.stepId
+		? request.intentSequence.steps.find((candidate) => candidate.id === request.stepId)
+		: undefined;
+	const steps = selectedStep ? [selectedStep] : request.intentSequence.steps;
+	const animationSteps: AnimationStep[] = [];
+
+	for (const step of steps) {
+		switch (step.type) {
+			case "AppliedAddLeafClaimStep":
+			case "AppliedAddConnectionStep":
+				animationSteps.push({
+					id: `${step.id}:score-enter` as never,
+					type: "ScoreAnimationStep",
+					sourceRecordId: step.id,
+					scoreId: step.score.id,
+					phase: "enter",
+				});
+				animationSteps.push({
+					id: `${step.id}:connector-grow` as never,
+					type: "ConnectorAnimationStep",
+					sourceRecordId: step.id,
+					connectorId: step.connector.id,
+					phase: "grow",
+					direction: "sourceToTarget",
+				});
+				break;
+			case "AppliedRemoveConnectionStep":
+				animationSteps.push({
+					id: `${step.id}:connector-shrink` as never,
+					type: "ConnectorAnimationStep",
+					sourceRecordId: step.id,
+					connectorId: step.connector.id,
+					phase: "shrink",
+					direction: "targetToSource",
+				});
+				animationSteps.push({
+					id: `${step.id}:score-exit` as never,
+					type: "ScoreAnimationStep",
+					sourceRecordId: step.id,
+					scoreId: step.score.id,
+					phase: "exit",
+				});
+				break;
+			case "RecalculationWaveStep":
+				for (const change of request.changes ?? step.changes) {
+					animationSteps.push(...buildAnimationStepsFromChange(request.debate, change));
+				}
+				break;
+			case "AppliedChangeClaimStep":
+			case "AppliedRemoveClaimStep":
+			case "IncomingSourcesResortedStep":
+				break;
+			default:
+				assertNeverStep(step);
+		}
+	}
+
+	return animationSteps;
+}
+
+function buildAnimationStepsFromChange(debate: Debate, change: Change): AnimationStep[] {
+	const animationSteps: AnimationStep[] = [];
+
+	const connectorId = debate.scores[change.scoreId]?.connectorId;
+	if (connectorId) {
+		animationSteps.push({
+			id: `${change.id}:connector-update` as never,
+			type: "ConnectorAnimationStep",
+			sourceRecordId: change.id,
+			connectorId,
+			phase: "update",
+			direction: change.direction,
+		});
+	}
+
+	animationSteps.push({
+		id: `${change.id}:score-update` as never,
+		type: "ScoreAnimationStep",
+		sourceRecordId: change.id,
+		scoreId: change.scoreId,
+		phase: "update",
+		direction: change.direction,
+	});
+
+	return animationSteps;
+}
+
+function assertNeverStep(value: never): never {
+	throw new Error(`Unhandled step type: ${String(value)}`);
 }
 
 function getRootScore(debate: Debate): Score {

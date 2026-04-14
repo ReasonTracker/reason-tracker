@@ -55,6 +55,43 @@ export type Change =
     | ScoreCoreValuesChanged
     | ScaleOfSourcesChanged;
 
+/**
+ * Renderer-agnostic presentation substeps derived from an intent and its steps.
+ *
+ * These are smaller-grained than a Change and let downstream renderers stage
+ * visual timing without hard-coding medium-specific heuristics into the
+ * abstract domain or HTML renderer layers.
+ */
+export type AnimationStep =
+    | ScoreAnimationStep
+    | ConnectorAnimationStep;
+
+export type AnimationStepPhase =
+    | "enter"
+    | "exit"
+    | "update"
+    | "grow"
+    | "shrink"
+    | "reroute";
+
+export interface ScoreAnimationStep {
+    id: RecordId
+    type: "ScoreAnimationStep"
+    sourceRecordId: RecordId
+    scoreId: ScoreId
+    phase: Extract<AnimationStepPhase, "enter" | "exit" | "update">
+    direction?: PropagationDirection
+}
+
+export interface ConnectorAnimationStep {
+    id: RecordId
+    type: "ConnectorAnimationStep"
+    sourceRecordId: RecordId
+    connectorId: ConnectorId
+    phase: Extract<AnimationStepPhase, "enter" | "exit" | "grow" | "shrink" | "update" | "reroute">
+    direction?: PropagationDirection
+}
+
 export type ConnectionChange =
     | AddConnection
     | ChangeConnection

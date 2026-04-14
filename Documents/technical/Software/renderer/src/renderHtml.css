@@ -17,36 +17,24 @@
 	background: var(--rt-bg);
 }
 
-.rt-header {
-	margin: 0;
-	flex: 0 0 auto;
-}
-
-.rt-title {
-	margin: 0;
-	font-size: 0.95rem;
-	line-height: 1.05;
-	font-weight: 600;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	color: #ffffff;
-}
-
 .rt-stage {
 	flex: 1 1 auto;
 	min-height: 0;
 	overflow: auto;
-	border: 1px solid #d1d5db;
-	border-radius: 0.75rem;
 	background: #000000;
 }
 
 .rt-graph {
 	position: relative;
+	min-width: fit-content;
+	min-height: fit-content;
+	box-sizing: border-box;
 	background: #000000;
-	min-width: 100%;
-	min-height: 100%;
+}
+
+.rt-layout-canvas {
+	position: relative;
+	background: #000000;
 	box-sizing: border-box;
 }
 
@@ -84,6 +72,15 @@
 	overflow: visible;
 }
 
+.rt-claim-shape {
+	box-sizing: border-box;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform-origin: center center;
+	transform: translate(-50%, -50%) scale(calc(var(--rt-claim-shape-scale, 1) * var(--rt-claim-insert-scale, 1)));
+}
+
 .rt-score-card__body {
 	box-sizing: border-box;
 	width: 100%;
@@ -94,15 +91,17 @@
 	border: 4px solid #cbd5e1;
 	border-radius: 0;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-	overflow: auto;
+	overflow: hidden;
 }
 
-.rt-score-card[data-claim-side="proMain"] .rt-score-card__body {
+.rt-score-card[data-claim-side="proMain"] .rt-score-card__body,
+.rt-score-card[data-claim-side="proMain"] .rt-claim-shape-body {
 	border-color: var(--pro);
 	background: hsl(var(--pro-h) 100% var(--pro-l) / var(--rt-connector-potential-opacity));
 }
 
-.rt-score-card[data-claim-side="conMain"] .rt-score-card__body {
+.rt-score-card[data-claim-side="conMain"] .rt-score-card__body,
+.rt-score-card[data-claim-side="conMain"] .rt-claim-shape-body {
 	border-color: var(--con);
 	background: hsl(var(--con-h) 100% var(--con-l) / var(--rt-connector-potential-opacity));
 }
@@ -116,45 +115,14 @@
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 5;
-	line-clamp: 5;
+	-webkit-line-clamp: 4;
+	line-clamp: 4;
 }
 
-.rt-score-card__eyebrow {
+.rt-score-card__label {
 	display: block;
 	margin-top: 0.35rem;
-	margin-bottom: 0;
-	font-size: 0.72rem;
-	font-weight: 400;
-	color: #d1d5db;
-}
-
-.rt-score-card__metrics {
-	display: flex;
-	gap: 1rem;
-	margin: 0;
-	padding-top: 0.35rem;
-	font-size: 0.72rem;
-	color: #d1d5db;
-}
-
-.rt-score-card__metrics div {
-	display: flex;
-	gap: 0.25rem;
-}
-
-.rt-score-card__metrics dt,
-.rt-score-card__metrics dd {
-	margin: 0;
-	font-size: 0.72rem;
-	font-weight: 400;
-}
-
-.rt-score-card__metrics dt {
-	color: var(--rt-muted);
-}
-
-.rt-score-card__metrics dd {
+	font-size: 0.875rem;
 	color: #d1d5db;
 }
 
@@ -165,10 +133,5 @@
 
 	.rt-score-card__content {
 		font-size: 1.3rem;
-	}
-
-	.rt-score-card__metrics {
-		flex-direction: column;
-		gap: 0.15rem;
 	}
 }

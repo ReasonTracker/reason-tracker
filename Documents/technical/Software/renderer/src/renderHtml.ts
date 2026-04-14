@@ -2,7 +2,7 @@
 
 import type { Debate } from "../../contracts/src/Debate.ts";
 import { deriveTargetRelation } from "../../contracts/src/Connector.ts";
-import type { DebateLayout } from "../../engine/src/index.ts";
+import type { DebateLayout, DebateLayoutPipelineContext } from "../../engine/src/index.ts";
 import type {
 	AppliedAddConnectionStep,
 	AppliedAddLeafClaimStep,
@@ -20,16 +20,13 @@ import type { ScoreId } from "../../contracts/src/Score.ts";
 const DEFAULT_STYLESHEET_HREF = "reason-tracker-renderer.css";
 const DEFAULT_STYLESHEET_SOURCE_PATH = "./src/renderHtml.css";
 const DEFAULT_BRAND_STYLESHEET_HREF = "../website/site/css/brand.css";
+const DEFAULT_CLAIM_WIDTH = 320;
+const DEFAULT_CLAIM_HEIGHT = 180;
 
-export interface RenderHtmlRequest {
-	debate: Debate
-	layout: DebateLayout
+export interface RenderHtmlRequest extends DebateLayoutPipelineContext {
 	previousDebate?: Debate
 	previousLayout?: DebateLayout
 	intent?: Intent
-	intentSequence?: IntentSequence
-	stepId?: RecordId
-	changes?: Change[]
 	title?: string
 	stylesheetHref?: string
 	brandStylesheetHref?: string
@@ -80,6 +77,7 @@ interface ScoreVisual {
 	y: number
 	width: number
 	height: number
+	scale: number
 	isRoot: boolean
 	isLeaf: boolean
 	presence: "current" | "exiting"
@@ -215,6 +213,7 @@ function buildScoreVisuals(
 			y: layout.y,
 			width: layout.width,
 			height: layout.height,
+			scale: resolveScoreShapeScale(layout.width, layout.height),
 			isRoot: layout.isRoot,
 			isLeaf: layout.isLeaf,
 			presence,
@@ -422,11 +421,12 @@ function renderDocumentBody(args: {
 
 	return [
 		`<main id="${escapeHtml(documentId)}" class="rt-document" data-instance-prefix="${escapeHtml(args.idPrefix)}" data-debate-id="${escapeHtml(args.debateId)}" data-intent-type="${escapeHtml(args.intentType ?? "none")}" data-step-type="${escapeHtml(args.stepType ?? "none")}">`,
-		`<header class=\"rt-header\"><h1 class=\"rt-title\">${escapeHtml(args.title)}</h1></header>`,
 		`<section class=\"rt-stage\" aria-label=\"Reason Tracker graph\">`,
-		`<div id="${escapeHtml(graphId)}" class="rt-graph" style="width:${formatNumber(args.bounds.width)}px;height:${formatNumber(args.bounds.height)}px">`,
+		`<div id="${escapeHtml(graphId)}" class="rt-graph">`,
+		`<div class="rt-layout-canvas" style="width:${formatNumber(args.bounds.width)}px;height:${formatNumber(args.bounds.height)}px">`,
 		renderConnectorLayer(args.bounds, args.connectorVisuals, connectorLayerId, args.idPrefix),
 		args.scoreVisuals.map((score) => renderScoreCard(score, args.idPrefix)).join("\n"),
+		"</div>",
 		"</div>",
 		"</section>",
 		"</main>",
@@ -453,16 +453,18 @@ function renderConnectorPath(connector: ConnectorVisual, idPrefix: string): stri
 function renderScoreCard(score: ScoreVisual, idPrefix: string): string {
 	return [
 		`<article id="${escapeHtml(buildDomId(idPrefix, "score", score.scoreId))}" class="rt-score-card" data-score-id="${escapeHtml(score.scoreId)}" data-claim-id="${escapeHtml(score.claimId)}" data-claim-side="${escapeHtml(score.claimSide)}" data-presence="${score.presence}" data-animation-kind="${score.animationKind}" data-animation-direction="${escapeHtml(score.animationDirection ?? "none")}" data-step-type="${escapeHtml(score.stepType ?? "none")}" data-intent-type="${escapeHtml(score.intentType ?? "none")}" data-is-root="${String(score.isRoot)}" data-is-leaf="${String(score.isLeaf)}" style="left:${formatNumber(score.x)}px;top:${formatNumber(score.y)}px;width:${formatNumber(score.width)}px;height:${formatNumber(score.height)}px">`,
-		`<div class=\"rt-score-card__body\">`,
-		`<div class=\"rt-score-card__eyebrow\">${escapeHtml(score.label)}</div>`,
+		`<div class="rt-claim-shape" style="width:${DEFAULT_CLAIM_WIDTH}px;height:${DEFAULT_CLAIM_HEIGHT}px;--rt-claim-shape-scale:${formatNumber(score.scale)};--rt-claim-insert-scale:1">`,
+		`<article class=\"rt-score-card__body rt-claim-shape-body\">`,
 		`<h2 class=\"rt-score-card__content\">${escapeHtml(score.claimContent)}</h2>`,
-		`<dl class=\"rt-score-card__metrics\">`,
-		`<div><dt>Confidence</dt><dd>${escapeHtml(formatConfidencePercent(score.confidence))}</dd></div>`,
-		`<div><dt>Relevance</dt><dd>${escapeHtml(formatMetric(score.relevance))}</dd></div>`,
-		"</dl>",
+		`<small class=\"rt-score-card__label\" data-score="${escapeHtml(score.label)}" data-score-id="${escapeHtml(score.scoreId)}">${escapeHtml(score.label)}</small>`,
+		"</article>",
 		"</div>",
 		"</article>",
 	].join("\n");
+}
+
+function resolveScoreShapeScale(width: number, height: number): number {
+	return Math.min(width / DEFAULT_CLAIM_WIDTH, height / DEFAULT_CLAIM_HEIGHT);
 }
 
 function buildDirectionByScoreId(changes: Change[]): Partial<Record<ScoreId, string>> {

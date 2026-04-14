@@ -2,14 +2,45 @@
 
 import type { Debate } from "../../contracts/src/Debate.ts";
 import type {
+	AnimationStep,
 	Change,
 	Intent,
 	IntentSequence,
 	RecordId,
 } from "../../contracts/src/IntentSequence.ts";
 
-export interface ProcessDebateIntentRequest {
+/**
+ * Base payload carried forward through the abstract pipeline.
+ *
+ * Later stages should extend this grouped context rather than restating the
+ * same domain fields in parallel request shapes.
+ */
+export interface DebatePipelineContext {
 	debate: Debate
+}
+
+/**
+	 * Pipeline payload carrying optional intent-sequence selection context.
+ *
+ * This stays renderer-agnostic and can be extended by layout, renderer, or
+ * video-specific projection layers.
+ */
+export interface IntentSequenceSelectionPipelineContext extends DebatePipelineContext {
+	intentSequence?: IntentSequence
+	stepId?: RecordId
+	changes?: Change[]
+	animationSteps?: AnimationStep[]
+}
+
+/**
+	 * Pipeline payload narrowed to one resolved step application.
+	 */
+export interface ResolvedIntentSequencePipelineContext extends IntentSequenceSelectionPipelineContext {
+	intentSequence: IntentSequence
+	stepId: RecordId
+}
+
+export interface ProcessDebateIntentRequest extends DebatePipelineContext {
 	intent: Intent
 }
 
@@ -18,10 +49,7 @@ export interface ProcessDebateIntentResult {
 	finalDebate: Debate
 }
 
-export interface ApplyIntentSequenceStepRequest {
-	debate: Debate
-	intentSequence: IntentSequence
-	stepId: RecordId
+export interface ApplyIntentSequenceStepRequest extends ResolvedIntentSequencePipelineContext {
 
 	/**
 	 * Optional change override for applying part or all of a recalculation wave.
@@ -33,7 +61,6 @@ export interface ApplyIntentSequenceStepRequest {
 	 * Callers should preserve the original change order from the selected wave,
 	 * because that order is part of the propagation semantics.
 	 */
-	changes?: Change[]
 }
 
 export interface ApplyIntentSequenceStepResult {

@@ -1,5 +1,18 @@
 # Scenario 1 - Adding a new claim to an existing graph as a leaf
 
+> Read [📌README.md](./%F0%9F%93%8CREADME.md) in this folder for rewrite-task context before editing this document.
+
+## Architecture Clarification
+
+- The technology-abstract pipeline should own structural facts, propagation facts, layout facts, and renderer-agnostic animation-step facts.
+- The pipeline should prefer one grouped payload that is passed forward and extended by each stage instead of repeatedly breaking apart and re-creating overlapping request/result objects.
+- `IntentSequence` and `Change` remain the semantic records of what happened.
+- Some presentation timing needs smaller-grained records than a `Change`, so the abstract side may emit adjacent `AnimationStep` records that are still renderer-agnostic.
+- `layout` is the rendering-adjacent but technology-abstract stage. It may add geometry and animation-step metadata that downstream renderers consume.
+- `renderHtml` should stay HTML-specific. It may read abstract pipeline facts but should not become the owner of Remotion or medium-specific staging logic.
+- `GraphView` is responsible for translating abstract pipeline facts into Remotion timing, sequencing, and per-frame visual behavior.
+- Episode files such as `episode0001.tsx` should stay declarative orchestration and should not become the owner of low-level animation mechanics.
+
 ## Step And Wave Terms
 
 - Step: one scenario event. A step may update one data object or many data objects.
@@ -7,6 +20,7 @@
 - A non-wave step is atomic even if it updates many objects.
 - In this model, only waves create many ordered action records.
 - The visible appearance of the new claim or connector is renderer behavior for the add step, not a separate stored wave.
+- If a renderer needs smaller staging units such as `claim enters` followed by `connector grows`, those should come from adjacent abstract `AnimationStep` records rather than from renderer-local guesses when possible.
 - Layout changes may be downstream effects of domain changes without being steps in this domain model.
 
 ## Steps
