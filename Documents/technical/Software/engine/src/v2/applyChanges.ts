@@ -127,6 +127,15 @@ export function applyChange(debate: Debate, change: Change): Debate {
 			return updateScore(debate, change.scoreId, {
 				scaleOfSources: change.after.scaleOfSources,
 			});
+		case "ScoreScaleOfSourcesBatchChanged": {
+			let nextDebate = debate;
+			for (const entry of change.changes) {
+				nextDebate = updateScore(nextDebate, entry.scoreId, {
+					scaleOfSources: entry.after.scaleOfSources,
+				});
+			}
+			return nextDebate;
+		}
 		default:
 			return assertNever(change);
 	}

@@ -513,6 +513,8 @@ function isScoreScopedChange(change: Change, scoreId: ScoreId): boolean {
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
 			return change.scoreId === scoreId;
+		case "ScoreScaleOfSourcesBatchChanged":
+			return change.changes.some((entry) => entry.scoreId === scoreId);
 		case "IncomingSourceInserted":
 		case "IncomingSourceRemoved":
 			return change.sourceScoreId === scoreId || change.targetScoreId === scoreId;

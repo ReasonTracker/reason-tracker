@@ -248,6 +248,19 @@ export type ScoreScaleOfSourcesChangedChange = DirectedScoreFieldChange<
 	{ scaleOfSources: number }
 >;
 
+export interface ScoreScaleOfSourcesBatchEntry {
+	scoreId: ScoreId
+	before: { scaleOfSources: number }
+	after: { scaleOfSources: number }
+	direction: PropagationDirection
+}
+
+export interface ScoreScaleOfSourcesBatchChangedChange {
+	id: ChangeId
+	kind: "ScoreScaleOfSourcesBatchChanged"
+	changes: ScoreScaleOfSourcesBatchEntry[]
+}
+
 export type Change =
 	| ClaimAddedChange
 	| ClaimRemovedChange
@@ -267,4 +280,5 @@ export type Change =
 	| ScoreClaimConfidenceChangedChange
 	| ScoreConnectorConfidenceChangedChange
 	| ScoreRelevanceChangedChange
-	| ScoreScaleOfSourcesChangedChange;
+	| ScoreScaleOfSourcesChangedChange
+	| ScoreScaleOfSourcesBatchChangedChange;

@@ -134,6 +134,7 @@ function endsCommittedBoundary(change: Change): boolean {
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
+		case "ScoreScaleOfSourcesBatchChanged":
 			return true;
 		case "ClaimAdded":
 		case "ConnectorAdded":
@@ -156,7 +157,8 @@ function scheduleTransitionUnits(
 	}
 
 	const weightedUnits = units.map((unit, index) => {
-		const weight = Math.max(1, unit.changes.reduce((sum, change) => sum + resolveChangeWeight(change), 0));
+		// const weight = Math.max(1, unit.changes.reduce((sum, change) => sum + resolveChangeWeight(change), 0));
+		const weight = 1;
 		return {
 			index,
 			weight,
@@ -205,23 +207,25 @@ function resolveChangeWeight(change: Change): number {
 		case "ClaimRemoved":
 		case "ScoreRemoved":
 		case "ConnectorRemoved":
-			return 5;
+			// return 5;
 		case "IncomingSourceInserted":
 		case "IncomingSourceRemoved":
 		case "IncomingSourcesResorted":
-			return 3;
+			// return 3;
 		case "ScoreClaimConfidenceChanged":
 		case "ScoreConnectorConfidenceChanged":
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
-			return 2;
+			// return 2;
+		case "ScoreScaleOfSourcesBatchChanged":
+			// return 1;
 		case "ClaimContentChanged":
 		case "ClaimSideChanged":
 		case "ClaimForceConfidenceChanged":
 		case "ConnectorSourceChanged":
 		case "ConnectorTargetChanged":
 		case "ConnectorAffectsChanged":
-			return 2;
+			// return 2;
 		default:
 			return 1;
 	}
@@ -236,6 +240,16 @@ function formatChangeName(change: Change, debate: Debate): string {
 			const score = debate.scores[change.scoreId];
 			const claim = score ? debate.claims[score.claimId] : undefined;
 			return `${change.kind} / ${claim?.content ?? change.scoreId}`;
+		}
+		case "ScoreScaleOfSourcesBatchChanged": {
+			const firstEntry = change.changes[0];
+			if (!firstEntry) {
+				return change.kind;
+			}
+
+			const score = debate.scores[firstEntry.scoreId];
+			const claim = score ? debate.claims[score.claimId] : undefined;
+			return `${change.kind} / ${claim?.content ?? firstEntry.scoreId} (+${Math.max(0, change.changes.length - 1)})`;
 		}
 		case "ClaimAdded":
 		case "ClaimRemoved":

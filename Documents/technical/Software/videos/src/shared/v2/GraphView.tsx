@@ -430,16 +430,16 @@ function renderPreparedTimelineMarkers(prepared: PreparedGraphView, graphFrom: n
 	return prepared.segments
 		.filter((segment) => segment.directives.length > 0 && segment.name !== "Hold final state")
 		.map((segment, index) => (
-		<Sequence
-			key={`graph-segment:${index}:${segment.timelineFrom}`}
-			from={graphFrom + segment.timelineFrom}
-			durationInFrames={segment.durationInFrames}
-			name={segment.name}
-			layout="none"
-		>
-			<span style={{ display: "none" }} />
-		</Sequence>
-	));
+			<Sequence
+				key={`graph-segment:${index}:${segment.timelineFrom}`}
+				from={graphFrom + segment.timelineFrom}
+				durationInFrames={segment.durationInFrames}
+				name={segment.name}
+				layout="none"
+			>
+				<span style={{ display: "none" }} />
+			</Sequence>
+		));
 }
 
 async function buildPreparedGraphView(
@@ -495,6 +495,20 @@ function buildGraphTransitionSegments(
 	for (const unit of schedule.transitionUnits) {
 		const actualUnitToSnapshot = buildGraphSnapshotFromPipeline(unit.to);
 		const directives = buildTransitionDirectives(unit.from.debate, unit.changes);
+		if (shouldKeepTransitionUnitGrouped(unit.changes) && directives.length > 0) {
+			transitionSegments.push({
+				timelineFrom: segmentTimelineFrom,
+				name: unit.name,
+				fromSnapshot: currentSnapshot,
+				toSnapshot: actualUnitToSnapshot,
+				directives,
+				durationWeight: Math.max(1, directives.reduce((sum, directive) => sum + resolveTransitionDirectiveWeight(directive), 0)),
+				durationInFrames: unit.durationInFrames,
+			});
+			currentSnapshot = actualUnitToSnapshot;
+			segmentTimelineFrom += unit.durationInFrames;
+			continue;
+		}
 		const scheduledDirectives = scheduleTransitionDirectives(directives, unit.durationInFrames);
 
 		if (scheduledDirectives.length === 0) {
@@ -531,6 +545,10 @@ function buildGraphTransitionSegments(
 	return transitionSegments;
 }
 
+function shouldKeepTransitionUnitGrouped(changes: readonly Change[]): boolean {
+	return changes.some((change) => change.kind === "ScoreScaleOfSourcesBatchChanged");
+}
+
 function buildDirectivePhaseSnapshot(
 	fromSnapshot: GraphSnapshot,
 	toSnapshot: GraphSnapshot,
@@ -542,7 +560,7 @@ function buildDirectivePhaseSnapshot(
 		if (connectorDirective?.effect === "update") {
 			return {
 				pipeline: toSnapshot.pipeline,
-				renderState: buildConnectorUpdatePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
+				renderState: buildConnectorUpdatePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState, directives),
 			};
 		}
 
@@ -801,11 +819,18 @@ function buildScalePhaseRenderState(
 function buildConnectorUpdatePhaseRenderState(
 	fromState: GraphRenderState,
 	toState: GraphRenderState,
+	directives: readonly GraphTransitionDirective[],
 ): GraphRenderState {
 	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
 	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
 	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
 	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+	const updatedConnectorIds = new Set<ConnectorId>();
+	for (const directive of directives) {
+		if (directive.kind === "connector" && directive.effect === "update") {
+			updatedConnectorIds.add(directive.connectorId);
+		}
+	}
 
 	for (const claimId of claimRenderOrder) {
 		const fromClaim = fromState.claimByClaimId[claimId];
@@ -813,11 +838,6 @@ function buildConnectorUpdatePhaseRenderState(
 		if (fromClaim && toClaim) {
 			claimByClaimId[claimId] = {
 				...fromClaim,
-				content: toClaim.content,
-				side: toClaim.side,
-				confidence: toClaim.confidence,
-				relevance: toClaim.relevance,
-				scale: toClaim.scale,
 			};
 			continue;
 		}
@@ -840,6 +860,20 @@ function buildConnectorUpdatePhaseRenderState(
 	for (const connectorId of connectorRenderOrder) {
 		const fromConnector = fromState.connectorByConnectorId[connectorId];
 		const toConnector = toState.connectorByConnectorId[connectorId];
+		const isUpdatedConnector = updatedConnectorIds.has(connectorId);
+
+		if (!isUpdatedConnector) {
+			if (fromConnector) {
+				connectorByConnectorId[connectorId] = { ...fromConnector };
+				continue;
+			}
+
+			if (toConnector) {
+				connectorByConnectorId[connectorId] = { ...toConnector };
+				continue;
+			}
+		}
+
 		if (fromConnector && toConnector) {
 			connectorByConnectorId[connectorId] = {
 				...fromConnector,
@@ -1074,7 +1108,11 @@ function resolveDirectiveTransition(
 		return toSnapshot.renderState;
 	}
 
-	const state = buildDirectiveBaseState(fromSnapshot.renderState, toSnapshot.renderState, clamped);
+	const state = buildDirectiveBaseState(fromSnapshot.renderState, toSnapshot.renderState, clamped, directives);
+	const includesScalePhase = directives.some((directive) => directive.kind === "claim" && directive.effect === "scale");
+	if (includesScalePhase && clamped > 0) {
+		applyRenderedScalePhase(state, fromSnapshot, toSnapshot, clamped);
+	}
 
 	for (const directive of directives) {
 		const stepProgress = clamped;
@@ -1083,9 +1121,6 @@ function resolveDirectiveTransition(
 		}
 
 		if (directive.kind === "claim") {
-			if (directive.effect === "scale") {
-				applyRenderedScalePhase(state, fromSnapshot, toSnapshot, stepProgress);
-			}
 			applyClaimDirective(state, fromSnapshot, toSnapshot, directive, stepProgress);
 			continue;
 		}
@@ -1121,15 +1156,31 @@ function buildDirectiveBaseState(
 	fromState: GraphRenderState,
 	toState: GraphRenderState,
 	progress: number,
+	directives: readonly GraphTransitionDirective[],
 ): GraphRenderState {
 	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
 	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
 	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
 	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
+	const isPureConnectorUpdateSegment = directives.length > 0
+		&& directives.every((directive) => directive.kind === "connector" && directive.effect === "update");
+	const updatedConnectorIds = new Set<ConnectorId>();
+	for (const directive of directives) {
+		if (directive.kind === "connector" && directive.effect === "update") {
+			updatedConnectorIds.add(directive.connectorId);
+		}
+	}
 
 	for (const claimId of claimRenderOrder) {
 		const fromClaim = fromState.claimByClaimId[claimId];
 		const toClaim = toState.claimByClaimId[claimId];
+		if (isPureConnectorUpdateSegment && fromClaim) {
+			claimByClaimId[claimId] = {
+				...fromClaim,
+			};
+			continue;
+		}
+
 		if (fromClaim && toClaim) {
 			claimByClaimId[claimId] = {
 				...toClaim,
@@ -1171,6 +1222,22 @@ function buildDirectiveBaseState(
 		const baseConnector = fromConnector ?? toConnector;
 		if (!baseConnector) {
 			continue;
+		}
+
+		if (isPureConnectorUpdateSegment && !updatedConnectorIds.has(connectorId)) {
+			if (fromConnector) {
+				connectorByConnectorId[connectorId] = {
+					...fromConnector,
+				};
+				continue;
+			}
+
+			if (toConnector) {
+				connectorByConnectorId[connectorId] = {
+					...toConnector,
+				};
+				continue;
+			}
 		}
 
 		if (fromConnector && toConnector) {
@@ -2050,36 +2117,38 @@ function buildTransitionDirectivesFromChange(
 
 			return directives;
 		}
-		case "ScoreScaleOfSourcesChanged": {
-			const score = debate.scores[change.scoreId];
-			if (!score) {
-				throw new Error(`Score ${change.scoreId} was not found in the debate.`);
-			}
-
-			const directives: GraphTransitionDirective[] = [];
-			if (score.claimId !== debate.mainClaimId) {
-				directives.push({
-					kind: "claim",
-					scoreId: change.scoreId,
-					effect: "scale",
-					direction: change.direction,
-				});
-			}
-
-			if (score.connectorId) {
-				directives.push({
-					kind: "connector",
-					connectorId: score.connectorId,
-					effect: "update",
-					direction: change.direction,
-				});
-			}
-
-			return directives;
-		}
+		case "ScoreScaleOfSourcesChanged":
+			return buildScaleOfSourcesDirectives(debate, change.scoreId, change.direction);
+		case "ScoreScaleOfSourcesBatchChanged":
+			return change.changes.flatMap((entry) =>
+				buildScaleOfSourcesDirectives(debate, entry.scoreId, entry.direction),
+			);
 		default:
 			return [];
 	}
+}
+
+function buildScaleOfSourcesDirectives(
+	debate: Debate,
+	scoreId: ScoreId,
+	direction: GraphTransitionDirection | undefined,
+): GraphTransitionDirective[] {
+	const score = debate.scores[scoreId];
+	if (!score) {
+		throw new Error(`Score ${scoreId} was not found in the debate.`);
+	}
+
+	const directives: GraphTransitionDirective[] = [];
+	if (score.claimId !== debate.mainClaimId) {
+		directives.push({
+			kind: "claim",
+			scoreId,
+			effect: "scale",
+			direction,
+		});
+	}
+
+	return directives;
 }
 
 function scheduleTransitionDirectives(
@@ -2129,19 +2198,22 @@ function resolveTransitionDirectiveWeight(directive: GraphTransitionDirective): 
 		switch (directive.effect) {
 			case "enter":
 			case "exit":
-				return 3;
+			// return 3;
 			case "display":
 			case "scale":
-				return 2;
+				// return 2;
+				return 1;
+
 		}
 	}
 
 	switch (directive.effect) {
 		case "grow":
 		case "shrink":
-			return 5;
+		// return 5;
 		case "update":
-			return 4;
+			// return 4;
+			return 1;
 	}
 }
 
@@ -2396,6 +2468,8 @@ function formatChangeLabel(change: Change): string {
 		case "ScoreRelevanceChanged":
 		case "ScoreScaleOfSourcesChanged":
 			return `${change.kind} ${change.scoreId}`;
+		case "ScoreScaleOfSourcesBatchChanged":
+			return `${change.kind} ${change.changes.map((entry) => entry.scoreId).join(",")}`;
 	}
 }
 

@@ -374,7 +374,7 @@ function createScaleOfSourcesChangedRecords(beforeDebate: Debate, afterDebate: D
 	}
 
 	const orderedScoreIds = collectScoreIdsInLayoutOrder(afterDebate, rootScores[0].id);
-	const scaleChanges: Change[] = [];
+	const scaleChanges = [] as Extract<Change, { kind: "ScoreScaleOfSourcesBatchChanged" }>["changes"];
 
 	for (const scoreId of orderedScoreIds) {
 		const beforeScore = beforeDebate.scores[scoreId];
@@ -384,8 +384,6 @@ function createScaleOfSourcesChangedRecords(beforeDebate: Debate, afterDebate: D
 		}
 
 		scaleChanges.push({
-			id: newId() as ChangeId,
-			kind: "ScoreScaleOfSourcesChanged",
 			scoreId,
 			before: {
 				scaleOfSources: beforeScore.scaleOfSources,
@@ -397,7 +395,15 @@ function createScaleOfSourcesChangedRecords(beforeDebate: Debate, afterDebate: D
 		});
 	}
 
-	return scaleChanges;
+	if (scaleChanges.length === 0) {
+		return [];
+	}
+
+	return [{
+		id: newId() as ChangeId,
+		kind: "ScoreScaleOfSourcesBatchChanged",
+		changes: scaleChanges,
+	}];
 }
 
 function collectScoreIdsInLayoutOrder(debate: Debate, rootScoreId: ScoreId): ScoreId[] {
