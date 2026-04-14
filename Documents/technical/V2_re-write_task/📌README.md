@@ -3,7 +3,7 @@
 This project is to rewrite most of the core code of reason-tracker into V2 code that has very different types.
 
 ## Current task
-We are working on the layout functions
+We are working on the rednderer
 
 ## Old code for reference
 

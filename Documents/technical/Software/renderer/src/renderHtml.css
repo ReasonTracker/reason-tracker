@@ -1,0 +1,174 @@
+.rt-document {
+	--rt-font: "IBM Plex Sans", "Segoe UI", sans-serif;
+	--rt-fg: #1f2937;
+	--rt-muted: #6b7280;
+	--rt-bg: #000000;
+	--rt-connector-opacity: 90%;
+	--rt-connector-potential-opacity: 30%;
+	min-height: 100vh;
+	margin: 0;
+	padding: 0.35rem 0.5rem 0.5rem;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	font-family: var(--rt-font);
+	color: var(--rt-fg);
+	background: var(--rt-bg);
+}
+
+.rt-header {
+	margin: 0;
+	flex: 0 0 auto;
+}
+
+.rt-title {
+	margin: 0;
+	font-size: 0.95rem;
+	line-height: 1.05;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: #ffffff;
+}
+
+.rt-stage {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	border: 1px solid #d1d5db;
+	border-radius: 0.75rem;
+	background: #000000;
+}
+
+.rt-graph {
+	position: relative;
+	background: #000000;
+	min-width: 100%;
+	min-height: 100%;
+	box-sizing: border-box;
+}
+
+.rt-connector-layer {
+	position: absolute;
+	inset: 0;
+	overflow: visible;
+	pointer-events: none;
+	fill: none;
+}
+
+.rt-connector {
+	fill: none;
+	stroke: #64748b;
+	opacity: var(--rt-connector-opacity);
+	stroke-width: 2;
+	stroke-linecap: butt;
+}
+
+.rt-connector[data-connector-side="proMain"] {
+	stroke: var(--pro);
+}
+
+.rt-connector[data-connector-side="conMain"] {
+	stroke: var(--con);
+}
+
+.rt-connector[data-affects="relevance"] {
+	stroke-dasharray: 6 5;
+}
+
+.rt-score-card {
+	position: absolute;
+	box-sizing: border-box;
+	overflow: visible;
+}
+
+.rt-score-card__body {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 0.5rem 0.75rem;
+	background: #000000;
+	color: #ffffff;
+	border: 4px solid #cbd5e1;
+	border-radius: 0;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+	overflow: auto;
+}
+
+.rt-score-card[data-claim-side="proMain"] .rt-score-card__body {
+	border-color: var(--pro);
+	background: hsl(var(--pro-h) 100% var(--pro-l) / var(--rt-connector-potential-opacity));
+}
+
+.rt-score-card[data-claim-side="conMain"] .rt-score-card__body {
+	border-color: var(--con);
+	background: hsl(var(--con-h) 100% var(--con-l) / var(--rt-connector-potential-opacity));
+}
+
+.rt-score-card__content {
+	margin: 0;
+	font-size: 1.9rem;
+	line-height: 1.05;
+	font-weight: 600;
+	color: #ffffff;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 5;
+	line-clamp: 5;
+}
+
+.rt-score-card__eyebrow {
+	display: block;
+	margin-top: 0.35rem;
+	margin-bottom: 0;
+	font-size: 0.72rem;
+	font-weight: 400;
+	color: #d1d5db;
+}
+
+.rt-score-card__metrics {
+	display: flex;
+	gap: 1rem;
+	margin: 0;
+	padding-top: 0.35rem;
+	font-size: 0.72rem;
+	color: #d1d5db;
+}
+
+.rt-score-card__metrics div {
+	display: flex;
+	gap: 0.25rem;
+}
+
+.rt-score-card__metrics dt,
+.rt-score-card__metrics dd {
+	margin: 0;
+	font-size: 0.72rem;
+	font-weight: 400;
+}
+
+.rt-score-card__metrics dt {
+	color: var(--rt-muted);
+}
+
+.rt-score-card__metrics dd {
+	color: #d1d5db;
+}
+
+@media (max-width: 900px) {
+	.rt-document {
+		padding: 0.35rem 0.35rem 0.45rem;
+	}
+
+	.rt-score-card__content {
+		font-size: 1.3rem;
+	}
+
+	.rt-score-card__metrics {
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+}
