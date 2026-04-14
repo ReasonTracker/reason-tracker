@@ -12,6 +12,8 @@ Use this file as the async check-in point during the refactor.
 
 - None right now.
 
+
+
 ## Blockers
 
 - None right now.
@@ -21,3 +23,4 @@ Use this file as the async check-in point during the refactor.
 - Working plan: build the new path side by side until it reaches `EpisodeV2`.
 - `EpisodeV2` is just the isolated file name for the new path, not a separate requirement set.
 - Current design target: semantic model is only `Intents -> ordered Changes`.
+- Resolved direction: build a brand-new V2 `GraphView` in a V2 folder and add the small Remotion entrypoint wiring needed to register `EpisodeV2`.
