@@ -1,13 +1,10 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import { createRequire } from "node:module";
+import ELK from "elkjs/lib/elk.bundled.js";
 import type { Debate } from "../../contracts/src/Debate.ts";
 import type { ConnectorId } from "../../contracts/src/Connector.ts";
 import type { Score, ScoreId } from "../../contracts/src/Score.ts";
 import { getScoresForClaimId } from "./graph.ts";
-
-const require = createRequire(import.meta.url);
-const ELK = require("elkjs/lib/elk.bundled.js") as { new (): ElkLayoutApi };
 
 // AGENT NOTE: keep tunable layout constants grouped here.
 const DEFAULT_SCORE_WIDTH = 320;
@@ -86,6 +83,8 @@ export type CalculateLayout = (
 	request: CalculateLayoutRequest,
 ) => DebateLayout | Promise<DebateLayout>;
 
+type ElkConstructor = new () => ElkLayoutApi;
+
 type LayoutElkNode = ElkNode & {
 	children?: LayoutElkNode[]
 	edges?: LayoutElkEdge[]
@@ -129,7 +128,7 @@ export async function calculateLayout(request: CalculateLayoutRequest): Promise<
 	const rootScore = getRootScore(request.debate);
 	const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(request.debate, rootScore.id);
 	const elkGraph = buildElkGraph(request.debate, rootScore.id, scoreIdsInLayoutOrder, request.options);
-	const elk = new ELK();
+	const elk = new (ELK as unknown as ElkConstructor)();
 	const laidOutGraph = await elk.layout(elkGraph);
 
 	return buildDebateLayout({
