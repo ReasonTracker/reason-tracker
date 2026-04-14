@@ -3,7 +3,7 @@
 This project is to rewrite most of the core code of reason-tracker into V2 code that has very different types.
 
 ## Current task
-Done with contracts and data structures, next: Start on engine?
+We are working on the layout functions
 
 ## Old code for reference
 

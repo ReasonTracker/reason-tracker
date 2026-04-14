@@ -9,3 +9,15 @@ export type {
 
 export { processDebateIntent } from "./intents.ts";
 export { applyIntentSequenceStep } from "./step-application.ts";
+export { calculateLayout } from "./layout.ts";
+
+export type {
+	CalculateLayout,
+	CalculateLayoutRequest,
+	ConnectorRoute,
+	DebateLayout,
+	LayoutBounds,
+	LayoutOptions,
+	LayoutPoint,
+	ScoreLayout,
+} from "./layout.ts";

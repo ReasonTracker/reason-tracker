@@ -11,8 +11,7 @@
   ],
   "dependencies": {
     "@reasontracker/contracts": "workspace:*",
-    "@reasontracker/engine": "workspace:*",
-    "elkjs": "^0.11.1"
+    "@reasontracker/engine": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6",

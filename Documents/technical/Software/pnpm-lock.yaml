@@ -8,46 +8,6 @@ importers:
 
   .: {}
 
-  Video:
-    dependencies:
-      '@reasontracker/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@reasontracker/engine':
-        specifier: workspace:*
-        version: link:../engine
-      '@reasontracker/renderer':
-        specifier: workspace:*
-        version: link:../renderer
-      react:
-        specifier: ^19.2.5
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.2.5
-        version: 19.2.5(react@19.2.5)
-      remotion:
-        specifier: ^4.0.448
-        version: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-    devDependencies:
-      '@remotion/cli':
-        specifier: ^4.0.448
-        version: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@types/node':
-        specifier: ^24.5.2
-        version: 24.12.2
-      '@types/react':
-        specifier: ^19.2.2
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.2
-        version: 19.2.3(@types/react@19.2.14)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite-plus:
-        specifier: ^0.1.16
-        version: 0.1.16(@types/node@24.12.2)(terser@5.46.1)(tsx@4.21.0)(typescript@5.9.3)(vite@6.4.2(@types/node@24.12.2)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
-
   command-center:
     devDependencies:
       typescript:
@@ -71,6 +31,9 @@ importers:
       '@reasontracker/contracts':
         specifier: workspace:*
         version: link:../contracts
+      elkjs:
+        specifier: ^0.11.1
+        version: 0.11.1
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -109,9 +72,6 @@ importers:
       '@reasontracker/engine':
         specifier: workspace:*
         version: link:../engine
-      elkjs:
-        specifier: ^0.11.1
-        version: 0.11.1
     devDependencies:
       tsx:
         specifier: ^4.20.6
@@ -122,6 +82,46 @@ importers:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)
+
+  videos:
+    dependencies:
+      '@reasontracker/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@reasontracker/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@reasontracker/renderer':
+        specifier: workspace:*
+        version: link:../renderer
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
+      remotion:
+        specifier: ^4.0.448
+        version: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+    devDependencies:
+      '@remotion/cli':
+        specifier: ^4.0.448
+        version: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@types/node':
+        specifier: ^24.5.2
+        version: 24.12.2
+      '@types/react':
+        specifier: ^19.2.2
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.2
+        version: 19.2.3(@types/react@19.2.14)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite-plus:
+        specifier: ^0.1.16
+        version: 0.1.16(@types/node@24.12.2)(terser@5.46.1)(tsx@4.21.0)(typescript@5.9.3)(vite@6.4.2(@types/node@24.12.2)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
 
   website:
     dependencies:
@@ -3160,7 +3160,7 @@ snapshots:
       react-refresh: 0.18.0
       remotion: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.105.0(esbuild@0.25.0))
+      style-loader: 4.0.0(webpack@5.105.0)
       webpack: 5.105.0(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -3525,7 +3525,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 24.12.2
+      '@types/node': 25.6.0
     optional: true
 
   '@vitest/expect@2.1.9':
@@ -4157,7 +4157,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 24.12.2
+      '@types/node': 25.6.0
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -4513,7 +4513,7 @@ snapshots:
 
   strip-final-newline@2.0.0: {}
 
-  style-loader@4.0.0(webpack@5.105.0(esbuild@0.25.0)):
+  style-loader@4.0.0(webpack@5.105.0):
     dependencies:
       webpack: 5.105.0(esbuild@0.25.0)
 
