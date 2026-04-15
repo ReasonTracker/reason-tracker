@@ -1,8 +1,11 @@
 packages:
   - command-center
   - website
+  - timeline
   - contracts
   - engine
   - engine-tests
   - renderer
   - videos
+allowBuilds:
+  esbuild: true

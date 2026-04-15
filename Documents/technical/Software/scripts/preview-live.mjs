@@ -53,9 +53,9 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-start("preview watcher", "pnpm run -F @reasontracker/renderer preview:watch");
+start("preview watcher", "vp run -F @reasontracker/renderer preview:watch");
 
 start(
   "live server",
-  `pnpm exec vp dev --port ${LIVE_PORT} --strictPort --open ${PREVIEW_PATH}`,
+  `vp dev --port ${LIVE_PORT} --strictPort --open ${PREVIEW_PATH}`,
 );

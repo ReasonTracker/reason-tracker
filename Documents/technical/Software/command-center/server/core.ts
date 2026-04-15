@@ -169,7 +169,7 @@ export async function setCurrentEpisode(episodeId: string) {
 
 export async function runCurrentEpisodeRender(): Promise<ActionPayload> {
   const episodeId = await readCurrentEpisodeId();
-  const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
+  const result = await runShellCommand(`vp run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
   return {
     title: `Render ${toEpisodeDisplayName(episodeId)}`,
     mode: result.mode,
@@ -184,7 +184,7 @@ export async function runEpisodeRender(episodeId: string): Promise<ActionPayload
     throw new Error("Invalid episode id.");
   }
 
-  const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(normalized)}`, false);
+  const result = await runShellCommand(`vp run -F @reasontracker/video render:episode -- ${shellQuote(normalized)}`, false);
   return {
     title: `Render ${toEpisodeDisplayName(normalized)}`,
     mode: result.mode,
@@ -201,7 +201,7 @@ export async function openStudio(): Promise<ActionPayload> {
   if (studioAlreadyRunning) {
     openUrl(targetStudioUrl);
   } else {
-    await runShellCommand("pnpm run -F @reasontracker/video studio -- --no-open", true);
+    await runShellCommand("vp run -F @reasontracker/video studio -- --no-open", true);
     await waitForPort(studioPort, 15000);
     openUrl(targetStudioUrl);
   }
@@ -466,10 +466,10 @@ function getDescription(scriptKey: string, command: string, packageName: string)
 
 function buildScriptCommand(packageName: string, scriptKey: string) {
   if (packageName === "Software") {
-    return `pnpm run ${scriptKey}`;
+    return `vp run ${scriptKey}`;
   }
 
-  return `pnpm run -F ${packageName} ${scriptKey}`;
+  return `vp run -F ${packageName} ${scriptKey}`;
 }
 
 function commandSlug(packageName: string, scriptKey: string, source: string) {

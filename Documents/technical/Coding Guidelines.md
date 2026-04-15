@@ -2,6 +2,13 @@
 
 These are implementation guidelines for repository code structure and file organization.
 
+## Tooling Workflow
+
+- In `Documents/technical/Software`, prefer Vite Plus (`vp`) over `pnpm` when an equivalent command exists.
+- Prefer direct `vp` commands over `pnpm run` or `pnpm exec vp` when equivalent.
+- Prefer `vp run` for workspace and package script orchestration in the Software monorepo.
+- Canonical docs: https://viteplus.dev/
+
 ## Barrel Files (`index.ts`)
 
 - Do not create folder-level `index.ts` files unless they provide clear value.

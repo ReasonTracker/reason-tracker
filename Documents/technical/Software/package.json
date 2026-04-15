@@ -5,6 +5,7 @@
   "workspaces": [
     "command-center",
     "website",
+    "timeline",
     "contracts",
     "engine",
     "engine-tests",
@@ -13,7 +14,7 @@
   ],
   "scripts": {
     "developer:setup-machine": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1",
-    "command-center:dev": "pnpm run -F @reasontracker/command-center dev",
+    "command-center:dev": "vp run -F @reasontracker/command-center dev",
     "website:dev": "vp run -F reason-tracker-repo-website dev",
     "website:build": "vp run -F reason-tracker-repo-website build",
     "website:publish": "vp run -F reason-tracker-repo-website publish-website",
@@ -25,6 +26,9 @@
     "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",
     "engine-tests:test": "vp run -F @reasontracker/engine-tests test",
     "engine-tests:test:watch": "vp run -F @reasontracker/engine-tests test:watch"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   },
   "packageManager": "pnpm@10.33.0"
 }

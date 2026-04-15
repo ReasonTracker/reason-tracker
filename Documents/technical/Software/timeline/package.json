@@ -1,0 +1,17 @@
+{
+  "name": "@reasontracker/timeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone timeline type contracts for declarative video timeline definitions and resolved timeline output.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "echo \"Build script pending\"",
+    "test": "tsc --noEmit -p ./tsconfig.json",
+    "typecheck": "tsc --noEmit -p ./tsconfig.json"
+  }
+}

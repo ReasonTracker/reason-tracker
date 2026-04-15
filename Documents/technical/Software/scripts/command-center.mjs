@@ -425,10 +425,10 @@ function getDescription(scriptKey, command, packageName) {
 
 function buildScriptCommand(packageDir, packageName, scriptKey) {
   if (packageName === "Software") {
-    return `pnpm run ${scriptKey}`;
+    return `vp run ${scriptKey}`;
   }
 
-  return `pnpm run -F ${packageName} ${scriptKey}`;
+  return `vp run -F ${packageName} ${scriptKey}`;
 }
 
 async function readJson(filePath) {
@@ -1001,7 +1001,7 @@ const server = createServer(async (request, response) => {
 
     if (requestUrl.pathname === "/video/render-current") {
       const episodeId = await readCurrentEpisodeId();
-      const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
+      const result = await runShellCommand(`vp run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
       const html = renderRunResult(
         {
           displayName: `Render ${toEpisodeDisplayName(episodeId)}`,
@@ -1024,7 +1024,7 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      const result = await runShellCommand(`pnpm run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
+      const result = await runShellCommand(`vp run -F @reasontracker/video render:episode -- ${shellQuote(episodeId)}`, false);
       const html = renderRunResult(
         {
           displayName: `Render ${toEpisodeDisplayName(episodeId)}`,
@@ -1044,7 +1044,7 @@ const server = createServer(async (request, response) => {
       if (studioAlreadyRunning) {
         openUrl(studioUrl);
       } else {
-        await runShellCommand("pnpm run -F @reasontracker/video studio", true);
+        await runShellCommand("vp run -F @reasontracker/video studio", true);
       }
 
       const html = renderVideoActionResult({
