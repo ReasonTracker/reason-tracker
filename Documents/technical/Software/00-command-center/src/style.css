@@ -16,8 +16,9 @@ html {
 
 body {
 	width: min(100% - 2rem, var(--rt-max-width));
+	height: calc(100vh - 4rem);
+	min-height: calc(100vh - 4rem);
 	margin: 2rem auto;
-	padding: 1.25rem;
 	border: 2px solid;
 	border-top-color: var(--pro);
 	border-left-color: var(--pro);
@@ -25,7 +26,19 @@ body {
 	border-bottom-color: var(--con);
 	background: var(--rt-panel);
 	color: var(--rt-text);
+	display: flex;
 	font-family: var(--rt-sans);
+}
+
+#app {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+#menu {
+	padding: 1em;;
 }
 
 h1 {
@@ -35,19 +48,42 @@ h1 {
 }
 
 button {
-	display: block;
 	font: inherit;
 	margin-bottom: 0.75rem;
 }
 
-#message-log {
-	min-height: 200px;
-	margin-top: 1rem;
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
+#message-log-frame {
+	position: relative;
+	flex: 1;
+	min-height: 0;
 }
 
-.log-entry {
-	white-space: pre-wrap;
+#message-log {
+	flex: 1;
+	min-height: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0rem;
+	border: 1px solid gray;
+	padding: 1rem;
+	overflow-y: auto;
+}
+
+#last-message-at {
+	position: absolute;
+	top: -1.2rem;
+	right: 1rem;
+	font-size: 0.7rem;
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.message:hover .message-time {
+	opacity: 0.5;
+}
+
+.message-time {
+	font-size: 0.7rem;
+	opacity: 0;
 }

@@ -3,12 +3,26 @@ import net from "node:net";
 import { resolve } from "node:path";
 
 const softwareDir = resolve(import.meta.dirname, "../..");
+const videosDir = resolve(softwareDir, "videos");
 const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
 const studioUrl = `http://localhost:${studioPort}`;
 
 type CommandRunResult = {
   output: string;
   status: number;
+};
+
+type SpawnCommandOptions = {
+  args?: string[];
+  command: string;
+  cwd?: string;
+  detached?: boolean;
+  launchInTerminal?: boolean;
+  onOutput?: (chunk: string) => void;
+  resolveOnSpawn?: boolean;
+  shell?: boolean;
+  stdio?: "ignore" | ["ignore", "pipe", "pipe"];
+  windowsHide?: boolean;
 };
 
 type CommandReporter = {
@@ -31,6 +45,14 @@ export async function runCommand(request: { command: string }, reporter: Command
     return stopRemotionStudio(reporter);
   }
 
+  if (request.command === "check-remotion-studio") {
+    return checkRemotionStudio(reporter);
+  }
+
+  if (request.command === "check-command-center-server") {
+    return checkCommandCenterServer(reporter);
+  }
+
   if (request.command === "stop-command-center-server") {
     return stopCommandCenterServer(reporter);
   }
@@ -40,9 +62,14 @@ export async function runCommand(request: { command: string }, reporter: Command
 
 async function buildWebsite(reporter: CommandReporter) {
   reporter.report("Running website build.");
-  const result = await runShellCommand("vp run -F reason-tracker-repo-website build", false);
-  const output = result.output.length > 0 ? result.output : "No output.";
-  reporter.report(`Build website finished with status ${result.status}.\n\n${output}`, "complete");
+  const result = await spawnCommand({
+    command: "vp run -F reason-tracker-repo-website build",
+    onOutput: (chunk) => {
+      reporter.report(chunk);
+      process.stdout.write(chunk);
+    },
+  });
+  reporter.report(`Build website finished with status ${result.status}.`, "complete");
 }
 
 async function openRemotionStudio(reporter: CommandReporter) {
@@ -54,7 +81,17 @@ async function openRemotionStudio(reporter: CommandReporter) {
   }
 
   reporter.report("Starting Remotion Studio.");
-  await runShellCommand("vp run -F @reasontracker/video studio", true);
+
+  await spawnCommand({
+    args: ["run", "studio"],
+    command: "npm",
+    cwd: videosDir,
+    launchInTerminal: true,
+    resolveOnSpawn: true,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+
   reporter.report("Started Remotion Studio.", "complete");
 }
 
@@ -71,6 +108,17 @@ async function stopRemotionStudio(reporter: CommandReporter) {
   reporter.report("Stopped Remotion Studio.", "complete");
 }
 
+async function checkRemotionStudio(reporter: CommandReporter) {
+  const studioRunning = await isPortOpen(studioPort);
+
+  if (studioRunning) {
+    reporter.report(`Remotion Studio is running at ${studioUrl}.`, "complete");
+    return;
+  }
+
+  reporter.report("Remotion Studio is not running.", "complete");
+}
+
 async function stopCommandCenterServer(reporter: CommandReporter) {
   reporter.report("Stopping Command Center server.");
   reporter.report("Command Center server stop requested. This page will disconnect.", "complete");
@@ -80,17 +128,34 @@ async function stopCommandCenterServer(reporter: CommandReporter) {
   }, 100);
 }
 
-function runShellCommand(command: string, isBackground: boolean): Promise<CommandRunResult> {
+async function checkCommandCenterServer(reporter: CommandReporter) {
+  reporter.report("Command Center server is running.", "complete");
+}
+
+function spawnCommand(options: SpawnCommandOptions): Promise<CommandRunResult> {
   return new Promise((resolveCommand, reject) => {
-    const child = spawn(command, {
-      cwd: softwareDir,
+    const usesShellCommandString = options.args === undefined;
+    const spawnOptions = {
+      cwd: options.cwd ?? softwareDir,
+      detached: options.detached ?? false,
       env: process.env,
-      shell: true,
-      stdio: isBackground ? "ignore" : ["ignore", "pipe", "pipe"],
-      windowsHide: true,
+      shell: options.shell ?? usesShellCommandString,
+      stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
+      windowsHide: options.windowsHide ?? true,
+    };
+
+    const command = options.launchInTerminal && process.platform === "win32" ? "cmd.exe" : options.command;
+    const args = options.launchInTerminal && process.platform === "win32"
+      ? ["/d", "/c", "start", "", "cmd.exe", "/d", "/k", options.command, ...(options.args ?? [])]
+      : (options.args ?? []);
+    const child = spawn(command, args, {
+      ...spawnOptions,
+      detached: options.launchInTerminal && process.platform !== "win32" ? true : spawnOptions.detached,
     });
 
-    if (isBackground) {
+    child.on("error", reject);
+
+    if (options.resolveOnSpawn) {
       child.unref();
       resolveCommand({ output: "Started in background.", status: 0 });
       return;
@@ -99,14 +164,17 @@ function runShellCommand(command: string, isBackground: boolean): Promise<Comman
     let output = "";
 
     child.stdout?.on("data", (chunk) => {
-      output += chunk.toString();
+      const text = chunk.toString();
+      output += text;
+      options.onOutput?.(text);
     });
 
     child.stderr?.on("data", (chunk) => {
-      output += chunk.toString();
+      const text = chunk.toString();
+      output += text;
+      options.onOutput?.(text);
     });
 
-    child.on("error", reject);
     child.on("close", (status) => {
       resolveCommand({
         output: output.trim(),
@@ -133,54 +201,35 @@ function isPortOpen(port: number) {
 
 async function getListeningProcessId(port: number) {
   if (process.platform === "win32") {
-    const result = await runShellCommand(
-      `powershell -NoProfile -Command ${shellQuote(`$connection = Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1; if ($null -ne $connection) { $connection.OwningProcess }`)}`,
-      false,
-    );
+    const result = await spawnCommand({
+      command: `powershell -NoProfile -Command ${shellQuote(`$connection = Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1; if ($null -ne $connection) { $connection.OwningProcess }`)}`,
+    });
 
     const pid = Number.parseInt(result.output.trim(), 10);
     return Number.isFinite(pid) ? pid : null;
   }
 
-  const result = await runShellCommand(`lsof -ti tcp:${port} -sTCP:LISTEN | head -n 1`, false);
+  const result = await spawnCommand({
+    command: `lsof -ti tcp:${port} -sTCP:LISTEN | head -n 1`,
+  });
   const pid = Number.parseInt(result.output.trim(), 10);
   return Number.isFinite(pid) ? pid : null;
 }
 
 async function stopProcessTree(pid: number) {
   if (process.platform === "win32") {
-    await runShellCommand(`taskkill /PID ${pid} /T /F`, false);
+    await spawnCommand({
+      command: `taskkill /PID ${pid} /T /F`,
+    });
     return;
   }
 
-  await runShellCommand(`kill -TERM ${pid}`, false);
+  await spawnCommand({
+    command: `kill -TERM ${pid}`,
+  });
 }
 
 function shellQuote(value: string) {
   return JSON.stringify(value);
-}
-
-function waitForPort(port: number, timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-
-  return new Promise<void>((resolvePortWait, reject) => {
-    const attemptConnection = () => {
-      void isPortOpen(port).then((open) => {
-        if (open) {
-          resolvePortWait();
-          return;
-        }
-
-        if (Date.now() >= deadline) {
-          reject(new Error(`Timed out waiting for port ${port}.`));
-          return;
-        }
-
-        setTimeout(attemptConnection, 250);
-      }, reject);
-    };
-
-    attemptConnection();
-  });
 }
 

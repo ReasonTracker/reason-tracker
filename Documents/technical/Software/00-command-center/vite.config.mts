@@ -17,24 +17,28 @@ export default defineConfig({
 
 function commandCenterApiPlugin() {
   let backendVersion = Date.now();
-  const commandStreams = new Map<string, Set<import("node:http").ServerResponse>>();
+  const commandStreams = new Map<string, {
+    listeners: Set<import("node:http").ServerResponse>;
+    payloads: Array<{ commandId: string; message: string; timestamp: string; type: string }>;
+  }>();
 
   const broadcast = (commandId: string, payload: { commandId: string; message: string; timestamp: string; type: string }) => {
-    const listeners = commandStreams.get(commandId);
-    if (!listeners) {
-      return;
-    }
+    const stream = commandStreams.get(commandId) ?? {
+      listeners: new Set<import("node:http").ServerResponse>(),
+      payloads: [],
+    };
+    stream.payloads.push(payload);
+    commandStreams.set(commandId, stream);
 
     const line = `data: ${JSON.stringify(payload)}\n\n`;
-    for (const listener of listeners) {
+    for (const listener of stream.listeners) {
       listener.write(line);
     }
 
     if (payload.type === "complete" || payload.type === "error") {
-      for (const listener of listeners) {
+      for (const listener of stream.listeners) {
         listener.end();
       }
-      commandStreams.delete(commandId);
     }
   };
 
@@ -80,18 +84,35 @@ function commandCenterApiPlugin() {
             response.setHeader("Connection", "keep-alive");
             response.write("\n");
 
-            const listeners = commandStreams.get(commandId) ?? new Set();
-            listeners.add(response);
-            commandStreams.set(commandId, listeners);
+            const stream = commandStreams.get(commandId) ?? {
+              listeners: new Set<import("node:http").ServerResponse>(),
+              payloads: [],
+            };
+            stream.listeners.add(response);
+            commandStreams.set(commandId, stream);
+
+            for (const payload of stream.payloads) {
+              response.write(`data: ${JSON.stringify(payload)}\n\n`);
+            }
+
+            const latestPayload = stream.payloads.at(-1);
+            if (latestPayload && (latestPayload.type === "complete" || latestPayload.type === "error")) {
+              response.end();
+              stream.listeners.delete(response);
+              if (stream.listeners.size === 0) {
+                commandStreams.delete(commandId);
+              }
+              return;
+            }
 
             request.on("close", () => {
-              const currentListeners = commandStreams.get(commandId);
-              if (!currentListeners) {
+              const currentStream = commandStreams.get(commandId);
+              if (!currentStream) {
                 return;
               }
 
-              currentListeners.delete(response);
-              if (currentListeners.size === 0) {
+              currentStream.listeners.delete(response);
+              if (currentStream.listeners.size === 0 && currentStream.payloads.at(-1)?.type !== "update") {
                 commandStreams.delete(commandId);
               }
             });

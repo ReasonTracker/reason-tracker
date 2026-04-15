@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "00-command-center-open",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "00:CommandCenter:open"],
+      "options": {
+        "cwd": "${workspaceFolder}/Documents/technical/Software/00-command-center"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}

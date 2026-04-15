@@ -1,22 +1,39 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reason Tracker Command Center</title>
-    <script type="module" src="/src/main.ts"></script>
-  </head>
-  <body>
-    <div id="app">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reason Tracker Command Center</title>
+  <script type="module" src="/src/main.ts"></script>
+</head>
+
+<body>
+  <div id="app">
+    <div id="menu">
       <h1>Reason Tracker Command Center</h1>
       <div>
-        <button type="button" data-command="build-website">Build website</button>
-        <button type="button" data-command="open-remotion-studio">Open Remotion Studio</button>
-        <button type="button" data-command="stop-remotion-studio">Stop Remotion Studio</button>
-        <button type="button" data-command="stop-command-center-server">Stop Command Center Server</button>
-        <button type="button" id="clear-log">Clear</button>
+        <span>Remotion:</span>
+        <button type="button" data-command="open-remotion-studio">Start</button>
+        <button type="button" data-command="stop-remotion-studio">Stop</button>
+        <button type="button" data-command="check-remotion-studio">Check</button>
       </div>
+      <div>
+        <span>Command Center:</span>
+        <button type="button" data-command="stop-command-center-server">Stop</button>
+        <button type="button" data-command="check-command-center-server">Check</button>
+      </div>
+      <div>
+        <span>Website:</span>
+        <button type="button" data-command="build-website">Build</button>
+      </div>
+      <button type="button" id="clear-log">Clear</button>
+    </div>
+    <div id="message-log-frame">
+      <div id="last-message-at"></div>
       <div id="message-log"></div>
     </div>
-  </body>
+  </div>
+</body>
+
 </html>
