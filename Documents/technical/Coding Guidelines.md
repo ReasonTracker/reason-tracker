@@ -9,6 +9,12 @@ These are implementation guidelines for repository code structure and file organ
 - Prefer `vp run` for workspace and package script orchestration in the Software monorepo.
 - Canonical docs: https://viteplus.dev/
 
+## TypeScript Configuration
+
+- In `Documents/technical/Software`, keep shared TypeScript compiler policy in the root `tsconfig.json`.
+- Package tsconfig files should extend the root `Documents/technical/Software/tsconfig.json` and only keep package-specific overrides.
+- Do not duplicate root compiler options inside package tsconfig files.
+
 ## Barrel Files (`index.ts`)
 
 - Do not create folder-level `index.ts` files unless they provide clear value.

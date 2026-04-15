@@ -11,10 +11,10 @@ import {
   writeCurrentEpisodeId,
 } from "./video-episode-state.mjs";
 
-const rootDir = process.cwd();
-const docsVideosDir = resolve(rootDir, "../../Videos");
-const standaloneScriptsDir = resolve(rootDir, "scripts");
-const websiteDir = resolve(rootDir, "website");
+const softwareDir = resolve(import.meta.dirname, "..");
+const docsVideosDir = resolve(softwareDir, "../../Videos");
+const standaloneScriptsDir = resolve(softwareDir, "scripts");
+const websiteDir = resolve(softwareDir, "website");
 const websiteSiteDir = resolve(websiteDir, "site");
 const websiteBrandCssPath = resolve(websiteSiteDir, "css", "brand.css");
 const port = Number.parseInt(process.env.COMMAND_CENTER_PORT ?? "4780", 10);
@@ -437,23 +437,23 @@ async function readJson(filePath) {
 }
 
 async function listWorkspacePackages() {
-  const rootPackage = await readJson(resolve(rootDir, "package.json"));
+  const rootPackage = await readJson(resolve(softwareDir, "package.json"));
   const workspaces = Array.isArray(rootPackage.workspaces) ? rootPackage.workspaces : [];
   const packageEntries = [
     {
-      dir: rootDir,
+      dir: softwareDir,
       displayName: "Software",
-      filePath: resolve(rootDir, "package.json"),
+      filePath: resolve(softwareDir, "package.json"),
       packageName: "Software",
       scripts: rootPackage.scripts ?? {},
     },
   ];
 
   for (const workspace of workspaces) {
-    const packageJsonPath = resolve(rootDir, workspace, "package.json");
+    const packageJsonPath = resolve(softwareDir, workspace, "package.json");
     const packageJson = await readJson(packageJsonPath);
     packageEntries.push({
-      dir: resolve(rootDir, workspace),
+      dir: resolve(softwareDir, workspace),
       displayName: workspace,
       filePath: packageJsonPath,
       packageName: packageJson.name ?? workspace,
@@ -505,7 +505,7 @@ async function discoverCommands() {
     commands.push({
       ...standalone,
       displayName: getDisplayName(standalone.scriptKey, standalone.packageName),
-      packageDir: rootDir,
+      packageDir: softwareDir,
       triggerCommand: standalone.command,
     });
   }
@@ -624,7 +624,7 @@ function runShellCommand(commandText, isBackground) {
       : commandText.split(" ").slice(1);
 
   const child = spawn(executable, args, {
-    cwd: rootDir,
+    cwd: softwareDir,
     detached: isBackground && process.platform !== "win32",
     shell: false,
     stdio: isBackground ? "ignore" : "pipe",
@@ -675,7 +675,7 @@ function runCommand(command) {
       : commandText.split(" ").slice(1);
 
   const child = spawn(executable, args, {
-    cwd: rootDir,
+    cwd: softwareDir,
     detached: command.isBackground && process.platform !== "win32",
     shell: false,
     stdio: command.isBackground ? "ignore" : "pipe",

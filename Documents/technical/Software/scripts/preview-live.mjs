@@ -1,15 +1,16 @@
 import { spawn } from "node:child_process";
+import { resolve } from "node:path";
 
 const LIVE_PORT = 4173;
 const PREVIEW_PATH = "/renderer/preview/layout-preview.html";
 
-const rootCwd = process.cwd();
+const softwareDir = resolve(import.meta.dirname, "..");
 const children = [];
 let shuttingDown = false;
 
 function start(label, command) {
   const child = spawn(command, {
-    cwd: rootCwd,
+    cwd: softwareDir,
     shell: true,
     stdio: "inherit",
   });

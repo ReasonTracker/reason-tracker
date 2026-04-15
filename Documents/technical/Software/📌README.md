@@ -11,6 +11,8 @@ Run `vp run command-center:dev` from this folder to open the local Software comm
 
 Prefer Vite Plus (`vp`) over `pnpm` in this folder when an equivalent command exists. Docs: https://viteplus.dev/
 
+The root `tsconfig.json` in this folder is the shared TypeScript compiler-policy file for the Software monorepo. Package tsconfig files should extend it and only keep package-specific overrides.
+
 ## Fresh Machine Tooling
 
 This repo expects `rg` (ripgrep) to be available in the local developer shell by default for fast code search.

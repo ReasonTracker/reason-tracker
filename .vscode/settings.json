@@ -1,0 +1,11 @@
+{
+  "npm.packageManager": "pnpm",
+  "files.exclude": {
+    "**/.DS_Store": true
+  },
+  "chat.tools.terminal.autoApprove": {
+    "Push-Location": true,
+    "vp": true,
+    "Pop-Location": true
+  }
+}

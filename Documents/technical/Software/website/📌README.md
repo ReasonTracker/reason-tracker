@@ -16,19 +16,19 @@ This folder contains a Git-based static website builder for the repository.
 From `Documents/technical/Software`:
 
 ```bash
-npm run website:dev
-npm run website:build
-npm run website:publish
-npm run website:preview
-npm run maintain:markdown
+vp run website:dev
+vp run website:build
+vp run website:publish
+vp run website:preview
+vp run maintain:markdown
 ```
 
 From this folder (`website`):
 
 ```bash
-npm run dev
-npm run build
-npm run preview
+vp run dev
+vp run build
+vp run preview
 ```
 
 `dev` uses `vp dev` with a Vite plugin hook that regenerates `dist/` on source changes.
