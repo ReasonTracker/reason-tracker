@@ -425,7 +425,7 @@ function isBackgroundCommand(scriptKey: string, command: string) {
 }
 
 function getDisplayName(scriptKey: string, packageName: string) {
-  if (packageName === "@reasontracker/00-command-center" && scriptKey === "00:open") {
+  if (packageName === "@reasontracker/00-command-center" && scriptKey === "00:CommandCenter:open") {
     return "Open Command Center";
   }
 

@@ -46,7 +46,7 @@ const curatedStandaloneScripts = [
   },
 ];
 
-const hiddenScriptKeys = new Set(["command-center:dev", "video:launcher", "launcher"]);
+const hiddenScriptKeys = new Set(["video:launcher", "launcher"]);
 
 function getScriptSegments(scriptKey) {
   return scriptKey.split(":");
@@ -64,6 +64,7 @@ const packageDescriptions = new Map([
   ["@reasontracker/engine", "Core engine commands and tests."],
   ["@reasontracker/engine-tests", "Portable engine contract tests."],
   ["@reasontracker/contracts", "Shared contracts and validation scripts."],
+  ["@reasontracker/00-command-center", "Command center frontend and local API server."],
 ]);
 
 function escapeHtml(value) {
@@ -384,7 +385,7 @@ function isBackgroundCommand(scriptKey, command) {
 }
 
 function getDisplayName(scriptKey, packageName) {
-  if (packageName === "Software" && scriptKey === "command-center:dev") {
+  if (packageName === "@reasontracker/00-command-center" && scriptKey === "00:CommandCenter:open") {
     return "Open Command Center";
   }
 

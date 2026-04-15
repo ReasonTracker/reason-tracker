@@ -3,6 +3,7 @@ import { defineConfig, type ViteDevServer } from "vite";
 
 const commandCenterDir = path.resolve(import.meta.dirname);
 const backendEntryPath = path.join(commandCenterDir, "server", "core.ts");
+const watchedServerDir = `${toPosixPath(path.join(commandCenterDir, "server"))}/`;
 const watchedBackendPaths = [
   path.join(commandCenterDir, "server"),
   path.join(commandCenterDir, "src"),
@@ -29,7 +30,7 @@ function commandCenterApiPlugin() {
 
       const bumpBackendVersion = (changedPath: string) => {
         const normalized = toPosixPath(changedPath);
-        if (!normalized.includes("/command-center/server/") && !normalized.endsWith("/scripts/video-episode-state.mjs")) {
+        if (!normalized.startsWith(watchedServerDir) && !normalized.endsWith("/scripts/video-episode-state.mjs")) {
           return;
         }
 

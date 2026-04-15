@@ -7,7 +7,7 @@ New assets should be created as direct children of this folder (for example, `en
 
 ## Local Command Center
 
-Run `vp run command-center:dev` from this folder to open the local Software command center. It is the default launcher for workspace operations, including the focused Video page and command discovery across package scripts.
+Run `vp run -F @reasontracker/00-command-center 00:CommandCenter:open` from this folder to open the local Software command center. It is the default launcher for workspace operations, including the focused Video page and command discovery across package scripts.
 
 Prefer Vite Plus (`vp`) over `pnpm` in this folder when an equivalent command exists. Docs: https://viteplus.dev/
 

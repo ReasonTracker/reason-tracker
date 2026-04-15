@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "command-center",
+    "00-command-center",
     "website",
     "timeline",
     "contracts",
@@ -14,7 +14,6 @@
   ],
   "scripts": {
     "developer:setup-machine": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1",
-    "command-center:dev": "vp run -F @reasontracker/command-center dev",
     "website:dev": "vp run -F reason-tracker-repo-website dev",
     "website:build": "vp run -F reason-tracker-repo-website build",
     "website:publish": "vp run -F reason-tracker-repo-website publish-website",

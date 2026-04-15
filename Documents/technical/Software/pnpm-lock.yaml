@@ -12,7 +12,7 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
 
-  command-center:
+  00-command-center:
     devDependencies:
       vite:
         specifier: ^6.3.5

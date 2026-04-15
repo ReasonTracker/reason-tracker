@@ -1,5 +1,5 @@
 packages:
-  - command-center
+  - 00-command-center
   - website
   - timeline
   - contracts
