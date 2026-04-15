@@ -166,7 +166,6 @@ type GraphTransitionSegment = {
 	fromSnapshot: GraphSnapshot;
 	toSnapshot: GraphSnapshot;
 	directives: readonly GraphTransitionDirective[];
-	durationWeight: number;
 	durationInFrames: number;
 };
 
@@ -461,8 +460,8 @@ async function buildPreparedGraphView(
 			eventDurationInFrames: graphEvent.durationInFrames,
 			layoutOptions: GRAPH_LAYOUT_OPTIONS,
 		});
-		const transitionSegments = buildGraphTransitionSegments(currentSnapshot, schedule, graphEvent.from);
-		const toSnapshot = buildGraphSnapshotFromPipeline(schedule.finalPipeline);
+		const transitionSegments = buildChangeGroupSegments(currentSnapshot, schedule, graphEvent.from);
+		const toSnapshot = buildGraphSnapshotFromPipeline(schedule.finalLayout);
 
 		if (debugTimeline) {
 			logGraphPipelineObjects({
@@ -489,55 +488,60 @@ function buildGraphTransitionSegments(
 	schedule: Awaited<ReturnType<typeof prepareAnimationSchedule>>,
 	timelineFrom: number,
 ): GraphTransitionSegment[] {
+	return buildChangeGroupSegments(fromSnapshot, schedule, timelineFrom);
+}
+
+function buildChangeGroupSegments(
+	fromSnapshot: GraphSnapshot,
+	schedule: Awaited<ReturnType<typeof prepareAnimationSchedule>>,
+	timelineFrom: number,
+): GraphTransitionSegment[] {
 	const transitionSegments: GraphTransitionSegment[] = [];
 	let segmentTimelineFrom = timelineFrom;
 	let currentSnapshot = fromSnapshot;
-	for (const unit of schedule.transitionUnits) {
-		const actualUnitToSnapshot = buildGraphSnapshotFromPipeline(unit.to);
-		const directives = buildTransitionDirectives(unit.from.debate, unit.changes);
-		if (shouldKeepTransitionUnitGrouped(unit.changes) && directives.length > 0) {
+	for (const changeGroup of schedule.changeGroups) {
+		const finalSnapshot = buildGraphSnapshotFromPipeline(changeGroup.finalLayout);
+		const directives = buildTransitionDirectives(changeGroup.initialLayout.debate, changeGroup.changes);
+		if (shouldKeepChangeGroupGrouped(changeGroup.changes) && directives.length > 0) {
 			transitionSegments.push({
 				timelineFrom: segmentTimelineFrom,
-				name: unit.name,
+				name: changeGroup.name,
 				fromSnapshot: currentSnapshot,
-				toSnapshot: actualUnitToSnapshot,
+				toSnapshot: finalSnapshot,
 				directives,
-				durationWeight: Math.max(1, directives.reduce((sum, directive) => sum + resolveTransitionDirectiveWeight(directive), 0)),
-				durationInFrames: unit.durationInFrames,
+				durationInFrames: changeGroup.durationInFrames,
 			});
-			currentSnapshot = actualUnitToSnapshot;
-			segmentTimelineFrom += unit.durationInFrames;
+			currentSnapshot = finalSnapshot;
+			segmentTimelineFrom += changeGroup.durationInFrames;
 			continue;
 		}
-		const scheduledDirectives = scheduleTransitionDirectives(directives, unit.durationInFrames);
+		const scheduledDirectives = scheduleTransitionDirectives(directives, changeGroup.durationInFrames);
 
 		if (scheduledDirectives.length === 0) {
 			transitionSegments.push({
 				timelineFrom: segmentTimelineFrom,
-				name: unit.name,
+				name: changeGroup.name,
 				fromSnapshot: currentSnapshot,
-				toSnapshot: actualUnitToSnapshot,
+				toSnapshot: finalSnapshot,
 				directives: [],
-				durationWeight: 1,
-				durationInFrames: unit.durationInFrames,
+				durationInFrames: changeGroup.durationInFrames,
 			});
-			currentSnapshot = actualUnitToSnapshot;
-			segmentTimelineFrom += unit.durationInFrames;
+			currentSnapshot = finalSnapshot;
+			segmentTimelineFrom += changeGroup.durationInFrames;
 			continue;
 		}
 
 		for (const scheduledDirective of scheduledDirectives) {
-			const unitToSnapshot = buildDirectivePhaseSnapshot(currentSnapshot, actualUnitToSnapshot, scheduledDirective.directives);
+			const groupSnapshot = buildDirectivePhaseSnapshot(currentSnapshot, finalSnapshot, scheduledDirective.directives);
 			transitionSegments.push({
 				timelineFrom: segmentTimelineFrom,
-				name: `${unit.name} / ${formatTransitionDirectiveName(scheduledDirective.directives[0], unit.to.debate)}`,
+				name: `${changeGroup.name} / ${formatTransitionDirectiveName(scheduledDirective.directives[0], changeGroup.finalLayout.debate)}`,
 				fromSnapshot: currentSnapshot,
-				toSnapshot: unitToSnapshot,
+				toSnapshot: groupSnapshot,
 				directives: scheduledDirective.directives,
-				durationWeight: scheduledDirective.weight,
 				durationInFrames: scheduledDirective.durationInFrames,
 			});
-			currentSnapshot = unitToSnapshot;
+			currentSnapshot = groupSnapshot;
 			segmentTimelineFrom += scheduledDirective.durationInFrames;
 		}
 	}
@@ -545,7 +549,7 @@ function buildGraphTransitionSegments(
 	return transitionSegments;
 }
 
-function shouldKeepTransitionUnitGrouped(changes: readonly Change[]): boolean {
+function shouldKeepChangeGroupGrouped(changes: readonly Change[]): boolean {
 	return changes.some((change) => change.kind === "ScoreScaleOfSourcesBatchChanged");
 }
 
@@ -554,364 +558,13 @@ function buildDirectivePhaseSnapshot(
 	toSnapshot: GraphSnapshot,
 	directives: readonly GraphTransitionDirective[],
 ): GraphSnapshot {
-	const claimDirective = directives.find((directive): directive is Extract<GraphTransitionDirective, { kind: "claim" }> => directive.kind === "claim");
-	const connectorDirective = directives.find((directive): directive is Extract<GraphTransitionDirective, { kind: "connector" }> => directive.kind === "connector");
-	if (!claimDirective) {
-		if (connectorDirective?.effect === "update") {
-			return {
-				pipeline: toSnapshot.pipeline,
-				renderState: buildConnectorUpdatePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState, directives),
-			};
-		}
-
+	if (directives.length === 0) {
 		return toSnapshot;
 	}
 
-	if (claimDirective.effect === "enter") {
-		return {
-			pipeline: toSnapshot.pipeline,
-			renderState: buildEnterPhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
-		};
-	}
-
-	if (claimDirective.effect === "display") {
-		return {
-			pipeline: toSnapshot.pipeline,
-			renderState: buildDisplayPhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
-		};
-	}
-
-	if (claimDirective.effect === "scale") {
-		return {
-			pipeline: toSnapshot.pipeline,
-			renderState: buildScalePhaseRenderState(fromSnapshot.renderState, toSnapshot.renderState),
-		};
-	}
-
-	return toSnapshot;
-}
-
-function buildEnterPhaseRenderState(
-	fromState: GraphRenderState,
-	toState: GraphRenderState,
-): GraphRenderState {
-	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
-	const connectorRenderOrder = buildUnionOrder(fromState.connectorRenderOrder, toState.connectorRenderOrder);
-	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
-	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
-
-	for (const claimId of claimRenderOrder) {
-		const fromClaim = fromState.claimByClaimId[claimId];
-		const toClaim = toState.claimByClaimId[claimId];
-		if (fromClaim && toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: fromClaim.opacity,
-				insertScale: fromClaim.insertScale,
-			};
-			continue;
-		}
-
-		if (toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: 0,
-				insertScale: 0,
-				confidence: 0,
-			};
-			continue;
-		}
-
-		if (fromClaim) {
-			claimByClaimId[claimId] = { ...fromClaim };
-		}
-	}
-
-	for (const connectorId of connectorRenderOrder) {
-		const fromConnector = fromState.connectorByConnectorId[connectorId];
-		const toConnector = toState.connectorByConnectorId[connectorId];
-		if (fromConnector && toConnector) {
-			connectorByConnectorId[connectorId] = {
-				...toConnector,
-				referenceLineProgress: fromConnector.referenceLineProgress,
-				referenceLineTravelOffset: fromConnector.referenceLineTravelOffset,
-				referenceOpacity: fromConnector.referenceOpacity,
-				actualLineProgress: fromConnector.actualLineProgress,
-				actualLineTravelOffset: fromConnector.actualLineTravelOffset,
-				actualOpacity: fromConnector.actualOpacity,
-				secondaryLineProgress: fromConnector.secondaryLineProgress,
-				secondaryLineTravelOffset: fromConnector.secondaryLineTravelOffset,
-				secondaryOpacity: fromConnector.secondaryOpacity,
-			};
-			continue;
-		}
-
-		if (fromConnector) {
-			connectorByConnectorId[connectorId] = { ...fromConnector };
-		}
-	}
-
 	return {
-		width: fromState.width,
-		height: fromState.height,
-		claimRenderOrder,
-		connectorRenderOrder,
-		claimByClaimId,
-		connectorByConnectorId,
-	};
-}
-
-function buildDisplayPhaseRenderState(
-	fromState: GraphRenderState,
-	toState: GraphRenderState,
-): GraphRenderState {
-	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
-	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
-	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
-	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
-
-	for (const claimId of claimRenderOrder) {
-		const fromClaim = fromState.claimByClaimId[claimId];
-		const toClaim = toState.claimByClaimId[claimId];
-		if (fromClaim && toClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-				content: toClaim.content,
-				side: toClaim.side,
-				confidence: toClaim.confidence,
-				relevance: toClaim.relevance,
-			};
-			continue;
-		}
-
-		if (toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: 0,
-				insertScale: 0,
-				confidence: 0,
-			};
-			continue;
-		}
-
-		if (fromClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-			};
-		}
-	}
-
-	for (const connectorId of connectorRenderOrder) {
-		const fromConnector = fromState.connectorByConnectorId[connectorId];
-		const toConnector = toState.connectorByConnectorId[connectorId];
-		if (fromConnector) {
-			connectorByConnectorId[connectorId] = {
-				...fromConnector,
-				referenceAffects: toConnector?.referenceAffects ?? fromConnector.referenceAffects,
-				actualAffects: toConnector?.actualAffects ?? fromConnector.actualAffects,
-			};
-			continue;
-		}
-
-		if (toConnector) {
-			connectorByConnectorId[connectorId] = {
-				...toConnector,
-				actualLineProgress: 0,
-				actualLineTravelOffset: 0,
-				actualOpacity: 1,
-				secondaryLineProgress: 0,
-				secondaryLineTravelOffset: 0,
-				secondaryOpacity: 0,
-			};
-		}
-	}
-
-	return {
-		width: fromState.width,
-		height: fromState.height,
-		claimRenderOrder,
-		connectorRenderOrder,
-		claimByClaimId,
-		connectorByConnectorId,
-	};
-}
-
-function buildScalePhaseRenderState(
-	fromState: GraphRenderState,
-	toState: GraphRenderState,
-): GraphRenderState {
-	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
-	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
-	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
-	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
-
-	for (const claimId of claimRenderOrder) {
-		const fromClaim = fromState.claimByClaimId[claimId];
-		const toClaim = toState.claimByClaimId[claimId];
-		if (fromClaim && toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: fromClaim.opacity,
-				insertScale: fromClaim.insertScale,
-			};
-			continue;
-		}
-
-		if (toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: 0,
-				insertScale: 0,
-				confidence: 0,
-			};
-			continue;
-		}
-
-		if (fromClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-			};
-		}
-	}
-
-	for (const connectorId of connectorRenderOrder) {
-		const fromConnector = fromState.connectorByConnectorId[connectorId];
-		const toConnector = toState.connectorByConnectorId[connectorId];
-		if (fromConnector) {
-			connectorByConnectorId[connectorId] = {
-				...fromConnector,
-				referenceAffects: toConnector?.referenceAffects ?? fromConnector.referenceAffects,
-				actualAffects: toConnector?.actualAffects ?? fromConnector.actualAffects,
-				referencePathBinding: toConnector?.referencePathBinding ?? fromConnector.referencePathBinding,
-				actualPathBinding: toConnector?.actualPathBinding ?? fromConnector.actualPathBinding,
-			};
-			continue;
-		}
-
-		if (toConnector) {
-			connectorByConnectorId[connectorId] = {
-				...toConnector,
-				actualLineProgress: 0,
-				actualLineTravelOffset: 0,
-				actualOpacity: 1,
-				secondaryLineProgress: 0,
-				secondaryLineTravelOffset: 0,
-				secondaryOpacity: 0,
-			};
-			continue;
-		}
-
-		if (fromConnector) {
-			connectorByConnectorId[connectorId] = fromConnector;
-		}
-	}
-
-	return {
-		width: fromState.width,
-		height: fromState.height,
-		claimRenderOrder,
-		connectorRenderOrder,
-		claimByClaimId,
-		connectorByConnectorId,
-	};
-}
-
-function buildConnectorUpdatePhaseRenderState(
-	fromState: GraphRenderState,
-	toState: GraphRenderState,
-	directives: readonly GraphTransitionDirective[],
-): GraphRenderState {
-	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
-	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
-	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
-	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
-	const updatedConnectorIds = new Set<ConnectorId>();
-	for (const directive of directives) {
-		if (directive.kind === "connector" && directive.effect === "update") {
-			updatedConnectorIds.add(directive.connectorId);
-		}
-	}
-
-	for (const claimId of claimRenderOrder) {
-		const fromClaim = fromState.claimByClaimId[claimId];
-		const toClaim = toState.claimByClaimId[claimId];
-		if (fromClaim && toClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-			};
-			continue;
-		}
-
-		if (toClaim) {
-			claimByClaimId[claimId] = {
-				...toClaim,
-				opacity: 0,
-				insertScale: 0,
-				confidence: 0,
-			};
-			continue;
-		}
-
-		if (fromClaim) {
-			claimByClaimId[claimId] = { ...fromClaim };
-		}
-	}
-
-	for (const connectorId of connectorRenderOrder) {
-		const fromConnector = fromState.connectorByConnectorId[connectorId];
-		const toConnector = toState.connectorByConnectorId[connectorId];
-		const isUpdatedConnector = updatedConnectorIds.has(connectorId);
-
-		if (!isUpdatedConnector) {
-			if (fromConnector) {
-				connectorByConnectorId[connectorId] = { ...fromConnector };
-				continue;
-			}
-
-			if (toConnector) {
-				connectorByConnectorId[connectorId] = { ...toConnector };
-				continue;
-			}
-		}
-
-		if (fromConnector && toConnector) {
-			connectorByConnectorId[connectorId] = {
-				...fromConnector,
-				referenceAffects: toConnector.referenceAffects,
-				actualAffects: toConnector.actualAffects,
-				referencePathBinding: toConnector.referencePathBinding,
-				actualPathBinding: toConnector.actualPathBinding,
-				strokeWidth: toConnector.strokeWidth,
-				referenceStrokeWidth: toConnector.referenceStrokeWidth,
-			};
-			continue;
-		}
-
-		if (toConnector) {
-			connectorByConnectorId[connectorId] = {
-				...toConnector,
-				actualLineProgress: 0,
-				actualLineTravelOffset: 0,
-				actualOpacity: 1,
-				secondaryLineProgress: 0,
-				secondaryLineTravelOffset: 0,
-				secondaryOpacity: 0,
-			};
-			continue;
-		}
-
-		if (fromConnector) {
-			connectorByConnectorId[connectorId] = { ...fromConnector };
-		}
-	}
-
-	return {
-		width: fromState.width,
-		height: fromState.height,
-		claimRenderOrder,
-		connectorRenderOrder,
-		claimByClaimId,
-		connectorByConnectorId,
+		pipeline: toSnapshot.pipeline,
+		renderState: resolveDirectiveTransition(fromSnapshot, toSnapshot, 1, directives),
 	};
 }
 
@@ -1109,10 +762,6 @@ function resolveDirectiveTransition(
 	}
 
 	const state = buildDirectiveBaseState(fromSnapshot.renderState, toSnapshot.renderState, clamped, directives);
-	const includesScalePhase = directives.some((directive) => directive.kind === "claim" && directive.effect === "scale");
-	if (includesScalePhase && clamped > 0) {
-		applyRenderedScalePhase(state, fromSnapshot, toSnapshot, clamped);
-	}
 
 	for (const directive of directives) {
 		const stepProgress = clamped;
@@ -1131,27 +780,6 @@ function resolveDirectiveTransition(
 	return state;
 }
 
-function applyRenderedScalePhase(
-	state: GraphRenderState,
-	fromSnapshot: GraphSnapshot,
-	toSnapshot: GraphSnapshot,
-	progress: number,
-): void {
-	for (const claimId of state.claimRenderOrder) {
-		const workingClaim = state.claimByClaimId[claimId];
-		const fromClaim = fromSnapshot.renderState.claimByClaimId[claimId];
-		const toClaim = toSnapshot.renderState.claimByClaimId[claimId];
-		if (!workingClaim || !fromClaim || !toClaim) {
-			continue;
-		}
-
-		state.claimByClaimId[claimId] = {
-			...workingClaim,
-			scale: lerp(fromClaim.scale, toClaim.scale, progress),
-		};
-	}
-}
-
 function buildDirectiveBaseState(
 	fromState: GraphRenderState,
 	toState: GraphRenderState,
@@ -1162,38 +790,23 @@ function buildDirectiveBaseState(
 	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
 	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
 	const connectorByConnectorId = {} as GraphRenderState["connectorByConnectorId"];
-	const isPureConnectorUpdateSegment = directives.length > 0
-		&& directives.every((directive) => directive.kind === "connector" && directive.effect === "update");
-	const updatedConnectorIds = new Set<ConnectorId>();
-	for (const directive of directives) {
-		if (directive.kind === "connector" && directive.effect === "update") {
-			updatedConnectorIds.add(directive.connectorId);
-		}
-	}
 
 	for (const claimId of claimRenderOrder) {
 		const fromClaim = fromState.claimByClaimId[claimId];
 		const toClaim = toState.claimByClaimId[claimId];
-		if (isPureConnectorUpdateSegment && fromClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-			};
-			continue;
-		}
-
 		if (fromClaim && toClaim) {
 			claimByClaimId[claimId] = {
-				...toClaim,
+				...fromClaim,
 				x: lerp(fromClaim.x, toClaim.x, progress),
 				y: lerp(fromClaim.y, toClaim.y, progress),
 				width: lerp(fromClaim.width, toClaim.width, progress),
 				height: lerp(fromClaim.height, toClaim.height, progress),
-				scale: fromClaim.scale,
-				confidence: fromClaim.confidence,
-				relevance: fromClaim.relevance,
-				opacity: 1,
-				insertScale: 1,
 			};
+			continue;
+		}
+
+		if (fromClaim) {
+			claimByClaimId[claimId] = fromClaim;
 			continue;
 		}
 
@@ -1206,14 +819,6 @@ function buildDirectiveBaseState(
 			};
 			continue;
 		}
-
-		if (fromClaim) {
-			claimByClaimId[claimId] = {
-				...fromClaim,
-				opacity: 1,
-				insertScale: 1,
-			};
-		}
 	}
 
 	for (const connectorId of connectorRenderOrder) {
@@ -1224,41 +829,21 @@ function buildDirectiveBaseState(
 			continue;
 		}
 
-		if (isPureConnectorUpdateSegment && !updatedConnectorIds.has(connectorId)) {
-			if (fromConnector) {
-				connectorByConnectorId[connectorId] = {
-					...fromConnector,
-				};
-				continue;
-			}
-
-			if (toConnector) {
-				connectorByConnectorId[connectorId] = {
-					...toConnector,
-				};
-				continue;
-			}
-		}
-
 		if (fromConnector && toConnector) {
 			const interpolatedPathBinding = interpolateConnectorPathBinding(fromConnector.actualPathBinding, toConnector.actualPathBinding, progress);
 			connectorByConnectorId[connectorId] = {
-				...toConnector,
-				referenceAffects: toConnector.referenceAffects,
-				actualAffects: toConnector.actualAffects,
+				...fromConnector,
 				referencePathBinding: interpolatedPathBinding,
-				referenceLineProgress: lerp(fromConnector.referenceLineProgress, toConnector.referenceLineProgress, progress),
-				referenceLineTravelOffset: lerp(fromConnector.referenceLineTravelOffset, toConnector.referenceLineTravelOffset, progress),
-				referenceOpacity: lerp(fromConnector.referenceOpacity, toConnector.referenceOpacity, progress),
 				actualPathBinding: interpolatedPathBinding,
 				strokeWidth: lerp(fromConnector.strokeWidth, toConnector.strokeWidth, progress),
 				referenceStrokeWidth: lerp(fromConnector.referenceStrokeWidth, toConnector.referenceStrokeWidth, progress),
-				actualLineProgress: 1,
-				actualLineTravelOffset: 0,
-				actualOpacity: 1,
-				secondaryLineProgress: 0,
-				secondaryLineTravelOffset: 0,
-				secondaryOpacity: 0,
+			};
+			continue;
+		}
+
+		if (fromConnector) {
+			connectorByConnectorId[connectorId] = {
+				...fromConnector,
 			};
 			continue;
 		}
@@ -1367,13 +952,23 @@ function applyClaimDirective(
 		return;
 	}
 
-	if (fromClaim && toClaim) {
+	if (directive.effect === "display" && fromClaim && toClaim) {
 		state.claimByClaimId[claimId] = {
 			...workingClaim,
-			...toClaim,
-			scale: lerp(fromClaim.scale, toClaim.scale, progress),
+			content: toClaim.content,
+			side: toClaim.side,
 			confidence: lerp(fromClaim.confidence, toClaim.confidence, progress),
 			relevance: lerp(fromClaim.relevance, toClaim.relevance, progress),
+			opacity: 1,
+			insertScale: 1,
+		};
+		return;
+	}
+
+	if (directive.effect === "scale" && fromClaim && toClaim) {
+		state.claimByClaimId[claimId] = {
+			...workingClaim,
+			scale: lerp(fromClaim.scale, toClaim.scale, progress),
 			opacity: 1,
 			insertScale: 1,
 		};
@@ -2154,24 +1749,19 @@ function buildScaleOfSourcesDirectives(
 function scheduleTransitionDirectives(
 	directives: readonly GraphTransitionDirective[],
 	totalFrames: number,
-): Array<{ directives: readonly GraphTransitionDirective[]; durationInFrames: number; weight: number }> {
+): Array<{ directives: readonly GraphTransitionDirective[]; durationInFrames: number }> {
 	if (directives.length === 0) {
 		return [];
 	}
 
-	const weightedDirectives = directives.map((directive, index) => ({
-		index,
-		weight: resolveTransitionDirectiveWeight(directive),
-		directives: [directive] as const,
-	}));
-	const totalWeight = weightedDirectives.reduce((sum, entry) => sum + entry.weight, 0);
-	const scheduledDirectives = weightedDirectives.map((entry) => {
-		const rawFrames = totalFrames * (entry.weight / Math.max(1, totalWeight));
-		const durationInFrames = Math.max(1, Math.floor(rawFrames));
+	const rawFramesPerDirective = totalFrames / Math.max(1, directives.length);
+	const scheduledDirectives = directives.map((directive, index) => {
+		const durationInFrames = Math.max(1, Math.floor(rawFramesPerDirective));
 		return {
-			...entry,
+			index,
+			directives: [directive] as const,
 			durationInFrames,
-			remainder: rawFrames - durationInFrames,
+			remainder: rawFramesPerDirective - durationInFrames,
 		};
 	});
 
@@ -2191,30 +1781,6 @@ function scheduleTransitionDirectives(
 		})
 		.sort((left, right) => left.index - right.index)
 		.map(({ index: _ignoredIndex, remainder: _ignoredRemainder, ...entry }) => entry);
-}
-
-function resolveTransitionDirectiveWeight(directive: GraphTransitionDirective): number {
-	if (directive.kind === "claim") {
-		switch (directive.effect) {
-			case "enter":
-			case "exit":
-			// return 3;
-			case "display":
-			case "scale":
-				// return 2;
-				return 1;
-
-		}
-	}
-
-	switch (directive.effect) {
-		case "grow":
-		case "shrink":
-		// return 5;
-		case "update":
-			// return 4;
-			return 1;
-	}
 }
 
 function formatTransitionDirectiveName(

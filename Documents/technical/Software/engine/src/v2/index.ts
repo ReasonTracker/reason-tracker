@@ -23,8 +23,7 @@ export type {
 } from "./layout.ts";
 
 export type {
-	AnimationTransitionUnit,
-	ChangeTransitionUnit,
+	ChangeGroup,
 	PreparedAnimationSchedule,
 	PreparedChangeSchedule,
 	PrepareAnimationScheduleRequest,

@@ -12,20 +12,21 @@ export interface PrepareChangeScheduleRequest {
 	layoutOptions?: LayoutOptions
 }
 
-export interface ChangeTransitionUnit {
+export interface ChangeGroup {
 	name: string
-	from: DebateLayoutPipelineContext
-	to: DebateLayoutPipelineContext
 	changes: readonly Change[]
+	initialLayout: DebateLayoutPipelineContext
+	finalLayout: DebateLayoutPipelineContext
 	durationInFrames: number
 }
 
-export type AnimationTransitionUnit = ChangeTransitionUnit;
+export type ChangeTransitionUnit = ChangeGroup;
+export type AnimationTransitionUnit = ChangeGroup;
 
 export interface PreparedChangeSchedule {
-	initialPipeline: DebateLayoutPipelineContext
-	transitionUnits: ChangeTransitionUnit[]
-	finalPipeline: DebateLayoutPipelineContext
+	initialLayout: DebateLayoutPipelineContext
+	changeGroups: ChangeGroup[]
+	finalLayout: DebateLayoutPipelineContext
 }
 
 export type PrepareAnimationScheduleRequest = PrepareChangeScheduleRequest;
@@ -34,91 +35,88 @@ export type PreparedAnimationSchedule = PreparedChangeSchedule;
 export async function prepareChangeSchedule(
 	request: PrepareChangeScheduleRequest,
 ): Promise<PreparedChangeSchedule> {
-	const initialPipeline = await calculateLayoutPipeline({
+	const initialLayout = await calculateLayoutPipeline({
 		debate: request.debate,
 	}, request.layoutOptions);
 	const intent = request.intent;
 	if (!intent) {
 		return {
-			initialPipeline,
-			transitionUnits: [],
-			finalPipeline: initialPipeline,
+			initialLayout,
+			changeGroups: [],
+			finalLayout: initialLayout,
 		};
 	}
 
-	const unscheduledUnits: Array<Omit<ChangeTransitionUnit, "durationInFrames">> = [];
-	let workingDebate = request.debate;
-	let workingPipeline = initialPipeline;
+	const unscheduledChangeGroups: Array<Omit<ChangeGroup, "durationInFrames">> = [];
+	let currentLayout = initialLayout;
 	let pendingChanges: Change[] = [];
-	let pendingDebate = workingDebate;
+	let pendingDebate = request.debate;
 
 	for (const change of intent.changes) {
 		pendingDebate = applyChanges(pendingDebate, [change]);
 		pendingChanges.push(change);
 
-		if (!endsCommittedBoundary(change)) {
+		if (!endsChangeGroup(change)) {
 			continue;
 		}
 
-		const nextPipeline = await calculateLayoutPipeline({
+		const nextLayout = await calculateLayoutPipeline({
 			debate: pendingDebate,
 			intent,
 			changes: [...pendingChanges],
 		}, request.layoutOptions);
-		pushTransitionUnits(
-			unscheduledUnits,
-			workingPipeline,
-			nextPipeline,
+		pushChangeGroup(
+			unscheduledChangeGroups,
 			formatChangeGroupName(pendingChanges, pendingDebate),
 			[...pendingChanges],
+			currentLayout,
+			nextLayout,
 		);
-		workingDebate = pendingDebate;
-		workingPipeline = nextPipeline;
+		currentLayout = nextLayout;
 		pendingChanges = [];
 	}
 
 	if (pendingChanges.length > 0) {
-		const nextPipeline = await calculateLayoutPipeline({
+		const nextLayout = await calculateLayoutPipeline({
 			debate: pendingDebate,
 			intent,
 			changes: [...pendingChanges],
 		}, request.layoutOptions);
-		pushTransitionUnits(
-			unscheduledUnits,
-			workingPipeline,
-			nextPipeline,
+		pushChangeGroup(
+			unscheduledChangeGroups,
 			formatChangeGroupName(pendingChanges, pendingDebate),
 			[...pendingChanges],
+			currentLayout,
+			nextLayout,
 		);
-		workingDebate = pendingDebate;
-		workingPipeline = nextPipeline;
+		currentLayout = nextLayout;
 	}
 
 	return {
-		initialPipeline,
-		transitionUnits: scheduleTransitionUnits(unscheduledUnits, request.eventDurationInFrames, workingPipeline),
-		finalPipeline: workingPipeline,
+		initialLayout,
+		changeGroups: scheduleChangeGroups(unscheduledChangeGroups, request.eventDurationInFrames),
+		finalLayout: currentLayout,
 	};
 }
 
 export const prepareAnimationSchedule = prepareChangeSchedule;
 
-function pushTransitionUnits(
-	units: Array<Omit<ChangeTransitionUnit, "durationInFrames">>,
-	from: DebateLayoutPipelineContext,
-	to: DebateLayoutPipelineContext,
-	baseName: string,
+function pushChangeGroup(
+	changeGroups: Array<Omit<ChangeGroup, "durationInFrames">>,
+	name: string,
 	changes: Change[],
+	initialLayout: DebateLayoutPipelineContext,
+	finalLayout: DebateLayoutPipelineContext,
 ): void {
-	units.push({
-		name: baseName,
-		from,
-		to,
+	changeGroups.push({
+		name,
 		changes,
+		initialLayout,
+		finalLayout,
 	});
 }
 
-function endsCommittedBoundary(change: Change): boolean {
+function endsChangeGroup(change: Change): boolean {
 	switch (change.kind) {
 		case "IncomingSourceInserted":
 		case "ScoreRemoved":
@@ -147,37 +145,28 @@ function endsCommittedBoundary(change: Change): boolean {
 	}
 }
 
-function scheduleTransitionUnits(
-	units: Array<Omit<ChangeTransitionUnit, "durationInFrames">>,
+
+function scheduleChangeGroups(
+	changeGroups: Array<Omit<ChangeGroup, "durationInFrames">>,
 	eventDurationInFrames: number,
-	_finalPipeline: DebateLayoutPipelineContext,
-): ChangeTransitionUnit[] {
-	if (units.length === 0) {
+	): ChangeGroup[] {
+	if (changeGroups.length === 0) {
 		return [];
 	}
 
-	const weightedUnits = units.map((unit, index) => {
-		// const weight = Math.max(1, unit.changes.reduce((sum, change) => sum + resolveChangeWeight(change), 0));
-		const weight = 1;
+	const rawFramesPerGroup = eventDurationInFrames / Math.max(1, changeGroups.length);
+	const scheduledChangeGroups = changeGroups.map((changeGroup, index) => {
+		const durationInFrames = Math.max(1, Math.floor(rawFramesPerGroup));
 		return {
 			index,
-			weight,
-			unit,
-		};
-	});
-	const totalWeight = weightedUnits.reduce((sum, unit) => sum + unit.weight, 0);
-	const scheduledUnits = weightedUnits.map((entry) => {
-		const rawFrames = eventDurationInFrames * (entry.weight / Math.max(1, totalWeight));
-		const durationInFrames = Math.max(1, Math.floor(rawFrames));
-		return {
-			...entry,
+			changeGroup,
 			durationInFrames,
-			remainder: rawFrames - durationInFrames,
+			remainder: rawFramesPerGroup - durationInFrames,
 		};
 	});
 
-	let remainingFrames = Math.max(0, eventDurationInFrames - scheduledUnits.reduce((sum, entry) => sum + entry.durationInFrames, 0));
-	const normalizedUnits = [...scheduledUnits]
+	let remainingFrames = Math.max(0, eventDurationInFrames - scheduledChangeGroups.reduce((sum, entry) => sum + entry.durationInFrames, 0));
+	return [...scheduledChangeGroups]
 		.sort((left, right) => right.remainder - left.remainder)
 		.map((entry) => {
 			if (remainingFrames > 0) {
@@ -191,44 +180,10 @@ function scheduleTransitionUnits(
 			return entry;
 		})
 		.sort((left, right) => left.index - right.index)
-		.map(({ index: _ignoredIndex, weight: _ignoredWeight, remainder: _ignoredRemainder, unit, durationInFrames }) => ({
-			...unit,
+		.map(({ index: _ignoredIndex, remainder: _ignoredRemainder, changeGroup, durationInFrames }) => ({
+			...changeGroup,
 			durationInFrames,
 		}));
-
-	return normalizedUnits;
-}
-
-function resolveChangeWeight(change: Change): number {
-	switch (change.kind) {
-		case "ClaimAdded":
-		case "ScoreAdded":
-		case "ConnectorAdded":
-		case "ClaimRemoved":
-		case "ScoreRemoved":
-		case "ConnectorRemoved":
-			// return 5;
-		case "IncomingSourceInserted":
-		case "IncomingSourceRemoved":
-		case "IncomingSourcesResorted":
-			// return 3;
-		case "ScoreClaimConfidenceChanged":
-		case "ScoreConnectorConfidenceChanged":
-		case "ScoreRelevanceChanged":
-		case "ScoreScaleOfSourcesChanged":
-			// return 2;
-		case "ScoreScaleOfSourcesBatchChanged":
-			// return 1;
-		case "ClaimContentChanged":
-		case "ClaimSideChanged":
-		case "ClaimForceConfidenceChanged":
-		case "ConnectorSourceChanged":
-		case "ConnectorTargetChanged":
-		case "ConnectorAffectsChanged":
-			// return 2;
-		default:
-			return 1;
-	}
 }
 
 function formatChangeName(change: Change, debate: Debate): string {
