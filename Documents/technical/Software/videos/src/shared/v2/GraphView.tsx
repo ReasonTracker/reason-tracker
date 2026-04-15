@@ -3,7 +3,7 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Change, Claim, ClaimId, ClaimSide, Connector, ConnectorId, Debate, Intent, PropagationDirection, ScoreId } from "../../../../contracts/src/v2/index.ts";
 import { calculateLayoutPipeline, prepareAnimationSchedule, processDebateIntent, type DebateLayout, type DebateLayoutPipelineContext } from "../../../../engine/src/v2/index.ts";
-import { cancelRender, continueRender, delayRender, Easing, interpolate, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import { cancelRender, continueRender, delayRender, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { getZoomMotionState } from "../zoomMotion.ts";
 
 const DEFAULT_GRAPH_FROM = 0;
@@ -193,6 +193,13 @@ type CameraState = {
 	scale: number;
 	translateX: number;
 	translateY: number;
+};
+
+type CameraFocusState = CameraState & {
+	targetX: number;
+	targetY: number;
+	targetScreenX: number;
+	targetScreenY: number;
 };
 
 type GraphViewProps = {
@@ -1169,9 +1176,10 @@ function resolveCameraState(
 	let currentState = baseState;
 
 	for (const move of cameraMoves) {
-		const nextState = move.reset
-			? baseState
-			: getCameraStateForTarget(resolveTargetData(graph, move.target) ?? { x: graph.width / 2, y: graph.height / 2 }, frameWidth, frameHeight, move.padding, move.scale);
+		const nextTargetData = move.reset
+			? { x: graph.width / 2, y: graph.height / 2, width: graph.width, height: graph.height }
+			: resolveTargetData(graph, move.target) ?? { x: graph.width / 2, y: graph.height / 2 };
+		const nextState = getCameraStateForTarget(nextTargetData, frameWidth, frameHeight, move.reset ? DEFAULT_VIEWPORT_PADDING : move.padding, move.scale);
 
 		if (frame < move.from) {
 			return currentState;
@@ -1189,10 +1197,12 @@ function resolveCameraState(
 			durationInFrames: move.durationInFrames,
 			startScale: currentState.scale,
 			endScale: nextState.scale,
-			startTranslateX: currentState.translateX,
-			endTranslateX: nextState.translateX,
-			startTranslateY: currentState.translateY,
-			endTranslateY: nextState.translateY,
+			targetX: nextState.targetX,
+			targetY: nextState.targetY,
+			startScreenX: currentState.translateX + nextState.targetX * currentState.scale,
+			endScreenX: nextState.targetScreenX,
+			startScreenY: currentState.translateY + nextState.targetY * currentState.scale,
+			endScreenY: nextState.targetScreenY,
 		});
 	}
 
@@ -1205,9 +1215,13 @@ function getCameraStateForTarget(
 	frameHeight: number,
 	padding: number,
 	fallbackScale = DEFAULT_ZOOM_SCALE,
-): CameraState {
+): CameraFocusState {
 	const scale = resolveZoomScale(targetData, frameWidth, frameHeight, padding, fallbackScale);
 	return {
+		targetX: targetData.x,
+		targetY: targetData.y,
+		targetScreenX: frameWidth / 2,
+		targetScreenY: frameHeight / 2,
 		scale,
 		translateX: frameWidth / 2 - targetData.x * scale,
 		translateY: frameHeight / 2 - targetData.y * scale,

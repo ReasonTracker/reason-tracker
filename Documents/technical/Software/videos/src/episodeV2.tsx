@@ -25,16 +25,14 @@ const connector27Id = "connector:27" as ConnectorId;
 
 const graphEvents = buildTimelineTimes([
 	["BackgroundFadeIn", 0.7],
-	[wait, 1],
-	["addClaimR", 10],
-	[wait, 1],
-	["brand", 3.3],
-	["mainCamera", 1.7],
-	[wait, 0.7],
-	["bCamera", 1.7],
-	[wait, 1],
-	["aCamera", 1.7],
-	[wait, 0.3],
+	["brand", 4, 0],
+	[wait, 2],
+	["addCamera", 3],
+	["addClaimR", 10,0],
+	[wait, 2],
+	["bMainCamera", 3],
+		["CameraMain", 3],
+
 	["resetCamera", 1.7],
 	["BackgroundFadeout", 0.7],
 ] as const, EPISODE_FPS);
@@ -59,7 +57,6 @@ export const EpisodeV2 = () => {
 				name="Graph Fade"
 			>
 				<GraphView debate={episodeV2Debate} siblingOrderingMode="preserve-input" debugTimeline>
-					<CameraMove {...cameraMoveOptions} {...graphEventTimes.mainCamera} claimId="main" />
 					<GraphEvents
 						{...graphEventTimes.addClaimR}
 						id="addClaimR"
@@ -90,8 +87,10 @@ export const EpisodeV2 = () => {
 							},
 						]}
 					/>
-					<CameraMove {...cameraMoveOptions} {...graphEventTimes.bCamera} claimId={["b", "e", "f", "i", "o"]} />
-					<CameraMove {...cameraMoveOptions} {...graphEventTimes.aCamera} claimId="a" />
+					<CameraMove {...cameraMoveOptions} {...graphEventTimes.addCamera} claimId={["b", "e"]} />
+					<CameraMove {...cameraMoveOptions} padding={-200} {...graphEventTimes.bMainCamera} claimId={["b", "main"]} />
+					<CameraMove {...cameraMoveOptions} {...graphEventTimes.CameraMain} claimId={["main"]} />
+
 					<CameraMove {...graphEventTimes.resetCamera} reset />
 				</GraphView>
 			</Fade>

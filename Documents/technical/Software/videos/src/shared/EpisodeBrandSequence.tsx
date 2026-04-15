@@ -22,20 +22,21 @@ const EpisodeBrandSequenceContent = ({ durationInFrames = DEFAULT_BRAND_SEQUENCE
 	const { reasonX, trackerX, wordOpacity, taglineY, taglineOpacity } = getBrandSequenceState(motionFrame);
 
 	return (
-		<div style={brandRootStyle} aria-label="Reason Tracker brand sequence">
-			<div style={lockupStyle}>
-				<span style={{ ...wordStyle, opacity: wordOpacity, transform: `translateX(${reasonX}px)` }}>Reason</span>
-				<span style={{ ...wordStyle, opacity: wordOpacity, transform: `translateX(${trackerX}px)` }}>Tracker</span>
+		<div className="rt-brand-sequence" aria-label="Reason Tracker brand sequence">
+			<div className="rt-brand-sequence__lockup">
+				<span className="rt-brand-sequence__reason" style={{ opacity: wordOpacity, transform: `translateX(${reasonX}px)` }}>
+					Reason
+				</span>
+				<span className="rt-brand-sequence__tracker" style={{ opacity: wordOpacity, transform: `translateX(${trackerX}px)` }}>
+					Tracker
+				</span>
 			</div>
 			<span
-				style={{
-					...taglineWrapStyle,
-					opacity: taglineOpacity,
-					transform: `translate(${TAGLINE_CENTER_OFFSET}px, ${taglineY}px)`,
-				}}
+				className="rt-brand-sequence__tagline"
+				style={{ opacity: taglineOpacity, transform: `translate(${TAGLINE_CENTER_OFFSET}px, ${taglineY}px)` }}
 			>
-				<span style={taglineShadowStyle} aria-hidden="true">{BRAND_SEQUENCE_TAGLINE}</span>
-				<span style={taglineTextStyle}>{BRAND_SEQUENCE_TAGLINE}</span>
+				<span className="rt-brand-sequence__tagline-shadow" aria-hidden="true">{BRAND_SEQUENCE_TAGLINE}</span>
+				<span className="rt-brand-sequence__tagline-text">{BRAND_SEQUENCE_TAGLINE}</span>
 			</span>
 		</div>
 	);
@@ -46,7 +47,7 @@ export const EpisodeBrandSequence = ({
 	durationInFrames = DEFAULT_BRAND_SEQUENCE_DURATION,
 }: EpisodeBrandSequenceProps) => {
 	return (
-		<Sequence from={from} durationInFrames={durationInFrames} name="Brand" layout="none">
+		<Sequence from={from} durationInFrames={durationInFrames}>
 			<EpisodeBrandSequenceContent durationInFrames={durationInFrames} />
 		</Sequence>
 	);
@@ -66,47 +67,3 @@ const getScaledBrandSequenceFrame = (frame: number, duration: number) => {
 
 	return (safeFrame / (safeDuration - 1)) * BRAND_SEQUENCE_END_FRAME;
 };
-
-const brandRootStyle = {
-	position: "absolute",
-	inset: 0,
-	display: "flex",
-	flexDirection: "column",
-	alignItems: "center",
-	justifyContent: "center",
-	background: "rgba(0, 0, 0, 0.72)",
-	fontFamily: '"Aptos Display", "Segoe UI", sans-serif',
-	color: "#ffffff",
-} satisfies React.CSSProperties;
-
-const lockupStyle = {
-	display: "flex",
-	gap: 18,
-	fontSize: 112,
-	fontWeight: 600,
-	lineHeight: 1,
-	letterSpacing: "-0.04em",
-} satisfies React.CSSProperties;
-
-const wordStyle = {
-	display: "inline-block",
-} satisfies React.CSSProperties;
-
-const taglineWrapStyle = {
-	position: "relative",
-	marginTop: 24,
-	fontSize: 28,
-	letterSpacing: "0.22em",
-	textTransform: "uppercase",
-} satisfies React.CSSProperties;
-
-const taglineShadowStyle = {
-	position: "absolute",
-	inset: 0,
-	filter: "blur(16px)",
-	color: "rgba(255, 255, 255, 0.25)",
-} satisfies React.CSSProperties;
-
-const taglineTextStyle = {
-	position: "relative",
-} satisfies React.CSSProperties;

@@ -2,9 +2,8 @@
 
 import { Easing, interpolate } from "remotion";
 
-const DEFAULT_PAN_DURATION_RATIO = 0.5;
-const PAN_EASING = Easing.bezier(0.42, 0, 0.2, 1);
-const ZOOM_EASING = Easing.bezier(0.42, 0, 0.2, 1);
+// AGENT NOTE: Keep camera motion tuning constants grouped here.
+const CAMERA_MOTION_EASING = Easing.bezier(0.42, 0, 0.2, 1);
 
 export type ZoomMotionOptions = {
 	frame: number;
@@ -12,10 +11,12 @@ export type ZoomMotionOptions = {
 	durationInFrames: number;
 	startScale: number;
 	endScale: number;
-	startTranslateX: number;
-	endTranslateX: number;
-	startTranslateY: number;
-	endTranslateY: number;
+	targetX: number;
+	targetY: number;
+	startScreenX: number;
+	endScreenX: number;
+	startScreenY: number;
+	endScreenY: number;
 };
 
 export type ZoomMotionState = {
@@ -30,34 +31,24 @@ export function getZoomMotionState({
 	durationInFrames,
 	startScale,
 	endScale,
-	startTranslateX,
-	endTranslateX,
-	startTranslateY,
-	endTranslateY,
+	targetX,
+	targetY,
+	startScreenX,
+	endScreenX,
+	startScreenY,
+	endScreenY,
 }: ZoomMotionOptions): ZoomMotionState {
-	const panDurationInFrames = Math.max(1, Math.round(durationInFrames * DEFAULT_PAN_DURATION_RATIO));
-
-	const panProgress = interpolate(frame, [startFrame, startFrame + panDurationInFrames], [0, 1], {
-		easing: PAN_EASING,
+	const motionProgress = interpolate(frame, [startFrame, startFrame + durationInFrames], [0, 1], {
+		easing: CAMERA_MOTION_EASING,
 		extrapolateLeft: "clamp",
 		extrapolateRight: "clamp",
 	});
 
-	const zoomProgress = interpolate(frame, [startFrame, startFrame + durationInFrames], [0, 1], {
-		easing: ZOOM_EASING,
-		extrapolateLeft: "clamp",
-		extrapolateRight: "clamp",
-	});
-
-	const scale = interpolate(zoomProgress, [0, 1], [startScale, endScale]);
-	const startOffsetX = startTranslateX / Math.max(startScale, Number.EPSILON);
-	const endOffsetX = endTranslateX / Math.max(endScale, Number.EPSILON);
-	const startOffsetY = startTranslateY / Math.max(startScale, Number.EPSILON);
-	const endOffsetY = endTranslateY / Math.max(endScale, Number.EPSILON);
-	const offsetX = interpolate(panProgress, [0, 1], [startOffsetX, endOffsetX]);
-	const offsetY = interpolate(panProgress, [0, 1], [startOffsetY, endOffsetY]);
-	const translateX = offsetX * scale;
-	const translateY = offsetY * scale;
+	const scale = interpolate(motionProgress, [0, 1], [startScale, endScale]);
+	const screenX = interpolate(motionProgress, [0, 1], [startScreenX, endScreenX]);
+	const screenY = interpolate(motionProgress, [0, 1], [startScreenY, endScreenY]);
+	const translateX = screenX - targetX * scale;
+	const translateY = screenY - targetY * scale;
 
 	return {
 		scale,

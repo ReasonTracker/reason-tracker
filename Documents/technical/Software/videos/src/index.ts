@@ -1,5 +1,7 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
+import "../../website/site/css/brand.css";
+import "../../website/site/css/brand-sequence.css";
 import { Fragment, createElement } from "react";
 import { registerRoot } from "remotion";
 import { Episode001Composition } from "./episode001.tsx";

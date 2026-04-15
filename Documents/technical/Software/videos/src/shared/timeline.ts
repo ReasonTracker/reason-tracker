@@ -4,8 +4,8 @@ type TimelineWaitMarker = "wait";
 
 export const wait: TimelineWaitMarker = "wait";
 
-type TimelineWaitEntry = readonly [typeof wait, number];
-type TimelineSegmentEntry<Id extends string = string> = readonly [Id, number, number?, number?];
+type TimelineWaitEntry = readonly [marker: typeof wait, seconds: number];
+type TimelineSegmentEntry<Id extends string = string> = readonly [id: Id, lengthSeconds: number, adjustSeconds?: number];
 
 export type TimelineEntry<Id extends string = string> = TimelineWaitEntry | TimelineSegmentEntry<Id>;
 
@@ -29,28 +29,29 @@ export function buildTimelineTimes<Id extends string>(
 	const times = {} as Record<Id, TimelineSegment>;
 
 	for (const entry of entries) {
-		if (entry[0].trim() === wait) {
+		const trimmedId = entry[0].trim();
+
+		if (trimmedId === wait) {
 			cursorFrame += secondsToFrames(entry[1], safeFps);
 			totalDurationInFrames = Math.max(totalDurationInFrames, cursorFrame);
 			continue;
 		}
 
-		const [id, seconds, preSeconds = 0, overlapSeconds = 0] = entry;
-		const trimmedId = id.trim() as Id;
-		const baseDurationInFrames = secondsToFrames(seconds, safeFps);
-		const preDurationInFrames = secondsToFrames(preSeconds, safeFps);
-		const overlapDurationInFrames = secondsToFrames(overlapSeconds, safeFps);
-		const from = Math.max(0, cursorFrame - preDurationInFrames);
-		const durationInFrames = Math.max(1, baseDurationInFrames + preDurationInFrames + overlapDurationInFrames);
-		const end = from + durationInFrames;
+		const hasAdjustment = entry.length >= 3;
+		const [, lengthSeconds, adjustSeconds = 0] = entry;
+		const durationInFrames = Math.max(1, secondsToFrames(lengthSeconds, safeFps));
+		const from = Math.max(0, cursorFrame + signedSecondsToFrames(adjustSeconds, safeFps));
 
-		times[trimmedId] = {
+		times[trimmedId as Id] = {
 			from,
 			durationInFrames,
 		};
 
-		cursorFrame += baseDurationInFrames;
-		totalDurationInFrames = Math.max(totalDurationInFrames, end, cursorFrame);
+		if (!hasAdjustment) {
+			cursorFrame += durationInFrames;
+		}
+
+		totalDurationInFrames = Math.max(totalDurationInFrames, cursorFrame);
 	}
 
 	return {
@@ -62,4 +63,8 @@ export function buildTimelineTimes<Id extends string>(
 function secondsToFrames(seconds: number, fps: number): number {
 	const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
 	return Math.round(safeSeconds * fps);
+}
+
+function signedSecondsToFrames(seconds: number, fps: number): number {
+	return Number.isFinite(seconds) ? Math.round(seconds * fps) : 0;
 }
