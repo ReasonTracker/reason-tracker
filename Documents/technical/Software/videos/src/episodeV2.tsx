@@ -26,7 +26,7 @@ const connector27Id = "connector:27" as ConnectorId;
 const graphEvents = buildTimelineTimes([
 	["BackgroundFadeIn", 0.7],
 	[wait, 1],
-	["addClaimR", 100],
+	["addClaimR", 10],
 	[wait, 1],
 	["brand", 3.3],
 	["mainCamera", 1.7],

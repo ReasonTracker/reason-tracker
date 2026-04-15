@@ -100,7 +100,6 @@ type ClaimVisual = {
 	y: number;
 	width: number;
 	height: number;
-	scale: number;
 	opacity: number;
 	insertScale: number;
 };
@@ -173,6 +172,15 @@ type PreparedGraphView = {
 	initialSnapshot: GraphSnapshot;
 	segments: GraphTransitionSegment[];
 	finalSnapshot: GraphSnapshot;
+};
+
+type ActiveGraphFrame = {
+	renderState: GraphRenderState;
+	debate: Debate;
+	fromDebate?: Debate;
+	toDebate?: Debate;
+	progress: number;
+	directives: readonly GraphTransitionDirective[];
 };
 
 type AppliedGraphActionState = {
@@ -390,7 +398,8 @@ export const GraphView = ({
 const GraphViewContent = ({ prepared, cameraMoves }: GraphViewContentProps) => {
 	const frame = useCurrentFrame();
 	const { width: frameWidth, height: frameHeight } = useVideoConfig();
-	const activeGraph = resolveActiveGraph(prepared, frame);
+	const activeGraphFrame = resolveActiveGraph(prepared, frame);
+	const activeGraph = activeGraphFrame.renderState;
 	const cameraState = resolveCameraState(frame, activeGraph, cameraMoves, frameWidth, frameHeight);
 	const wrapperStyle = {
 		width: activeGraph.width * cameraState.scale,
@@ -603,8 +612,6 @@ async function buildGraphSnapshot(state: AppliedGraphActionState): Promise<Graph
 function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderState {
 	const claimByClaimId = {} as Record<ClaimId, ClaimVisual>;
 	const connectorByConnectorId = {} as Record<ConnectorId, ConnectorVisual>;
-	const rootScores = Object.values(debate.scores).filter((score) => score.claimId === debate.mainClaimId);
-	const rootScoreId = rootScores.length === 1 ? rootScores[0].id : undefined;
 	const claimRenderOrder = Object.values(layout.scoreLayouts)
 		.slice()
 		.sort((left, right) => left.x - right.x || left.y - right.y)
@@ -630,7 +637,6 @@ function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderStat
 			y: scoreLayout.y,
 			width: scoreLayout.width,
 			height: scoreLayout.height,
-			scale: score.id === rootScoreId ? 1 : score.scaleOfSources,
 			opacity: 1,
 			insertScale: 1,
 		};
@@ -709,7 +715,7 @@ function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderStat
 function resolveActiveGraph(
 	prepared: PreparedGraphView,
 	frame: number,
-): GraphRenderState {
+): ActiveGraphFrame {
 	let currentSnapshot = prepared.initialSnapshot;
 
 	for (const segment of prepared.segments) {
@@ -726,28 +732,48 @@ function resolveActiveGraph(
 		return resolveTransitionSegment(segment, frame - segment.timelineFrom);
 	}
 
-	return prepared.segments.length === 0 ? prepared.finalSnapshot.renderState : currentSnapshot.renderState;
+	const terminalSnapshot = prepared.segments.length === 0 ? prepared.finalSnapshot : currentSnapshot;
+	return {
+		renderState: terminalSnapshot.renderState,
+		debate: terminalSnapshot.pipeline.debate,
+		progress: 1,
+		directives: [],
+	};
 }
 
 function resolveTransitionSegment(
 	segment: GraphTransitionSegment,
 	localFrame: number,
-): GraphRenderState {
+): ActiveGraphFrame {
 	if (localFrame <= 0) {
-		return resolveDirectiveTransition(
-			segment.fromSnapshot,
-			segment.toSnapshot,
-			0,
-			segment.directives,
-		);
+		return {
+			renderState: segment.fromSnapshot.renderState,
+			debate: segment.fromSnapshot.pipeline.debate,
+			fromDebate: segment.fromSnapshot.pipeline.debate,
+			toDebate: segment.toSnapshot.pipeline.debate,
+			progress: 0,
+			directives: segment.directives,
+		};
 	}
 
 	const localProgress = localFrame / Math.max(1, segment.durationInFrames);
 	if (localProgress < 1) {
-		return resolveDirectiveTransition(segment.fromSnapshot, segment.toSnapshot, localProgress, segment.directives);
+		return {
+			renderState: resolveDirectiveTransition(segment.fromSnapshot, segment.toSnapshot, localProgress, segment.directives),
+			debate: segment.toSnapshot.pipeline.debate,
+			fromDebate: segment.fromSnapshot.pipeline.debate,
+			toDebate: segment.toSnapshot.pipeline.debate,
+			progress: localProgress,
+			directives: segment.directives,
+		};
 	}
 
-	return segment.toSnapshot.renderState;
+	return {
+		renderState: segment.toSnapshot.renderState,
+		debate: segment.toSnapshot.pipeline.debate,
+		progress: 1,
+		directives: [],
+	};
 }
 
 function resolveDirectiveTransition(
@@ -786,6 +812,9 @@ function buildDirectiveBaseState(
 	progress: number,
 	directives: readonly GraphTransitionDirective[],
 ): GraphRenderState {
+	const freezeClaimGeometry = shouldFreezeClaimGeometryForDirectives(directives);
+	const freezeGraphBounds = freezeClaimGeometry;
+	const freezeConnectorPathBindings = freezeClaimGeometry;
 	const claimRenderOrder = buildUnionOrder(toState.claimRenderOrder, fromState.claimRenderOrder);
 	const connectorRenderOrder = buildUnionOrder(toState.connectorRenderOrder, fromState.connectorRenderOrder);
 	const claimByClaimId = {} as GraphRenderState["claimByClaimId"];
@@ -797,10 +826,10 @@ function buildDirectiveBaseState(
 		if (fromClaim && toClaim) {
 			claimByClaimId[claimId] = {
 				...fromClaim,
-				x: lerp(fromClaim.x, toClaim.x, progress),
-				y: lerp(fromClaim.y, toClaim.y, progress),
-				width: lerp(fromClaim.width, toClaim.width, progress),
-				height: lerp(fromClaim.height, toClaim.height, progress),
+				x: freezeClaimGeometry ? fromClaim.x : lerp(fromClaim.x, toClaim.x, progress),
+				y: freezeClaimGeometry ? fromClaim.y : lerp(fromClaim.y, toClaim.y, progress),
+				width: freezeClaimGeometry ? fromClaim.width : lerp(fromClaim.width, toClaim.width, progress),
+				height: freezeClaimGeometry ? fromClaim.height : lerp(fromClaim.height, toClaim.height, progress),
 			};
 			continue;
 		}
@@ -830,7 +859,9 @@ function buildDirectiveBaseState(
 		}
 
 		if (fromConnector && toConnector) {
-			const interpolatedPathBinding = interpolateConnectorPathBinding(fromConnector.actualPathBinding, toConnector.actualPathBinding, progress);
+			const interpolatedPathBinding = freezeConnectorPathBindings
+				? fromConnector.actualPathBinding
+				: interpolateConnectorPathBinding(fromConnector.actualPathBinding, toConnector.actualPathBinding, progress);
 			connectorByConnectorId[connectorId] = {
 				...fromConnector,
 				referencePathBinding: interpolatedPathBinding,
@@ -879,13 +910,21 @@ function buildDirectiveBaseState(
 	}
 
 	return {
-		width: lerp(fromState.width, toState.width, progress),
-		height: lerp(fromState.height, toState.height, progress),
+		width: freezeGraphBounds ? fromState.width : lerp(fromState.width, toState.width, progress),
+		height: freezeGraphBounds ? fromState.height : lerp(fromState.height, toState.height, progress),
 		claimRenderOrder,
 		connectorRenderOrder,
 		claimByClaimId,
 		connectorByConnectorId,
 	};
+}
+
+function shouldFreezeClaimGeometryForDirectives(
+	directives: readonly GraphTransitionDirective[],
+): boolean {
+	return directives.length > 0 && directives.every(
+		(directive) => directive.kind === "connector" && directive.effect === "update",
+	);
 }
 
 function applyClaimDirective(
@@ -968,7 +1007,6 @@ function applyClaimDirective(
 	if (directive.effect === "scale" && fromClaim && toClaim) {
 		state.claimByClaimId[claimId] = {
 			...workingClaim,
-			scale: lerp(fromClaim.scale, toClaim.scale, progress),
 			opacity: 1,
 			insertScale: 1,
 		};
@@ -1060,7 +1098,7 @@ function applyConnectorDirective(
 			actualLineTravelOffset: resolveRevealDashoffset(outgoingDirection, 1 - progress),
 			actualOpacity: 1,
 			secondaryAffects: toConnector.actualAffects,
-			secondaryPathBinding: toConnector.actualPathBinding,
+			secondaryPathBinding: fromConnector.actualPathBinding,
 			secondaryStrokeWidth: toConnector.strokeWidth,
 			secondaryLineProgress: progress,
 			secondaryLineTravelOffset: resolveRevealDashoffset(directive.direction, progress),
@@ -1525,7 +1563,7 @@ function renderClaim(claim: ClaimVisual): ReactNode {
 	const claimShapeStyle = {
 		width: DEFAULT_CLAIM_WIDTH,
 		height: DEFAULT_CLAIM_HEIGHT,
-		"--rt-claim-shape-scale": String(claim.scale),
+		"--rt-claim-shape-scale": String(resolveClaimShapeScale(claim)),
 		"--rt-claim-insert-scale": String(claim.insertScale),
 	} as React.CSSProperties;
 
@@ -1547,6 +1585,13 @@ function renderClaim(claim: ClaimVisual): ReactNode {
 				</article>
 			</div>
 		</article>
+	);
+}
+
+function resolveClaimShapeScale(claim: ClaimVisual): number {
+	return Math.min(
+		claim.width / DEFAULT_CLAIM_WIDTH,
+		claim.height / DEFAULT_CLAIM_HEIGHT,
 	);
 }
 
