@@ -2,13 +2,8 @@ import path from "node:path";
 import { defineConfig, type ViteDevServer } from "vite";
 
 const commandCenterDir = path.resolve(import.meta.dirname);
-const backendEntryPath = path.join(commandCenterDir, "server", "core.ts");
 const watchedServerDir = `${toPosixPath(path.join(commandCenterDir, "server"))}/`;
-const watchedBackendPaths = [
-  path.join(commandCenterDir, "server"),
-  path.join(commandCenterDir, "src"),
-  path.join(commandCenterDir, "..", "scripts", "video-episode-state.mjs"),
-];
+const watchedBackendPaths = [path.join(commandCenterDir, "server")];
 
 export default defineConfig({
   server: {
@@ -22,6 +17,26 @@ export default defineConfig({
 
 function commandCenterApiPlugin() {
   let backendVersion = Date.now();
+  const commandStreams = new Map<string, Set<import("node:http").ServerResponse>>();
+
+  const broadcast = (commandId: string, payload: { commandId: string; message: string; timestamp: string; type: string }) => {
+    const listeners = commandStreams.get(commandId);
+    if (!listeners) {
+      return;
+    }
+
+    const line = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const listener of listeners) {
+      listener.write(line);
+    }
+
+    if (payload.type === "complete" || payload.type === "error") {
+      for (const listener of listeners) {
+        listener.end();
+      }
+      commandStreams.delete(commandId);
+    }
+  };
 
   return {
     name: "command-center-api",
@@ -52,41 +67,58 @@ function commandCenterApiPlugin() {
         try {
           const core = await loadBackendModule(server, backendVersion);
 
-          if (request.method === "GET" && requestUrl.pathname === "/api/home") {
-            await writeJson(response, 200, await core.getHomePayload());
+          if (request.method === "GET" && requestUrl.pathname === "/api/command-stream") {
+            const commandId = requestUrl.searchParams.get("commandId");
+            if (!commandId) {
+              await writeText(response, 400, "Missing commandId.");
+              return;
+            }
+
+            response.statusCode = 200;
+            response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+            response.setHeader("Cache-Control", "no-cache, no-transform");
+            response.setHeader("Connection", "keep-alive");
+            response.write("\n");
+
+            const listeners = commandStreams.get(commandId) ?? new Set();
+            listeners.add(response);
+            commandStreams.set(commandId, listeners);
+
+            request.on("close", () => {
+              const currentListeners = commandStreams.get(commandId);
+              if (!currentListeners) {
+                return;
+              }
+
+              currentListeners.delete(response);
+              if (currentListeners.size === 0) {
+                commandStreams.delete(commandId);
+              }
+            });
+
             return;
           }
 
-          if (request.method === "GET" && requestUrl.pathname === "/api/video") {
-            await writeJson(response, 200, await core.getVideoPayload());
-            return;
-          }
+          if (request.method === "POST" && requestUrl.pathname === "/api/command") {
+            const requestBody = await readJsonBody(request);
+            const commandId = createCommandId();
 
-          if (request.method === "POST" && requestUrl.pathname.startsWith("/api/video/current/")) {
-            const episodeId = decodeURIComponent(requestUrl.pathname.slice("/api/video/current/".length));
-            await writeJson(response, 200, await core.setCurrentEpisode(episodeId));
-            return;
-          }
+            void core.runCommand(requestBody, {
+              commandId,
+              report(message: string, type = "update") {
+                broadcast(commandId, {
+                  commandId,
+                  message,
+                  timestamp: new Date().toISOString(),
+                  type,
+                });
+              },
+            });
 
-          if (request.method === "POST" && requestUrl.pathname === "/api/video/render-current") {
-            await writeJson(response, 200, await core.runCurrentEpisodeRender());
-            return;
-          }
-
-          if (request.method === "POST" && requestUrl.pathname.startsWith("/api/video/render/")) {
-            const episodeId = decodeURIComponent(requestUrl.pathname.slice("/api/video/render/".length));
-            await writeJson(response, 200, await core.runEpisodeRender(episodeId));
-            return;
-          }
-
-          if (request.method === "POST" && requestUrl.pathname === "/api/video/open-studio") {
-            await writeJson(response, 200, await core.openStudio());
-            return;
-          }
-
-          if (request.method === "POST" && requestUrl.pathname.startsWith("/api/run/")) {
-            const slug = requestUrl.pathname.slice("/api/run/".length);
-            await writeJson(response, 200, await core.runNamedCommand(slug));
+            await writeJson(response, 200, {
+              commandId,
+              message: `Started ${requestBody.command}.`,
+            });
             return;
           }
 
@@ -103,6 +135,17 @@ async function loadBackendModule(server: ViteDevServer, version: number) {
   return server.ssrLoadModule(`/server/core.ts?t=${version}`);
 }
 
+async function readJsonBody(request: import("node:http").IncomingMessage) {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  const text = Buffer.concat(chunks).toString("utf8");
+  return JSON.parse(text) as { command: string };
+}
+
 async function writeJson(response: Parameters<ViteDevServer["middlewares"]["use"]>[0] extends never ? never : import("node:http").ServerResponse, status: number, value: unknown) {
   response.statusCode = status;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -117,6 +160,10 @@ async function writeText(response: Parameters<ViteDevServer["middlewares"]["use"
 
 function toPosixPath(value: string) {
   return value.replaceAll("\\", "/");
+}
+
+function createCommandId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function toErrorMessage(error: unknown) {

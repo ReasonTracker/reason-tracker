@@ -7,6 +7,16 @@
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <h1>Reason Tracker Command Center</h1>
+      <div>
+        <button type="button" data-command="build-website">Build website</button>
+        <button type="button" data-command="open-remotion-studio">Open Remotion Studio</button>
+        <button type="button" data-command="stop-remotion-studio">Stop Remotion Studio</button>
+        <button type="button" data-command="stop-command-center-server">Stop Command Center Server</button>
+        <button type="button" id="clear-log">Clear</button>
+      </div>
+      <div id="message-log"></div>
+    </div>
   </body>
 </html>
