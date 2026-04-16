@@ -123,10 +123,6 @@ async function main() {
   if (runtimeOptions.writeReport) {
     await fs.writeFile(REPORT_PATH, buildReport({ unresolved, autoAdded }), "utf8");
   }
-
-  console.log(
-    `Markdown maintenance complete: createdIndexDocs=${createdIndexDocs.length}, changedDocs=${changedDocs}, fixedLinks=${fixedLinks}, relabeledLinks=${relabeledLinks}, unresolved=${unresolved.length}, autoAdded=${autoAddedLinks}.`,
-  );
 }
 
 async function ensureDirectoryIndexDocs(routeConfig, sourcePaths) {

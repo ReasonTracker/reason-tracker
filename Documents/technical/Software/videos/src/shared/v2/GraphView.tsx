@@ -317,9 +317,12 @@ const V1_VIDEO_GRAPH_VIEW_CSS = `
 		background: hsl(var(--con-h) 100% var(--con-l) / var(--rt-connector-potential-opacity));
 	}
 
-	.rt-graph-view h2 {
+	.rt-graph-view .rt-score-card__content {
 		margin: 0;
-		font-size: 1.9rem;
+		font-size: 1rem;
+		line-height: 1.05;
+		font-weight: 600;
+		color: #ffffff;
 	}
 
 	.rt-graph-view small {
@@ -596,11 +599,7 @@ function logGraphPipelineObjects(input: {
 	nextState: AppliedGraphActionState;
 	schedule: Awaited<ReturnType<typeof prepareAnimationSchedule>>;
 }): void {
-	console.groupCollapsed(`[GraphView] pipeline objects ${input.graphEvent.name}`);
-	console.log("GraphEvent", input.graphEvent);
-	console.log("AppliedGraphActionState", input.nextState);
-	console.log("PreparedAnimationSchedule", input.schedule);
-	console.groupEnd();
+	void input;
 }
 
 async function buildGraphSnapshot(state: AppliedGraphActionState): Promise<GraphSnapshot> {
@@ -1373,29 +1372,7 @@ function resolveGraphEvents(children: ReactNode): ResolvedGraphEvent[] {
 }
 
 function logPreparedGraphViewTimeline(prepared: PreparedGraphView): void {
-	console.groupCollapsed("[GraphView] Prepared timeline");
-	for (const [segmentIndex, segment] of prepared.segments.entries()) {
-		const pipeline = segment.toSnapshot.pipeline;
-		const intentName = pipeline.intent?.kind ?? "NoIntent";
-		const changeLabels = (pipeline.changes ?? []).map((change: Change) => formatChangeLabel(change)).join(", ");
-		console.groupCollapsed(
-			`segment ${segmentIndex + 1} ${segment.name} @${segment.timelineFrom}f +${segment.durationInFrames}f intent=${intentName}${changeLabels ? ` changes=[${changeLabels}]` : ""}`,
-		);
-
-		if (segment.directives.length === 0) {
-			console.log("Hold");
-		}
-		for (const directive of segment.directives) {
-			if (directive.kind === "claim") {
-				console.log(`ClaimDirective ${directive.effect} ${directive.scoreId}${directive.direction ? ` ${directive.direction}` : ""}`);
-				continue;
-			}
-
-			console.log(`ConnectorDirective ${directive.effect} ${directive.connectorId}${directive.direction ? ` ${directive.direction}` : ""}`);
-		}
-		console.groupEnd();
-	}
-	console.groupEnd();
+	void prepared;
 }
 
 function applyGraphActions(debate: Debate, actions: readonly GraphActionEntry[]): AppliedGraphActionState {
@@ -1592,7 +1569,7 @@ function renderClaim(claim: ClaimVisual): ReactNode {
 		>
 			<div className="rt-claim-shape" style={claimShapeStyle}>
 				<article className="rt-claim-shape-body">
-					<h2>{claim.content}</h2>
+					<div className="rt-score-card__content">{claim.content}</div>
 					<small data-score={claim.confidence} data-score-id={claim.scoreId}>
 						{Math.round(claim.confidence * 100)}%
 					</small>

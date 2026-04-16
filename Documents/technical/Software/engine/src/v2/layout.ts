@@ -19,7 +19,6 @@ const DEFAULT_SCORE_HEIGHT = 180;
 const DEFAULT_NODE_SPACING = 48;
 const DEFAULT_LAYER_SPACING = 96;
 const DEFAULT_CONNECTOR_NODE_GAP = 32;
-const MIN_CONNECTOR_STROKE_WIDTH = 2;
 const ELK_EDGE_THICKNESS_MULTIPLIER = 10;
 
 export interface IntentSelectionPipelineContext extends DebatePipelineContext {
@@ -421,11 +420,11 @@ function getTargetScoreForConnectorId(debate: Debate, connectorId: ConnectorId):
 }
 
 function getElkEdgeThickness(sourceHeight: number, sourceConfidence: number): number {
-	return Math.max(MIN_CONNECTOR_STROKE_WIDTH, sourceHeight * sourceConfidence * ELK_EDGE_THICKNESS_MULTIPLIER);
+	return sourceHeight * sourceConfidence * ELK_EDGE_THICKNESS_MULTIPLIER;
 }
 
 function getRenderedConnectorStrokeWidth(sourceHeight: number, sourceConfidence: number): number {
-	return Math.max(MIN_CONNECTOR_STROKE_WIDTH, sourceHeight * sourceConfidence);
+	return sourceHeight * sourceConfidence;
 }
 
 function getIndividualSpacingLayoutOptions(

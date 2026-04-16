@@ -66,8 +66,6 @@ async function main() {
       augmentationResult,
     });
   }
-
-  console.log(`Published ${filteredPaths.length} source files into ${DIST_DIR}`);
 }
 
 function resolveRepoDir() {

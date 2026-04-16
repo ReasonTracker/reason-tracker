@@ -108,7 +108,7 @@
 
 .rt-score-card__content {
 	margin: 0;
-	font-size: 1.9rem;
+	font-size: 1.0rem;
 	line-height: 1.05;
 	font-weight: 600;
 	color: #ffffff;
@@ -132,6 +132,6 @@
 	}
 
 	.rt-score-card__content {
-		font-size: 1.3rem;
+		font-size: 1.15rem;
 	}
 }

@@ -57,10 +57,6 @@ function publishWebsitePlugin() {
     isPublishing = true;
 
     try {
-      if (reason !== "startup") {
-        console.log(`[website] Change detected (${reason}). Regenerating...`);
-      }
-
       await runCommand("node", [PUBLISH_SCRIPT, "--no-report", "--preserve-dist"], WEBSITE_DIR);
       if (server) {
         server.ws.send({ type: "full-reload" });

@@ -1,0 +1,27 @@
+{
+  "id": "debate:episode-0001",
+  "name": "Episode 0001 graph",
+  "description": "Reason Tracker graph for Episode0001.",
+  "mainClaimId": "main",
+  "claims": {
+    "main": {
+      "id": "main",
+      "content": "Fictional City benefits overall from converting Elm Street to pedestrian-only use.",
+      "side": "proMain"
+    }
+  },
+  "connectors": {},
+  "scores": {
+    "score:main": {
+      "id": "score:main",
+      "claimId": "main",
+      "incomingScoreIds": [],
+      "claimConfidence": 1,
+      "reversibleClaimConfidence": 1,
+      "connectorConfidence": 1,
+      "reversibleConnectorConfidence": 1,
+      "relevance": 1,
+      "scaleOfSources": 0
+    }
+  }
+}

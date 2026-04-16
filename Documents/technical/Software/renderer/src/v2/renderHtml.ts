@@ -430,7 +430,7 @@ function renderScoreCard(score: ScoreVisual, idPrefix: string): string {
 		`<article id="${escapeHtml(buildDomId(idPrefix, "score", score.scoreId))}" class="rt-score-card" data-score-id="${escapeHtml(score.scoreId)}" data-claim-id="${escapeHtml(score.claimId)}" data-claim-side="${escapeHtml(score.claimSide)}" data-presence="${score.presence}" data-animation-kind="${score.animationKind}" data-animation-direction="${escapeHtml(score.animationDirection ?? "none")}" data-change-kind="${escapeHtml(score.changeKind ?? "none")}" data-intent-kind="${escapeHtml(score.intentKind ?? "none")}" data-is-root="${String(score.isRoot)}" data-is-leaf="${String(score.isLeaf)}" style="left:${formatNumber(score.x)}px;top:${formatNumber(score.y)}px;width:${formatNumber(score.width)}px;height:${formatNumber(score.height)}px">`,
 		`<div class="rt-claim-shape" style="width:${DEFAULT_CLAIM_WIDTH}px;height:${DEFAULT_CLAIM_HEIGHT}px;--rt-claim-shape-scale:${formatNumber(score.scale)};--rt-claim-insert-scale:1">`,
 		`<article class="rt-score-card__body rt-claim-shape-body">`,
-		`<h2 class="rt-score-card__content">${escapeHtml(score.claimContent)}</h2>`,
+		`<div class="rt-score-card__content">${escapeHtml(score.claimContent)}</div>`,
 		`<small class="rt-score-card__label" data-score="${escapeHtml(score.label)}" data-score-id="${escapeHtml(score.scoreId)}">${escapeHtml(score.label)}</small>`,
 		"</article>",
 		"</div>",
