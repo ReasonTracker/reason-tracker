@@ -17,7 +17,7 @@ import type { DebatePipelineContext } from "./api.ts";
 const DEFAULT_SCORE_WIDTH = 320;
 const DEFAULT_SCORE_HEIGHT = 180;
 const DEFAULT_NODE_SPACING = 48;
-const DEFAULT_LAYER_SPACING = 96;
+const DEFAULT_LAYER_SPACING = DEFAULT_SCORE_HEIGHT * 4;
 const DEFAULT_CONNECTOR_NODE_GAP = 32;
 const ELK_EDGE_THICKNESS_MULTIPLIER = 10;
 
@@ -35,6 +35,7 @@ export interface LayoutOptions {
 	layerSpacing?: number
 	connectorNodeGap?: number
 	scaleConnectionDistanceWithScore?: boolean
+	layerSpacingScoreScaling?: "elk" | "target-node-offset"
 }
 
 export interface DebateLayout {
@@ -119,6 +120,12 @@ type LayoutElkPoint = {
 	y: number
 };
 
+type ScoreLayoutDimensions = {
+	width: number
+	height: number
+	scale: number
+};
+
 export async function calculateLayout(request: CalculateLayoutRequest): Promise<DebateLayout> {
 	const normalizedDebate = synchronizeScoreScaleOfSources(request.debate);
 	const rootScore = getRootScore(normalizedDebate);
@@ -132,6 +139,7 @@ export async function calculateLayout(request: CalculateLayoutRequest): Promise<
 		rootScore,
 		scoreIdsInLayoutOrder,
 		laidOutGraph,
+		options: request.options,
 	});
 }
 
@@ -211,8 +219,10 @@ function buildElkGraph(
 				: {}),
 			...(options?.scaleConnectionDistanceWithScore
 				? getIndividualSpacingLayoutOptions(
-					sizeByScoreId[scoreId]?.width ?? DEFAULT_SCORE_WIDTH,
+					sizeByScoreId[scoreId]?.scale ?? 1,
 					options.nodeSpacing ?? DEFAULT_NODE_SPACING,
+					options.layerSpacing ?? DEFAULT_LAYER_SPACING,
+					shouldScaleLayerSpacingViaElk(options),
 				)
 				: {}),
 		},
@@ -243,18 +253,19 @@ function computeScoreSizeByScoreId(
 	debate: Debate,
 	rootScoreId: ScoreId,
 	scoreIdsInLayoutOrder: ScoreId[],
-): Record<ScoreId, { width: number; height: number }> {
-	const sizeByScoreId = {} as Record<ScoreId, { width: number; height: number }>;
+): Record<ScoreId, ScoreLayoutDimensions> {
+	const sizeByScoreId = {} as Record<ScoreId, ScoreLayoutDimensions>;
 
 	for (const scoreId of scoreIdsInLayoutOrder) {
 		const score = debate.scores[scoreId];
 		if (!score) {
 			throw new Error(`Score ${scoreId} was not found in the debate.`);
 		}
-		const scale = scoreId === rootScoreId ? 1 : score.scaleOfSources;
+		const scale = scoreId === rootScoreId ? 1 : clampScoreScale(score.scaleOfSources);
 		sizeByScoreId[scoreId] = {
 			width: DEFAULT_SCORE_WIDTH * scale,
 			height: DEFAULT_SCORE_HEIGHT * scale,
+			scale,
 		};
 	}
 
@@ -264,7 +275,7 @@ function computeScoreSizeByScoreId(
 function buildElkEdges(
 	debate: Debate,
 	scoreIdsInLayoutOrder: ScoreId[],
-	sizeByScoreId: Record<ScoreId, { width: number; height: number }>,
+	sizeByScoreId: Record<ScoreId, ScoreLayoutDimensions>,
 ): LayoutElkEdge[] {
 	const edges: LayoutElkEdge[] = [];
 
@@ -308,6 +319,7 @@ function buildDebateLayout(args: {
 	rootScore: Score
 	scoreIdsInLayoutOrder: ScoreId[]
 	laidOutGraph: LayoutElkNode
+	options?: LayoutOptions
 }): DebateLayout {
 	const placedNodeByScoreId = new Map<ScoreId, ElkNode>();
 	for (const child of args.laidOutGraph.children ?? []) {
@@ -342,12 +354,25 @@ function buildDebateLayout(args: {
 		maxY = Math.max(maxY, placed.y + placed.height);
 	}
 
+	if (shouldScaleLayerSpacingViaTargetOffset(args.options)) {
+		applyTargetOffsetLayerSpacing(
+			args.debate,
+			args.rootScore.id,
+			args.scoreIdsInLayoutOrder,
+			scoreLayouts,
+			args.options?.layerSpacing ?? DEFAULT_LAYER_SPACING,
+		);
+		maxX = getMaxScoreLayoutExtent(scoreLayouts, "x");
+		maxY = getMaxScoreLayoutExtent(scoreLayouts, "y");
+	}
+
 	const connectorRoutes = buildConnectorRoutes(args.debate, scoreLayouts);
+	const shouldUseAdjustedBounds = shouldScaleLayerSpacingViaTargetOffset(args.options);
 
 	return {
 		bounds: {
-			width: Math.max(1, Math.ceil(args.laidOutGraph.width ?? maxX)),
-			height: Math.max(1, Math.ceil(args.laidOutGraph.height ?? maxY)),
+			width: Math.max(1, Math.ceil(shouldUseAdjustedBounds ? maxX : (args.laidOutGraph.width ?? maxX))),
+			height: Math.max(1, Math.ceil(shouldUseAdjustedBounds ? maxY : (args.laidOutGraph.height ?? maxY))),
 		},
 		scoreLayouts,
 		connectorRoutes,
@@ -428,13 +453,76 @@ function getRenderedConnectorStrokeWidth(sourceHeight: number, sourceConfidence:
 }
 
 function getIndividualSpacingLayoutOptions(
-	scoreWidth: number,
+	scoreScale: number,
 	defaultNodeSpacing: number,
+	defaultLayerSpacing: number,
+	includeLayerSpacing: boolean,
 ): Record<string, string> {
-	const scoreScale = Math.max(0, Math.min(1, scoreWidth / DEFAULT_SCORE_WIDTH));
-	const scaledNodeSpacing = Math.max(0, defaultNodeSpacing * scoreScale);
+	const clampedScoreScale = clampScoreScale(scoreScale);
+	const scaledLayerSpacing = Math.max(0, defaultLayerSpacing * clampedScoreScale);
+	const scaledNodeSpacing = Math.max(0, defaultNodeSpacing * clampedScoreScale);
+	const individualSpacingEntries = [`spacing.nodeNode:${scaledNodeSpacing}`];
+
+	if (includeLayerSpacing) {
+		individualSpacingEntries.push(`layered.spacing.nodeNodeBetweenLayers:${scaledLayerSpacing}`);
+	}
 
 	return {
-		"elk.spacing.individual": `spacing.nodeNode:${scaledNodeSpacing}`,
+		"elk.spacing.individual": individualSpacingEntries.join(";,;"),
 	};
+}
+
+function clampScoreScale(scale: number): number {
+	return Math.max(0, Math.min(1, scale));
+}
+
+function shouldScaleLayerSpacingViaElk(options: LayoutOptions | undefined): boolean {
+	return options?.layerSpacingScoreScaling !== "target-node-offset";
+}
+
+function shouldScaleLayerSpacingViaTargetOffset(options: LayoutOptions | undefined): boolean {
+	return options?.scaleConnectionDistanceWithScore === true && options?.layerSpacingScoreScaling === "target-node-offset";
+}
+
+function applyTargetOffsetLayerSpacing(
+	debate: Debate,
+	rootScoreId: ScoreId,
+	scoreIdsInLayoutOrder: ScoreId[],
+	scoreLayouts: DebateLayout["scoreLayouts"],
+	defaultLayerSpacing: number,
+): void {
+	for (const scoreId of scoreIdsInLayoutOrder) {
+		if (scoreId === rootScoreId) {
+			continue;
+		}
+
+		const score = debate.scores[scoreId];
+		const scoreLayout = scoreLayouts[scoreId];
+		if (!score || !scoreLayout || !score.connectorId) {
+			continue;
+		}
+
+		const targetScore = getTargetScoreForConnectorId(debate, score.connectorId);
+		const targetScoreLayout = scoreLayouts[targetScore.id];
+		if (!targetScoreLayout) {
+			continue;
+		}
+
+		const scaledLayerSpacing = defaultLayerSpacing * clampScoreScale(score.scaleOfSources);
+		scoreLayout.x = targetScoreLayout.x + targetScoreLayout.width + scaledLayerSpacing;
+	}
+}
+
+function getMaxScoreLayoutExtent(
+	scoreLayouts: DebateLayout["scoreLayouts"],
+	axis: "x" | "y",
+): number {
+	let maxExtent = 0;
+
+	for (const scoreLayout of Object.values(scoreLayouts)) {
+		const size = axis === "x" ? scoreLayout.width : scoreLayout.height;
+		maxExtent = Math.max(maxExtent, scoreLayout[axis] + size);
+	}
+
+	return maxExtent;
 }

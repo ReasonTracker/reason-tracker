@@ -19,6 +19,7 @@ const CONNECTOR_TRANSITION_OVERLAP_PERCENT = 0.00;
 
 const GRAPH_LAYOUT_OPTIONS = {
 	scaleConnectionDistanceWithScore: true,
+	layerSpacingScoreScaling: "target-node-offset",
 } satisfies Parameters<typeof calculateLayoutPipeline>[1];
 
 type GraphTransitionDirection = PropagationDirection;
