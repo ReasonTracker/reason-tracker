@@ -2,9 +2,9 @@
 
 import { Composition } from "remotion";
 import { applyChanges, buildRecalculationChanges } from "../../../engine/src/v2/index.ts";
-import { newClaim, type ClaimId } from "../../../contracts/src/v2/Claim.ts";
-import { newConnector, type ConnectorId } from "../../../contracts/src/v2/Connector.ts";
-import type { Debate } from "../../../contracts/src/v2/Debate.ts";
+import { newClaim, type ClaimId } from "../../../contracts/src/Claim.ts";
+import { newConnector, type ConnectorId } from "../../../contracts/src/Connector.ts";
+import type { Debate } from "../../../contracts/src/Debate.ts";
 import { EpisodeBrandSequence } from "../shared/EpisodeBrandSequence.tsx";
 import { EpisodeTemplate } from "../shared/EpisodeTemplate.tsx";
 import { Fade } from "../shared/Fade.tsx";

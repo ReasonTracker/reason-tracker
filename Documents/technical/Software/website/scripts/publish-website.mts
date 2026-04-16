@@ -2,9 +2,141 @@ import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { Buffer } from "node:buffer";
 import frontMatter from "front-matter";
 import { marked } from "marked";
-import { normalizeMdStemKey, selectPreferredIndex } from "../../scripts/markdown-index-rules.mjs";
+import { normalizeMdStemKey, selectPreferredIndex } from "../../scripts/markdown-index-rules.mts";
+
+const parseFrontMatter = frontMatter as unknown as <T>(
+  file: string,
+) => { attributes: T; body: string };
+
+type AugmentationBucket = "css" | "js";
+
+type SiteConfig = {
+  siteName: string;
+  collapsedSourceRootName: string;
+  indexCandidateKeys: string[];
+};
+
+type RuntimeOptions = {
+  writeReport: boolean;
+  preserveDist: boolean;
+};
+
+type VirtualEntry = {
+  sourcePath: string;
+  virtualPath: string;
+};
+
+type MatchedAugmentation = {
+  sourcePath: string;
+  type: AugmentationBucket;
+  augmentationPath: string;
+};
+
+type UnmatchedAugmentation = {
+  type: AugmentationBucket;
+  augmentationPath: string;
+  lookupKey: string;
+};
+
+type AugmentationMapValue = Partial<Record<AugmentationBucket, string[]>>;
+
+type AugmentationIndexEntry = {
+  path: string;
+  type: AugmentationBucket;
+  key: string;
+  content: string;
+};
+
+type AugmentationIndexResult = {
+  augmentationIndex: Map<string, AugmentationIndexEntry>;
+  scannedSiteFileCount: number;
+  skippedSiteFiles: string[];
+  augmentationFileCount: number;
+  augmentationFilesByType: Partial<Record<AugmentationBucket, number>>;
+};
+
+type BuildSourceAugmentationsResult = {
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>;
+  diagnostics: {
+    scannedSiteFileCount: number;
+    skippedSiteFiles: string[];
+    augmentationFileCount: number;
+    augmentationFilesByType: Partial<Record<AugmentationBucket, number>>;
+    matchedAugmentations: MatchedAugmentation[];
+    unmatchedAugmentations: UnmatchedAugmentation[];
+  };
+};
+
+type DirectoryNode = {
+  directories: Set<string>;
+  files: Map<string, string>;
+};
+
+type DirectoryPage = {
+  sourceDirectoryPath: string;
+  normalizedDirectoryPath: string;
+  outputRelPath: string;
+  defaultMarkdownSource: string | null;
+};
+
+type FilePage = {
+  sourcePath: string;
+  outputRelPath: string;
+};
+
+type RoutePlan = {
+  directoryPages: DirectoryPage[];
+  filePages: FilePage[];
+  normalizedDirectoryPathBySource: Map<string, string>;
+  sourceHrefByPath: Map<string, string>;
+};
+
+type DirectoryItem = {
+  sourcePath: string;
+  href: string;
+  label: string;
+};
+
+type FileItem = {
+  sourcePath: string;
+  href: string;
+  label: string;
+};
+
+type DocMetadata = {
+  audience?: string;
+  linkedRequirements: string[];
+};
+
+type BreadcrumbItem = {
+  title: string;
+  href: string | null;
+};
+
+type GitContext = {
+  branch: string;
+  githubBase: string | null;
+};
+
+type CommandOptions = {
+  cwd?: string;
+  allowFailure?: boolean;
+};
+
+type CommandResult = {
+  code: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+type FilePreview =
+  | { type: "markdown"; size: number; markdown: string }
+  | { type: "text"; size: number; truncated: boolean; content: string }
+  | { type: "binary"; size: number }
+  | { type: "unavailable"; size: number };
 
 const WEBSITE_DIR = path.resolve(import.meta.dirname, "..");
 const REPO_DIR = resolveRepoDir();
@@ -13,7 +145,7 @@ const SITE_DIR = path.join(WEBSITE_DIR, "site");
 const SITE_CONFIG_PATH = path.join(WEBSITE_DIR, "site", "site-config.json");
 const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-report.md");
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
-const RESERVED_SITE_PREFIXES = ["css/", "icons/", "modules/"];
+const RESERVED_SITE_PREFIXES = ["css/", "icons/", "modules/"] as const;
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
 const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
 const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
@@ -25,20 +157,21 @@ const EXCLUDED_SOURCE_SEGMENTS = Object.freeze([
 ]);
 const AUGMENTATION_TYPES = Object.freeze({
   ".css": {
-    bucket: "css",
-    encoding: "utf8",
+    bucket: "css" as const,
+    encoding: "utf8" as BufferEncoding,
   },
   ".js": {
-    bucket: "js",
-    encoding: "utf8",
+    bucket: "js" as const,
+    encoding: "utf8" as BufferEncoding,
   },
 });
+
 let siteName = "Reason Tracker";
 let indexCandidateKeys = ["readme", "index"];
 let collapsedSourceRootName = DEFAULT_COLLAPSED_SOURCE_ROOT;
 const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
-async function main() {
+async function main(): Promise<void> {
   const siteConfig = await resolveSiteConfig();
   siteName = siteConfig.siteName;
   indexCandidateKeys = siteConfig.indexCandidateKeys;
@@ -68,7 +201,7 @@ async function main() {
   }
 }
 
-function resolveRepoDir() {
+function resolveRepoDir(): string {
   let current = WEBSITE_DIR;
 
   while (true) {
@@ -85,41 +218,41 @@ function resolveRepoDir() {
   }
 }
 
-async function ensureGitRepository() {
+async function ensureGitRepository(): Promise<void> {
   const output = await runCommand("git", ["-C", REPO_DIR, "rev-parse", "--is-inside-work-tree"]);
   if (output.stdout.trim() !== "true") {
     throw new Error("Git repository not detected. This builder requires Git metadata.");
   }
 }
 
-async function resetDist({ preserveExisting = false } = {}) {
+async function resetDist({ preserveExisting = false }: { preserveExisting?: boolean } = {}): Promise<void> {
   if (!preserveExisting) {
     await fs.rm(DIST_DIR, { recursive: true, force: true });
   }
   await fs.mkdir(DIST_DIR, { recursive: true });
 }
 
-async function copyStaticAssets() {
+async function copyStaticAssets(): Promise<void> {
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "css"), path.join(DIST_DIR, "css"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "icons"), path.join(DIST_DIR, "icons"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "modules"), path.join(DIST_DIR, "modules"));
 }
 
-async function resolveSiteConfig() {
+async function resolveSiteConfig(): Promise<SiteConfig> {
   try {
     const raw = await fs.readFile(SITE_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     return normalizeSiteConfig(parsed);
   } catch (error) {
-    if (error?.code === "ENOENT") {
+    if (isNodeError(error) && error.code === "ENOENT") {
       return normalizeSiteConfig({});
     }
 
-    throw new Error(`Invalid site config at ${SITE_CONFIG_PATH}: ${error.message}`);
+    throw new Error(`Invalid site config at ${SITE_CONFIG_PATH}: ${toErrorMessage(error)}`);
   }
 }
 
-function validateConfiguredFieldType(value, fieldName, expectedType) {
+function validateConfiguredFieldType(value: unknown, fieldName: string, expectedType: "string" | "array"): void {
   if (value === undefined) {
     return;
   }
@@ -136,21 +269,22 @@ function validateConfiguredFieldType(value, fieldName, expectedType) {
   }
 }
 
-function normalizeSiteConfig(value) {
-  validateConfiguredFieldType(value?.siteName, "siteName", "string");
-  validateConfiguredFieldType(value?.collapsedSourceRootName, "collapsedSourceRootName", "string");
-  validateConfiguredFieldType(value?.indexFileNames, "indexFileNames", "array");
+function normalizeSiteConfig(value: unknown): SiteConfig {
+  const config = isRecord(value) ? value : {};
+  validateConfiguredFieldType(config.siteName, "siteName", "string");
+  validateConfiguredFieldType(config.collapsedSourceRootName, "collapsedSourceRootName", "string");
+  validateConfiguredFieldType(config.indexFileNames, "indexFileNames", "array");
 
-  const siteNameValue = typeof value?.siteName === "string" ? value.siteName.trim() : "";
+  const siteNameValue = typeof config.siteName === "string" ? config.siteName.trim() : "";
   const collapsedSourceRootValue =
-    typeof value?.collapsedSourceRootName === "string" ? value.collapsedSourceRootName.trim() : "";
+    typeof config.collapsedSourceRootName === "string" ? config.collapsedSourceRootName.trim() : "";
 
-  if (value?.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
+  if (config.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
     throw new Error("`collapsedSourceRootName` cannot be blank when provided.");
   }
 
-  const configuredIndexNames = Array.isArray(value?.indexFileNames) ? value.indexFileNames : [];
-  if (Array.isArray(value?.indexFileNames) && configuredIndexNames.length === 0) {
+  const configuredIndexNames = Array.isArray(config.indexFileNames) ? config.indexFileNames : [];
+  if (Array.isArray(config.indexFileNames) && configuredIndexNames.length === 0) {
     throw new Error("`indexFileNames` must include at least one value when provided.");
   }
 
@@ -169,7 +303,7 @@ function normalizeSiteConfig(value) {
   }
 
   const indexFileNames = configuredIndexNames.length > 0 ? configuredIndexNames : DEFAULT_INDEX_FILE_NAMES;
-  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter(Boolean);
+  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter((name): name is string => Boolean(name));
 
   return {
     siteName: siteNameValue || "Reason Tracker",
@@ -178,7 +312,7 @@ function normalizeSiteConfig(value) {
   };
 }
 
-async function collectSourcePaths() {
+async function collectSourcePaths(): Promise<string[]> {
   const output = await runCommand("git", [
     "-C",
     REPO_DIR,
@@ -194,7 +328,7 @@ async function collectSourcePaths() {
     .filter(Boolean)
     .map((entry) => toPosixPath(entry));
 
-  const existing = [];
+  const existing: string[] = [];
   for (const sourcePath of candidates) {
     const absolutePath = path.join(REPO_DIR, ...sourcePath.split("/"));
     try {
@@ -208,12 +342,12 @@ async function collectSourcePaths() {
   return existing;
 }
 
-function isInsideDist(sourcePath) {
+function isInsideDist(sourcePath: string): boolean {
   const distPrefix = `${WEBSITE_RELATIVE_DIR}/dist/`;
   return sourcePath === `${WEBSITE_RELATIVE_DIR}/dist` || sourcePath.startsWith(distPrefix);
 }
 
-function isExcludedSourcePath(sourcePath) {
+function isExcludedSourcePath(sourcePath: string): boolean {
   const normalized = toPosixPath(String(sourcePath || ""));
   if (!normalized) {
     return true;
@@ -223,15 +357,15 @@ function isExcludedSourcePath(sourcePath) {
   return segments.some((segment) => EXCLUDED_SOURCE_SEGMENTS.includes(segment));
 }
 
-function createVirtualEntries(sourcePaths, collapsedSourceRootName) {
+function createVirtualEntries(sourcePaths: string[], collapsedSourceRootNameValue: string): VirtualEntry[] {
   return sourcePaths.map((sourcePath) => ({
     sourcePath,
-    virtualPath: toVirtualPath(sourcePath, collapsedSourceRootName),
+    virtualPath: toVirtualPath(sourcePath, collapsedSourceRootNameValue),
   }));
 }
 
-function createSourceVirtualPathMap(virtualEntries) {
-  const sourceVirtualPathBySourcePath = new Map();
+function createSourceVirtualPathMap(virtualEntries: VirtualEntry[]): Map<string, string> {
+  const sourceVirtualPathBySourcePath = new Map<string, string>();
 
   for (const entry of virtualEntries) {
     sourceVirtualPathBySourcePath.set(entry.sourcePath, entry.virtualPath);
@@ -240,12 +374,14 @@ function createSourceVirtualPathMap(virtualEntries) {
   return sourceVirtualPathBySourcePath;
 }
 
-async function buildSourceAugmentations(sourceVirtualPathBySourcePath) {
+async function buildSourceAugmentations(
+  sourceVirtualPathBySourcePath: Map<string, string>,
+): Promise<BuildSourceAugmentationsResult> {
   const indexResult = await createAugmentationIndex();
   const augmentationIndex = indexResult.augmentationIndex;
-  const augmentationsBySourcePath = new Map();
-  const matchedAugmentations = [];
-  const matchedLookupKeys = new Set();
+  const augmentationsBySourcePath = new Map<string, AugmentationMapValue>();
+  const matchedAugmentations: MatchedAugmentation[] = [];
+  const matchedLookupKeys = new Set<string>();
 
   for (const [sourcePath, virtualPath] of sourceVirtualPathBySourcePath.entries()) {
     const augmentationKey = toAugmentationKeyFromVirtualPath(virtualPath);
@@ -253,7 +389,7 @@ async function buildSourceAugmentations(sourceVirtualPathBySourcePath) {
       continue;
     }
 
-    const payload = {};
+    const payload: AugmentationMapValue = {};
     for (const definition of Object.values(AUGMENTATION_TYPES)) {
       const lookupKey = `${definition.bucket}:${augmentationKey}`;
       const augmentation = augmentationIndex.get(lookupKey);
@@ -275,7 +411,7 @@ async function buildSourceAugmentations(sourceVirtualPathBySourcePath) {
     }
   }
 
-  const unmatchedAugmentations = [];
+  const unmatchedAugmentations: UnmatchedAugmentation[] = [];
   for (const [lookupKey, value] of augmentationIndex.entries()) {
     if (matchedLookupKeys.has(lookupKey)) {
       continue;
@@ -317,11 +453,11 @@ async function buildSourceAugmentations(sourceVirtualPathBySourcePath) {
   };
 }
 
-async function createAugmentationIndex() {
+async function createAugmentationIndex(): Promise<AugmentationIndexResult> {
   const files = await listFilesRecursive(SITE_DIR);
-  const augmentationIndex = new Map();
-  const skippedSiteFiles = [];
-  const augmentationFilesByType = {};
+  const augmentationIndex = new Map<string, AugmentationIndexEntry>();
+  const skippedSiteFiles: string[] = [];
+  const augmentationFilesByType: Partial<Record<AugmentationBucket, number>> = {};
   let augmentationFileCount = 0;
 
   for (const absolutePath of files) {
@@ -334,7 +470,7 @@ async function createAugmentationIndex() {
     }
 
     const parsed = parseSourcePath(relativePath);
-    const definition = AUGMENTATION_TYPES[parsed.extension];
+    const definition = AUGMENTATION_TYPES[parsed.extension as keyof typeof AUGMENTATION_TYPES];
     if (!definition) {
       continue;
     }
@@ -380,7 +516,7 @@ async function createAugmentationIndex() {
   };
 }
 
-function shouldSkipSiteFile(relativePath) {
+function shouldSkipSiteFile(relativePath: string): boolean {
   if (RESERVED_SITE_FILES.has(relativePath)) {
     return true;
   }
@@ -388,12 +524,12 @@ function shouldSkipSiteFile(relativePath) {
   return RESERVED_SITE_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
 }
 
-async function listFilesRecursive(directoryPath) {
-  const files = [];
+async function listFilesRecursive(directoryPath: string): Promise<string[]> {
+  const files: string[] = [];
 
   let entries;
   try {
-    entries = await fs.readdir(directoryPath, { withFileTypes: true });
+    entries = await fs.readdir(directoryPath, { encoding: "utf8", withFileTypes: true });
   } catch {
     return files;
   }
@@ -414,7 +550,7 @@ async function listFilesRecursive(directoryPath) {
   return files;
 }
 
-function toAugmentationKeyFromVirtualPath(virtualPath) {
+function toAugmentationKeyFromVirtualPath(virtualPath: string): string {
   const normalized = toPosixPath(String(virtualPath || "")).replace(/^\/+|\/+$/g, "");
   if (!normalized) {
     return "";
@@ -424,7 +560,7 @@ function toAugmentationKeyFromVirtualPath(virtualPath) {
   const fileName = path.posix.basename(normalized);
   const parsed = parseSourcePath(fileName);
 
-  const parts = [];
+  const parts: string[] = [];
   if (directoryPath && directoryPath !== ".") {
     parts.push(directoryPath);
   }
@@ -433,7 +569,7 @@ function toAugmentationKeyFromVirtualPath(virtualPath) {
   return toCanonicalLookupKey(parts.filter(Boolean).join("/"));
 }
 
-function toCanonicalLookupKey(value) {
+function toCanonicalLookupKey(value: string): string {
   return String(value || "")
     .split("/")
     .map((segment) => segment.trim())
@@ -442,9 +578,9 @@ function toCanonicalLookupKey(value) {
     .join("/");
 }
 
-function toVirtualPath(sourcePath, collapsedSourceRootName) {
+function toVirtualPath(sourcePath: string, collapsedRootName: string): string {
   const normalized = toPosixPath(sourcePath);
-  const rootName = String(collapsedSourceRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
+  const rootName = String(collapsedRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
     .trim()
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const rootOnlyPattern = new RegExp(`^${rootName}$`, "i");
@@ -459,8 +595,8 @@ function toVirtualPath(sourcePath, collapsedSourceRootName) {
   return normalized;
 }
 
-function buildTree(entries) {
-  const tree = new Map();
+function buildTree(entries: VirtualEntry[]): Map<string, DirectoryNode> {
+  const tree = new Map<string, DirectoryNode>();
   tree.set("", { directories: new Set(), files: new Map() });
 
   for (const entry of entries) {
@@ -475,19 +611,19 @@ function buildTree(entries) {
 
     let currentDir = "";
     for (let index = 0; index < segments.length - 1; index += 1) {
-      const segment = segments[index];
+      const segment = segments[index] ?? "";
       const childDir = currentDir ? `${currentDir}/${segment}` : segment;
 
       ensureDirectoryNode(tree, currentDir);
-      tree.get(currentDir).directories.add(segment);
+      tree.get(currentDir)?.directories.add(segment);
       ensureDirectoryNode(tree, childDir);
 
       currentDir = childDir;
     }
 
     ensureDirectoryNode(tree, currentDir);
-    const fileName = segments[segments.length - 1];
-    const existingSource = tree.get(currentDir).files.get(fileName);
+    const fileName = segments[segments.length - 1] ?? "";
+    const existingSource = tree.get(currentDir)?.files.get(fileName);
     if (existingSource && existingSource !== entry.sourcePath) {
       throw new Error(
         [
@@ -499,25 +635,25 @@ function buildTree(entries) {
         ].join("\n"),
       );
     }
-    tree.get(currentDir).files.set(fileName, entry.sourcePath);
+    tree.get(currentDir)?.files.set(fileName, entry.sourcePath);
   }
 
   return tree;
 }
 
-function ensureDirectoryNode(tree, directoryPath) {
+function ensureDirectoryNode(tree: Map<string, DirectoryNode>, directoryPath: string): void {
   if (!tree.has(directoryPath)) {
     tree.set(directoryPath, { directories: new Set(), files: new Map() });
   }
 }
 
-function createRoutePlan(tree, indexCandidateKeys) {
-  const normalizedDirectoryPathBySource = new Map();
-  const defaultMarkdownSourceByDirectory = new Map();
-  const routeOwners = new Map();
-  const sourceHrefByPath = new Map();
-  const directoryPages = [];
-  const filePages = [];
+function createRoutePlan(tree: Map<string, DirectoryNode>, currentIndexCandidateKeys: string[]): RoutePlan {
+  const normalizedDirectoryPathBySource = new Map<string, string>();
+  const defaultMarkdownSourceByDirectory = new Map<string, string | null>();
+  const routeOwners = new Map<string, string>();
+  const sourceHrefByPath = new Map<string, string>();
+  const directoryPages: DirectoryPage[] = [];
+  const filePages: FilePage[] = [];
 
   const directoryPaths = [...tree.keys()].sort((a, b) => {
     const depthDiff = pathDepth(a) - pathDepth(b);
@@ -531,17 +667,18 @@ function createRoutePlan(tree, indexCandidateKeys) {
     const normalizedDirectoryPath = normalizeDirectoryPath(directoryPath);
     normalizedDirectoryPathBySource.set(directoryPath, normalizedDirectoryPath);
 
-    const outputRelPath = normalizedDirectoryPath
-      ? `${normalizedDirectoryPath}/index.html`
-      : "index.html";
+    const outputRelPath = normalizedDirectoryPath ? `${normalizedDirectoryPath}/index.html` : "index.html";
 
     claimOutputPath(routeOwners, outputRelPath, `directory:${directoryPath || "<root>"}`);
 
     const directoryEntry = tree.get(directoryPath);
+    if (!directoryEntry) {
+      continue;
+    }
     const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-    const selection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
-      indexCandidateKeys,
+    const selection = selectPreferredIndex(fileEntries, (entry: [string, string]) => entry[0], {
+      indexCandidateKeys: currentIndexCandidateKeys,
     });
     if (selection.conflict) {
       throw new Error(
@@ -570,6 +707,9 @@ function createRoutePlan(tree, indexCandidateKeys) {
 
   for (const directoryPath of directoryPaths) {
     const directoryEntry = tree.get(directoryPath);
+    if (!directoryEntry) {
+      continue;
+    }
     const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     const defaultMarkdownSource = defaultMarkdownSourceByDirectory.get(directoryPath) || null;
 
@@ -599,7 +739,7 @@ function createRoutePlan(tree, indexCandidateKeys) {
   };
 }
 
-function claimOutputPath(routeOwners, outputRelPath, owner) {
+function claimOutputPath(routeOwners: Map<string, string>, outputRelPath: string, owner: string): void {
   const existing = routeOwners.get(outputRelPath);
   if (!existing) {
     routeOwners.set(outputRelPath, owner);
@@ -620,12 +760,16 @@ function claimOutputPath(routeOwners, outputRelPath, owner) {
   );
 }
 
-function normalizeDirectoryPath(directoryPath) {
+function normalizeDirectoryPath(directoryPath: string): string {
   const segments = directoryPath.split("/").filter(Boolean);
   return segments.map((segment) => normalizeSegment(segment)).join("/");
 }
 
-function toFileOutputRelativePath(normalizedDirectoryPath, sourcePath, siblingFiles = null) {
+function toFileOutputRelativePath(
+  normalizedDirectoryPath: string,
+  sourcePath: string,
+  siblingFiles: Map<string, string> | null = null,
+): string {
   const parsed = parseSourcePath(sourcePath);
 
   if (parsed.extension === ".md") {
@@ -642,24 +786,30 @@ function toFileOutputRelativePath(normalizedDirectoryPath, sourcePath, siblingFi
   return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
 }
 
-function joinRoutePath(...segments) {
+function joinRoutePath(...segments: string[]): string {
   return segments.filter(Boolean).join("/");
 }
 
-async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath) {
+async function publishDirectoryPages(
+  routePlan: RoutePlan,
+  tree: Map<string, DirectoryNode>,
+  gitContext: GitContext,
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>,
+): Promise<void> {
   for (const page of routePlan.directoryPages) {
     const directoryEntry = tree.get(page.sourceDirectoryPath);
+    if (!directoryEntry) {
+      continue;
+    }
     const directories = [...directoryEntry.directories].sort((a, b) => a.localeCompare(b));
     const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    const fallbackSelection = selectPreferredIndex(fileEntries, (entry) => entry[0], {
+    const fallbackSelection = selectPreferredIndex(fileEntries, (entry: [string, string]) => entry[0], {
       indexCandidateKeys,
     });
     const resolvedDefaultSource = page.defaultMarkdownSource || fallbackSelection.selected?.[1] || null;
 
-    const fileItems = fileEntries
-      .filter(([, sourcePath]) => {
-        return sourcePath !== resolvedDefaultSource;
-      })
+    const fileItems: FileItem[] = fileEntries
+      .filter(([, sourcePath]) => sourcePath !== resolvedDefaultSource)
       .map(([fileName, sourcePath]) => {
         const href = toHrefFromOutputPath(
           toFileOutputRelativePath(page.normalizedDirectoryPath, sourcePath, directoryEntry.files),
@@ -672,10 +822,8 @@ async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsB
         };
       });
 
-    const directoryItems = directories.map((name) => {
-      const sourceChildPath = page.sourceDirectoryPath
-        ? `${page.sourceDirectoryPath}/${name}`
-        : name;
+    const directoryItems: DirectoryItem[] = directories.map((name) => {
+      const sourceChildPath = page.sourceDirectoryPath ? `${page.sourceDirectoryPath}/${name}` : name;
       const normalizedChildPath = normalizeDirectoryPath(sourceChildPath);
       const href = toHrefFromOutputPath(joinRoutePath(normalizedChildPath, "index.html"));
 
@@ -704,7 +852,11 @@ async function publishDirectoryPages(routePlan, tree, gitContext, augmentationsB
   }
 }
 
-async function publishFilePages(routePlan, gitContext, augmentationsBySourcePath) {
+async function publishFilePages(
+  routePlan: RoutePlan,
+  gitContext: GitContext,
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>,
+): Promise<void> {
   for (const filePage of routePlan.filePages) {
     const absolutePath = path.join(REPO_DIR, ...filePage.sourcePath.split("/"));
     const preview = await readFilePreview(absolutePath);
@@ -730,7 +882,14 @@ async function renderDirectoryPage({
   gitContext,
   sourceHrefByPath,
   augmentationsBySourcePath,
-}) {
+}: {
+  page: DirectoryPage;
+  directoryItems: DirectoryItem[];
+  fileItems: FileItem[];
+  gitContext: GitContext;
+  sourceHrefByPath: Map<string, string>;
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>;
+}): Promise<string> {
   const sourceLabel = page.sourceDirectoryPath ? `${page.sourceDirectoryPath}/` : siteName;
   const breadcrumbs = renderBreadcrumbItemsFromOutputPath(page.outputRelPath);
 
@@ -760,9 +919,7 @@ ${markdownSection}`;
     breadcrumbs,
     body,
     sourcePath: page.defaultMarkdownSource,
-    sourceUrl: page.defaultMarkdownSource
-      ? toSourceUrl(page.defaultMarkdownSource, gitContext)
-      : null,
+    sourceUrl: page.defaultMarkdownSource ? toSourceUrl(page.defaultMarkdownSource, gitContext) : null,
     augmentations: getAugmentationsForSourcePath(augmentationsBySourcePath, page.defaultMarkdownSource),
   });
 }
@@ -774,7 +931,14 @@ function renderFilePage({
   gitContext,
   sourceHrefByPath,
   augmentationsBySourcePath,
-}) {
+}: {
+  sourcePath: string;
+  outputRelPath: string;
+  preview: FilePreview;
+  gitContext: GitContext;
+  sourceHrefByPath: Map<string, string>;
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>;
+}): string {
   const breadcrumbs = renderBreadcrumbItemsFromOutputPath(outputRelPath);
   const extension = extensionLabel(sourcePath);
   const header = `<h1>${escapeHtml(sourcePath)}</h1>
@@ -791,9 +955,7 @@ function renderFilePage({
     body = `${metadataSection}<article class="markdown-body">${rewritten}</article>`;
     pageTitle = `${extractTitle(parsed.body)} | ${siteName}`;
   } else if (preview.type === "text") {
-    const truncateNote = preview.truncated
-      ? `<p class="subdued">Preview truncated to first 400,000 bytes.</p>`
-      : "";
+    const truncateNote = preview.truncated ? `<p class="subdued">Preview truncated to first 400,000 bytes.</p>` : "";
     body = `<article class="markdown-body">${header}${truncateNote}<pre><code>${escapeHtml(preview.content)}</code></pre></article>`;
   } else if (preview.type === "binary") {
     body = `<article class="markdown-body">${header}<p>Binary file preview is disabled.</p></article>`;
@@ -811,7 +973,10 @@ function renderFilePage({
   });
 }
 
-function getAugmentationsForSourcePath(augmentationsBySourcePath, sourcePath) {
+function getAugmentationsForSourcePath(
+  augmentationsBySourcePath: Map<string, AugmentationMapValue>,
+  sourcePath: string | null,
+): AugmentationMapValue | null {
   if (!sourcePath) {
     return null;
   }
@@ -819,7 +984,7 @@ function getAugmentationsForSourcePath(augmentationsBySourcePath, sourcePath) {
   return augmentationsBySourcePath.get(sourcePath) || null;
 }
 
-async function readFilePreview(filePath) {
+async function readFilePreview(filePath: string): Promise<FilePreview> {
   const stat = await fs.stat(filePath);
   if (!stat.isFile()) {
     return { type: "unavailable", size: stat.size };
@@ -853,7 +1018,7 @@ async function readFilePreview(filePath) {
   };
 }
 
-function looksBinary(buffer) {
+function looksBinary(buffer: Buffer): boolean {
   const sampleSize = Math.min(buffer.length, 4096);
   if (sampleSize === 0) {
     return false;
@@ -861,7 +1026,7 @@ function looksBinary(buffer) {
 
   let nonTextCount = 0;
   for (let index = 0; index < sampleSize; index += 1) {
-    const value = buffer[index];
+    const value = buffer[index] ?? 0;
     if (value === 0) {
       return true;
     }
@@ -875,7 +1040,21 @@ function looksBinary(buffer) {
   return nonTextCount / sampleSize > 0.1;
 }
 
-function renderLayout({ title, breadcrumbs, body, sourcePath, sourceUrl, augmentations }) {
+function renderLayout({
+  title,
+  breadcrumbs,
+  body,
+  sourcePath,
+  sourceUrl,
+  augmentations,
+}: {
+  title: string;
+  breadcrumbs: BreadcrumbItem[];
+  body: string;
+  sourcePath: string | null;
+  sourceUrl: string | null;
+  augmentations: AugmentationMapValue | null;
+}): string {
   const metaBar = renderMetaBar(breadcrumbs);
   const sourceLine = sourcePath
     ? sourceUrl
@@ -909,7 +1088,7 @@ ${inlineJsBlocks}
 `;
 }
 
-function renderInlineCssAugmentations(cssChunks) {
+function renderInlineCssAugmentations(cssChunks: string[] | undefined): string {
   if (!Array.isArray(cssChunks) || cssChunks.length === 0) {
     return "";
   }
@@ -927,7 +1106,7 @@ function renderInlineCssAugmentations(cssChunks) {
     .join("\n");
 }
 
-function renderInlineJsAugmentations(jsChunks) {
+function renderInlineJsAugmentations(jsChunks: string[] | undefined): string {
   if (!Array.isArray(jsChunks) || jsChunks.length === 0) {
     return "";
   }
@@ -945,11 +1124,19 @@ function renderInlineJsAugmentations(jsChunks) {
     .join("\n");
 }
 
-async function writePublishReport({ sourceCount, routePlan, augmentationResult }) {
+async function writePublishReport({
+  sourceCount,
+  routePlan,
+  augmentationResult,
+}: {
+  sourceCount: number;
+  routePlan: RoutePlan;
+  augmentationResult: BuildSourceAugmentationsResult;
+}): Promise<void> {
   const updatedDate = new Date().toISOString().slice(0, 10);
   const diagnostics = augmentationResult.diagnostics;
 
-  const matchedBySource = new Map();
+  const matchedBySource = new Map<string, MatchedAugmentation[]>();
   for (const entry of diagnostics.matchedAugmentations) {
     const current = matchedBySource.get(entry.sourcePath) || [];
     current.push(entry);
@@ -988,7 +1175,7 @@ async function writePublishReport({ sourceCount, routePlan, augmentationResult }
 
   const typeSummary = Object.keys(diagnostics.augmentationFilesByType)
     .sort((a, b) => a.localeCompare(b))
-    .map((type) => `- ${type}: ${diagnostics.augmentationFilesByType[type]}`)
+    .map((type) => `- ${type}: ${diagnostics.augmentationFilesByType[type as AugmentationBucket]}`)
     .join("\n");
 
   const report = `# Publish Website Report
@@ -1025,7 +1212,7 @@ ${skippedBody}
   await fs.writeFile(PUBLISH_REPORT_PATH, report, "utf8");
 }
 
-function renderMetaBar(breadcrumbs) {
+function renderMetaBar(breadcrumbs: BreadcrumbItem[]): string {
   if (breadcrumbs.length <= 1) {
     return "";
   }
@@ -1046,7 +1233,7 @@ function renderMetaBar(breadcrumbs) {
   `;
 }
 
-function renderBreadcrumbItemsFromOutputPath(outputRelPath) {
+function renderBreadcrumbItemsFromOutputPath(outputRelPath: string): BreadcrumbItem[] {
   if (outputRelPath === "index.html") {
     return [{ title: siteName, href: null }];
   }
@@ -1060,25 +1247,26 @@ function renderBreadcrumbItemsFromOutputPath(outputRelPath) {
   }
 
   const parts = normalizedDirectoryPath.split("/").filter(Boolean);
-  const crumbs = [{ title: siteName, href: "/" }];
+  const crumbs: BreadcrumbItem[] = [{ title: siteName, href: "/" }];
 
   let current = "";
   for (let index = 0; index < parts.length; index += 1) {
-    current = current ? `${current}/${parts[index]}` : parts[index];
+    const part = parts[index] ?? "";
+    current = current ? `${current}/${part}` : part;
 
     if (index === parts.length - 1) {
-      crumbs.push({ title: parts[index], href: null });
+      crumbs.push({ title: part, href: null });
       continue;
     }
 
     const href = toHrefFromOutputPath(`${current}/index.html`);
-    crumbs.push({ title: parts[index], href });
+    crumbs.push({ title: part, href });
   }
 
   return crumbs;
 }
 
-function toHrefFromOutputPath(outputRelPath) {
+function toHrefFromOutputPath(outputRelPath: string): string {
   if (outputRelPath === "index.html") {
     return "/";
   }
@@ -1090,14 +1278,14 @@ function toHrefFromOutputPath(outputRelPath) {
   return `/${outputRelPath.slice(0, -"index.html".length)}`;
 }
 
-function rewriteMarkdownLinks(html, sourcePath, sourceHrefByPath) {
-  return html.replace(/href="([^"]+)"/g, (fullMatch, rawHref) => {
+function rewriteMarkdownLinks(html: string, sourcePath: string, sourceHrefByPath: Map<string, string>): string {
+  return html.replace(/href="([^"]+)"/g, (_fullMatch, rawHref: string) => {
     const resolved = resolveMarkdownHref(sourcePath, rawHref, sourceHrefByPath);
     return `href="${escapeHtmlAttribute(resolved)}"`;
   });
 }
 
-function resolveMarkdownHref(sourcePath, href, sourceHrefByPath) {
+function resolveMarkdownHref(sourcePath: string, href: string, sourceHrefByPath: Map<string, string>): string {
   const cleaned = String(href || "").trim();
   if (!cleaned || cleaned.startsWith("#")) {
     return cleaned || "#";
@@ -1128,7 +1316,7 @@ function resolveMarkdownHref(sourcePath, href, sourceHrefByPath) {
   return `${mappedHref}${hash}`;
 }
 
-function findCaseInsensitiveSourceHref(sourceHrefByPath, sourcePath) {
+function findCaseInsensitiveSourceHref(sourceHrefByPath: Map<string, string>, sourcePath: string): string | null {
   const normalized = sourcePath.toLowerCase();
   for (const [candidatePath, href] of sourceHrefByPath.entries()) {
     if (candidatePath.toLowerCase() === normalized) {
@@ -1139,7 +1327,7 @@ function findCaseInsensitiveSourceHref(sourceHrefByPath, sourcePath) {
   return null;
 }
 
-function resolveSourceRelativePath(sourcePath, hrefPath) {
+function resolveSourceRelativePath(sourcePath: string, hrefPath: string): string | null {
   if (!hrefPath) {
     return null;
   }
@@ -1153,9 +1341,7 @@ function resolveSourceRelativePath(sourcePath, hrefPath) {
       .join("/");
   }
 
-  const baseDirectory = sourcePath.includes("/")
-    ? sourcePath.slice(0, sourcePath.lastIndexOf("/") + 1)
-    : "";
+  const baseDirectory = sourcePath.includes("/") ? sourcePath.slice(0, sourcePath.lastIndexOf("/") + 1) : "";
 
   const baseSegments = baseDirectory.split("/").filter(Boolean);
   const hrefSegments = hrefPath
@@ -1179,7 +1365,7 @@ function resolveSourceRelativePath(sourcePath, hrefPath) {
   return baseSegments.join("/");
 }
 
-function parseSourcePath(sourcePath) {
+function parseSourcePath(sourcePath: string): { fileName: string; extension: string; name: string } {
   const fileName = sourcePath.split("/").pop() || sourcePath;
   const extension = path.extname(fileName).toLowerCase();
   const name = extension ? fileName.slice(0, -extension.length) : fileName;
@@ -1191,16 +1377,16 @@ function parseSourcePath(sourcePath) {
   };
 }
 
-function parseMarkdownDocument(markdown) {
-  const parsed = frontMatter(markdown);
+function parseMarkdownDocument(markdown: string): { body: string; metadata: DocMetadata } {
+  const parsed = parseFrontMatter<Record<string, unknown>>(markdown);
   return {
     body: parsed.body,
     metadata: toDocMetadata(parsed.attributes),
   };
 }
 
-function sanitizeMarkdownLinks(markdown) {
-  return String(markdown || "").replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (fullMatch, label, destination) => {
+function sanitizeMarkdownLinks(markdown: string): string {
+  return String(markdown || "").replace(/\[([^\]]+)\]\(([^)\n]+)\)/g, (fullMatch, label: string, destination: string) => {
     const trimmed = String(destination || "").trim();
     if (!trimmed.includes(" ")) {
       return fullMatch;
@@ -1234,7 +1420,7 @@ function sanitizeMarkdownLinks(markdown) {
   });
 }
 
-function decodeURIComponentSafe(value) {
+function decodeURIComponentSafe(value: string): string {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -1242,23 +1428,23 @@ function decodeURIComponentSafe(value) {
   }
 }
 
-function toDocMetadata(attributes) {
-  const metadata = { linkedRequirements: [] };
-  const audienceValue = attributes?.audience;
+function toDocMetadata(attributes: Record<string, unknown>): DocMetadata {
+  const metadata: DocMetadata = { linkedRequirements: [] };
+  const audienceValue = attributes.audience;
   if (typeof audienceValue === "string") {
     metadata.audience = audienceValue.trim();
   }
 
-  const linkedRequirementsValue = attributes?.linkedRequirements ?? attributes?.linked_requirements;
+  const linkedRequirementsValue = attributes.linkedRequirements ?? attributes.linked_requirements;
   metadata.linkedRequirements = normalizeLinkedRequirements(linkedRequirementsValue);
 
   return metadata;
 }
 
-function normalizeLinkedRequirements(value) {
+function normalizeLinkedRequirements(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
-      .filter((entry) => typeof entry === "string")
+      .filter((entry): entry is string => typeof entry === "string")
       .map((entry) => entry.trim())
       .filter(Boolean);
   }
@@ -1273,7 +1459,7 @@ function normalizeLinkedRequirements(value) {
   return [];
 }
 
-function renderDocMetadata(metadata) {
+function renderDocMetadata(metadata: DocMetadata): string {
   const audience = metadata.audience?.trim();
   const linkedRequirements = metadata.linkedRequirements;
   if (!audience && linkedRequirements.length === 0) {
@@ -1294,12 +1480,12 @@ function renderDocMetadata(metadata) {
   `;
 }
 
-function extractTitle(markdown) {
+function extractTitle(markdown: string): string {
   const titleMatch = markdown.match(/^#\s+(.+)$/m);
   return titleMatch?.[1].trim() || "Reason Tracker";
 }
 
-function normalizeSegment(value) {
+function normalizeSegment(value: string): string {
   const ascii = String(value)
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -1313,7 +1499,7 @@ function normalizeSegment(value) {
   return collapsed || "untitled";
 }
 
-function extensionLabel(filePath) {
+function extensionLabel(filePath: string): string {
   const fileName = filePath.split("/").pop() || filePath;
   const dotIndex = fileName.lastIndexOf(".");
   if (dotIndex <= 0 || dotIndex === fileName.length - 1) {
@@ -1323,7 +1509,7 @@ function extensionLabel(filePath) {
   return fileName.slice(dotIndex + 1).toLowerCase();
 }
 
-function pathDepth(relativePath) {
+function pathDepth(relativePath: string): number {
   if (!relativePath) {
     return 0;
   }
@@ -1331,7 +1517,7 @@ function pathDepth(relativePath) {
   return relativePath.split("/").filter(Boolean).length;
 }
 
-async function getGitContext() {
+async function getGitContext(): Promise<GitContext> {
   const branchResult = await runCommand("git", ["-C", REPO_DIR, "rev-parse", "--abbrev-ref", "HEAD"]);
   const branch = branchResult.stdout.trim() || "main";
 
@@ -1350,7 +1536,7 @@ async function getGitContext() {
   };
 }
 
-function normalizeGitHubRemote(remote) {
+function normalizeGitHubRemote(remote: string): string | null {
   if (!remote) {
     return null;
   }
@@ -1368,7 +1554,7 @@ function normalizeGitHubRemote(remote) {
   return null;
 }
 
-function toSourceUrl(relativePath, gitContext) {
+function toSourceUrl(relativePath: string, gitContext: GitContext): string | null {
   if (!gitContext.githubBase) {
     return null;
   }
@@ -1377,7 +1563,7 @@ function toSourceUrl(relativePath, gitContext) {
   return `${gitContext.githubBase}/blob/${encodeURIComponent(gitContext.branch)}/${encodedPath}`;
 }
 
-function encodePath(relativePath) {
+function encodePath(relativePath: string): string {
   return relativePath
     .split("/")
     .filter(Boolean)
@@ -1385,7 +1571,7 @@ function encodePath(relativePath) {
     .join("/");
 }
 
-async function copyIfPresent(source, destination) {
+async function copyIfPresent(source: string, destination: string): Promise<void> {
   try {
     await fs.access(source);
     await fs.cp(source, destination, { recursive: true });
@@ -1394,7 +1580,7 @@ async function copyIfPresent(source, destination) {
   }
 }
 
-function escapeHtml(value) {
+function escapeHtml(value: string): string {
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -1403,7 +1589,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function escapeHtmlAttribute(value) {
+function escapeHtmlAttribute(value: string): string {
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
@@ -1411,11 +1597,11 @@ function escapeHtmlAttribute(value) {
     .replaceAll(">", "&gt;");
 }
 
-function toPosixPath(filePath) {
+function toPosixPath(filePath: string): string {
   return filePath.split(path.sep).join("/");
 }
 
-function parseRuntimeOptions(argv) {
+function parseRuntimeOptions(argv: string[]): RuntimeOptions {
   let writeReport = false;
   let preserveDist = false;
 
@@ -1439,7 +1625,7 @@ function parseRuntimeOptions(argv) {
   return { writeReport, preserveDist };
 }
 
-async function runCommand(command, args, options = {}) {
+async function runCommand(command: string, args: string[], options: CommandOptions = {}): Promise<CommandResult> {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd ?? REPO_DIR,
@@ -1447,11 +1633,11 @@ async function runCommand(command, args, options = {}) {
       windowsHide: true,
     });
 
-    const stdoutParts = [];
-    const stderrParts = [];
+    const stdoutParts: Buffer[] = [];
+    const stderrParts: Buffer[] = [];
 
-    child.stdout.on("data", (chunk) => stdoutParts.push(chunk));
-    child.stderr.on("data", (chunk) => stderrParts.push(chunk));
+    child.stdout.on("data", (chunk: Buffer) => stdoutParts.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderrParts.push(chunk));
 
     child.on("error", (error) => reject(error));
     child.on("close", (code) => {
@@ -1463,16 +1649,24 @@ async function runCommand(command, args, options = {}) {
         return;
       }
 
-      reject(
-        new Error(
-          `Command failed: ${command} ${args.join(" ")}\nExit code: ${code}\n${stderr || stdout}`,
-        ),
-      );
+      reject(new Error(`Command failed: ${command} ${args.join(" ")}\nExit code: ${code}\n${stderr || stdout}`));
     });
   });
 }
 
-main().catch((error) => {
-  console.error(error.message || error);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error;
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+main().catch((error: unknown) => {
+  console.error(toErrorMessage(error));
   process.exitCode = 1;
 });

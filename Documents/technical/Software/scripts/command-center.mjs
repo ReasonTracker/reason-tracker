@@ -9,7 +9,7 @@ import {
   readCurrentEpisodeId,
   toEpisodeDisplayName,
   writeCurrentEpisodeId,
-} from "./video-episode-state.mjs";
+} from "./video-episode-state.mts";
 
 const softwareDir = resolve(import.meta.dirname, "..");
 const docsVideosDir = resolve(softwareDir, "../../Videos");
@@ -26,10 +26,10 @@ const studioUrl = `http://localhost:${studioPort}`;
 const curatedStandaloneScripts = [
   {
     category: "utilities",
-    command: "node ./scripts/preview-live.mjs",
+    command: "node ./scripts/preview-live.mts",
     description: "Starts the local live preview environment.",
     isBackground: true,
-    name: "preview-live.mjs",
+    name: "preview-live.mts",
     packageName: "Software",
     scriptKey: "preview-live",
     source: "standalone",

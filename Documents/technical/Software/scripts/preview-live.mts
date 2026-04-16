@@ -1,14 +1,14 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 
 const LIVE_PORT = 4173;
 const PREVIEW_PATH = "/renderer/preview/layout-preview.html";
 
 const softwareDir = resolve(import.meta.dirname, "..");
-const children = [];
+const children: Array<{ label: string; child: ChildProcess }> = [];
 let shuttingDown = false;
 
-function start(label, command) {
+function start(label: string, command: string): void {
   const child = spawn(command, {
     cwd: softwareDir,
     shell: true,
@@ -28,7 +28,7 @@ function start(label, command) {
   });
 }
 
-function shutdown(code = 0) {
+function shutdown(code = 0): void {
   if (shuttingDown) {
     return;
   }
@@ -56,7 +56,4 @@ process.on("SIGTERM", () => shutdown(0));
 
 start("preview watcher", "vp run -F @reasontracker/renderer preview:watch");
 
-start(
-  "live server",
-  `vp dev --port ${LIVE_PORT} --strictPort --open ${PREVIEW_PATH}`,
-);
+start("live server", `vp dev --port ${LIVE_PORT} --strictPort --open ${PREVIEW_PATH}`);

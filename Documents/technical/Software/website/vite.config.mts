@@ -1,14 +1,15 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { defineConfig } from "vite";
+import { Buffer } from "node:buffer";
+import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 
 const WEBSITE_DIR = path.resolve(import.meta.dirname);
 const REPO_DIR = resolveRepoDir();
 const DIST_DIR = path.join(WEBSITE_DIR, "dist");
-const PUBLISH_SCRIPT = path.join(WEBSITE_DIR, "scripts", "publish-website.mjs");
+const PUBLISH_SCRIPT = path.join(WEBSITE_DIR, "scripts", "publish-website.mts");
 
-function resolveRepoDir() {
+function resolveRepoDir(): string {
   let current = WEBSITE_DIR;
 
   while (true) {
@@ -25,14 +26,14 @@ function resolveRepoDir() {
   }
 }
 
-function publishWebsitePlugin() {
+function publishWebsitePlugin(): Plugin {
   let isPublishing = false;
   let publishQueued = false;
   let queuedReason = "change";
-  let pendingReason = null;
-  let debounceTimer = null;
+  let pendingReason: string | null = null;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function schedulePublish(server, reason) {
+  function schedulePublish(server: ViteDevServer | undefined, reason: string): void {
     pendingReason = reason || pendingReason || "change";
 
     if (debounceTimer) {
@@ -47,7 +48,7 @@ function publishWebsitePlugin() {
     }, 120);
   }
 
-  async function runPublish(server, reason) {
+  async function runPublish(server: ViteDevServer | undefined, reason: string): Promise<void> {
     if (isPublishing) {
       publishQueued = true;
       queuedReason = reason || queuedReason || "queued";
@@ -58,11 +59,9 @@ function publishWebsitePlugin() {
 
     try {
       await runCommand("node", [PUBLISH_SCRIPT, "--no-report", "--preserve-dist"], WEBSITE_DIR);
-      if (server) {
-        server.ws.send({ type: "full-reload" });
-      }
+      server?.ws.send({ type: "full-reload" });
     } catch (error) {
-      const message = error?.message || String(error);
+      const message = error instanceof Error ? error.message : String(error);
       console.error(`[website] publish failed: ${message}`);
     } finally {
       isPublishing = false;
@@ -82,7 +81,7 @@ function publishWebsitePlugin() {
 
       server.watcher.add(REPO_DIR);
 
-      const onFsEvent = (event, absolutePath) => {
+      const onFsEvent = (event: string, absolutePath: string): void => {
         const normalized = toPosixPath(absolutePath);
 
         if (isIgnoredForPublishWatch(normalized)) {
@@ -101,7 +100,7 @@ function publishWebsitePlugin() {
   };
 }
 
-function isIgnoredForPublishWatch(normalizedPath) {
+function isIgnoredForPublishWatch(normalizedPath: string): boolean {
   if (!normalizedPath) {
     return true;
   }
@@ -125,7 +124,7 @@ function isIgnoredForPublishWatch(normalizedPath) {
   return false;
 }
 
-function runCommand(command, args, cwd) {
+function runCommand(command: string, args: string[], cwd: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -133,11 +132,11 @@ function runCommand(command, args, cwd) {
       windowsHide: true,
     });
 
-    const stdout = [];
-    const stderr = [];
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
 
-    child.stdout.on("data", (chunk) => stdout.push(chunk));
-    child.stderr.on("data", (chunk) => stderr.push(chunk));
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) {
@@ -154,7 +153,7 @@ function runCommand(command, args, cwd) {
   });
 }
 
-function toPosixPath(value) {
+function toPosixPath(value: string): string {
   return String(value).replaceAll("\\", "/");
 }
 

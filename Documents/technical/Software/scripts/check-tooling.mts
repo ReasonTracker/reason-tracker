@@ -22,7 +22,7 @@ const requiredTools = [
     required: false,
     versionArgs: ["--version"],
   },
-];
+] as const;
 
 let hasFailure = false;
 

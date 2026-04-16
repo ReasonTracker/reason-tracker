@@ -28,7 +28,7 @@ Then verify the shell tooling from the same folder:
 If Vite Plus is not available yet in the current shell, the direct fallback commands are:
 
 - `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1`
-- `node ./scripts/check-tooling.mjs`
+- `node ./scripts/check-tooling.mts`
 
 The bootstrap script installs `rg` and `fd` with the first supported Windows package manager it finds: `winget`, Chocolatey, or Scoop.
 These tools are for local development ergonomics and are not a CI requirement.

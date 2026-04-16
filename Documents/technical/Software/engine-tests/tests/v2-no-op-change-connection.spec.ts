@@ -9,7 +9,7 @@ import {
 	type Debate,
 	type IntentInput,
 	type Score,
-} from "../../contracts/src/v2/index.ts";
+} from "../../contracts/src/index.ts";
 import { processDebateIntent } from "../../engine/src/v2/index.ts";
 
 describe("v2 ChangeConnection", () => {

@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Change, Debate, Intent } from "../../../contracts/src/v2/index.ts";
+import type { Change, Debate, Intent } from "../../../contracts/src/index.ts";
 import { applyChanges } from "./applyChanges.ts";
 import { assertNever } from "./graph.ts";
 import { calculateLayoutPipeline, type DebateLayoutPipelineContext, type LayoutOptions } from "./layout.ts";

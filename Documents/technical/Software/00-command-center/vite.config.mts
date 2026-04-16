@@ -49,7 +49,7 @@ function commandCenterApiPlugin() {
 
       const bumpBackendVersion = (changedPath: string) => {
         const normalized = toPosixPath(changedPath);
-        if (!normalized.startsWith(watchedServerDir) && !normalized.endsWith("/scripts/video-episode-state.mjs")) {
+        if (!normalized.startsWith(watchedServerDir) && !normalized.endsWith("/scripts/video-episode-state.mts")) {
           return;
         }
 

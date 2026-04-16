@@ -1,6 +1,6 @@
 const DEFAULT_INDEX_CANDIDATE_KEYS = ["readme", "index"];
 
-export function normalizeMdStemKey(fileName) {
+export function normalizeMdStemKey(fileName: string): string | null {
   const parsed = parseMarkdownFileName(fileName);
   if (!parsed) {
     return null;
@@ -13,14 +13,13 @@ export function normalizeMdStemKey(fileName) {
     .replace(/\s+/g, "")
     .trim();
 
-  // Allow index matching when filenames start with decorative glyphs such as emojis.
   return normalized.replace(/^[^a-z0-9]+/, "");
 }
 
-function normalizeCandidateStemKey(fileName) {
+function normalizeCandidateStemKey(fileName: string): string {
   const parsed = parseMarkdownFileName(fileName);
   if (parsed) {
-    return normalizeMdStemKey(fileName);
+    return normalizeMdStemKey(fileName) ?? "";
   }
 
   return String(fileName || "")
@@ -29,14 +28,12 @@ function normalizeCandidateStemKey(fileName) {
     .trim();
 }
 
-function resolveIndexCandidateKeys(indexCandidateKeys) {
+function resolveIndexCandidateKeys(indexCandidateKeys?: string[]): string[] {
   const values = Array.isArray(indexCandidateKeys)
     ? indexCandidateKeys
     : DEFAULT_INDEX_CANDIDATE_KEYS;
 
-  const normalized = values
-    .map((entry) => normalizeCandidateStemKey(entry))
-    .filter(Boolean);
+  const normalized = values.map((entry) => normalizeCandidateStemKey(entry)).filter(Boolean);
 
   if (normalized.length === 0) {
     return DEFAULT_INDEX_CANDIDATE_KEYS;
@@ -45,7 +42,7 @@ function resolveIndexCandidateKeys(indexCandidateKeys) {
   return [...new Set(normalized)];
 }
 
-export function parseMarkdownFileName(fileName) {
+export function parseMarkdownFileName(fileName: string): { stem: string } | null {
   const value = String(fileName || "").trim();
   const match = value.match(/^(.*?)(?:\s*\.\s*md)\s*$/i);
   if (!match) {
@@ -57,7 +54,7 @@ export function parseMarkdownFileName(fileName) {
   };
 }
 
-export function getIndexCandidateRank(fileName, options = {}) {
+export function getIndexCandidateRank(fileName: string, options: { indexCandidateKeys?: string[] } = {}): number | null {
   const stemKey = normalizeMdStemKey(fileName);
   if (!stemKey) {
     return null;
@@ -68,11 +65,26 @@ export function getIndexCandidateRank(fileName, options = {}) {
   return index >= 0 ? index : null;
 }
 
-export function isIndexCandidateFileName(fileName, options = {}) {
+export function isIndexCandidateFileName(fileName: string, options: { indexCandidateKeys?: string[] } = {}): boolean {
   return getIndexCandidateRank(fileName, options) !== null;
 }
 
-export function selectPreferredIndex(entries, getName = (entry) => entry, options = {}) {
+type RankedCandidate<T> = {
+  entry: T;
+  name: string;
+  rank: number | null;
+};
+
+export function selectPreferredIndex<T>(
+  entries: T[],
+  getName: (entry: T) => string = (entry) => String(entry),
+  options: { indexCandidateKeys?: string[] } = {},
+): {
+  selected: T | null;
+  rankedCandidates: RankedCandidate<T>[];
+  nonSelectedCandidates: T[];
+  conflict: { rank: number | null; names: string[] } | null;
+} {
   const ranked = entries
     .map((entry) => {
       const name = getName(entry);
@@ -82,7 +94,7 @@ export function selectPreferredIndex(entries, getName = (entry) => entry, option
         rank: getIndexCandidateRank(name, options),
       };
     })
-    .filter((item) => item.rank !== null)
+    .filter((item): item is RankedCandidate<T> & { rank: number } => item.rank !== null)
     .sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
 
   if (ranked.length === 0) {
@@ -109,7 +121,7 @@ export function selectPreferredIndex(entries, getName = (entry) => entry, option
   }
 
   return {
-    selected: ranked[0].entry,
+    selected: ranked[0]?.entry ?? null,
     rankedCandidates: ranked,
     nonSelectedCandidates: ranked.slice(1).map((item) => item.entry),
     conflict: null,

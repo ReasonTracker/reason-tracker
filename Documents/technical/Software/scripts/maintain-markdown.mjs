@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { normalizeMdStemKey, selectPreferredIndex } from "./markdown-index-rules.mjs";
+import { normalizeMdStemKey, selectPreferredIndex } from "./markdown-index-rules.mts";
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname);
 const REPO_DIR = resolveRepoDir();

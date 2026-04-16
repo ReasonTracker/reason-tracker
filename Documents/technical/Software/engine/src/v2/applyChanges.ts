@@ -10,7 +10,7 @@ import type {
 	Connector,
 	Debate,
 	Score,
-} from "../../../contracts/src/v2/index.ts";
+} from "../../../contracts/src/index.ts";
 import { assertNever } from "./graph.ts";
 
 export function applyIntentChanges(

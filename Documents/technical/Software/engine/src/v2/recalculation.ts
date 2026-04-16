@@ -8,7 +8,7 @@ import {
 	type Debate,
 	type Score,
 	type ScoreId,
-} from "../../../contracts/src/v2/index.ts";
+} from "../../../contracts/src/index.ts";
 import {
 	calculateImpact,
 	clamp,
