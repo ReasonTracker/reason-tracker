@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Debate, Intent, IntentInput, Change } from "../../../contracts/src/index.ts";
+import type { Debate, Intent, IntentInput, Change } from "../../contracts/src/index.ts";
 
 export interface DebatePipelineContext {
 	debate: Debate

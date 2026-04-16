@@ -7,8 +7,8 @@ import {
 	type Debate,
 	type Intent,
 	type ScoreId,
-} from "../../../contracts/src/index.ts";
-import type { DebateLayout, DebateLayoutPipelineContext } from "../../../engine/src/v2/index.ts";
+} from "../../contracts/src/index.ts";
+import type { DebateLayout, DebateLayoutPipelineContext } from "../../engine/src/index.ts";
 
 const DEFAULT_STYLESHEET_HREF = "reason-tracker-renderer.css";
 const DEFAULT_STYLESHEET_SOURCE_PATH = "./src/renderHtml.css";

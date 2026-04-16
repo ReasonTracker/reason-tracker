@@ -1,7 +1,7 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Claim, ClaimId, ConnectorId, Debate, Score, ScoreId } from "../../../contracts/src/index.ts";
-import { deriveTargetRelation } from "../../../contracts/src/index.ts";
+import type { Claim, ClaimId, ConnectorId, Debate, Score, ScoreId } from "../../contracts/src/index.ts";
+import { deriveTargetRelation } from "../../contracts/src/index.ts";
 
 export interface ScoreIndexes {
 	outgoingTargetScoreIdsBySourceScoreId: Partial<Record<ScoreId, ScoreId[]>>

@@ -1,14 +1,14 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import { Composition } from "remotion";
-import { applyChanges, buildRecalculationChanges } from "../../engine/src/v2/index.ts";
+import { applyChanges, buildRecalculationChanges } from "../../engine/src/index.ts";
 import { newClaim, type ClaimId } from "../../contracts/src/Claim.ts";
 import { newConnector, type ConnectorId } from "../../contracts/src/Connector.ts";
 import type { Debate } from "../../contracts/src/Debate.ts";
 import { EpisodeBrandSequence } from "./shared/EpisodeBrandSequence.tsx";
 import { EpisodeTemplate } from "./shared/EpisodeTemplate.tsx";
 import { Fade } from "./shared/Fade.tsx";
-import { CameraMove, GraphEvents, GraphView } from "./shared/v2/GraphView.tsx";
+import { CameraMove, GraphEvents, GraphView } from "./shared/GraphView.tsx";
 import { buildTimelineTimes, wait } from "./shared/timeline.ts";
 import graphData from "./episodeV2.data.json";
 // import graphData from "./episode0001/episode0001.initial.json";

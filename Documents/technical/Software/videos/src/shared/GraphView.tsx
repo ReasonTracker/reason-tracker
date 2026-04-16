@@ -1,10 +1,10 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Change, Claim, ClaimId, ClaimSide, Connector, ConnectorId, Debate, Intent, PropagationDirection, ScoreId } from "../../../../contracts/src/index.ts";
-import { calculateLayoutPipeline, prepareAnimationSchedule, processDebateIntent, type DebateLayout, type DebateLayoutPipelineContext } from "../../../../engine/src/v2/index.ts";
+import type { Change, Claim, ClaimId, ClaimSide, Connector, ConnectorId, Debate, Intent, PropagationDirection, ScoreId } from "../../../contracts/src/index.ts";
+import { calculateLayoutPipeline, prepareAnimationSchedule, processDebateIntent, type DebateLayout, type DebateLayoutPipelineContext } from "../../../engine/src/index.ts";
 import { cancelRender, continueRender, delayRender, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
-import { getZoomMotionState } from "../zoomMotion.ts";
+import { getZoomMotionState } from "./zoomMotion.ts";
 
 const DEFAULT_GRAPH_FROM = 0;
 const DEFAULT_ZOOM_SCALE = 3.4;

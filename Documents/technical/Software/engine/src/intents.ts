@@ -17,7 +17,7 @@ import {
 	type RemoveConnectionOperation,
 	type Score,
 	type ScoreId,
-} from "../../../contracts/src/index.ts";
+} from "../../contracts/src/index.ts";
 import type {
 	ProcessDebateIntentRequest,
 	ProcessDebateIntentResult,

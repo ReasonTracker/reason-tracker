@@ -8,7 +8,7 @@ import type {
 	Intent,
 	Score,
 	ScoreId,
-} from "../../../contracts/src/index.ts";
+} from "../../contracts/src/index.ts";
 import { getScoresForClaimId } from "./graph.ts";
 import { synchronizeScoreScaleOfSources } from "./recalculation.ts";
 import type { DebatePipelineContext } from "./api.ts";
