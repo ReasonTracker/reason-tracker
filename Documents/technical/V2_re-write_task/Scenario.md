@@ -1,6 +1,6 @@
 # Scenario 1 - Adding a new claim to an existing graph as a leaf
 
-> Read [📌README.md](./%F0%9F%93%8CREADME.md) in this folder for rewrite-task context before editing this document.
+> Read [V2 Re Write Task](./%F0%9F%93%8CREADME.md) in this folder for rewrite-task context before editing this document.
 
 ## Architecture Clarification
 

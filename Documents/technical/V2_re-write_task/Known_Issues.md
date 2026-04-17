@@ -1,4 +1,4 @@
-> Read [📌README.md](./%F0%9F%93%8CREADME.md) in this folder for rewrite-task context before editing this document.
+> Read [V2 Re Write Task](./%F0%9F%93%8CREADME.md) in this folder for rewrite-task context before editing this document.
 
 # V2 Known Issues And Unrequested Additions
 

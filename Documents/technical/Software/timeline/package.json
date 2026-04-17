@@ -11,7 +11,6 @@
   ],
   "scripts": {
     "build": "echo \"Build script pending\"",
-    "test": "tsc --noEmit -p ./tsconfig.json",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   }
 }

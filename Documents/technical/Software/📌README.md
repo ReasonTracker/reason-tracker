@@ -40,5 +40,8 @@ These tools are for local development ergonomics and are not a CI requirement.
 - [.Vscode](.vscode/📌README.md)
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
-- [Engine Tests](./engine-tests/📌README.md)
+- [00 Command Center](./00-command-center/📌README.md)
+- [Contracts](./contracts/📌README.md)
+- [Timeline](./timeline/README.md)
+- [Videos](./videos/📌README.md)
 <!-- autonav:end -->

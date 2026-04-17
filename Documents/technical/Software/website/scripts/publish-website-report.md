@@ -1,13 +1,13 @@
 # Publish Website Report
 
-Last updated: 2026-04-16
+Last updated: 2026-04-17
 
 Run type: Publish website
 
 ## Summary
 
 - Source files published: 136
-- Site files scanned: 14
+- Site files scanned: 15
 - Augmentation files loaded: 2
 - Matched augmentation links: 2
 - Unmatched augmentation files: 0
@@ -38,6 +38,7 @@ No unmatched augmentations.
 - icons/favicon.svg
 - icons/file.svg
 - icons/folder.svg
+- modules/📌README.md
 - modules/brand-sequence-motion.js
 - modules/home-brand-sequence.js
 - site-config.json

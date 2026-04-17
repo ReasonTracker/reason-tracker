@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev --host",
-    "test": "vp test --passWithNoTests",
     "typecheck": "tsc --noEmit -p ./tsconfig.json",
     "build": "node ./scripts/publish-website.mts --write-report",
     "publish-website": "node ./scripts/publish-website.mts --write-report",

@@ -13,6 +13,11 @@
 - If the request is ambiguous, ask a clarification question before taking action.
 - Do not weaken existing behavior rules without explicitly confirming the change with the user.
 
+## Prototype Rule
+- Treat this repository as a prototype until the documentation says otherwise.
+- Do not create, add, expand, or propose new automated tests while this prototype rule is in effect.
+- If a task would normally include tests, stop at implementation and documentation unless the user explicitly says the prototype rule has changed.
+
 ## Approval and Clarification
 - If the user explicitly requests an action, proceed without asking for separate approval.
 - Ask clarifying questions only when needed to execute correctly.

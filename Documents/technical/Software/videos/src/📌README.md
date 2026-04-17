@@ -8,3 +8,10 @@ This folder owns the Remotion root, episode definitions, and composition wiring 
 - Use renderer HTML output for graph scene markup instead of rebuilding graph geometry in this package.
 - Keep episode-specific fixture data and timing local to this folder until a broader episode catalog exists.
 - If this folder gains a subfolder, add a local README that explains that sub-boundary before adding more files there.
+
+---
+
+<!-- autonav:start -->
+- [Episode0001](./episode0001/📌README.md)
+- [Shared](./shared/📌README.md)
+<!-- autonav:end -->

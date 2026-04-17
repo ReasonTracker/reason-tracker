@@ -10,4 +10,5 @@ Prefer Vite Plus (`vp`) over `pnpm` when an equivalent command exists. Docs: htt
 - Markdown Maintenance Report: `markdown-maintenance-report.md`
 - Maintain Markdown Business Requirements: `maintain-markdown.mjs.md`
 - [Maintain Markdown Business Requirements](./maintain-markdown.mjs.md)
+- [Markdown Maintenance Report](./markdown-maintenance-report.md)
 <!-- autonav:end -->

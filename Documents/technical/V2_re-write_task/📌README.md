@@ -21,3 +21,14 @@ We are working on the rednderer
 ## Large scale changes
 - revise contracts & data structures
 - Adapt engine code to the new standard
+
+---
+
+<!-- autonav:start -->
+- [V2 Intentional Changes And Fixes](./Changes_and_Fixes.md)
+- [V2 Known Issues And Unrequested Additions](./Known_Issues.md)
+- [New Terminology](./New%20Terminology.md)
+- [Working Questions](./Questions.md)
+- [Old Terminology](./Terminology.md)
+- [Working Mode](./Working%20Mode.md)
+<!-- autonav:end -->

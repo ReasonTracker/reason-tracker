@@ -8,7 +8,6 @@
     "timeline",
     "contracts",
     "engine",
-    "engine-tests",
     "renderer",
     "videos"
   ],
@@ -21,10 +20,7 @@
     "developer:doctor": "node ./scripts/check-tooling.mts",
     "preview": "node ./scripts/preview-live.mts",
     "typecheck": "vp run -r typecheck",
-    "test:all": "vp test",
-    "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report",
-    "engine-tests:test": "vp run -F @reasontracker/engine-tests test",
-    "engine-tests:test:watch": "vp run -F @reasontracker/engine-tests test:watch"
+    "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report"
   },
   "devDependencies": {
     "typescript": "^6.0.2"

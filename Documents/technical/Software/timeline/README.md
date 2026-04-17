@@ -11,3 +11,9 @@ Current scope:
 - no internal resolution or implementation-only types yet
 
 The input model supports events that are scheduled relative to the timeline start or relative to earlier events. The output model groups each object into existence windows and state segments so consumers can see when an object exists and which props it has during each span.
+
+---
+
+<!-- autonav:start -->
+- [Src](./src/📌README.md)
+<!-- autonav:end -->

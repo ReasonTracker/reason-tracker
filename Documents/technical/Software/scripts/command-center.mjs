@@ -61,8 +61,7 @@ const packageDescriptions = new Map([
   ["@reasontracker/video", "Remotion episodes, shared media, and episode-specific render and studio workflows."],
   ["@reasontracker/renderer", "Layout preview and rendering tools."],
   ["reason-tracker-repo-website", "Local website dev, preview, and publish flows."],
-  ["@reasontracker/engine", "Core engine commands and tests."],
-  ["@reasontracker/engine-tests", "Portable engine contract tests."],
+  ["@reasontracker/engine", "Core engine commands."],
   ["@reasontracker/contracts", "Shared contracts and validation scripts."],
   ["@reasontracker/00-command-center", "Command center frontend and local API server."],
 ]);
@@ -348,10 +347,6 @@ function categorizeScript(scriptKey, command) {
     return "video";
   }
 
-  if (scriptKey.includes("test")) {
-    return "test";
-  }
-
   if (hasScriptSegment(scriptKey, "dev") || hasScriptSegment(scriptKey, "preview")) {
     return "preview";
   }
@@ -407,10 +402,6 @@ function getDescription(scriptKey, command, packageName) {
 
   if (scriptKey === "cli") {
     return "Runs the engine CLI entry point.";
-  }
-
-  if (command.includes("vp test")) {
-    return "Runs the package test suite.";
   }
 
   if (command.includes("vp dev")) {
@@ -753,7 +744,7 @@ function renderVideoPanel(currentEpisodeId, recentVideos) {
     <div class="panel-inner">
       <div class="eyebrow">Software Command Center</div>
       <h1><span class="brand-pro">Reason</span> <span class="brand-con">Tracker</span> Operations</h1>
-      <p class="shell-copy">The workspace home for dev servers, tests, publishing, and video workflows, restyled to share the website brand system instead of carrying a separate palette.</p>
+      <p class="shell-copy">The workspace home for dev servers, publishing, and video workflows, restyled to share the website brand system instead of carrying a separate palette.</p>
       <div class="hero-grid">
         <div class="hero-spotlight">
           <div class="label">Current Video</div>
@@ -876,11 +867,10 @@ function renderPackagePanel(commands) {
 
 function renderCommandGroups(commands) {
   const groups = groupCommands(commands);
-  const groupOrder = ["preview", "video", "test", "build", "utilities"];
+  const groupOrder = ["preview", "video", "build", "utilities"];
   const titles = new Map([
     ["preview", "Preview And Dev"],
     ["video", "Video"],
-    ["test", "Testing"],
     ["build", "Build And Publish"],
     ["utilities", "Utilities"],
   ]);

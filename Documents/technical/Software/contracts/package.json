@@ -14,7 +14,6 @@
   },
   "scripts": {
     "build": "echo \"No build output: @reasontracker/contracts is a source-only types/contracts package.\"",
-    "test": "vp test --passWithNoTests",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   }
 }
