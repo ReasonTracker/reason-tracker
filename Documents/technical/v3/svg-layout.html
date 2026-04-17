@@ -7,8 +7,36 @@
     <style>
       body {
         margin: 0;
+        padding: 16px;
         background: #000;
         color: #fff;
+        font-family: sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 24px;
+      }
+
+      section {
+        display: grid;
+        gap: 8px;
+      }
+
+      .variant-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .variant-grid {
+        display: grid;
+        grid-template-columns: repeat(3, max-content);
+        gap: 12px;
+        align-items: start;
+      }
+
+      .variant-cell {
+        display: grid;
       }
 
       svg {
@@ -17,40 +45,34 @@
     </style>
   </head>
   <body>
+    <main id="app"></main>
     <script>
-      const svgWidth = 300;
-      const svgHeight = 100;
-      const purplePct = 0.8;
-      const orangePct = 1 - purplePct;
-      const bandHeight = svgHeight / 3;
-
-      const topBandCenterY = bandHeight / 2;
-      const middleBandCenterY = svgHeight / 2;
-      const bottomBandCenterY = svgHeight - bandHeight / 2;
-      const rightThirdStartX = (svgWidth * 2) / 3;
-      const middleThirdStartX = svgWidth / 3;
-      const orangeCurveEndX = middleThirdStartX + (rightThirdStartX - middleThirdStartX) / 3;
-
       const ns = "http://www.w3.org/2000/svg";
-      const svg = document.createElementNS(ns, "svg");
-      svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
-      svg.setAttribute("width", String(svgWidth));
-      svg.setAttribute("height", String(svgHeight));
-      svg.setAttribute("aria-label", "Purple and orange line composition");
-      const defs = document.createElementNS(ns, "defs");
-      const overlapClipPath = document.createElementNS(ns, "clipPath");
-      overlapClipPath.setAttribute("id", "purple-band-overlap");
+      // AGENT NOTE: Keep shared layout math here so variants can reuse it.
+      const getLayoutData = ({ svgWidth, svgHeight, purplePct, maskBleed = 1 }) => {
+        const orangePct = 1 - purplePct;
+        const middleBandHeight = svgHeight * orangePct;
+        const bottomBandHeight = middleBandHeight;
+        const topBandHeight = Math.max(0, svgHeight - middleBandHeight - bottomBandHeight);
 
-      const overlapRect = document.createElementNS(ns, "rect");
-      overlapRect.setAttribute("x", String(middleThirdStartX));
-      overlapRect.setAttribute("y", String(middleBandCenterY - bandHeight / 2));
-      overlapRect.setAttribute("width", String(svgWidth - middleThirdStartX));
-      overlapRect.setAttribute("height", String(bandHeight));
-      overlapClipPath.append(overlapRect);
-      defs.append(overlapClipPath);
-      svg.append(defs);
+        return {
+          svgWidth,
+          svgHeight,
+          purplePct,
+          orangePct,
+          topBandHeight,
+          middleBandHeight,
+          bottomBandHeight,
+          topBandCenterY: topBandHeight / 2,
+          middleBandCenterY: topBandHeight + middleBandHeight / 2,
+          bottomBandCenterY: topBandHeight + middleBandHeight + bottomBandHeight / 2,
+          middleThirdStartX: svgWidth / 3,
+          rightThirdStartX: (svgWidth * 2) / 3,
+          maskBleed,
+        };
+      };
 
-      const addLine = (x1, y1, x2, y2, color, strokeWidth, clipPathId) => {
+      const addLine = (svg, x1, y1, x2, y2, color, strokeWidth, maskId) => {
         const line = document.createElementNS(ns, "line");
         line.setAttribute("x1", String(x1));
         line.setAttribute("y1", String(y1));
@@ -59,13 +81,14 @@
         line.setAttribute("stroke", color);
         line.setAttribute("stroke-width", String(strokeWidth));
         line.setAttribute("stroke-linecap", "butt");
-        if (clipPathId) {
-          line.setAttribute("clip-path", `url(#${clipPathId})`);
+        if (maskId) {
+          line.setAttribute("mask", `url(#${maskId})`);
         }
         svg.append(line);
+        return line;
       };
 
-      const addPath = (d, color, strokeWidth, clipPathId) => {
+      const addPath = (svg, d, color, strokeWidth, options = {}) => {
         const path = document.createElementNS(ns, "path");
         path.setAttribute("d", d);
         path.setAttribute("fill", "none");
@@ -73,35 +96,269 @@
         path.setAttribute("stroke-width", String(strokeWidth));
         path.setAttribute("stroke-linecap", "butt");
         path.setAttribute("stroke-linejoin", "round");
-        if (clipPathId) {
-          path.setAttribute("clip-path", `url(#${clipPathId})`);
+        if (options.maskId) {
+          path.setAttribute("mask", `url(#${options.maskId})`);
+        }
+        if (options.blendMode) {
+          path.style.mixBlendMode = options.blendMode;
         }
         svg.append(path);
+        return path;
       };
 
-      const orangeCurvePath = [
-        `M ${rightThirdStartX} ${bottomBandCenterY}`,
-        `C ${rightThirdStartX - bandHeight} ${bottomBandCenterY}, ${orangeCurveEndX + bandHeight / 2} ${middleBandCenterY}, ${orangeCurveEndX} ${middleBandCenterY}`,
-        `L ${middleThirdStartX} ${middleBandCenterY}`,
-      ].join(" ");
+      const getPurpleLineData = (layout) => {
+        return [
+          {
+            x1: 0,
+            y1: layout.topBandCenterY,
+            x2: layout.svgWidth,
+            y2: layout.topBandCenterY,
+            strokeWidth: layout.topBandHeight,
+          },
+          {
+            x1: layout.middleThirdStartX,
+            y1: layout.middleBandCenterY,
+            x2: layout.svgWidth,
+            y2: layout.middleBandCenterY,
+            strokeWidth: layout.middleBandHeight,
+          },
+        ];
+      };
 
-      addLine(0, topBandCenterY, svgWidth, topBandCenterY, "#a855f7", bandHeight);
+      const addPurpleMask = (svg, layout, maskId) => {
+        const defs = document.createElementNS(ns, "defs");
+        const overlapMask = document.createElementNS(ns, "mask");
+        overlapMask.setAttribute("id", maskId);
+        overlapMask.setAttribute("maskUnits", "userSpaceOnUse");
+        overlapMask.setAttribute("x", "0");
+        overlapMask.setAttribute("y", "0");
+        overlapMask.setAttribute("width", String(layout.svgWidth));
+        overlapMask.setAttribute("height", String(layout.svgHeight));
 
-      addLine(
-        middleThirdStartX,
-        middleBandCenterY,
-        svgWidth,
-        middleBandCenterY,
-        "#a855f7",
-        bandHeight,
-      );
+        const base = document.createElementNS(ns, "rect");
+        base.setAttribute("x", "0");
+        base.setAttribute("y", "0");
+        base.setAttribute("width", String(layout.svgWidth));
+        base.setAttribute("height", String(layout.svgHeight));
+        base.setAttribute("fill", "black");
+        overlapMask.append(base);
 
-      addLine(rightThirdStartX, bottomBandCenterY, svgWidth, bottomBandCenterY, "#f97316", bandHeight);
+        for (const purpleLine of getPurpleLineData(layout)) {
+          const maskLine = document.createElementNS(ns, "line");
+          maskLine.setAttribute("x1", String(purpleLine.x1));
+          maskLine.setAttribute("y1", String(purpleLine.y1));
+          maskLine.setAttribute("x2", String(purpleLine.x2));
+          maskLine.setAttribute("y2", String(purpleLine.y2));
+          maskLine.setAttribute("stroke", "white");
+          maskLine.setAttribute("stroke-width", String(purpleLine.strokeWidth));
+          maskLine.setAttribute("stroke-linecap", "butt");
+          overlapMask.append(maskLine);
+        }
 
-      addPath(orangeCurvePath, "#f97316", bandHeight);
-      addPath(orangeCurvePath, "#000", bandHeight, "purple-band-overlap");
+        defs.append(overlapMask);
+        svg.append(defs);
+      };
 
-      document.body.append(svg);
+      const addHorizontalFadeMask = (svg, layout, maskId) => {
+        const defs = document.createElementNS(ns, "defs");
+        const gradient = document.createElementNS(ns, "linearGradient");
+        gradient.setAttribute("id", `${maskId}-gradient`);
+        gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+        gradient.setAttribute("x1", String(layout.middleThirdStartX));
+        gradient.setAttribute("y1", "0");
+        gradient.setAttribute("x2", String(layout.svgWidth));
+        gradient.setAttribute("y2", "0");
+
+        const fadeStops = [
+          { offset: "0%", color: "white" },
+          { offset: "18%", color: "black" },
+          { offset: "100%", color: "black" },
+        ];
+
+        for (const stopDef of fadeStops) {
+          const stop = document.createElementNS(ns, "stop");
+          stop.setAttribute("offset", stopDef.offset);
+          stop.setAttribute("stop-color", stopDef.color);
+          gradient.append(stop);
+        }
+
+        const mask = document.createElementNS(ns, "mask");
+        mask.setAttribute("id", maskId);
+        mask.setAttribute("maskUnits", "userSpaceOnUse");
+        mask.setAttribute("x", "0");
+        mask.setAttribute("y", "0");
+        mask.setAttribute("width", String(layout.svgWidth));
+        mask.setAttribute("height", String(layout.svgHeight));
+
+        const fadeRect = document.createElementNS(ns, "rect");
+        fadeRect.setAttribute("x", "0");
+        fadeRect.setAttribute("y", "0");
+        fadeRect.setAttribute("width", String(layout.svgWidth));
+        fadeRect.setAttribute("height", String(layout.svgHeight));
+        fadeRect.setAttribute("fill", `url(#${maskId}-gradient)`);
+        mask.append(fadeRect);
+
+        defs.append(gradient);
+        defs.append(mask);
+        svg.append(defs);
+      };
+
+      const buildOrangePathDefault = (layout) => {
+        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) / 2;
+        return [
+          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+          `C ${layout.rightThirdStartX - layout.bottomBandHeight} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight / 2} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+        ].join(" ");
+      };
+
+      const buildOrangePathWideCurve = (layout) => {
+        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.25;
+        return [
+          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+          `C ${layout.rightThirdStartX - layout.bottomBandHeight * 1.1} ${layout.bottomBandCenterY}, ${layout.middleThirdStartX + layout.bottomBandHeight} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+        ].join(" ");
+      };
+
+      const buildOrangePathTightCurve = (layout) => {
+        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.65;
+        return [
+          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+          `C ${layout.rightThirdStartX - layout.bottomBandHeight * 0.8} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight * 0.35} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+        ].join(" ");
+      };
+
+      const buildOrangePathRightAngleCover = (layout) => {
+        const upperMiddleBandY = layout.middleBandCenterY - layout.middleBandHeight / 2;
+        const turnRadius = layout.bottomBandCenterY - upperMiddleBandY;
+        const turnStartX = layout.middleThirdStartX + turnRadius;
+        return [
+          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+          `L ${turnStartX} ${layout.bottomBandCenterY}`,
+          `A ${turnRadius} ${turnRadius} 0 0 1 ${layout.middleThirdStartX} ${upperMiddleBandY}`,
+          `L ${layout.middleThirdStartX} ${upperMiddleBandY}`,
+        ].join(" ");
+      };
+
+      const renderVariant = ({ mount, title, purplePct, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false }) => {
+        const layout = getLayoutData({ svgWidth: 300, svgHeight: 100, purplePct, maskBleed: 1 });
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", `0 0 ${layout.svgWidth} ${layout.svgHeight}`);
+        svg.setAttribute("width", String(layout.svgWidth));
+        svg.setAttribute("height", String(layout.svgHeight));
+        svg.setAttribute("aria-label", title);
+
+        const section = document.createElement("div");
+        section.className = "variant-cell";
+        section.append(svg);
+
+        const maskId = `purple-band-overlap-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+        if (useMask) {
+          addPurpleMask(svg, layout, maskId);
+        }
+
+        const fadeMaskId = `blend-fade-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+        if (fadeBlendEnds) {
+          addHorizontalFadeMask(svg, layout, fadeMaskId);
+        }
+
+        const orangeCurvePath = curveBuilder(layout);
+
+        for (const purpleLine of getPurpleLineData(layout)) {
+          addLine(svg, purpleLine.x1, purpleLine.y1, purpleLine.x2, purpleLine.y2, "#a855f7", purpleLine.strokeWidth);
+        }
+        addLine(
+          svg,
+          layout.rightThirdStartX,
+          layout.bottomBandCenterY,
+          layout.svgWidth,
+          layout.bottomBandCenterY,
+          "#f97316",
+          layout.bottomBandHeight,
+        );
+        addPath(svg, orangeCurvePath, "#f97316", layout.bottomBandHeight, { blendMode });
+
+        if (fadeBlendEnds) {
+          addLine(
+            svg,
+            layout.rightThirdStartX,
+            layout.bottomBandCenterY,
+            layout.svgWidth,
+            layout.bottomBandCenterY,
+            "#000",
+            layout.bottomBandHeight,
+            fadeMaskId,
+          );
+          addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId: fadeMaskId });
+        }
+
+        if (useMask) {
+          addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId });
+        }
+
+        mount.append(section);
+      };
+
+      const renderVariantRow = ({ mount, title, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false, purplePcts }) => {
+        const row = document.createElement("section");
+        row.className = "variant-row";
+
+        const grid = document.createElement("div");
+        grid.className = "variant-grid";
+        row.append(grid);
+
+        for (const purplePct of purplePcts) {
+          renderVariant({
+            mount: grid,
+            title,
+            purplePct,
+            curveBuilder,
+            useMask,
+            blendMode,
+            fadeBlendEnds,
+          });
+        }
+
+        mount.append(row);
+      };
+
+      const app = document.getElementById("app");
+      const purplePcts = [0.6, 0.75, 0.9];
+
+      renderVariantRow({
+        mount: app,
+        title: "Masked Base",
+        curveBuilder: buildOrangePathDefault,
+        useMask: true,
+        purplePcts,
+      });
+
+      renderVariantRow({
+        mount: app,
+        title: "Blend Wide Curve",
+        curveBuilder: buildOrangePathWideCurve,
+        blendMode: "screen",
+        fadeBlendEnds: true,
+        purplePcts,
+      });
+
+      renderVariantRow({
+        mount: app,
+        title: "Blend Tight Curve",
+        curveBuilder: buildOrangePathTightCurve,
+        blendMode: "lighten",
+        fadeBlendEnds: true,
+        purplePcts,
+      });
+
+      renderVariantRow({
+        mount: app,
+        title: "Hard Turn Cover",
+        curveBuilder: buildOrangePathRightAngleCover,
+        purplePcts,
+      });
     </script>
   </body>
 </html>
