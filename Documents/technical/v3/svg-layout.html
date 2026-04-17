@@ -37,8 +37,20 @@
       svg.setAttribute("width", String(svgWidth));
       svg.setAttribute("height", String(svgHeight));
       svg.setAttribute("aria-label", "Purple and orange line composition");
+      const defs = document.createElementNS(ns, "defs");
+      const overlapClipPath = document.createElementNS(ns, "clipPath");
+      overlapClipPath.setAttribute("id", "purple-band-overlap");
 
-      const addLine = (x1, y1, x2, y2, color, strokeWidth) => {
+      const overlapRect = document.createElementNS(ns, "rect");
+      overlapRect.setAttribute("x", String(middleThirdStartX));
+      overlapRect.setAttribute("y", String(middleBandCenterY - bandHeight / 2));
+      overlapRect.setAttribute("width", String(svgWidth - middleThirdStartX));
+      overlapRect.setAttribute("height", String(bandHeight));
+      overlapClipPath.append(overlapRect);
+      defs.append(overlapClipPath);
+      svg.append(defs);
+
+      const addLine = (x1, y1, x2, y2, color, strokeWidth, clipPathId) => {
         const line = document.createElementNS(ns, "line");
         line.setAttribute("x1", String(x1));
         line.setAttribute("y1", String(y1));
@@ -47,10 +59,13 @@
         line.setAttribute("stroke", color);
         line.setAttribute("stroke-width", String(strokeWidth));
         line.setAttribute("stroke-linecap", "butt");
+        if (clipPathId) {
+          line.setAttribute("clip-path", `url(#${clipPathId})`);
+        }
         svg.append(line);
       };
 
-      const addPath = (d, color, strokeWidth) => {
+      const addPath = (d, color, strokeWidth, clipPathId) => {
         const path = document.createElementNS(ns, "path");
         path.setAttribute("d", d);
         path.setAttribute("fill", "none");
@@ -58,8 +73,17 @@
         path.setAttribute("stroke-width", String(strokeWidth));
         path.setAttribute("stroke-linecap", "butt");
         path.setAttribute("stroke-linejoin", "round");
+        if (clipPathId) {
+          path.setAttribute("clip-path", `url(#${clipPathId})`);
+        }
         svg.append(path);
       };
+
+      const orangeCurvePath = [
+        `M ${rightThirdStartX} ${bottomBandCenterY}`,
+        `C ${rightThirdStartX - bandHeight} ${bottomBandCenterY}, ${orangeCurveEndX + bandHeight / 2} ${middleBandCenterY}, ${orangeCurveEndX} ${middleBandCenterY}`,
+        `L ${middleThirdStartX} ${middleBandCenterY}`,
+      ].join(" ");
 
       addLine(0, topBandCenterY, svgWidth, topBandCenterY, "#a855f7", bandHeight);
 
@@ -74,15 +98,8 @@
 
       addLine(rightThirdStartX, bottomBandCenterY, svgWidth, bottomBandCenterY, "#f97316", bandHeight);
 
-      addPath(
-        [
-          `M ${rightThirdStartX} ${bottomBandCenterY}`,
-          `C ${rightThirdStartX - bandHeight} ${bottomBandCenterY}, ${orangeCurveEndX + bandHeight / 2} ${middleBandCenterY}, ${orangeCurveEndX} ${middleBandCenterY}`,
-          `L ${middleThirdStartX} ${middleBandCenterY}`,
-        ].join(" "),
-        "#f97316",
-        bandHeight,
-      );
+      addPath(orangeCurvePath, "#f97316", bandHeight);
+      addPath(orangeCurvePath, "#000", bandHeight, "purple-band-overlap");
 
       document.body.append(svg);
     </script>
