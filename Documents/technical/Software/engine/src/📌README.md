@@ -9,14 +9,24 @@ This page is only a local routing note for where to go next inside `src`.
 ## Start Here When
 
 - you are looking for the current engine package entry surface in `index.ts`
-- you are shaping command payload definitions in `01-commands.ts`
+- you are shaping command payload definitions in `00-commands.ts`
 - you need the guarded domain contracts in `00-entities/`
 
 ## Local Boundary
 
+- commands define semantic mutation input first
+- the command contract in `00-commands.ts` is protected
 - general engine source may evolve here
 - guarded entity contracts begin in `00-entities/`
 - package-level ownership decisions belong in the parent engine README
+
+## Command Contract Rule
+
+In `00-commands.ts`, keep commands shaped around domain intent.
+Do not model commands as raw entity patches or one-command-per-field setters unless a field change is itself a meaningful domain action.
+
+Prefer fewer local helper types in command definitions.
+If a patch shape is used only once and does not need its own name, inline it at the point of use.
 
 ## Related Docs
 

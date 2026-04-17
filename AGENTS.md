@@ -5,6 +5,11 @@
 - Think of and suggest the next step only after you accomplish the current one so you can choose a better next step from what you learned.
 - If path, scope, or location is ambiguous, ask before creating, deleting, or moving files.
 
+## Refactor Cleanup
+- When replacing, moving, flattening, or renaming code, explicitly check whether the superseded files, folders, re-export shims, and doc references should be removed.
+- Before finishing a refactor, verify that old files and empty folders introduced by the old structure are cleaned up unless the user asked to keep a compatibility layer.
+- If a temporary compatibility layer is kept, name it as temporary in code or docs and remove it in the same task when practical.
+
 ## Execution Mode
 - Determine mode first: Discussion Mode or Action Mode.
 - Default to Discussion Mode unless the user explicitly asks for execution.

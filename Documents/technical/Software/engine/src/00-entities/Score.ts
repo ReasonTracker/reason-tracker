@@ -5,12 +5,14 @@
  */
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { ClaimId } from "./Claim.ts";
+import type { ClaimId, Side } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
 
 export interface Score {
 	id: ScoreId
 	claimId: ClaimId
+	claimSide: Side
+	connectorSide: Side
 	connectorId?: ConnectorId
 	incomingScoreIds: ScoreId[]
 

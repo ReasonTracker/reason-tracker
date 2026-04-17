@@ -43,6 +43,14 @@ These are implementation guidelines for repository code structure and file organ
 - Keep internal implementation type contracts DRY: do not redefine equivalent option/type contracts repeatedly across internal functions.
 - Define and reuse shared contracts at real boundaries (for example package/library boundaries), then thread those through internal call chains.
 
+## Local Type Ordering
+
+- Within a file, group related types and interfaces by domain area or responsibility instead of by keyword alone.
+- Prefer fewer total local types. If an object shape is used only once and does not need an independent name for construction or reuse, inline it at the point of use.
+- When a helper type exists only to support one interface or function and still deserves a name, place that helper immediately above the interface or function that uses it.
+- Prefer `#region` markers over plain section comments when a file holds multiple major contract groups.
+- If there is no stronger reason to order by dependency, prefer reading order by usage and responsibility.
+
 ## Tunable Constants Placement
 
 - For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.

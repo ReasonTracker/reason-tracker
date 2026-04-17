@@ -4,16 +4,29 @@
  * Reason: core engine entity contract.
  */
 // See 📌README.md in this folder for local coding standards before editing this file.
-import type { ClaimId, ClaimSide } from "./Claim.ts";
+import type { ClaimId } from "./Claim.ts";
 
-export interface Connector {
+interface BaseConnector {
 	id: ConnectorId
-	target: ClaimId
 	source: ClaimId
 	affects: Affects
 }
 
-export type ConnectorCreate = Partial<Connector> & Pick<Connector, "target" | "source">;
+export type Connector = ClaimToClaimConnector | ClaimToConnectorConnector;
+
+export interface ClaimToClaimConnector extends BaseConnector {
+	type: "claim-to-claim"
+	targetClaimId: ClaimId
+}
+
+export interface ClaimToConnectorConnector extends BaseConnector {
+	type: "claim-to-connector"
+	targetConnectorId: ConnectorId
+}
+
+export type ConnectorCreate =
+	| (Partial<ClaimToClaimConnector> & Pick<ClaimToClaimConnector, "source" | "type" | "targetClaimId">)
+	| (Partial<ClaimToConnectorConnector> & Pick<ClaimToConnectorConnector, "source" | "type" | "targetConnectorId">);
 
 export type ConnectorId = string & { readonly __brand: "ConnectorIdV2" };
 export type TargetRelation = "proTarget" | "conTarget";
