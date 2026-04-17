@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Layout</title>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        color: #fff;
+      }
+
+      svg {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      const svgWidth = 300;
+      const svgHeight = 100;
+      const purplePct = 0.8;
+      const orangePct = 1 - purplePct;
+      const bandHeight = svgHeight / 3;
+
+      const topBandCenterY = bandHeight / 2;
+      const middleBandCenterY = svgHeight / 2;
+      const bottomBandCenterY = svgHeight - bandHeight / 2;
+      const rightThirdStartX = (svgWidth * 2) / 3;
+      const middleThirdStartX = svgWidth / 3;
+      const orangeCurveEndX = middleThirdStartX + (rightThirdStartX - middleThirdStartX) / 3;
+
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+      svg.setAttribute("width", String(svgWidth));
+      svg.setAttribute("height", String(svgHeight));
+      svg.setAttribute("aria-label", "Purple and orange line composition");
+
+      const addLine = (x1, y1, x2, y2, color, strokeWidth) => {
+        const line = document.createElementNS(ns, "line");
+        line.setAttribute("x1", String(x1));
+        line.setAttribute("y1", String(y1));
+        line.setAttribute("x2", String(x2));
+        line.setAttribute("y2", String(y2));
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", String(strokeWidth));
+        line.setAttribute("stroke-linecap", "butt");
+        svg.append(line);
+      };
+
+      const addPath = (d, color, strokeWidth) => {
+        const path = document.createElementNS(ns, "path");
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", String(strokeWidth));
+        path.setAttribute("stroke-linecap", "butt");
+        path.setAttribute("stroke-linejoin", "round");
+        svg.append(path);
+      };
+
+      addLine(0, topBandCenterY, svgWidth, topBandCenterY, "#a855f7", bandHeight);
+
+      addLine(
+        middleThirdStartX,
+        middleBandCenterY,
+        svgWidth,
+        middleBandCenterY,
+        "#a855f7",
+        bandHeight,
+      );
+
+      addLine(rightThirdStartX, bottomBandCenterY, svgWidth, bottomBandCenterY, "#f97316", bandHeight);
+
+      addPath(
+        [
+          `M ${rightThirdStartX} ${bottomBandCenterY}`,
+          `C ${rightThirdStartX - bandHeight} ${bottomBandCenterY}, ${orangeCurveEndX + bandHeight / 2} ${middleBandCenterY}, ${orangeCurveEndX} ${middleBandCenterY}`,
+          `L ${middleThirdStartX} ${middleBandCenterY}`,
+        ].join(" "),
+        "#f97316",
+        bandHeight,
+      );
+
+      document.body.append(svg);
+    </script>
+  </body>
+</html>
