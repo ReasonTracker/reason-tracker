@@ -106,8 +106,13 @@ async function main() {
       href: toRelativeMarkdownPath(doc.sourcePath, target.sourcePath),
     }));
 
+    const hasAutonavSection =
+      relabeled.markdown.includes(AUTONAV_START) && relabeled.markdown.includes(AUTONAV_END);
+
     const withAutonav =
-      additions.length > 0 ? appendAutonavLinks(relabeled.markdown, additions) : relabeled.markdown;
+      additions.length > 0 || hasAutonavSection
+        ? appendAutonavLinks(relabeled.markdown, additions)
+        : relabeled.markdown;
 
     if (additions.length > 0) {
       autoAdded.push({ sourcePath: doc.sourcePath, added: additions });
@@ -746,7 +751,10 @@ function appendAutonavLinks(markdown, additions) {
     const before = markdown.slice(0, startIndex + AUTONAV_START.length);
     const inside = markdown.slice(startIndex + AUTONAV_START.length, endIndex);
     const after = markdown.slice(endIndex);
-    const mergedInside = mergeAutonavSection(inside, linkLines);
+    const outsideExisting = collectLinkedHrefSet(
+      `${markdown.slice(0, startIndex)}${markdown.slice(endIndex + AUTONAV_END.length)}`,
+    );
+    const mergedInside = mergeAutonavSection(inside, linkLines, outsideExisting);
     return `${before}${mergedInside}${after}`;
   }
 
@@ -754,27 +762,44 @@ function appendAutonavLinks(markdown, additions) {
   return `${markdown.replace(/\s*$/, "")}${autonavBlock}`;
 }
 
-function mergeAutonavSection(inside, linkLines) {
-  const normalizedInside = inside.replace(/\r\n/g, "\n");
-  const existing = new Set(
-    [...normalizedInside.matchAll(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/g)].map((match) =>
+function collectLinkedHrefSet(markdown) {
+  return new Set(
+    [...String(markdown || "").matchAll(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/g)].map((match) =>
       String(match[1]).trim(),
     ),
   );
+}
+
+function mergeAutonavSection(inside, linkLines, outsideExisting = new Set()) {
+  const normalizedInside = inside.replace(/\r\n/g, "\n");
+  const cleanedBase = normalizedInside
+    .split("\n")
+    .filter((line) => {
+      const match = line.match(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/);
+      if (!match) {
+        return true;
+      }
+
+      return !outsideExisting.has(String(match[1]).trim());
+    })
+    .join("\n");
+  const existing = collectLinkedHrefSet(cleanedBase);
 
   const uniqueAdditions = linkLines.filter((line) => {
     const match = line.match(/\(([^)]+)\)$/);
     if (!match) {
       return true;
     }
-    return !existing.has(match[1]);
+    const href = String(match[1]).trim();
+    return !existing.has(href) && !outsideExisting.has(href);
   });
 
   if (uniqueAdditions.length === 0) {
-    return inside;
+    const baseWithoutHeading = cleanedBase.replace(/^\s*##\s+Auto\s+Navigation\s*\n?/i, "").trim();
+    return baseWithoutHeading ? `\n${baseWithoutHeading}\n` : "\n";
   }
 
-  const base = normalizedInside.replace(/^\s*##\s+Auto\s+Navigation\s*\n?/i, "").trim();
+  const base = cleanedBase.replace(/^\s*##\s+Auto\s+Navigation\s*\n?/i, "").trim();
   if (!base) {
     return `\n${uniqueAdditions.join("\n")}\n`;
   }
@@ -791,7 +816,7 @@ function buildReport(input) {
       : input.unresolved
           .map(
             (entry) =>
-              `- Source: ${entry.sourcePath}\n  - Link: [${entry.linkText}](${entry.href})\n  - Reason: ${entry.reason}`,
+              `- Source: ${entry.sourcePath}\n  - Link Text: ${entry.linkText}\n  - Target: ${entry.href}\n  - Reason: ${entry.reason}`,
           )
           .join("\n");
 

@@ -10,7 +10,6 @@
     "src"
   ],
   "scripts": {
-    "cli": "vp exec node --experimental-strip-types ./src/cli.ts",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "devDependencies": {

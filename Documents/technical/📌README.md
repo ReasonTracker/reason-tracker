@@ -21,6 +21,8 @@ Example: `Software/videos` for `@reasontracker/video`.
 <!-- autonav:start -->
 - [Software](./Software/📌README.md)
 - [Technical Agent Addendum](./AGENTS.md)
+- [AI Repo Organization Guidelines](./AI%20Repo%20Organization%20Guidelines.md)
+- [Periodic Review Status](./Periodic%20Review%20Status.md)
 - [Coding Guidelines](./Coding%20Guidelines.md)
 - [Renderer Algorithm Rationale](./Renderer%20Algorithm%20Rationale.md)
 - [Ideas for Future Technical Goals](./Ideas%20for%20Future%20Technical%20Goals.md)

@@ -5,6 +5,18 @@
 Software assets are organized as one asset per top-level folder.
 New assets should be created as direct children of this folder (for example, `videos/`).
 
+## System Map
+
+| Asset | Purpose | Main entrypoints | Status |
+| --- | --- | --- | --- |
+| `00-command-center` | Local launcher and command-discovery surface for software workflows. | `00-command-center/index.html`, `00-command-center/src/main.ts`, `00-command-center/server/core.ts` | `active` |
+| `engine` | Core TypeScript engine package, protected domain model contracts, and temporary home for small engine-dependent code. | `engine/src/index.ts`, `engine/src/01-commands.ts`, `engine/src/00-entities/📌README.md` | `scaffold` package with `authoritative` entity contracts |
+| `videos` | Remotion-based video compositions and shared video assets. | `videos/src/index.ts` | `active` |
+| `website` | Repository website builder and static publishing workflow. | `website/scripts/publish-website.mts`, `website/site/site-config.json`, `website/📌README.md` | `active` |
+| `scripts` | Shared repo-level technical maintenance scripts. | `scripts/maintain-markdown.mjs`, `scripts/check-tooling.mts` | `active` |
+
+Use this table for fast routing. Read the linked package `📌README.md` files when the change needs local ownership or deeper workflow detail.
+
 ## Local Command Center
 
 Run `vp run -F @reasontracker/00-command-center 00:CommandCenter:open` from this folder to open the local Software command center. It is the default launcher for workspace operations, including the focused Video page and command discovery across package scripts.
@@ -35,9 +47,9 @@ The bootstrap script installs `rg` and `fd` with the first supported Windows pac
 These tools are for local development ergonomics and are not a CI requirement.
 
 <!-- autonav:start -->
-- [.Vscode](.vscode/📌README.md)
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
+- [Engine](./engine/📌README.md)
 <!-- autonav:end -->

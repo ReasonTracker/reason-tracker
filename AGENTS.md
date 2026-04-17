@@ -16,7 +16,15 @@
 ## Prototype Rule
 - Treat this repository as a prototype until the documentation says otherwise.
 - Do not create, add, expand, or propose new automated tests while this prototype rule is in effect.
-- If a task would normally include tests, stop at implementation and documentation unless the user explicitly says the prototype rule has changed.
+- Avoid routine change-log style documentation during prototype iteration.
+- Update documentation during prototype work only when standing truth changes, such as structure, ownership, entrypoints, glossary terms, protected areas, or stable workflow rules.
+- If a task would normally include tests or extensive change documentation, stop at implementation and only update the durable docs that need to stay accurate unless the user explicitly says the prototype rule has changed.
+
+## Change Guard Rule
+- `CHANGE-GUARD` marks code or documentation that requires explicit approval before changing.
+- If an agent encounters a `CHANGE-GUARD` marker on a file or region relevant to the requested task, stop and obtain explicit approval before editing that guarded area.
+- Do not work around a `CHANGE-GUARD` marker by changing adjacent code, configuration, or documentation to achieve the same guarded effect indirectly.
+- Treat `CHANGE-GUARD` as a sparse, high-signal boundary for intentional changes, not as a generic comment pattern.
 
 ## Approval and Clarification
 - If the user explicitly requests an action, proceed without asking for separate approval.

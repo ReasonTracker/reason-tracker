@@ -7,7 +7,7 @@
 - Keep folder index navigation complete by adding missing required child links.
 - Folder child link text is based on the folder name in title case.
 - Folder child link text is not based on index-file naming conventions, including emoji prefixes.
-- Avoid duplicate navigation links when maintaining autonav sections.
+- Avoid duplicate navigation links when maintaining autonav sections, including links that already exist elsewhere in the same document.
 - Create missing directory index docs where required by documentation structure rules.
 - Report unresolved link cases for manual follow-up.
 - Provide a maintenance summary showing what changed.
