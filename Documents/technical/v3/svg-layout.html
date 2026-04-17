@@ -255,7 +255,7 @@
         section.append(svg);
 
         const maskId = `purple-band-overlap-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
-        if (useMask) {
+        if (useMask || blendMode) {
           addPurpleMask(svg, layout, maskId);
         }
 
@@ -278,9 +278,42 @@
           "#f97316",
           layout.bottomBandHeight,
         );
-        addPath(svg, orangeCurvePath, "#f97316", layout.bottomBandHeight, { blendMode });
+        addPath(svg, orangeCurvePath, "#f97316", layout.bottomBandHeight);
 
-        if (fadeBlendEnds) {
+        if (blendMode) {
+          const blendGroup = document.createElementNS(ns, "g");
+          blendGroup.setAttribute("mask", `url(#${maskId})`);
+          blendGroup.style.isolation = "isolate";
+          svg.append(blendGroup);
+
+          for (const purpleLine of getPurpleLineData(layout)) {
+            addLine(
+              blendGroup,
+              purpleLine.x1,
+              purpleLine.y1,
+              purpleLine.x2,
+              purpleLine.y2,
+              "#a855f7",
+              purpleLine.strokeWidth,
+            );
+          }
+
+          addLine(
+            blendGroup,
+            layout.rightThirdStartX,
+            layout.bottomBandCenterY,
+            layout.svgWidth,
+            layout.bottomBandCenterY,
+            "#f97316",
+            layout.bottomBandHeight,
+          ).style.mixBlendMode = blendMode;
+
+          addPath(blendGroup, orangeCurvePath, "#f97316", layout.bottomBandHeight, {
+            blendMode,
+          });
+        }
+
+        if (fadeBlendEnds && !blendMode) {
           addLine(
             svg,
             layout.rightThirdStartX,
@@ -348,7 +381,7 @@
         mount: app,
         title: "Blend Tight Curve",
         curveBuilder: buildOrangePathTightCurve,
-        blendMode: "lighten",
+        blendMode: "darken",
         fadeBlendEnds: true,
         purplePcts,
       });
