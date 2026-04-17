@@ -11,5 +11,4 @@ This folder is the source of truth for video scripts, research, and most episode
 
 ## Current Episodes
 
-- [Episode0001](./Episode0001/README.md)
 - [Episode0002](./Episode0002/README.md)

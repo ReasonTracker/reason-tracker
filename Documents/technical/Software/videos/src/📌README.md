@@ -1,17 +1,14 @@
 # 📌 Src
 
-This folder owns the Remotion root, episode definitions, and composition wiring for V2 video output.
+This folder owns the Remotion root and composition wiring for the current video package reset.
 
 ## Boundaries
 
-- Use engine intents, step application, and layout as the source of truth for episode state.
-- Use renderer HTML output for graph scene markup instead of rebuilding graph geometry in this package.
-- Keep episode-specific fixture data and timing local to this folder until a broader episode catalog exists.
+- Keep the root minimal until the next episode direction is defined.
+- Add episode-specific fixture data and timing only when a new episode is ready to ship.
 - If this folder gains a subfolder, add a local README that explains that sub-boundary before adding more files there.
 
 ---
 
 <!-- autonav:start -->
-- [Episode0001](./episode0001/📌README.md)
-- [Shared](./shared/📌README.md)
 <!-- autonav:end -->

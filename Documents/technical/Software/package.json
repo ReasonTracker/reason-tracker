@@ -5,10 +5,6 @@
   "workspaces": [
     "00-command-center",
     "website",
-    "timeline",
-    "contracts",
-    "engine",
-    "renderer",
     "videos"
   ],
   "scripts": {
@@ -17,10 +13,9 @@
     "website:build": "vp run -F reason-tracker-repo-website build",
     "website:publish": "vp run -F reason-tracker-repo-website publish-website",
     "website:preview": "vp run -F reason-tracker-repo-website preview",
-    "developer:doctor": "node ./scripts/check-tooling.mts",
-    "preview": "node ./scripts/preview-live.mts",
+    "developer:doctor": "vp exec node ./scripts/check-tooling.mts",
     "typecheck": "vp run -r typecheck",
-    "maintain:markdown": "node ./scripts/maintain-markdown.mjs --write-report"
+    "maintain:markdown": "vp exec node ./scripts/maintain-markdown.mjs --write-report"
   },
   "devDependencies": {
     "typescript": "^6.0.2"

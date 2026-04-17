@@ -1,7 +1,6 @@
 packages:
   - 00-command-center
   - website
-  - timeline
   - contracts
   - engine
   - renderer

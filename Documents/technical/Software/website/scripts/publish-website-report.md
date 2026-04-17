@@ -6,7 +6,7 @@ Run type: Publish website
 
 ## Summary
 
-- Source files published: 136
+- Source files published: 71
 - Site files scanned: 15
 - Augmentation files loaded: 2
 - Matched augmentation links: 2

@@ -3,7 +3,7 @@
 ## Organization Pattern
 
 Software assets are organized as one asset per top-level folder.
-New assets should be created as direct children of this folder (for example, `engine/`).
+New assets should be created as direct children of this folder (for example, `videos/`).
 
 ## Local Command Center
 
@@ -24,24 +24,20 @@ On a fresh Windows machine, run this once from the `Documents/technical/Software
 Then verify the shell tooling from the same folder:
 
 - `vp run developer:doctor`
+- `vp exec node ./scripts/check-tooling.mts`
 
 If Vite Plus is not available yet in the current shell, the direct fallback commands are:
 
 - `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1`
-- `node ./scripts/check-tooling.mts`
+- `node --experimental-strip-types ./scripts/check-tooling.mts`
 
 The bootstrap script installs `rg` and `fd` with the first supported Windows package manager it finds: `winget`, Chocolatey, or Scoop.
 These tools are for local development ergonomics and are not a CI requirement.
 
 <!-- autonav:start -->
-- [Engine](./engine/📌README.md)
-- [Renderer](./renderer/📌README.md)
-- [Video](./Video/📌README.md)
 - [.Vscode](.vscode/📌README.md)
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
-- [Contracts](./contracts/📌README.md)
-- [Timeline](./timeline/README.md)
 - [Videos](./videos/📌README.md)
 <!-- autonav:end -->

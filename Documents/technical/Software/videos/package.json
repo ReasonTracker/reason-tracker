@@ -14,14 +14,9 @@
   "scripts": {
     "build": "echo \"Build script pending\"",
     "studio": "remotion studio src/index.ts",
-    "render": "node ./scripts/render-episode.mjs",
-    "render:episode": "node ./scripts/render-episode.mjs",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
-    "@reasontracker/contracts": "workspace:*",
-    "@reasontracker/engine": "workspace:*",
-    "@reasontracker/renderer": "workspace:*",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "remotion": "^4.0.448"

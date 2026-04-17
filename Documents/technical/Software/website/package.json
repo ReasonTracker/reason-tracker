@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vp dev --host",
     "typecheck": "tsc --noEmit -p ./tsconfig.json",
-    "build": "node ./scripts/publish-website.mts --write-report",
-    "publish-website": "node ./scripts/publish-website.mts --write-report",
-    "preview": "node ./scripts/publish-website.mts --write-report && vp preview --host"
+    "build": "vp exec node ./scripts/publish-website.mts --write-report",
+    "publish-website": "vp exec node ./scripts/publish-website.mts --write-report",
+    "preview": "vp exec node ./scripts/publish-website.mts --write-report && vp preview --host"
   },
   "dependencies": {
     "front-matter": "^4.0.2",

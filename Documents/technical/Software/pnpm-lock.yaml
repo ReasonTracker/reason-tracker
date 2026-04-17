@@ -21,57 +21,8 @@ importers:
         specifier: ^0.1.16
         version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
 
-  contracts:
-    devDependencies:
-      vite-plus:
-        specifier: ^0.1.16
-        version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
-
-  engine:
-    dependencies:
-      '@reasontracker/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      elkjs:
-        specifier: ^0.11.1
-        version: 0.11.1
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      vite-plus:
-        specifier: ^0.1.16
-        version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
-
-  renderer:
-    dependencies:
-      '@reasontracker/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@reasontracker/engine':
-        specifier: workspace:*
-        version: link:../engine
-    devDependencies:
-      tsx:
-        specifier: ^4.20.6
-        version: 4.21.0
-      vite-plus:
-        specifier: ^0.1.16
-        version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
-
-  timeline: {}
-
   videos:
     dependencies:
-      '@reasontracker/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@reasontracker/engine':
-        specifier: workspace:*
-        version: link:../engine
-      '@reasontracker/renderer':
-        specifier: workspace:*
-        version: link:../renderer
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -1593,9 +1544,6 @@ packages:
   electron-to-chromium@1.5.335:
     resolution: {integrity: sha512-q9n5T4BR4Xwa2cwbrwcsDJtHD/enpQ5S1xF1IAtdqf5AAgqDFmR/aakqH3ChFdqd/QXJhS3rnnXFtexU7rax6Q==}
 
-  elkjs@0.11.1:
-    resolution: {integrity: sha512-zxxR9k+rx5ktMwT/FwyLdPCrq7xN6e4VGGHH8hA01vVYKjTFik7nHOxBnAYtrgYUB1RpAiLvA1/U2YraWxyKKg==}
-
   emojis-list@3.0.0:
     resolution: {integrity: sha512-/kyM18EfinwXZbno9FyUGeFh87KC8HRQBQGildHZbEuRyWFOmv1U10o9BBp8XVZDVNNuQKyIGIu5ZYAAXJ0V2Q==}
     engines: {node: '>= 4'}
@@ -2765,7 +2713,7 @@ snapshots:
       react-refresh: 0.18.0
       remotion: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.105.0(esbuild@0.25.0))
+      style-loader: 4.0.0(webpack@5.105.0)
       webpack: 5.105.0(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -3411,8 +3359,6 @@ snapshots:
 
   electron-to-chromium@1.5.335: {}
 
-  elkjs@0.11.1: {}
-
   emojis-list@3.0.0: {}
 
   end-of-stream@1.4.5:
@@ -3517,6 +3463,7 @@ snapshots:
       '@esbuild/win32-arm64': 0.27.7
       '@esbuild/win32-ia32': 0.27.7
       '@esbuild/win32-x64': 0.27.7
+    optional: true
 
   escalade@3.2.0: {}
 
@@ -3589,6 +3536,7 @@ snapshots:
   get-tsconfig@4.13.7:
     dependencies:
       resolve-pkg-maps: 1.0.0
+    optional: true
 
   glob-to-regexp@0.4.1: {}
 
@@ -3867,7 +3815,8 @@ snapshots:
 
   require-from-string@2.0.2: {}
 
-  resolve-pkg-maps@1.0.0: {}
+  resolve-pkg-maps@1.0.0:
+    optional: true
 
   rollup@4.60.1:
     dependencies:
@@ -3952,7 +3901,7 @@ snapshots:
 
   strip-final-newline@2.0.0: {}
 
-  style-loader@4.0.0(webpack@5.105.0(esbuild@0.25.0)):
+  style-loader@4.0.0(webpack@5.105.0):
     dependencies:
       webpack: 5.105.0(esbuild@0.25.0)
 
@@ -4008,6 +3957,7 @@ snapshots:
       get-tsconfig: 4.13.7
     optionalDependencies:
       fsevents: 2.3.3
+    optional: true
 
   typescript@6.0.2: {}
 

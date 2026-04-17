@@ -26,7 +26,7 @@ const studioUrl = `http://localhost:${studioPort}`;
 const curatedStandaloneScripts = [
   {
     category: "utilities",
-    command: "node ./scripts/preview-live.mts",
+    command: "vp exec node ./scripts/preview-live.mts",
     description: "Starts the local live preview environment.",
     isBackground: true,
     name: "preview-live.mts",
@@ -36,7 +36,7 @@ const curatedStandaloneScripts = [
   },
   {
     category: "utilities",
-    command: "node ./scripts/maintain-markdown.mjs --write-report",
+    command: "vp exec node ./scripts/maintain-markdown.mjs --write-report",
     description: "Rebuilds markdown indexes and writes the maintenance report.",
     isBackground: false,
     name: "maintain-markdown.mjs",
@@ -58,11 +58,8 @@ function hasScriptSegment(scriptKey, value) {
 
 const packageDescriptions = new Map([
   ["Software", "Root workspace scripts and orchestration commands."],
-  ["@reasontracker/video", "Remotion episodes, shared media, and episode-specific render and studio workflows."],
-  ["@reasontracker/renderer", "Layout preview and rendering tools."],
+  ["@reasontracker/video", "Remotion project shell and video package workflows."],
   ["reason-tracker-repo-website", "Local website dev, preview, and publish flows."],
-  ["@reasontracker/engine", "Core engine commands."],
-  ["@reasontracker/contracts", "Shared contracts and validation scripts."],
   ["@reasontracker/00-command-center", "Command center frontend and local API server."],
 ]);
 

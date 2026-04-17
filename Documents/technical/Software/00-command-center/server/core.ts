@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { once, type EventEmitter } from "node:events";
 import net from "node:net";
 import { resolve } from "node:path";
 
@@ -153,8 +154,6 @@ function spawnCommand(options: SpawnCommandOptions): Promise<CommandRunResult> {
       detached: options.launchInTerminal && process.platform !== "win32" ? true : spawnOptions.detached,
     });
 
-    child.on("error", reject);
-
     if (options.resolveOnSpawn) {
       child.unref();
       resolveCommand({ output: "Started in background.", status: 0 });
@@ -175,12 +174,20 @@ function spawnCommand(options: SpawnCommandOptions): Promise<CommandRunResult> {
       options.onOutput?.(text);
     });
 
-    child.on("close", (status) => {
-      resolveCommand({
-        output: output.trim(),
-        status: status ?? 1,
-      });
+    const childEvents = child as unknown as EventEmitter;
+    const closePromise = once(childEvents, "close") as Promise<[number | null]>;
+    const errorPromise = once(childEvents, "error").then(([error]) => {
+      throw error;
     });
+
+    void Promise.race([closePromise, errorPromise])
+      .then(([status]) => {
+        resolveCommand({
+          output: output.trim(),
+          status: status ?? 1,
+        });
+      })
+      .catch(reject);
   });
 }
 

@@ -58,7 +58,7 @@ function publishWebsitePlugin(): Plugin {
     isPublishing = true;
 
     try {
-      await runCommand("node", [PUBLISH_SCRIPT, "--no-report", "--preserve-dist"], WEBSITE_DIR);
+      await runCommand("vp", ["exec", "node", PUBLISH_SCRIPT, "--no-report", "--preserve-dist"], WEBSITE_DIR);
       server?.ws.send({ type: "full-reload" });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
