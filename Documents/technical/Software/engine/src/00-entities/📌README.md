@@ -19,7 +19,6 @@ Commands, exported state payloads, and step payloads are separate boundaries eve
 It is sent through exported states and steps, but that outbound use does not make every entity in this folder a general external contract.
 
 Source claims may now connect either to claims or to connectors in the graph model.
-How the connect commands should express or default connector-side intent remains an open decision.
 
 ## Main Entrypoints
 
