@@ -1,397 +1,620 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SVG Layout</title>
     <style>
-      body {
-        margin: 0;
-        padding: 16px;
-        background: #000;
-        color: #fff;
-        font-family: sans-serif;
-      }
+        body {
+            margin: 0;
+            padding: 16px;
+            background: #000;
+            color: #fff;
+            font-family: sans-serif;
+        }
 
-      main {
-        display: grid;
-        gap: 24px;
-      }
+        main {
+            display: grid;
+            gap: 24px;
+        }
 
-      section {
-        display: grid;
-        gap: 8px;
-      }
+        section {
+            display: grid;
+            gap: 8px;
+        }
 
-      .variant-row {
-        display: grid;
-        gap: 8px;
-      }
+        .variant-row {
+            display: grid;
+            gap: 8px;
+        }
 
-      .variant-grid {
-        display: grid;
-        grid-template-columns: repeat(3, max-content);
-        gap: 12px;
-        align-items: start;
-      }
+        .variant-grid {
+            display: grid;
+            grid-template-columns: repeat(3, max-content);
+            gap: 12px;
+            align-items: start;
+        }
 
-      .variant-cell {
-        display: grid;
-      }
+        .variant-cell {
+            display: grid;
+        }
 
-      svg {
-        display: block;
-      }
+        svg {
+            display: block;
+        }
     </style>
-  </head>
-  <body>
+</head>
+
+<body>
     <main id="app"></main>
     <script>
-      const ns = "http://www.w3.org/2000/svg";
-      // AGENT NOTE: Keep shared layout math here so variants can reuse it.
-      const getLayoutData = ({ svgWidth, svgHeight, purplePct, maskBleed = 1 }) => {
-        const orangePct = 1 - purplePct;
-        const middleBandHeight = svgHeight * orangePct;
-        const bottomBandHeight = middleBandHeight;
-        const topBandHeight = Math.max(0, svgHeight - middleBandHeight - bottomBandHeight);
 
-        return {
-          svgWidth,
-          svgHeight,
-          purplePct,
-          orangePct,
-          topBandHeight,
-          middleBandHeight,
-          bottomBandHeight,
-          topBandCenterY: topBandHeight / 2,
-          middleBandCenterY: topBandHeight + middleBandHeight / 2,
-          bottomBandCenterY: topBandHeight + middleBandHeight + bottomBandHeight / 2,
-          middleThirdStartX: svgWidth / 3,
-          rightThirdStartX: (svgWidth * 2) / 3,
-          maskBleed,
+        const SpeckleSeed = {
+            density: 2,
+            minDotRadius: 0,
+            maxDotRadius: 6,
+            cellSize: 5,
+            rightBiasPower: 1.5,
+            overlap: 6,
+        }
+
+        const MaskGeometryOverlap = {
+            strokeBleed: 0,
+            endpointBleed: 1,
+        }
+
+
+        const ns = "http://www.w3.org/2000/svg";
+        // AGENT NOTE: Keep shared layout math here so variants can reuse it.
+        const getLayoutData = ({ svgWidth, svgHeight, purplePct, maskBleed = 1 }) => {
+            const orangePct = 1 - purplePct;
+            const middleBandHeight = svgHeight * orangePct;
+            const bottomBandHeight = middleBandHeight;
+            const topBandHeight = Math.max(0, svgHeight - middleBandHeight - bottomBandHeight);
+
+            return {
+                svgWidth,
+                svgHeight,
+                purplePct,
+                orangePct,
+                topBandHeight,
+                middleBandHeight,
+                bottomBandHeight,
+                topBandCenterY: topBandHeight / 2,
+                middleBandCenterY: topBandHeight + middleBandHeight / 2,
+                bottomBandCenterY: topBandHeight + middleBandHeight + bottomBandHeight / 2,
+                middleThirdStartX: svgWidth / 3,
+                rightThirdStartX: (svgWidth * 2) / 3,
+                maskBleed,
+            };
         };
-      };
 
-      const addLine = (svg, x1, y1, x2, y2, color, strokeWidth, maskId) => {
-        const line = document.createElementNS(ns, "line");
-        line.setAttribute("x1", String(x1));
-        line.setAttribute("y1", String(y1));
-        line.setAttribute("x2", String(x2));
-        line.setAttribute("y2", String(y2));
-        line.setAttribute("stroke", color);
-        line.setAttribute("stroke-width", String(strokeWidth));
-        line.setAttribute("stroke-linecap", "butt");
-        if (maskId) {
-          line.setAttribute("mask", `url(#${maskId})`);
-        }
-        svg.append(line);
-        return line;
-      };
+        const addLine = (svg, x1, y1, x2, y2, color, strokeWidth, maskId) => {
+            const line = document.createElementNS(ns, "line");
+            line.setAttribute("x1", String(x1));
+            line.setAttribute("y1", String(y1));
+            line.setAttribute("x2", String(x2));
+            line.setAttribute("y2", String(y2));
+            line.setAttribute("stroke", color);
+            line.setAttribute("stroke-width", String(strokeWidth));
+            line.setAttribute("stroke-linecap", "butt");
+            if (maskId) {
+                line.setAttribute("mask", `url(#${maskId})`);
+            }
+            svg.append(line);
+            return line;
+        };
 
-      const addPath = (svg, d, color, strokeWidth, options = {}) => {
-        const path = document.createElementNS(ns, "path");
-        path.setAttribute("d", d);
-        path.setAttribute("fill", "none");
-        path.setAttribute("stroke", color);
-        path.setAttribute("stroke-width", String(strokeWidth));
-        path.setAttribute("stroke-linecap", "butt");
-        path.setAttribute("stroke-linejoin", "round");
-        if (options.maskId) {
-          path.setAttribute("mask", `url(#${options.maskId})`);
-        }
-        if (options.blendMode) {
-          path.style.mixBlendMode = options.blendMode;
-        }
-        svg.append(path);
-        return path;
-      };
+        const addPath = (svg, d, color, strokeWidth, options = {}) => {
+            const path = document.createElementNS(ns, "path");
+            path.setAttribute("d", d);
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", color);
+            path.setAttribute("stroke-width", String(strokeWidth));
+            path.setAttribute("stroke-linecap", "butt");
+            path.setAttribute("stroke-linejoin", "round");
+            if (options.maskId) {
+                path.setAttribute("mask", `url(#${options.maskId})`);
+            }
+            if (options.blendMode) {
+                path.style.mixBlendMode = options.blendMode;
+            }
+            svg.append(path);
+            return path;
+        };
 
-      const getPurpleLineData = (layout) => {
-        return [
-          {
-            x1: 0,
-            y1: layout.topBandCenterY,
-            x2: layout.svgWidth,
-            y2: layout.topBandCenterY,
-            strokeWidth: layout.topBandHeight,
-          },
-          {
-            x1: layout.middleThirdStartX,
-            y1: layout.middleBandCenterY,
-            x2: layout.svgWidth,
-            y2: layout.middleBandCenterY,
-            strokeWidth: layout.middleBandHeight,
-          },
-        ];
-      };
+        const getPurpleLineData = (layout) => {
+            return [
+                {
+                    x1: 0,
+                    y1: layout.topBandCenterY,
+                    x2: layout.svgWidth,
+                    y2: layout.topBandCenterY,
+                    strokeWidth: layout.topBandHeight,
+                },
+                {
+                    x1: layout.middleThirdStartX,
+                    y1: layout.middleBandCenterY,
+                    x2: layout.svgWidth,
+                    y2: layout.middleBandCenterY,
+                    strokeWidth: layout.middleBandHeight,
+                },
+            ];
+        };
 
-      const addPurpleMask = (svg, layout, maskId) => {
-        const defs = document.createElementNS(ns, "defs");
-        const overlapMask = document.createElementNS(ns, "mask");
-        overlapMask.setAttribute("id", maskId);
-        overlapMask.setAttribute("maskUnits", "userSpaceOnUse");
-        overlapMask.setAttribute("x", "0");
-        overlapMask.setAttribute("y", "0");
-        overlapMask.setAttribute("width", String(layout.svgWidth));
-        overlapMask.setAttribute("height", String(layout.svgHeight));
+        const addPurpleMask = (svg, layout, maskId) => {
+            const defs = document.createElementNS(ns, "defs");
+            const overlapMask = document.createElementNS(ns, "mask");
+            overlapMask.setAttribute("id", maskId);
+            overlapMask.setAttribute("maskUnits", "userSpaceOnUse");
+            overlapMask.setAttribute("x", "0");
+            overlapMask.setAttribute("y", "0");
+            overlapMask.setAttribute("width", String(layout.svgWidth));
+            overlapMask.setAttribute("height", String(layout.svgHeight));
 
-        const base = document.createElementNS(ns, "rect");
-        base.setAttribute("x", "0");
-        base.setAttribute("y", "0");
-        base.setAttribute("width", String(layout.svgWidth));
-        base.setAttribute("height", String(layout.svgHeight));
-        base.setAttribute("fill", "black");
-        overlapMask.append(base);
+            const base = document.createElementNS(ns, "rect");
+            base.setAttribute("x", "0");
+            base.setAttribute("y", "0");
+            base.setAttribute("width", String(layout.svgWidth));
+            base.setAttribute("height", String(layout.svgHeight));
+            base.setAttribute("fill", "black");
+            overlapMask.append(base);
 
-        for (const purpleLine of getPurpleLineData(layout)) {
-          const maskLine = document.createElementNS(ns, "line");
-          maskLine.setAttribute("x1", String(purpleLine.x1));
-          maskLine.setAttribute("y1", String(purpleLine.y1));
-          maskLine.setAttribute("x2", String(purpleLine.x2));
-          maskLine.setAttribute("y2", String(purpleLine.y2));
-          maskLine.setAttribute("stroke", "white");
-          maskLine.setAttribute("stroke-width", String(purpleLine.strokeWidth));
-          maskLine.setAttribute("stroke-linecap", "butt");
-          overlapMask.append(maskLine);
-        }
+            for (const purpleLine of getPurpleLineData(layout)) {
+                const maskLine = document.createElementNS(ns, "line");
+                maskLine.setAttribute("x1", String(purpleLine.x1));
+                maskLine.setAttribute("y1", String(purpleLine.y1));
+                maskLine.setAttribute("x2", String(purpleLine.x2));
+                maskLine.setAttribute("y2", String(purpleLine.y2));
+                maskLine.setAttribute("stroke", "white");
+                maskLine.setAttribute("stroke-width", String(purpleLine.strokeWidth));
+                maskLine.setAttribute("stroke-linecap", "butt");
+                overlapMask.append(maskLine);
+            }
 
-        defs.append(overlapMask);
-        svg.append(defs);
-      };
+            defs.append(overlapMask);
+            svg.append(defs);
+        };
 
-      const addHorizontalFadeMask = (svg, layout, maskId) => {
-        const defs = document.createElementNS(ns, "defs");
-        const gradient = document.createElementNS(ns, "linearGradient");
-        gradient.setAttribute("id", `${maskId}-gradient`);
-        gradient.setAttribute("gradientUnits", "userSpaceOnUse");
-        gradient.setAttribute("x1", String(layout.middleThirdStartX));
-        gradient.setAttribute("y1", "0");
-        gradient.setAttribute("x2", String(layout.svgWidth));
-        gradient.setAttribute("y2", "0");
+        const hashSeed = (value) => {
+            let hash = 2166136261;
+            const text = String(value);
 
-        const fadeStops = [
-          { offset: "0%", color: "white" },
-          { offset: "18%", color: "black" },
-          { offset: "100%", color: "black" },
-        ];
+            for (let index = 0; index < text.length; index += 1) {
+                hash ^= text.charCodeAt(index);
+                hash = Math.imul(hash, 16777619);
+            }
 
-        for (const stopDef of fadeStops) {
-          const stop = document.createElementNS(ns, "stop");
-          stop.setAttribute("offset", stopDef.offset);
-          stop.setAttribute("stop-color", stopDef.color);
-          gradient.append(stop);
-        }
+            return hash >>> 0;
+        };
 
-        const mask = document.createElementNS(ns, "mask");
-        mask.setAttribute("id", maskId);
-        mask.setAttribute("maskUnits", "userSpaceOnUse");
-        mask.setAttribute("x", "0");
-        mask.setAttribute("y", "0");
-        mask.setAttribute("width", String(layout.svgWidth));
-        mask.setAttribute("height", String(layout.svgHeight));
+        const createSeededRandom = (seedValue) => {
+            let state = hashSeed(seedValue) || 1;
 
-        const fadeRect = document.createElementNS(ns, "rect");
-        fadeRect.setAttribute("x", "0");
-        fadeRect.setAttribute("y", "0");
-        fadeRect.setAttribute("width", String(layout.svgWidth));
-        fadeRect.setAttribute("height", String(layout.svgHeight));
-        fadeRect.setAttribute("fill", `url(#${maskId}-gradient)`);
-        mask.append(fadeRect);
+            return () => {
+                state = (state + 0x6d2b79f5) | 0;
+                let value = Math.imul(state ^ (state >>> 15), 1 | state);
+                value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+                return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+            };
+        };
 
-        defs.append(gradient);
-        defs.append(mask);
-        svg.append(defs);
-      };
+        const addOffsetSpecklePattern = (defs, patternId, layout, options = {}) => {
+            const maskInset = 12;
+            const patternControls = {
+                seed: options.seed ?? `${patternId}-seed`,
+                density: options.density ?? 0.42,
+                minDotRadius: options.minDotRadius ?? 0.55,
+                maxDotRadius: options.maxDotRadius ?? 1.85,
+                cellSize: options.cellSize ?? 8,
+                rightBiasPower: options.rightBiasPower ?? 1.6,
+                overlap: options.overlap ?? 0,
+            };
+            const activeStartX = Math.max(0, layout.middleThirdStartX - maskInset - patternControls.overlap);
+            const activeEndX = Math.min(layout.svgWidth, layout.rightThirdStartX + maskInset + patternControls.overlap);
+            const activeWidth = Math.max(1, activeEndX - activeStartX);
+            const random = createSeededRandom(patternControls.seed);
 
-      const buildOrangePathDefault = (layout) => {
-        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) / 2;
-        return [
-          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
-          `C ${layout.rightThirdStartX - layout.bottomBandHeight} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight / 2} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
-          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
-        ].join(" ");
-      };
+            const pattern = document.createElementNS(ns, "pattern");
+            pattern.setAttribute("id", patternId);
+            pattern.setAttribute("patternUnits", "userSpaceOnUse");
+            pattern.setAttribute("width", String(layout.svgWidth));
+            pattern.setAttribute("height", String(layout.svgHeight));
 
-      const buildOrangePathWideCurve = (layout) => {
-        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.25;
-        return [
-          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
-          `C ${layout.rightThirdStartX - layout.bottomBandHeight * 1.1} ${layout.bottomBandCenterY}, ${layout.middleThirdStartX + layout.bottomBandHeight} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
-          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
-        ].join(" ");
-      };
+            const background = document.createElementNS(ns, "rect");
+            background.setAttribute("x", "0");
+            background.setAttribute("y", "0");
+            background.setAttribute("width", String(layout.svgWidth));
+            background.setAttribute("height", String(layout.svgHeight));
+            background.setAttribute("fill", "white");
+            pattern.append(background);
 
-      const buildOrangePathTightCurve = (layout) => {
-        const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.65;
-        return [
-          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
-          `C ${layout.rightThirdStartX - layout.bottomBandHeight * 0.8} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight * 0.35} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
-          `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
-        ].join(" ");
-      };
+            const activeRegion = document.createElementNS(ns, "rect");
+            activeRegion.setAttribute("x", String(activeStartX));
+            activeRegion.setAttribute("y", "0");
+            activeRegion.setAttribute("width", String(activeWidth));
+            activeRegion.setAttribute("height", String(layout.svgHeight));
+            activeRegion.setAttribute("fill", "black");
+            pattern.append(activeRegion);
 
-      const buildOrangePathRightAngleCover = (layout) => {
-        const upperMiddleBandY = layout.middleBandCenterY - layout.middleBandHeight / 2;
-        const turnRadius = layout.bottomBandCenterY - upperMiddleBandY;
-        const turnStartX = layout.middleThirdStartX + turnRadius;
-        return [
-          `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
-          `L ${turnStartX} ${layout.bottomBandCenterY}`,
-          `A ${turnRadius} ${turnRadius} 0 0 1 ${layout.middleThirdStartX} ${upperMiddleBandY}`,
-          `L ${layout.middleThirdStartX} ${upperMiddleBandY}`,
-        ].join(" ");
-      };
+            // Controls live here: density, seed, dot size, and cell size.
+            const columnCount = Math.max(1, Math.ceil(activeWidth / patternControls.cellSize));
+            const rowCount = Math.max(1, Math.ceil(layout.svgHeight / patternControls.cellSize));
 
-      const renderVariant = ({ mount, title, purplePct, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false }) => {
-        const layout = getLayoutData({ svgWidth: 300, svgHeight: 100, purplePct, maskBleed: 1 });
-        const svg = document.createElementNS(ns, "svg");
-        svg.setAttribute("viewBox", `0 0 ${layout.svgWidth} ${layout.svgHeight}`);
-        svg.setAttribute("width", String(layout.svgWidth));
-        svg.setAttribute("height", String(layout.svgHeight));
-        svg.setAttribute("aria-label", title);
+            for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+                const xRatio = columnCount > 1 ? columnIndex / (columnCount - 1) : 1;
+                const biasFactor = Math.pow(Math.max(0.08, xRatio), 1 / patternControls.rightBiasPower);
+                const weightedDensity = patternControls.density * biasFactor;
 
-        const section = document.createElement("div");
-        section.className = "variant-cell";
-        section.append(svg);
+                for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+                    if (random() > weightedDensity) {
+                        continue;
+                    }
 
-        const maskId = `purple-band-overlap-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
-        if (useMask || blendMode) {
-          addPurpleMask(svg, layout, maskId);
-        }
+                    const cx = activeStartX + columnIndex * patternControls.cellSize + random() * patternControls.cellSize;
+                    const cy = rowIndex * patternControls.cellSize + random() * patternControls.cellSize;
+                    const radius =
+                        patternControls.minDotRadius +
+                        random() * (patternControls.maxDotRadius - patternControls.minDotRadius) * biasFactor;
 
-        const fadeMaskId = `blend-fade-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
-        if (fadeBlendEnds) {
-          addHorizontalFadeMask(svg, layout, fadeMaskId);
-        }
+                    const circle = document.createElementNS(ns, "circle");
+                    circle.setAttribute("cx", String(cx));
+                    circle.setAttribute("cy", String(cy));
+                    circle.setAttribute("r", String(radius));
+                    circle.setAttribute("fill", "white");
+                    pattern.append(circle);
+                }
+            }
 
-        const orangeCurvePath = curveBuilder(layout);
+            defs.append(pattern);
+        };
 
-        for (const purpleLine of getPurpleLineData(layout)) {
-          addLine(svg, purpleLine.x1, purpleLine.y1, purpleLine.x2, purpleLine.y2, "#a855f7", purpleLine.strokeWidth);
-        }
-        addLine(
-          svg,
-          layout.rightThirdStartX,
-          layout.bottomBandCenterY,
-          layout.svgWidth,
-          layout.bottomBandCenterY,
-          "#f97316",
-          layout.bottomBandHeight,
-        );
-        addPath(svg, orangeCurvePath, "#f97316", layout.bottomBandHeight);
+        const addGrayGeometryOpacityMask = (svg, layout, maskId, options = {}) => {
+            const defs = document.createElementNS(ns, "defs");
+            const patternId = `${maskId}-speckle`;
+            addOffsetSpecklePattern(defs, patternId, layout, options.patternControls);
+            const geometryOverlap = {
+                strokeBleed: options.geometryOverlap?.strokeBleed ?? 0,
+                endpointBleed: options.geometryOverlap?.endpointBleed ?? 0,
+            };
 
-        if (blendMode) {
-          const blendGroup = document.createElementNS(ns, "g");
-          blendGroup.setAttribute("mask", `url(#${maskId})`);
-          blendGroup.style.isolation = "isolate";
-          svg.append(blendGroup);
+            const mask = document.createElementNS(ns, "mask");
+            mask.setAttribute("id", maskId);
+            mask.setAttribute("maskUnits", "userSpaceOnUse");
+            mask.setAttribute("x", "0");
+            mask.setAttribute("y", "0");
+            mask.setAttribute("width", String(layout.svgWidth));
+            mask.setAttribute("height", String(layout.svgHeight));
 
-          for (const purpleLine of getPurpleLineData(layout)) {
+            const base = document.createElementNS(ns, "rect");
+            base.setAttribute("x", "0");
+            base.setAttribute("y", "0");
+            base.setAttribute("width", String(layout.svgWidth));
+            base.setAttribute("height", String(layout.svgHeight));
+            base.setAttribute("fill", "white");
+            mask.append(base);
+
+            for (const lineData of options.lineData ?? []) {
+                const deltaX = lineData.x2 - lineData.x1;
+                const deltaY = lineData.y2 - lineData.y1;
+                const lineLength = Math.hypot(deltaX, deltaY) || 1;
+                const extendX = (deltaX / lineLength) * geometryOverlap.endpointBleed;
+                const extendY = (deltaY / lineLength) * geometryOverlap.endpointBleed;
+                const maskLine = document.createElementNS(ns, "line");
+                maskLine.setAttribute("x1", String(lineData.x1 - extendX));
+                maskLine.setAttribute("y1", String(lineData.y1 - extendY));
+                maskLine.setAttribute("x2", String(lineData.x2 + extendX));
+                maskLine.setAttribute("y2", String(lineData.y2 + extendY));
+                maskLine.setAttribute("stroke", `url(#${patternId})`);
+                maskLine.setAttribute("stroke-width", String(lineData.strokeWidth + geometryOverlap.strokeBleed * 2));
+                maskLine.setAttribute("stroke-linecap", "square");
+                mask.append(maskLine);
+            }
+
+            for (const pathData of options.pathData ?? []) {
+                const maskPath = document.createElementNS(ns, "path");
+                maskPath.setAttribute("d", pathData.d);
+                maskPath.setAttribute("fill", "none");
+                maskPath.setAttribute("stroke", `url(#${patternId})`);
+                maskPath.setAttribute("stroke-width", String(pathData.strokeWidth + geometryOverlap.strokeBleed * 2));
+                maskPath.setAttribute("stroke-linecap", "round");
+                maskPath.setAttribute("stroke-linejoin", "round");
+                mask.append(maskPath);
+            }
+
+            defs.append(mask);
+            svg.append(defs);
+        };
+
+        const addHorizontalFadeMask = (svg, layout, maskId) => {
+            const defs = document.createElementNS(ns, "defs");
+            const gradient = document.createElementNS(ns, "linearGradient");
+            gradient.setAttribute("id", `${maskId}-gradient`);
+            gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+            gradient.setAttribute("x1", String(layout.middleThirdStartX));
+            gradient.setAttribute("y1", "0");
+            gradient.setAttribute("x2", String(layout.svgWidth));
+            gradient.setAttribute("y2", "0");
+
+            const fadeStops = [
+                { offset: "0%", color: "white" },
+                { offset: "18%", color: "black" },
+                { offset: "100%", color: "black" },
+            ];
+
+            for (const stopDef of fadeStops) {
+                const stop = document.createElementNS(ns, "stop");
+                stop.setAttribute("offset", stopDef.offset);
+                stop.setAttribute("stop-color", stopDef.color);
+                gradient.append(stop);
+            }
+
+            const mask = document.createElementNS(ns, "mask");
+            mask.setAttribute("id", maskId);
+            mask.setAttribute("maskUnits", "userSpaceOnUse");
+            mask.setAttribute("x", "0");
+            mask.setAttribute("y", "0");
+            mask.setAttribute("width", String(layout.svgWidth));
+            mask.setAttribute("height", String(layout.svgHeight));
+
+            const fadeRect = document.createElementNS(ns, "rect");
+            fadeRect.setAttribute("x", "0");
+            fadeRect.setAttribute("y", "0");
+            fadeRect.setAttribute("width", String(layout.svgWidth));
+            fadeRect.setAttribute("height", String(layout.svgHeight));
+            fadeRect.setAttribute("fill", `url(#${maskId}-gradient)`);
+            mask.append(fadeRect);
+
+            defs.append(gradient);
+            defs.append(mask);
+            svg.append(defs);
+        };
+
+        const buildOrangePathDefault = (layout) => {
+            const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) / 2;
+            return [
+                `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+                `C ${layout.rightThirdStartX - layout.bottomBandHeight} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight / 2} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+                `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+            ].join(" ");
+        };
+
+        const buildOrangePathWideCurve = (layout) => {
+            const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.25;
+            return [
+                `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+                `C ${layout.rightThirdStartX - layout.bottomBandHeight * 1.1} ${layout.bottomBandCenterY}, ${layout.middleThirdStartX + layout.bottomBandHeight} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+                `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+            ].join(" ");
+        };
+
+        const buildOrangePathTightCurve = (layout) => {
+            const orangeCurveEndX = layout.middleThirdStartX + (layout.rightThirdStartX - layout.middleThirdStartX) * 0.65;
+            return [
+                `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+                `C ${layout.rightThirdStartX - layout.bottomBandHeight * 0.8} ${layout.bottomBandCenterY}, ${orangeCurveEndX + layout.bottomBandHeight * 0.35} ${layout.middleBandCenterY}, ${orangeCurveEndX} ${layout.middleBandCenterY}`,
+                `L ${layout.middleThirdStartX} ${layout.middleBandCenterY}`,
+            ].join(" ");
+        };
+
+        const buildOrangePathRightAngleCover = (layout) => {
+            const upperMiddleBandY = layout.middleBandCenterY - layout.middleBandHeight / 2;
+            const turnRadius = layout.bottomBandCenterY - upperMiddleBandY;
+            const turnStartX = layout.middleThirdStartX + turnRadius;
+            return [
+                `M ${layout.rightThirdStartX} ${layout.bottomBandCenterY}`,
+                `L ${turnStartX} ${layout.bottomBandCenterY}`,
+                `A ${turnRadius} ${turnRadius} 0 0 1 ${layout.middleThirdStartX} ${upperMiddleBandY}`,
+                `L ${layout.middleThirdStartX} ${upperMiddleBandY}`,
+            ].join(" ");
+        };
+
+        const renderVariant = ({ mount, title, purplePct, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false, purpleMaskMode = null }) => {
+            const layout = getLayoutData({ svgWidth: 300, svgHeight: 100, purplePct, maskBleed: 1 });
+            const svg = document.createElementNS(ns, "svg");
+            svg.setAttribute("viewBox", `0 0 ${layout.svgWidth} ${layout.svgHeight}`);
+            svg.setAttribute("width", String(layout.svgWidth));
+            svg.setAttribute("height", String(layout.svgHeight));
+            svg.setAttribute("aria-label", title);
+
+            const section = document.createElement("div");
+            section.className = "variant-cell";
+            section.append(svg);
+
+            const maskId = `purple-band-overlap-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+            if (useMask || blendMode) {
+                addPurpleMask(svg, layout, maskId);
+            }
+
+            const fadeMaskId = `blend-fade-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+            if (fadeBlendEnds) {
+                addHorizontalFadeMask(svg, layout, fadeMaskId);
+            }
+
+            const orangeCurvePath = curveBuilder(layout);
+
+            const purpleDisplayMaskId = `purple-display-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+            const orangeDisplayMaskId = `orange-display-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.round(purplePct * 100)}`;
+            if (purpleMaskMode === "mutual-gray") {
+                addGrayGeometryOpacityMask(svg, layout, purpleDisplayMaskId, {
+                    lineData: [
+                        {
+                            x1: layout.rightThirdStartX,
+                            y1: layout.bottomBandCenterY,
+                            x2: layout.svgWidth,
+                            y2: layout.bottomBandCenterY,
+                            strokeWidth: layout.bottomBandHeight,
+                        },
+                    ],
+                    pathData: [{ d: orangeCurvePath, strokeWidth: layout.bottomBandHeight }],
+                    patternControls: {
+                        seed: "orange-over-purple",
+                        ...SpeckleSeed,
+                    },
+                    geometryOverlap: MaskGeometryOverlap,
+                });
+                addGrayGeometryOpacityMask(svg, layout, orangeDisplayMaskId, {
+                    lineData: getPurpleLineData(layout),
+                    patternControls: {
+                        seed: "purple-over-orange",
+                        ...SpeckleSeed,
+                    },
+                    geometryOverlap: MaskGeometryOverlap,
+                });
+            }
+
+            for (const purpleLine of getPurpleLineData(layout)) {
+                addLine(
+                    svg,
+                    purpleLine.x1,
+                    purpleLine.y1,
+                    purpleLine.x2,
+                    purpleLine.y2,
+                    "#a855f7",
+                    purpleLine.strokeWidth,
+                    purpleMaskMode === "mutual-gray" ? purpleDisplayMaskId : undefined,
+                );
+            }
             addLine(
-              blendGroup,
-              purpleLine.x1,
-              purpleLine.y1,
-              purpleLine.x2,
-              purpleLine.y2,
-              "#a855f7",
-              purpleLine.strokeWidth,
+                svg,
+                layout.rightThirdStartX,
+                layout.bottomBandCenterY,
+                layout.svgWidth,
+                layout.bottomBandCenterY,
+                "#f97316",
+                layout.bottomBandHeight,
+                purpleMaskMode === "mutual-gray" ? orangeDisplayMaskId : undefined,
             );
-          }
+            addPath(svg, orangeCurvePath, "#f97316", layout.bottomBandHeight, {
+                maskId: purpleMaskMode === "mutual-gray" ? orangeDisplayMaskId : undefined,
+            });
 
-          addLine(
-            blendGroup,
-            layout.rightThirdStartX,
-            layout.bottomBandCenterY,
-            layout.svgWidth,
-            layout.bottomBandCenterY,
-            "#f97316",
-            layout.bottomBandHeight,
-          ).style.mixBlendMode = blendMode;
+            if (blendMode) {
+                const blendGroup = document.createElementNS(ns, "g");
+                blendGroup.setAttribute("mask", `url(#${maskId})`);
+                svg.append(blendGroup);
 
-          addPath(blendGroup, orangeCurvePath, "#f97316", layout.bottomBandHeight, {
-            blendMode,
-          });
-        }
+                const blendContentGroup = document.createElementNS(ns, "g");
+                blendContentGroup.style.isolation = "isolate";
+                blendGroup.append(blendContentGroup);
 
-        if (fadeBlendEnds && !blendMode) {
-          addLine(
-            svg,
-            layout.rightThirdStartX,
-            layout.bottomBandCenterY,
-            layout.svgWidth,
-            layout.bottomBandCenterY,
-            "#000",
-            layout.bottomBandHeight,
-            fadeMaskId,
-          );
-          addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId: fadeMaskId });
-        }
+                for (const purpleLine of getPurpleLineData(layout)) {
+                    addLine(
+                        blendContentGroup,
+                        purpleLine.x1,
+                        purpleLine.y1,
+                        purpleLine.x2,
+                        purpleLine.y2,
+                        "#a855f7",
+                        purpleLine.strokeWidth,
+                    );
+                }
 
-        if (useMask) {
-          addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId });
-        }
+                addLine(
+                    blendContentGroup,
+                    layout.rightThirdStartX,
+                    layout.bottomBandCenterY,
+                    layout.svgWidth,
+                    layout.bottomBandCenterY,
+                    "#f97316",
+                    layout.bottomBandHeight,
+                ).style.mixBlendMode = blendMode;
 
-        mount.append(section);
-      };
+                addPath(blendContentGroup, orangeCurvePath, "#f97316", layout.bottomBandHeight, {
+                    blendMode,
+                });
+            }
 
-      const renderVariantRow = ({ mount, title, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false, purplePcts }) => {
-        const row = document.createElement("section");
-        row.className = "variant-row";
+            if (fadeBlendEnds) {
+                addLine(
+                    svg,
+                    layout.rightThirdStartX,
+                    layout.bottomBandCenterY,
+                    layout.svgWidth,
+                    layout.bottomBandCenterY,
+                    "#000",
+                    layout.bottomBandHeight,
+                    fadeMaskId,
+                );
+                addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId: fadeMaskId });
+            }
 
-        const grid = document.createElement("div");
-        grid.className = "variant-grid";
-        row.append(grid);
+            if (useMask) {
+                addPath(svg, orangeCurvePath, "#000", layout.bottomBandHeight, { maskId });
+            }
 
-        for (const purplePct of purplePcts) {
-          renderVariant({
-            mount: grid,
-            title,
-            purplePct,
-            curveBuilder,
-            useMask,
-            blendMode,
-            fadeBlendEnds,
-          });
-        }
+            mount.append(section);
+        };
 
-        mount.append(row);
-      };
+        const renderVariantRow = ({ mount, title, curveBuilder, useMask = false, blendMode = null, fadeBlendEnds = false, purpleMaskMode = null, purplePcts }) => {
+            const row = document.createElement("section");
+            row.className = "variant-row";
 
-      const app = document.getElementById("app");
-      const purplePcts = [0.6, 0.75, 0.9];
+            const grid = document.createElement("div");
+            grid.className = "variant-grid";
+            row.append(grid);
 
-      renderVariantRow({
-        mount: app,
-        title: "Masked Base",
-        curveBuilder: buildOrangePathDefault,
-        useMask: true,
-        purplePcts,
-      });
+            for (const purplePct of purplePcts) {
+                renderVariant({
+                    mount: grid,
+                    title,
+                    purplePct,
+                    curveBuilder,
+                    useMask,
+                    blendMode,
+                    fadeBlendEnds,
+                    purpleMaskMode,
+                });
+            }
 
-      renderVariantRow({
-        mount: app,
-        title: "Blend Wide Curve",
-        curveBuilder: buildOrangePathWideCurve,
-        blendMode: "screen",
-        fadeBlendEnds: true,
-        purplePcts,
-      });
+            mount.append(row);
+        };
 
-      renderVariantRow({
-        mount: app,
-        title: "Blend Tight Curve",
-        curveBuilder: buildOrangePathTightCurve,
-        blendMode: "darken",
-        fadeBlendEnds: true,
-        purplePcts,
-      });
+        const app = document.getElementById("app");
+        const purplePcts = [0.6, 0.75, 0.9];
 
-      renderVariantRow({
-        mount: app,
-        title: "Hard Turn Cover",
-        curveBuilder: buildOrangePathRightAngleCover,
-        purplePcts,
-      });
+        renderVariantRow({
+            mount: app,
+            title: "Masked Base",
+            curveBuilder: buildOrangePathDefault,
+            useMask: true,
+            purplePcts,
+        });
+
+        renderVariantRow({
+            mount: app,
+            title: "Blend Wide Curve",
+            curveBuilder: buildOrangePathWideCurve,
+            blendMode: "screen",
+            fadeBlendEnds: true,
+            purplePcts,
+        });
+
+        renderVariantRow({
+            mount: app,
+            title: "Blend Tight Curve",
+            curveBuilder: buildOrangePathTightCurve,
+            blendMode: "darken",
+            fadeBlendEnds: true,
+            purplePcts,
+        });
+
+        renderVariantRow({
+            mount: app,
+            title: "Hard Turn Cover",
+            curveBuilder: buildOrangePathRightAngleCover,
+            purplePcts,
+        });
+
+        renderVariantRow({
+            mount: app,
+            title: "Mutual Gray Masks",
+            curveBuilder: buildOrangePathDefault,
+            purpleMaskMode: "mutual-gray",
+            purplePcts,
+        });
     </script>
-  </body>
+</body>
+
 </html>
