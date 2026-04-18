@@ -7,6 +7,7 @@ const softwareDir = resolve(import.meta.dirname, "../..");
 const videosDir = resolve(softwareDir, "videos");
 const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
 const studioUrl = `http://localhost:${studioPort}`;
+const ansiEscapePattern = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
 type CommandRunResult = {
   output: string;
@@ -34,6 +35,10 @@ type CommandReporter = {
 export async function runCommand(request: { command: string }, reporter: CommandReporter) {
   reporter.report(`Received command ${request.command}.`);
 
+  if (request.command === "typecheck-software") {
+    return typecheckSoftware(reporter);
+  }
+
   if (request.command === "build-website") {
     return buildWebsite(reporter);
   }
@@ -59,6 +64,19 @@ export async function runCommand(request: { command: string }, reporter: Command
   }
 
   reporter.report(`Unknown command: ${request.command}`, "error");
+}
+
+async function typecheckSoftware(reporter: CommandReporter) {
+  reporter.report(`Running workspace typecheck from ${softwareDir}.`);
+  const result = await spawnCommand({
+    command: "vp run typecheck",
+    cwd: softwareDir,
+    onOutput: (chunk) => {
+      reporter.report(chunk);
+      process.stdout.write(chunk);
+    },
+  });
+  reporter.report(`Workspace typecheck finished with status ${result.status}.`, "complete");
 }
 
 async function buildWebsite(reporter: CommandReporter) {
@@ -133,6 +151,10 @@ async function checkCommandCenterServer(reporter: CommandReporter) {
   reporter.report("Command Center server is running.", "complete");
 }
 
+function stripAnsiFormatting(value: string) {
+  return value.replaceAll(ansiEscapePattern, "");
+}
+
 function spawnCommand(options: SpawnCommandOptions): Promise<CommandRunResult> {
   return new Promise((resolveCommand, reject) => {
     const usesShellCommandString = options.args === undefined;
@@ -165,13 +187,13 @@ function spawnCommand(options: SpawnCommandOptions): Promise<CommandRunResult> {
     child.stdout?.on("data", (chunk) => {
       const text = chunk.toString();
       output += text;
-      options.onOutput?.(text);
+      options.onOutput?.(stripAnsiFormatting(text));
     });
 
     child.stderr?.on("data", (chunk) => {
       const text = chunk.toString();
       output += text;
-      options.onOutput?.(text);
+      options.onOutput?.(stripAnsiFormatting(text));
     });
 
     const childEvents = child as unknown as EventEmitter;
