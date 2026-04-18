@@ -1,7 +1,7 @@
-import type { PathGeometry } from "../../../../components/src/index";
+import type { PathGeometryCommand } from "../../../../components/src/index";
 
 export function pathGeometryCommandsToSvgPathData(
-	commands: PathGeometry["commands"],
+	commands: PathGeometryCommand[],
 ): string {
 	return commands
 		.map((command) => {
@@ -16,8 +16,6 @@ export function pathGeometryCommandsToSvgPathData(
 			if (command.kind === "arc") {
 				return `A ${command.rx} ${command.ry} ${command.xAxisRotation} ${command.largeArc ? 1 : 0} ${command.sweep ? 1 : 0} ${command.x} ${command.y}`;
 			}
-
-			return "Z";
 		})
 		.join(" ");
 }

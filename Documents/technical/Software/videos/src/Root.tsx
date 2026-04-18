@@ -28,7 +28,7 @@ export const RemotionRoot = () => {
 				fps={30}
 				height={1080}
 				schema={pathGeometryVisualizerSchema}
-				defaultProps={{"fluidAnchor":"bottom" as const,"fluidEndFillPercent":0,"fluidProgressPercent":59,"fluidStartFillPercent":80,"pipeEndWidth":100,"pipeProgressPercent":86,"pipeStartWidth":100,"waypoints":[{"x":1600,"y":360},{"x":1120,"y":360,"radius":120},{"x":700,"y":780,"radius":120},{"x":260,"y":780}]}}
+				defaultProps={{"fluidAnchor":"bottom" as const,"fluidEndFillPercent":12,"fluidRevealPercent":59,"fluidStartFillPercent":80,"pipeEndWidth":100,"pipeRevealPercent":86,"pipeStartWidth":100,"transitionStartPercent":86,"waypoints":[{"x":1600,"y":360},{"x":1120,"y":360,"radius":120},{"x":700,"y":780,"radius":120},{"x":260,"y":780}]}}
 				width={1920}
 			/>
 		</>

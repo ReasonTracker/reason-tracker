@@ -31,6 +31,14 @@ const MAX_ARC_SAMPLE_ANGLE_RADIANS = Math.PI / 12;
  */
 const OFFSET_ARC_EPSILON = 1e-4;
 
+/**
+ * Size of the width-handoff window, expressed as a percentage of the full path length.
+ *
+ * The start band is held until the transition start percent, then the offsets hand off to the
+ * end band over this short span.
+ */
+const BAND_TRANSITION_SPAN_PERCENT = 4;
+
 //#region Geometry primitives
 
 /** 2D point in world coordinates. */
@@ -64,7 +72,7 @@ export interface Waypoint extends Point {
 /**
  * Offset band definition at a specific point along the path.
  *
- * Offsets are measured perpendicular to the centerline direction.
+ * Offsets are measured perpendicular to the reference path direction.
  *
  * Convention:
  * - negative = left side of path
@@ -72,7 +80,7 @@ export interface Waypoint extends Point {
  */
 export interface OffsetBand {
 	/**
-	 * Inner boundary offset from centerline.
+	 * Inner boundary offset from the reference path.
 	 *
 	 * Example:
 	 * - -5 means 5 units to the left
@@ -81,21 +89,12 @@ export interface OffsetBand {
 	innerOffset: number;
 
 	/**
-	 * Outer boundary offset from centerline.
+	 * Outer boundary offset from the reference path.
 	 *
 	 * Must be >= innerOffset.
 	 */
 	outerOffset: number;
 }
-
-/**
- * Band profile across the path.
- *
- * Allows the band to change over distance (taper, shift, etc).
- *
- * `t` is normalized distance along the path, from 0 at the start to 1 at the end.
- */
-export type BandProfile = (t: number) => OffsetBand;
 
 //#endregion
 
@@ -106,34 +105,38 @@ export type BandProfile = (t: number) => OffsetBand;
  */
 export interface PathGeometryInput {
 	/**
-	 * Centerline path.
+	 * Reference path.
 	 *
 	 * Must contain at least two ordered waypoints.
 	 */
 	points: Waypoint[];
 
 	/**
-	 * Defines how the band is positioned relative to the centerline.
-	 *
-	 * This replaces "side" and "width" concepts.
-	 *
-	 * Examples:
-	 * - centered pipe: [-w/2, +w/2]
-	 * - fluid on one side: [4, 5]
-	 * - multi-fluid segments: different ranges
+	 * Band used from path start until the width transition begins.
 	 */
-	band: BandProfile;
+	startBand: OffsetBand;
 
 	/**
-	 * Progress along path (for animation).
+	 * Band used after the width transition finishes.
 	 *
-	 * Range:
-	 * - 0 = nothing
-	 * - 1 = full path
-	 *
-	 * Geometry should be truncated accordingly.
+	 * If omitted, the full path uses `startBand`.
 	 */
-	progress: number;
+	endBand?: OffsetBand;
+
+	/**
+	 * Path distance, expressed as 0 to 100, where the band begins changing from `startBand`
+	 * toward `endBand`.
+	 *
+	 * The handoff uses a short built-in transition span instead of changing across the full path.
+	 */
+	transitionStartPercent?: number;
+
+	/**
+	 * Reveal amount, expressed as 0 to 100 of the path length.
+	 *
+	 * This truncates the produced geometry. It does not control where width changes begin.
+	 */
+	revealPercent: number;
 }
 
 //#endregion
@@ -144,6 +147,7 @@ export interface PathGeometryInput {
  * Structured path commands (SVG-compatible).
  *
  * These map directly to SVG path instructions, but are explicit and typed.
+ * The commands in this file describe open path boundaries.
  */
 export type PathGeometryCommand =
 	| { kind: "moveTo"; x: number; y: number }
@@ -157,13 +161,13 @@ export type PathGeometryCommand =
 			sweep: boolean;
 			x: number;
 			y: number;
-	  }
-	| { kind: "closePath" };
+	  };
 
 /** Supported diagnostic codes emitted while building path geometry. */
 export type PathGeometryIssueCode =
 	| "insufficient-points"
-	| "progress-out-of-range"
+	| "reveal-out-of-range"
+	| "transition-start-out-of-range"
 	| "degenerate-segment"
 	| "invalid-band"
 	| "radius-clamped"
@@ -191,11 +195,14 @@ export interface PathGeometryIssue {
 /**
  * Output geometry.
  *
- * Represents a closed shape that can be filled by a renderer.
+ * The band is represented as two open boundary paths.
  */
 export interface PathGeometry {
-	/** Closed shape commands in renderer-agnostic path order. */
-	commands: PathGeometryCommand[];
+	/** Open commands describing the outer boundary of the band. */
+	outerPathCommands: PathGeometryCommand[];
+
+	/** Open commands describing the inner boundary of the band. */
+	innerPathCommands: PathGeometryCommand[];
 
 	/** Diagnostics describing clamped, ignored, or invalid geometry conditions. */
 	issues: PathGeometryIssue[];
@@ -251,39 +258,23 @@ interface ArcBoundarySegment {
 
 type BoundarySegment = LineBoundarySegment | ArcBoundarySegment;
 
-interface SamplePoint extends Point {
-	distance: number;
-}
-
 /**
- * Build path geometry for a band along a centerline.
+ * Build path geometry for a band along a reference path.
  *
- * The implementation must:
- * - walk the centerline path
- * - compute normals at each segment
- * - offset points using band profile
- * - construct left and right boundaries
- * - join boundaries correctly (line or arc)
- * - close the shape
+ * The implementation:
+ * - walks the reference path
+ * - computes normals at each segment
+ * - resolves the active band from `startBand`, `endBand`, and `transitionStartPercent`
+ * - constructs open inner and outer boundaries
+ * - preserves arc joins where possible
  *
- * Output must represent a valid closed path.
- *
- * This function does NOT:
- * - render anything
- * - validate layout correctness
- *
- * @param input Builder inputs for the centerline path, band profile, and reveal progress.
- * The builder should prefer returning geometry plus diagnostics over failing silently.
- * Clamped radii and adjusted progress should surface as warnings.
- * Invalid or collapsed geometry should surface as errors.
- *
- * @returns Closed path geometry commands plus diagnostics for the currently revealed portion of the path.
+ * The builder returns open boundaries. It does not add closure behavior.
  */
 export function buildPathGeometry(
 	input: PathGeometryInput,
 ): PathGeometry {
 	const issues: PathGeometryIssue[] = [];
-	const progress = clampProgress(input.progress, issues);
+	const revealFraction = clampRevealPercent(input.revealPercent, issues);
 	const points = removeDegenerateWaypoints(input.points, issues);
 
 	if (points.length < 2) {
@@ -293,7 +284,24 @@ export function buildPathGeometry(
 			severity: "error",
 		});
 
-		return { commands: [], issues };
+		return { innerPathCommands: [], outerPathCommands: [], issues };
+	}
+
+	const startBand = input.startBand;
+	const endBand = input.endBand ?? input.startBand;
+	const transitionStartFraction = clampTransitionStartPercent(
+		input.transitionStartPercent ?? 100,
+		issues,
+	);
+
+	if (startBand.outerOffset < startBand.innerOffset || endBand.outerOffset < endBand.innerOffset) {
+		issues.push({
+			code: "invalid-band",
+			message: "Band offsets must keep outerOffset greater than or equal to innerOffset.",
+			severity: "error",
+		});
+
+		return { innerPathCommands: [], outerPathCommands: [], issues };
 	}
 
 	const corners = buildFilletCorners(points, issues);
@@ -302,134 +310,121 @@ export function buildPathGeometry(
 	if (centerline.length === 0) {
 		issues.push({
 			code: "geometry-collapsed",
-			message: "Centerline collapsed before geometry could be constructed.",
+			message: "Reference path collapsed before geometry could be constructed.",
 			severity: "error",
 		});
 
-		return { commands: [], issues };
+		return { innerPathCommands: [], outerPathCommands: [], issues };
 	}
 
 	const totalLength = centerline.at(-1)?.endDistance ?? 0;
 
-	if (totalLength <= GEOMETRY_EPSILON || progress <= GEOMETRY_EPSILON) {
-		return { commands: [], issues };
+	if (totalLength <= GEOMETRY_EPSILON || revealFraction <= GEOMETRY_EPSILON) {
+		return { innerPathCommands: [], outerPathCommands: [], issues };
 	}
 
-	const revealedCenterline = clipCenterlinePartsByProgress(centerline, totalLength * progress);
+	const revealedCenterline = clipCenterlinePartsByReveal(centerline, totalLength * revealFraction);
 
 	if (revealedCenterline.length === 0) {
-		return { commands: [], issues };
+		return { innerPathCommands: [], outerPathCommands: [], issues };
 	}
 
 	const outerBoundary = buildBoundarySegments(
 		revealedCenterline,
 		totalLength,
-		input.band,
+		startBand,
+		endBand,
+		transitionStartFraction,
 		"outerOffset",
 		issues,
 	);
-	const hasOuterBandError = issues.some(
-		(issue) => issue.severity === "error" && issue.code === "invalid-band",
-	);
-
-	if (hasOuterBandError) {
-		return { commands: [], issues };
-	}
-
 	const innerBoundary = buildBoundarySegments(
 		revealedCenterline,
 		totalLength,
-		input.band,
+		startBand,
+		endBand,
+		transitionStartFraction,
 		"innerOffset",
 		issues,
 	);
-	const hasInnerBandError = issues.some(
-		(issue) => issue.severity === "error" && issue.code === "invalid-band",
-	);
-
-	if (hasInnerBandError) {
-		return { commands: [], issues };
-	}
 
 	if (outerBoundary.length === 0 || innerBoundary.length === 0) {
 		issues.push({
 			code: "geometry-collapsed",
-			message: "Offset geometry collapsed before a closed path could be constructed.",
+			message: "Offset geometry collapsed before open boundaries could be constructed.",
 			severity: "error",
 		});
 
-		return { commands: [], issues };
+		return { innerPathCommands: [], outerPathCommands: [], issues };
 	}
 
-	const commands = buildClosedPathCommands(outerBoundary, innerBoundary);
+	const outerPathCommands = buildBoundaryPathCommands(outerBoundary);
+	const innerPathCommands = buildBoundaryPathCommands(innerBoundary);
 
-	if (commands.length === 0) {
+	if (outerPathCommands.length === 0 || innerPathCommands.length === 0) {
 		issues.push({
 			code: "geometry-collapsed",
-			message: "No drawable path commands could be produced.",
+			message: "No drawable boundary commands could be produced.",
 			severity: "error",
 		});
 	}
 
-	return { commands, issues };
+	return {
+		innerPathCommands,
+		outerPathCommands,
+		issues,
+	};
 }
 
 function addPoints(a: Point, b: Point): Point {
 	return { x: a.x + b.x, y: a.y + b.y };
 }
 
-function buildBoundarySegments(
-	centerline: CenterlinePart[],
-	totalLength: number,
-	bandProfile: BandProfile,
-	offsetKey: keyof OffsetBand,
-	issues: PathGeometryIssue[],
-): BoundarySegment[] {
-	const boundary: BoundarySegment[] = [];
-
-	for (let partIndex = 0; partIndex < centerline.length; partIndex += 1) {
-		const part = centerline[partIndex];
-		const bandStart = readBandAtDistance(part.startDistance, totalLength, bandProfile, issues, partIndex);
-
-		if (!bandStart) {
-			return [];
-		}
-
-		const bandEnd = readBandAtDistance(part.endDistance, totalLength, bandProfile, issues, partIndex);
-
-		if (!bandEnd) {
-			return [];
-		}
-
-		const segments =
-			part.kind === "line"
-				? buildLineBoundarySegments(part, bandStart, bandEnd, offsetKey)
-				: buildArcBoundarySegments(part, totalLength, bandProfile, offsetKey, bandStart, bandEnd, issues, partIndex);
-
-		for (const segment of segments) {
-			appendBoundarySegment(boundary, segment);
-		}
+function appendBoundarySegment(segments: BoundarySegment[], segment: BoundarySegment): void {
+	if (segment.kind === "line" && pointsEqual(segment.start, segment.end)) {
+		return;
 	}
 
-	return boundary;
+	if (segment.kind === "arc" && (segment.radius <= GEOMETRY_EPSILON || pointsEqual(segment.start, segment.end))) {
+		return;
+	}
+
+	const previous = segments.at(-1);
+
+	if (!previous) {
+		segments.push(segment);
+		return;
+	}
+
+	if (!pointsEqual(previous.end, segment.start)) {
+		segments.push({ end: segment.start, kind: "line", start: previous.end });
+	}
+
+	segments.push(segment);
+}
+
+function appendPoint(points: Point[], point: Point): void {
+	const previous = points.at(-1);
+
+	if (!previous || !pointsEqual(previous, point)) {
+		points.push(clonePoint(point));
+	}
 }
 
 function buildArcBoundarySegments(
 	part: ArcCenterlinePart,
 	totalLength: number,
-	bandProfile: BandProfile,
+	startBand: OffsetBand,
+	endBand: OffsetBand,
+	transitionStartFraction: number,
 	offsetKey: keyof OffsetBand,
-	bandStart: OffsetBand,
-	bandEnd: OffsetBand,
 	issues: PathGeometryIssue[],
 	partIndex: number,
 ): BoundarySegment[] {
 	const midpointDistance = interpolateNumber(part.startDistance, part.endDistance, 0.5);
-	const bandMiddle = readBandAtDistance(midpointDistance, totalLength, bandProfile, issues, partIndex);
-
-	if (!bandMiddle) {
-		return [];
-	}
+	const bandStart = resolveBandAtDistance(part.startDistance, totalLength, startBand, endBand, transitionStartFraction);
+	const bandMiddle = resolveBandAtDistance(midpointDistance, totalLength, startBand, endBand, transitionStartFraction);
+	const bandEnd = resolveBandAtDistance(part.endDistance, totalLength, startBand, endBand, transitionStartFraction);
 
 	const startOffset = bandStart[offsetKey];
 	const middleOffset = bandMiddle[offsetKey];
@@ -461,7 +456,113 @@ function buildArcBoundarySegments(
 		return [exactArc];
 	}
 
-	return sampleArcBoundarySegments(part, totalLength, bandProfile, offsetKey, issues, partIndex);
+	return sampleArcBoundarySegments(
+		part,
+		totalLength,
+		startBand,
+		endBand,
+		transitionStartFraction,
+		offsetKey,
+		issues,
+		partIndex,
+	);
+}
+
+function buildBoundaryPathCommands(boundary: BoundarySegment[]): PathGeometryCommand[] {
+	if (boundary.length === 0) {
+		return [];
+	}
+
+	const [startSegment] = boundary;
+	const commands: PathGeometryCommand[] = [
+		{ kind: "moveTo", x: startSegment.start.x, y: startSegment.start.y },
+	];
+	let currentPoint = startSegment.start;
+
+	for (const segment of boundary) {
+		if (!pointsEqual(currentPoint, segment.start)) {
+			commands.push({ kind: "lineTo", x: segment.start.x, y: segment.start.y });
+			currentPoint = segment.start;
+		}
+
+		if (segment.kind === "line") {
+			if (pointsEqual(currentPoint, segment.end)) {
+				continue;
+			}
+
+			commands.push({ kind: "lineTo", x: segment.end.x, y: segment.end.y });
+			currentPoint = segment.end;
+			continue;
+		}
+
+		if (segment.radius <= GEOMETRY_EPSILON || pointsEqual(currentPoint, segment.end)) {
+			continue;
+		}
+
+		commands.push({
+			kind: "arc",
+			largeArc: segment.largeArc,
+			rx: segment.radius,
+			ry: segment.radius,
+			sweep: segment.sweep,
+			x: segment.end.x,
+			xAxisRotation: 0,
+			y: segment.end.y,
+		});
+		currentPoint = segment.end;
+	}
+
+	return commands;
+}
+
+function buildBoundarySegments(
+	centerline: CenterlinePart[],
+	totalLength: number,
+	startBand: OffsetBand,
+	endBand: OffsetBand,
+	transitionStartFraction: number,
+	offsetKey: keyof OffsetBand,
+	issues: PathGeometryIssue[],
+): BoundarySegment[] {
+	const boundary: BoundarySegment[] = [];
+
+	for (let partIndex = 0; partIndex < centerline.length; partIndex += 1) {
+		const part = centerline[partIndex];
+		const bandStart = resolveBandAtDistance(
+			part.startDistance,
+			totalLength,
+			startBand,
+			endBand,
+			transitionStartFraction,
+		);
+		const bandEnd = resolveBandAtDistance(
+			part.endDistance,
+			totalLength,
+			startBand,
+			endBand,
+			transitionStartFraction,
+		);
+
+		const segments =
+			part.kind === "line"
+				? buildLineBoundarySegments(part, bandStart, bandEnd, offsetKey)
+				: buildArcBoundarySegments(
+					part,
+					totalLength,
+					startBand,
+					endBand,
+					transitionStartFraction,
+					offsetKey,
+					issues,
+					partIndex,
+				);
+
+		for (const segment of segments) {
+			appendBoundarySegment(boundary, segment);
+		}
+	}
+
+	return boundary;
 }
 
 function buildCenterlineParts(
@@ -516,59 +617,6 @@ function buildCenterlineParts(
 	return parts;
 }
 
-function buildClosedPathCommands(
-	outerBoundary: BoundarySegment[],
-	innerBoundary: BoundarySegment[],
-): PathGeometryCommand[] {
-	if (outerBoundary.length === 0 || innerBoundary.length === 0) {
-		return [];
-	}
-
-	const boundary = [...outerBoundary, ...reverseBoundarySegments(innerBoundary)];
-	const [startSegment] = boundary;
-	const commands: PathGeometryCommand[] = [
-		{ kind: "moveTo", x: startSegment.start.x, y: startSegment.start.y },
-	];
-	let currentPoint = startSegment.start;
-
-	for (const segment of boundary) {
-		if (!pointsEqual(currentPoint, segment.start)) {
-			commands.push({ kind: "lineTo", x: segment.start.x, y: segment.start.y });
-			currentPoint = segment.start;
-		}
-
-		if (segment.kind === "line") {
-			if (pointsEqual(currentPoint, segment.end)) {
-				continue;
-			}
-
-			commands.push({ kind: "lineTo", x: segment.end.x, y: segment.end.y });
-			currentPoint = segment.end;
-			continue;
-		}
-
-		if (segment.radius <= GEOMETRY_EPSILON || pointsEqual(currentPoint, segment.end)) {
-			continue;
-		}
-
-		commands.push({
-			kind: "arc",
-			largeArc: segment.largeArc,
-			rx: segment.radius,
-			ry: segment.radius,
-			sweep: segment.sweep,
-			x: segment.end.x,
-			xAxisRotation: 0,
-			y: segment.end.y,
-		});
-		currentPoint = segment.end;
-	}
-
-	commands.push({ kind: "closePath" });
-
-	return commands;
-}
-
 function buildExactArcBoundarySegment(
 	part: ArcCenterlinePart,
 	startOffset: number,
@@ -592,81 +640,6 @@ function buildExactArcBoundarySegment(
 		start: pointOnCircle(part.center, part.startAngle, radius),
 		sweep: part.deltaAngle > 0,
 	};
-}
-
-function buildLineBoundarySegments(
-	part: LineCenterlinePart,
-	bandStart: OffsetBand,
-	bandEnd: OffsetBand,
-	offsetKey: keyof OffsetBand,
-): BoundarySegment[] {
-	const direction = normalizePoint(subtractPoints(part.end, part.start));
-
-	if (!direction) {
-		return [];
-	}
-
-	const normal = rightNormal(direction);
-	const start = addPoints(part.start, scalePoint(normal, bandStart[offsetKey]));
-	const end = addPoints(part.end, scalePoint(normal, bandEnd[offsetKey]));
-
-	if (pointsEqual(start, end)) {
-		return [];
-	}
-
-	return [{ end, kind: "line", start }];
-}
-
-function clipCenterlinePartsByProgress(
-	parts: CenterlinePart[],
-	revealedLength: number,
-): CenterlinePart[] {
-	if (parts.length === 0 || revealedLength <= GEOMETRY_EPSILON) {
-		return [];
-	}
-
-	const clippedParts: CenterlinePart[] = [];
-
-	for (const part of parts) {
-		if (part.startDistance >= revealedLength - GEOMETRY_EPSILON) {
-			break;
-		}
-
-		if (part.endDistance <= revealedLength + GEOMETRY_EPSILON) {
-			clippedParts.push(part);
-			continue;
-		}
-
-		const ratio = (revealedLength - part.startDistance) / (part.endDistance - part.startDistance);
-
-		if (part.kind === "line") {
-			clippedParts.push({
-				end: interpolatePoint(part.start, part.end, ratio),
-				endDistance: revealedLength,
-				kind: "line",
-				start: part.start,
-				startDistance: part.startDistance,
-			});
-		} else {
-			const clippedDeltaAngle = part.deltaAngle * ratio;
-			const endAngle = part.startAngle + clippedDeltaAngle;
-			clippedParts.push({
-				center: part.center,
-				deltaAngle: clippedDeltaAngle,
-				end: pointOnCircle(part.center, endAngle, part.radius),
-				endDistance: revealedLength,
-				kind: "arc",
-				radius: part.radius,
-				start: part.start,
-				startAngle: part.startAngle,
-				startDistance: part.startDistance,
-			});
-		}
-
-		break;
-	}
-
-	return clippedParts;
 }
 
 function buildFilletCorners(
@@ -779,22 +752,121 @@ function buildFilletCorners(
 
 	return corners;
 }
-function clampProgress(progress: number, issues: PathGeometryIssue[]): number {
-	const clampedProgress = clampNumber(progress, 0, 1);
 
-	if (clampedProgress !== progress) {
-		issues.push({
-			code: "progress-out-of-range",
-			message: "Progress was clamped into the supported range of 0 to 1.",
-			severity: "warning",
-		});
+function buildLineBoundarySegments(
+	part: LineCenterlinePart,
+	bandStart: OffsetBand,
+	bandEnd: OffsetBand,
+	offsetKey: keyof OffsetBand,
+): BoundarySegment[] {
+	const direction = normalizePoint(subtractPoints(part.end, part.start));
+
+	if (!direction) {
+		return [];
 	}
 
-	return clampedProgress;
+	const normal = rightNormal(direction);
+	const start = addPoints(part.start, scalePoint(normal, bandStart[offsetKey]));
+	const end = addPoints(part.end, scalePoint(normal, bandEnd[offsetKey]));
+
+	if (pointsEqual(start, end)) {
+		return [];
+	}
+
+	return [{ end, kind: "line", start }];
+}
+
+function calculateOffsetArcRadius(part: ArcCenterlinePart, offset: number): number {
+	const curvatureDirection = part.deltaAngle >= 0 ? 1 : -1;
+
+	return part.radius + curvatureDirection * offset;
 }
 
 function clampNumber(value: number, minimum: number, maximum: number): number {
 	return Math.min(Math.max(value, minimum), maximum);
+}
+
+function clampRevealPercent(revealPercent: number, issues: PathGeometryIssue[]): number {
+	const clampedRevealPercent = clampNumber(revealPercent, 0, 100);
+
+	if (clampedRevealPercent !== revealPercent) {
+		issues.push({
+			code: "reveal-out-of-range",
+			message: "Reveal percent was clamped into the supported range of 0 to 100.",
+			severity: "warning",
+		});
+	}
+
+	return clampedRevealPercent / 100;
+}
+
+function clampTransitionStartPercent(
+	transitionStartPercent: number,
+	issues: PathGeometryIssue[],
+): number {
+	const clampedTransitionStartPercent = clampNumber(transitionStartPercent, 0, 100);
+
+	if (clampedTransitionStartPercent !== transitionStartPercent) {
+		issues.push({
+			code: "transition-start-out-of-range",
+			message: "Transition start percent was clamped into the supported range of 0 to 100.",
+			severity: "warning",
+		});
+	}
+
+	return clampedTransitionStartPercent / 100;
+}
+
+function clipCenterlinePartsByReveal(
+	parts: CenterlinePart[],
+	revealedLength: number,
+): CenterlinePart[] {
+	if (parts.length === 0 || revealedLength <= GEOMETRY_EPSILON) {
+		return [];
+	}
+
+	const clippedParts: CenterlinePart[] = [];
+
+	for (const part of parts) {
+		if (part.startDistance >= revealedLength - GEOMETRY_EPSILON) {
+			break;
+		}
+
+		if (part.endDistance <= revealedLength + GEOMETRY_EPSILON) {
+			clippedParts.push(part);
+			continue;
+		}
+
+		const ratio = (revealedLength - part.startDistance) / (part.endDistance - part.startDistance);
+
+		if (part.kind === "line") {
+			clippedParts.push({
+				end: interpolatePoint(part.start, part.end, ratio),
+				endDistance: revealedLength,
+				kind: "line",
+				start: part.start,
+				startDistance: part.startDistance,
+			});
+		} else {
+			const clippedDeltaAngle = part.deltaAngle * ratio;
+			const endAngle = part.startAngle + clippedDeltaAngle;
+			clippedParts.push({
+				center: part.center,
+				deltaAngle: clippedDeltaAngle,
+				end: pointOnCircle(part.center, endAngle, part.radius),
+				endDistance: revealedLength,
+				kind: "arc",
+				radius: part.radius,
+				start: part.start,
+				startAngle: part.startAngle,
+				startDistance: part.startDistance,
+			});
+		}
+
+		break;
+	}
+
+	return clippedParts;
 }
 
 function clonePoint(point: Point): Point {
@@ -820,10 +892,11 @@ function interpolatePoint(start: Point, end: Point, ratio: number): Point {
 	};
 }
 
-function calculateOffsetArcRadius(part: ArcCenterlinePart, offset: number): number {
-	const curvatureDirection = part.deltaAngle >= 0 ? 1 : -1;
-
-	return part.radius + curvatureDirection * offset;
+function interpolateBand(startBand: OffsetBand, endBand: OffsetBand, ratio: number): OffsetBand {
+	return {
+		innerOffset: interpolateNumber(startBand.innerOffset, endBand.innerOffset, ratio),
+		outerOffset: interpolateNumber(startBand.outerOffset, endBand.outerOffset, ratio),
+	};
 }
 
 function leftNormal(direction: Point): Point {
@@ -856,8 +929,12 @@ function normalizeSweep(startAngle: number, endAngle: number, positiveDirection:
 	return delta;
 }
 
-function pointsEqual(a: Point, b: Point): boolean {
-	return Math.abs(a.x - b.x) <= GEOMETRY_EPSILON && Math.abs(a.y - b.y) <= GEOMETRY_EPSILON;
+function offsetsCanUseExactArc(start: number, middle: number, end: number): boolean {
+	return (
+		Math.abs(start - middle) <= OFFSET_ARC_EPSILON &&
+		Math.abs(middle - end) <= OFFSET_ARC_EPSILON &&
+		Math.abs(start - end) <= OFFSET_ARC_EPSILON
+	);
 }
 
 function pointOnCircle(center: Point, angle: number, radius: number): Point {
@@ -865,6 +942,17 @@ function pointOnCircle(center: Point, angle: number, radius: number): Point {
 		x: center.x + Math.cos(angle) * radius,
 		y: center.y + Math.sin(angle) * radius,
 	};
+}
+
+function pointsEqual(a: Point, b: Point): boolean {
+	return Math.abs(a.x - b.x) <= GEOMETRY_EPSILON && Math.abs(a.y - b.y) <= GEOMETRY_EPSILON;
+}
+
+function pointsEqualBand(a: OffsetBand, b: OffsetBand): boolean {
+	return (
+		Math.abs(a.innerOffset - b.innerOffset) <= GEOMETRY_EPSILON &&
+		Math.abs(a.outerOffset - b.outerOffset) <= GEOMETRY_EPSILON
+	);
 }
 
 function removeDegenerateWaypoints(
@@ -880,7 +968,7 @@ function removeDegenerateWaypoints(
 		if (previous && pointsEqual(previous, point)) {
 			issues.push({
 				code: "degenerate-segment",
-				message: "A zero-length segment was ignored while building the centerline.",
+				message: "A zero-length segment was ignored while building the reference path.",
 				severity: "warning",
 				segmentIndex: Math.max(0, index - 1),
 				waypointIndex: index,
@@ -894,64 +982,60 @@ function removeDegenerateWaypoints(
 	return deduped;
 }
 
-function rightNormal(direction: Point): Point {
-	return { x: direction.y, y: -direction.x };
-}
+function resolveBandAtDistance(
+	distance: number,
+	totalLength: number,
+	startBand: OffsetBand,
+	endBand: OffsetBand,
+	transitionStartFraction: number,
+): OffsetBand {
+	const t = totalLength <= GEOMETRY_EPSILON ? 0 : clampNumber(distance / totalLength, 0, 1);
+	const transitionEndFraction = clampNumber(
+		transitionStartFraction + BAND_TRANSITION_SPAN_PERCENT / 100,
+		transitionStartFraction,
+		1,
+	);
 
-function offsetsCanUseExactArc(start: number, middle: number, end: number): boolean {
-	return (
-		Math.abs(start - middle) <= OFFSET_ARC_EPSILON &&
-		Math.abs(middle - end) <= OFFSET_ARC_EPSILON &&
-		Math.abs(start - end) <= OFFSET_ARC_EPSILON
+	if (
+		pointsEqualBand(startBand, endBand) ||
+		transitionStartFraction >= 1 - GEOMETRY_EPSILON ||
+		transitionEndFraction <= transitionStartFraction + GEOMETRY_EPSILON
+	) {
+		return cloneBand(startBand);
+	}
+
+	if (t <= transitionStartFraction) {
+		return cloneBand(startBand);
+	}
+
+	if (t >= transitionEndFraction) {
+		return cloneBand(endBand);
+	}
+
+	return interpolateBand(
+		startBand,
+		endBand,
+		(t - transitionStartFraction) / (transitionEndFraction - transitionStartFraction),
 	);
 }
 
-function readBandAtDistance(
-	distance: number,
-	totalLength: number,
-	bandProfile: BandProfile,
-	issues: PathGeometryIssue[],
-	partIndex: number,
-): OffsetBand | null {
-	const t = totalLength <= GEOMETRY_EPSILON ? 0 : clampNumber(distance / totalLength, 0, 1);
-	const band = bandProfile(t);
-
-	if (band.outerOffset < band.innerOffset) {
-		issues.push({
-			code: "invalid-band",
-			message: "Band profile returned an outer offset that is smaller than the inner offset.",
-			severity: "error",
-			segmentIndex: partIndex,
-		});
-		return null;
-	}
-
-	return band;
-}
-
-function reverseBoundarySegment(segment: BoundarySegment): BoundarySegment {
-	if (segment.kind === "line") {
-		return { end: segment.start, kind: "line", start: segment.end };
-	}
-
+function cloneBand(band: OffsetBand): OffsetBand {
 	return {
-		end: segment.start,
-		kind: "arc",
-		largeArc: segment.largeArc,
-		radius: segment.radius,
-		start: segment.end,
-		sweep: !segment.sweep,
+		innerOffset: band.innerOffset,
+		outerOffset: band.outerOffset,
 	};
 }
 
-function reverseBoundarySegments(segments: BoundarySegment[]): BoundarySegment[] {
-	return [...segments].reverse().map(reverseBoundarySegment);
+function rightNormal(direction: Point): Point {
+	return { x: direction.y, y: -direction.x };
 }
 
 function sampleArcBoundarySegments(
 	part: ArcCenterlinePart,
 	totalLength: number,
-	bandProfile: BandProfile,
+	startBand: OffsetBand,
+	endBand: OffsetBand,
+	transitionStartFraction: number,
 	offsetKey: keyof OffsetBand,
 	issues: PathGeometryIssue[],
 	partIndex: number,
@@ -965,9 +1049,21 @@ function sampleArcBoundarySegments(
 	for (let sampleIndex = 0; sampleIndex <= sampleCount; sampleIndex += 1) {
 		const ratio = sampleIndex / sampleCount;
 		const distance = interpolateNumber(part.startDistance, part.endDistance, ratio);
-		const band = readBandAtDistance(distance, totalLength, bandProfile, issues, partIndex);
+		const band = resolveBandAtDistance(
+			distance,
+			totalLength,
+			startBand,
+			endBand,
+			transitionStartFraction,
+		);
 
-		if (!band) {
+		if (band.outerOffset < band.innerOffset) {
+			issues.push({
+				code: "invalid-band",
+				message: "Band offsets must keep outerOffset greater than or equal to innerOffset.",
+				severity: "error",
+				segmentIndex: partIndex,
+			});
 			return [];
 		}
 
@@ -999,35 +1095,4 @@ function subtractPoints(a: Point, b: Point): Point {
 
 function vectorLength(point: Point): number {
 	return Math.hypot(point.x, point.y);
-}
-
-function appendPoint(points: Point[], point: Point): void {
-	const previous = points.at(-1);
-
-	if (!previous || !pointsEqual(previous, point)) {
-		points.push(clonePoint(point));
-	}
-}
-
-function appendBoundarySegment(segments: BoundarySegment[], segment: BoundarySegment): void {
-	if (segment.kind === "line" && pointsEqual(segment.start, segment.end)) {
-		return;
-	}
-
-	if (segment.kind === "arc" && (segment.radius <= GEOMETRY_EPSILON || pointsEqual(segment.start, segment.end))) {
-		return;
-	}
-
-	const previous = segments.at(-1);
-
-	if (!previous) {
-		segments.push(segment);
-		return;
-	}
-
-	if (!pointsEqual(previous.end, segment.start)) {
-		segments.push({ end: segment.start, kind: "line", start: previous.end });
-	}
-
-	segments.push(segment);
 }

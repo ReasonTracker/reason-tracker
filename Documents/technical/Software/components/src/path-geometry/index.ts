@@ -1,2 +1,7 @@
-export { buildPathGeometry } from "./buildPathGeometry";
-export type { PathGeometry, PathGeometryInput } from "./buildPathGeometry";
+export { buildPathGeometry } from "./buildPathGeometry.ts";
+export type {
+	OffsetBand,
+	PathGeometry,
+	PathGeometryCommand,
+	PathGeometryInput,
+} from "./buildPathGeometry.ts";

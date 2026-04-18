@@ -1,6 +1,6 @@
 import {
 	buildPathGeometry,
-	type PathGeometry,
+	type OffsetBand,
 	type PathGeometryInput,
 } from "../../../../components/src/index";
 import { createElement } from "react";
@@ -34,11 +34,12 @@ const waypointSchema = z.object({
 export const pathGeometryVisualizerSchema = z.object({
 	fluidAnchor: z.enum(["top", "bottom"]),
 	fluidEndFillPercent: z.number().min(0).max(100).step(1),
-	fluidProgressPercent: z.number().min(0).max(100).step(1),
+	fluidRevealPercent: z.number().min(0).max(100).step(1),
 	fluidStartFillPercent: z.number().min(0).max(100).step(1),
 	pipeEndWidth: z.number().positive(),
-	pipeProgressPercent: z.number().min(0).max(100).step(1),
+	pipeRevealPercent: z.number().min(0).max(100).step(1),
 	pipeStartWidth: z.number().positive(),
+	transitionStartPercent: z.number().min(0).max(100).step(1),
 	waypoints: z.array(waypointSchema).min(2),
 });
 
@@ -47,13 +48,14 @@ export type PathGeometryVisualizerProps = z.infer<
 >;
 
 export const defaultPathGeometryVisualizerProps: PathGeometryVisualizerProps = {
-	fluidAnchor: "top",
+	fluidAnchor: "bottom",
 	fluidEndFillPercent: 35,
-	fluidProgressPercent: 75,
+	fluidRevealPercent: 75,
 	fluidStartFillPercent: 35,
 	pipeEndWidth: 60,
-	pipeProgressPercent: 50,
+	pipeRevealPercent: 50,
 	pipeStartWidth: 60,
+	transitionStartPercent: 50,
 	waypoints: [
 		{ x: 1600, y: 360 },
 		{ x: 1120, y: 360, radius: 120 },
@@ -65,52 +67,41 @@ export const defaultPathGeometryVisualizerProps: PathGeometryVisualizerProps = {
 export const PathGeometryVisualizer = (
 	props: PathGeometryVisualizerProps,
 ) => {
-	const pipeProgress = props.pipeProgressPercent / 100;
-	const fluidProgress = props.fluidProgressPercent / 100;
+	const pipeStartBand = buildCenteredPipeBand(props.pipeStartWidth);
+	const pipeEndBand = buildCenteredPipeBand(props.pipeEndWidth);
+	const fluidStartBand = buildAnchoredFluidBand(
+		props.pipeStartWidth,
+		props.fluidStartFillPercent,
+		props.fluidAnchor,
+	);
+	const fluidEndBand = buildAnchoredFluidBand(
+		props.pipeEndWidth,
+		props.fluidEndFillPercent,
+		props.fluidAnchor,
+	);
 
 	const pipeInput: PathGeometryInput = {
-		band: (t) => {
-			const pipeWidth = interpolateNumber(props.pipeStartWidth, props.pipeEndWidth, t);
-			const pipeHalfWidth = pipeWidth / 2;
-
-			return {
-				innerOffset: -pipeHalfWidth,
-				outerOffset: pipeHalfWidth,
-			};
-		},
+		endBand: pipeEndBand,
 		points: props.waypoints,
-		progress: pipeProgress,
+		revealPercent: props.pipeRevealPercent,
+		startBand: pipeStartBand,
+		transitionStartPercent: props.transitionStartPercent,
 	};
 
 	const fluidInput: PathGeometryInput = {
-		band: (t) => {
-			const pipeWidth = interpolateNumber(props.pipeStartWidth, props.pipeEndWidth, t);
-			const pipeHalfWidth = pipeWidth / 2;
-			const fluidFillPercent = interpolateNumber(
-				props.fluidStartFillPercent,
-				props.fluidEndFillPercent,
-				t,
-			);
-			const fluidWidth = pipeWidth * (fluidFillPercent / 100);
-
-			return props.fluidAnchor === "top"
-				? {
-					innerOffset: -pipeHalfWidth,
-					outerOffset: -pipeHalfWidth + fluidWidth,
-				}
-				: {
-					innerOffset: pipeHalfWidth - fluidWidth,
-					outerOffset: pipeHalfWidth,
-				};
-		},
+		endBand: fluidEndBand,
 		points: props.waypoints,
-		progress: fluidProgress,
+		revealPercent: props.fluidRevealPercent,
+		startBand: fluidStartBand,
+		transitionStartPercent: props.transitionStartPercent,
 	};
 
 	const pipeGeometry = buildPathGeometry(pipeInput);
 	const fluidGeometry = buildPathGeometry(fluidInput);
-	const pipePathData = pathGeometryCommandsToSvgPathData(pipeGeometry.commands);
-	const fluidPathData = pathGeometryCommandsToSvgPathData(fluidGeometry.commands);
+	const pipeOuterPathData = pathGeometryCommandsToSvgPathData(pipeGeometry.outerPathCommands);
+	const pipeInnerPathData = pathGeometryCommandsToSvgPathData(pipeGeometry.innerPathCommands);
+	const fluidOuterPathData = pathGeometryCommandsToSvgPathData(fluidGeometry.outerPathCommands);
+	const fluidInnerPathData = pathGeometryCommandsToSvgPathData(fluidGeometry.innerPathCommands);
 	const allIssues = [...pipeGeometry.issues, ...fluidGeometry.issues];
 	const centerlinePathData = buildCenterlineGuidePathData(props.waypoints);
 
@@ -139,34 +130,52 @@ export const PathGeometryVisualizer = (
 				strokeWidth: CENTERLINE_STROKE_WIDTH,
 			}),
 			createElement("path", {
-				d: pipePathData,
-				fill: "rgba(219, 234, 254, 0.62)",
-				stroke: "none",
-			}),
-			createElement("path", {
-				d: fluidPathData,
-				fill: "rgba(56, 189, 248, 0.72)",
-				stroke: "none",
-			}),
-			createElement("path", {
-				d: pipePathData,
+				d: pipeOuterPathData,
 				fill: "none",
 				stroke: "#e2e8f0",
+				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: PIPE_OUTLINE_STROKE_WIDTH,
 			}),
 			createElement("path", {
-				d: fluidPathData,
+				d: pipeInnerPathData,
+				fill: "none",
+				stroke: "#e2e8f0",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeWidth: PIPE_OUTLINE_STROKE_WIDTH,
+			}),
+			createElement("path", {
+				d: fluidOuterPathData,
 				fill: "none",
 				stroke: "#0f172a",
+				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeOpacity: 0.55,
 				strokeWidth: FLUID_OUTLINE_STROKE_WIDTH + 2,
 			}),
 			createElement("path", {
-				d: fluidPathData,
+				d: fluidOuterPathData,
 				fill: "none",
 				stroke: "#7dd3fc",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeWidth: FLUID_OUTLINE_STROKE_WIDTH,
+			}),
+			createElement("path", {
+				d: fluidInnerPathData,
+				fill: "none",
+				stroke: "#0f172a",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeOpacity: 0.55,
+				strokeWidth: FLUID_OUTLINE_STROKE_WIDTH + 2,
+			}),
+			createElement("path", {
+				d: fluidInnerPathData,
+				fill: "none",
+				stroke: "#7dd3fc",
+				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: FLUID_OUTLINE_STROKE_WIDTH,
 			}),
@@ -194,12 +203,12 @@ export const PathGeometryVisualizer = (
 			createElement(
 				"div",
 				{ style: { color: "#cbd5e1", fontSize: 30, fontWeight: 700, marginTop: 10 } },
-				`Pipe at ${Math.round(props.pipeProgressPercent)}%, fluid at ${Math.round(props.fluidProgressPercent)}%`,
+				`Pipe at ${Math.round(props.pipeRevealPercent)}%, fluid at ${Math.round(props.fluidRevealPercent)}%`,
 			),
 			createElement(
 				"div",
 				{ style: { color: "#94a3b8", fontSize: 18, lineHeight: 1.45, marginTop: 8 } },
-				`Pipe width ${Math.round(props.pipeStartWidth)}-${Math.round(props.pipeEndWidth)}px, fluid fill ${Math.round(props.fluidStartFillPercent)}-${Math.round(props.fluidEndFillPercent)}%, anchored to the ${props.fluidAnchor}.`,
+				`Pipe width ${Math.round(props.pipeStartWidth)}-${Math.round(props.pipeEndWidth)}px with a handoff at ${Math.round(props.transitionStartPercent)}%, fluid occupancy ${Math.round(props.fluidStartFillPercent)}-${Math.round(props.fluidEndFillPercent)}% anchored to the ${props.fluidAnchor}.`,
 			),
 			createElement(
 				"div",
@@ -238,7 +247,7 @@ export const PathGeometryVisualizer = (
 							width: 44,
 						},
 					}),
-					createElement("span", null, "Pipe: start and end width interpolate over path distance"),
+					createElement("span", null, "Pipe: open outer and inner boundaries with a short width handoff near the selected point"),
 				),
 				createElement(
 					"div",
@@ -252,7 +261,7 @@ export const PathGeometryVisualizer = (
 							width: 44,
 						},
 					}),
-					createElement("span", null, "Fluid: start and end fill percentages interpolate over path distance while staying pinned to the selected wall"),
+					createElement("span", null, "Fluid: open outer and inner boundaries that stay pinned to the selected wall through the width handoff"),
 				),
 			),
 			createElement(
@@ -276,6 +285,30 @@ function buildCenterlineGuidePathData(points: { x: number; y: number }[]): strin
 	return [`M ${start.x} ${start.y}`, ...rest.map((point) => `L ${point.x} ${point.y}`)].join(" ");
 }
 
-function interpolateNumber(start: number, end: number, t: number): number {
-	return start + (end - start) * t;
+function buildAnchoredFluidBand(
+	pipeWidth: number,
+	fillPercent: number,
+	anchor: "top" | "bottom",
+): OffsetBand {
+	const pipeHalfWidth = pipeWidth / 2;
+	const fluidWidth = pipeWidth * (fillPercent / 100);
+
+	return anchor === "top"
+		? {
+			innerOffset: -pipeHalfWidth,
+			outerOffset: -pipeHalfWidth + fluidWidth,
+		}
+		: {
+			innerOffset: pipeHalfWidth - fluidWidth,
+			outerOffset: pipeHalfWidth,
+		};
+}
+
+function buildCenteredPipeBand(pipeWidth: number): OffsetBand {
+	const pipeHalfWidth = pipeWidth / 2;
+
+	return {
+		innerOffset: -pipeHalfWidth,
+		outerOffset: pipeHalfWidth,
+	};
 }

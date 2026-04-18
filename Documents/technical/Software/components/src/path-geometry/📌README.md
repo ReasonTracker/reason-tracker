@@ -5,8 +5,9 @@ This folder owns shared path-geometry contracts and implementation that are inte
 ## Core Idea
 
 - Input: a routed centerline path defined by ordered points.
-- Output: renderer-agnostic path geometry commands for a closed drawable shape.
+- Output: renderer-agnostic path geometry commands for a drawable band shape around that path.
 - Shapes are constructed as bands between two offsets from the centerline.
+- Geometry is open at the start and end of the path.
 
 ## Owns
 
@@ -21,10 +22,9 @@ This folder owns shared path-geometry contracts and implementation that are inte
 
 ## Responsibilities
 
-- convert a centerline into filled shape geometry
-- support variable width along the path
+- create drawable band geometry in relation to a routed reference path
+- support a distinct width change at a specific point along the path (with a short transition)
 - support asymmetric bands that are not centered on the path
-- support progressive reveal for animation
 - output renderer-agnostic path commands that a consumer can map to SVG or another renderer
 
 ## Out Of Scope
