@@ -1,5 +1,6 @@
 packages:
   - 00-command-center
+  - components
   - website
   - contracts
   - engine

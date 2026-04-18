@@ -10,6 +10,7 @@ New assets should be created as direct children of this folder (for example, `vi
 | Asset | Purpose | Main entrypoints | Status |
 | --- | --- | --- | --- |
 | `00-command-center` | Local launcher and command-discovery surface for software workflows. | `00-command-center/index.html`, `00-command-center/src/main.ts`, `00-command-center/server/core.ts` | `active` |
+| `components` | Shared components and nearby rendering helpers intended for reuse across Remotion and web surfaces. | `components/src/index.ts`, `components/src/path-geometry/📌README.md` | `scaffold` |
 | `engine` | Core TypeScript engine package, protected domain model contracts, protected command contract, and temporary home for small engine-dependent code. | `engine/src/index.ts`, `engine/src/00-commands.ts`, `engine/src/00-entities/📌README.md` | `scaffold` package with `authoritative` command and entity contracts |
 | `videos` | Remotion-based video compositions and shared video assets. | `videos/src/index.ts` | `active` |
 | `website` | Repository website builder and static publishing workflow. | `website/scripts/publish-website.mts`, `website/site/site-config.json`, `website/📌README.md` | `active` |
@@ -49,6 +50,7 @@ These tools are for local development ergonomics and are not a CI requirement.
 <!-- autonav:start -->
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
+- [Components](./components/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
 - [Engine](./engine/📌README.md)
