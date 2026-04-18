@@ -11,4 +11,5 @@ This folder owns the Remotion root and composition wiring for the current video 
 ---
 
 <!-- autonav:start -->
+- [Component Visualizers](./component-visualizers/📌README.md)
 <!-- autonav:end -->

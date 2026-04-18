@@ -51,8 +51,18 @@ These are implementation guidelines for repository code structure and file organ
 - Prefer `#region` markers over plain section comments when a file holds multiple major contract groups.
 - If there is no stronger reason to order by dependency, prefer reading order by usage and responsibility.
 
+## Human Review Notes
+
+- When documentation in a technical area refers to review status, explicitly state the level of human review instead of using an unqualified word such as `reviewed`.
+- Prefer concrete phrases such as `API types reviewed by a human`, `implementation not yet reviewed by a human`, or `draft AI-generated implementation`.
+- Do not imply that code or behavior has human approval unless that approval is explicitly known.
+- When contract review and implementation review are at different levels, note both rather than collapsing them into one status.
+
 ## Tunable Constants Placement
 
 - For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.
 - Keep those constants grouped in one block and reference them in the implementation instead of inline magic numbers.
 - Add a short `AGENT NOTE` comment above the block when maintaining or introducing this pattern so future edits keep the constants in the same location.
+- Add symbol-level TSDoc or JSDoc comments to each tunable constant when the meaning is not obvious from the name alone.
+- Do not assume the reader knows specialized domain terms. If a constant uses a term such as `epsilon`, explain the practical meaning in plain language at the symbol itself.
+- Prefer comments that explain what changing the constant does to behavior, tolerances, or visual output.

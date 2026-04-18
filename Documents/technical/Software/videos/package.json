@@ -17,9 +17,11 @@
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
+    "@reasontracker/components": "workspace:*",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "remotion": "^4.0.448"
+    "remotion": "^4.0.448",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@remotion/cli": "^4.0.448",

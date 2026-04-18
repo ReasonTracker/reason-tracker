@@ -14,6 +14,11 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - shared type contracts that describe path-geometry inputs and outputs
 - future path-geometry-adjacent helpers that stay specific to this rendering slice
 
+## Human Review Status
+
+- API types in this area have been reviewed by a human.
+- The current implementation code in this area has not yet been reviewed by a human.
+
 ## Responsibilities
 
 - convert a centerline into filled shape geometry
