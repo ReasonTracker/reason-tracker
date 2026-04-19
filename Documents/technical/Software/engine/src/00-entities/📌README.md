@@ -3,7 +3,6 @@
 ## Purpose
 
 This folder holds the core engine entity contracts.
-These contracts are engine-owned and private by default unless the engine explicitly exposes related data through another boundary.
 
 ## Owns
 
@@ -12,13 +11,12 @@ These contracts are engine-owned and private by default unless the engine explic
 
 ## Boundary Note
 
-The contracts in this folder are not public APIs by default.
-Commands, exported state payloads, and step payloads are separate boundaries even when they carry overlapping data.
+These entity types are public APIs when they are exported and are intended to be reused throughout the project.
+Do not duplicate an exported engine type locally.
+Do not change these contracts without explicit approval.
 
-`Score` is treated as a projection contract.
-It is sent through exported states and steps, but that outbound use does not make every entity in this folder a general external contract.
-
-Source claims may now connect either to claims or to connectors in the graph model.
+`Score` is a projection of the claim and connector entities.
+It is expected to be the primary graph-consumption shape through much of the project, except where data remains on claims or connectors and is not represented on `Score`, such as `content`.
 
 ## Main Entrypoints
 
@@ -46,7 +44,7 @@ Source claims may now connect either to claims or to connectors in the graph mod
 ## Change Guard
 
 All entity files in this folder are `CHANGE-GUARD` areas.
-Changes require explicit approval before editing because these files define protected engine contracts.
+Changes require explicit approval before editing because these files define authoritative shared engine contracts.
 
 <!-- autonav:start -->
 <!-- autonav:end -->

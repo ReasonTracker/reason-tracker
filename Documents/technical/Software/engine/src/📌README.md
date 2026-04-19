@@ -8,16 +8,16 @@ This page is only a local routing note for where to go next inside `src`.
 
 ## Start Here When
 
-- you are looking for the current engine package entry surface in `index.ts`
+- you are looking for the engine package entry surface in `index.ts`
 - you are shaping command payload definitions in `00-commands.ts`
-- you need the guarded domain contracts in `00-entities/`
+- you need the shared domain contracts in `00-entities/`
 
 ## Local Boundary
 
 - commands define semantic mutation input first
-- the command contract in `00-commands.ts` is protected
+- the command contract in `00-commands.ts` is authoritative and changes require explicit approval
 - general engine source may evolve here
-- guarded entity contracts begin in `00-entities/`
+- shared entity contracts are defined in `00-entities/` and changes require explicit approval
 - package-level ownership decisions belong in the parent engine README
 
 ## Command Contract Rule

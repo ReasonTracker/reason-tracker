@@ -3,14 +3,14 @@
 ## Purpose
 
 This package is the home for the Reason Tracker engine.
-It currently mixes early scaffold surfaces with the protected core entity model.
+It currently mixes early scaffold surfaces with the authoritative core entity model.
 
 ## Owns
 
 - the engine package boundary
 - the semantic command boundary for engine mutations
 - engine source layout
-- the protected core entity contract under `src/00-entities`
+- the shared core entity contract under `src/00-entities`
 - small engine-dependent code that does not yet justify its own package boundary
 
 ## Main Entrypoints
@@ -31,7 +31,7 @@ It currently mixes early scaffold surfaces with the protected core entity model.
 - website publishing behavior
 - command center UI behavior
 - video composition behavior
-- routine edits to guarded entity contracts without explicit approval
+- routine edits to shared entity contracts without explicit approval
 
 ## Status
 
@@ -39,9 +39,9 @@ Package status: `scaffold`
 
 Mutation boundary status: `command-first scaffold`
 
-Protected command contract status: `authoritative` in `src/00-commands.ts`
+Command contract status: `authoritative` in `src/00-commands.ts`
 
-Protected domain contract status: `authoritative` in `src/00-entities`
+Shared domain contract status: `authoritative` in `src/00-entities`
 
 ## Command Boundary
 
@@ -59,13 +59,9 @@ When a command is making a routine partial change to one domain object, prefer o
 
 ## Contract Boundary
 
-Engine-owned objects are private by default.
-Do not treat engine entities as public contracts just because related data may later be sent to another system.
-
-An engine contract becomes external only when the engine explicitly exposes it through a boundary such as commands coming in, exported state going out, or steps sent to another system.
-
-Internal entity shapes may inform external contracts, but they should not become accidental public APIs.
-If an exported shape currently resembles an internal engine shape, treat that as a deliberate exposure or a temporary alignment, not as proof that the internal type is itself public.
+These exported types are meant to be used throughout the system to reduce duplicated types and unnecessary complexity.
+If a type would otherwise need to be duplicated, ask to expose or refine the engine contract instead of recreating the type locally.
+Do not change engine contracts without explicit approval, but do not duplicate an exported engine type instead of asking.
 
 ## Incubation Rule
 
