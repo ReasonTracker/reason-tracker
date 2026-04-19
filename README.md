@@ -2,8 +2,6 @@
 
 > Videos about hard decisions
 
-> Prototype status: this repository is currently a prototype. Do not build or add tests until this rule is explicitly changed in the documentation and agent guidance.
-
 ## Coming Soon
 
 Reason Tracker is a video series where you help map out all the reasons for and against
