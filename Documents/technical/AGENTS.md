@@ -43,5 +43,5 @@ This file is additive to the root `AGENTS.md` and applies within `Documents/tech
 
 ## Technical Guidance
 - While coding in `Documents/technical`, read and follow `Documents/technical/Coding Guidelines.md` for shared project conventions, including code-structure conventions and Software tooling workflow.
-- On a fresh Windows machine from `Documents/technical/Software`, run `vp run developer:setup-machine` to install `rg` and `fd`, then run `vp run developer:doctor` to verify the shell.
+- On a fresh Windows machine from `Documents/technical/Software`, run `vp install`, then run `vp run developer:setup-machine` to bring shell tools, workspace dependencies, and recommended VS Code extensions to the expected local state.
 - These local shell tools are not a CI requirement.

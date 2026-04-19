@@ -1,8 +1,9 @@
 # 📌 Scripts
 
-## Preview
+## Current Scripts
 
-- `vp run preview` starts renderer preview generation in watch mode and a live-reload dev server at `http://localhost:4173/renderer/preview/layout-preview.html`.
+- `setup-machine.ps1` is the local bootstrap entrypoint for shell tools, workspace dependency install via `vp install`, and recommended VS Code extension setup.
+- `maintain-markdown.mjs` rebuilds markdown indexes and writes the maintenance report.
 
 Prefer Vite Plus (`vp`) over `pnpm` when an equivalent command exists. Docs: https://viteplus.dev/
 

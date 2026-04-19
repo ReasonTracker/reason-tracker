@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
 import { once, type EventEmitter } from "node:events";
+import { rm } from "node:fs/promises";
 import net from "node:net";
 import { resolve } from "node:path";
 
 const softwareDir = resolve(import.meta.dirname, "../..");
 const videosDir = resolve(softwareDir, "videos");
+const websiteDistDir = resolve(softwareDir, "website", "dist");
 const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
 const studioUrl = `http://localhost:${studioPort}`;
 const ansiEscapePattern = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
@@ -35,12 +37,20 @@ type CommandReporter = {
 export async function runCommand(request: { command: string }, reporter: CommandReporter) {
   reporter.report(`Received command ${request.command}.`);
 
+  if (request.command === "setup-software-machine") {
+    return setupSoftwareMachine(reporter);
+  }
+
   if (request.command === "typecheck-software") {
     return typecheckSoftware(reporter);
   }
 
   if (request.command === "build-website") {
     return buildWebsite(reporter);
+  }
+
+  if (request.command === "clean-website-dist") {
+    return cleanWebsiteDist(reporter);
   }
 
   if (request.command === "open-remotion-studio") {
@@ -66,6 +76,19 @@ export async function runCommand(request: { command: string }, reporter: Command
   reporter.report(`Unknown command: ${request.command}`, "error");
 }
 
+async function setupSoftwareMachine(reporter: CommandReporter) {
+  reporter.report(`Running Software install script from ${softwareDir}.`);
+  const result = await spawnCommand({
+    command: "vp run developer:setup-machine",
+    cwd: softwareDir,
+    onOutput: (chunk) => {
+      reporter.report(chunk);
+      process.stdout.write(chunk);
+    },
+  });
+  reporter.report(`Software install script finished with status ${result.status}.`, "complete");
+}
+
 async function typecheckSoftware(reporter: CommandReporter) {
   reporter.report(`Running workspace typecheck from ${softwareDir}.`);
   const result = await spawnCommand({
@@ -89,6 +112,12 @@ async function buildWebsite(reporter: CommandReporter) {
     },
   });
   reporter.report(`Build website finished with status ${result.status}.`, "complete");
+}
+
+async function cleanWebsiteDist(reporter: CommandReporter) {
+  reporter.report(`Removing website build output at ${websiteDistDir}.`);
+  await rm(websiteDistDir, { force: true, recursive: true });
+  reporter.report("Website build output removed.", "complete");
 }
 
 async function openRemotionStudio(reporter: CommandReporter) {

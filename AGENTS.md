@@ -63,7 +63,8 @@
 - When working in a specific subtree, check for a closer `AGENTS.md` in that folder or its nearest ancestor below the repo root and apply it as additive guidance for that scope.
 - Do not scan unrelated folders for nested `AGENTS.md` files; only load subtree-specific steering when the task is actually related to that subtree.
 - Read and follow `Documents/technical/Coding Guidelines.md` for shared project conventions.
+- For `Documents/technical/Software`, prefer Vite Plus `vp` whenever an equivalent `vp` command exists. Use `vp` for install, run, exec, dev, build, preview, and package orchestration instead of defaulting to `pnpm`, `npm`, or other package-manager commands.
 - For `Documents/technical/Software`, enforce the `vp` preference documented in `Documents/technical/Coding Guidelines.md` even when a package-manager command would also work.
-- AI agents may have a default bias toward `pnpm` commands; correct for that here.
+- AI agents may have a default bias toward `pnpm` commands; correct for that here and actively translate that bias back to `vp` when possible.
 - This repo expects `rg` to be available in the local developer shell for code search.
 - When command choice or workflow semantics are unclear, read the Vite Plus docs before falling back to package-manager conventions: https://viteplus.dev/

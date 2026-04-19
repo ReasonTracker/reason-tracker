@@ -184,10 +184,9 @@ clearLogButton?.addEventListener("click", () => {
 	}
 
 	messageLogElement.textContent = "";
- 	localStorage.removeItem(logStorageKey);
+	localStorage.removeItem(logStorageKey);
 	updateLastMessageAt();
-}
-);
+});
 
 const persistedEntries = readPersistedLogEntries();
 

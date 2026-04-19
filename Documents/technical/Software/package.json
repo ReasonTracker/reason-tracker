@@ -10,14 +10,11 @@
     "videos"
   ],
   "scripts": {
+    "developer:install": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1",
     "typecheck": "vp run -r typecheck",
     "maintain:markdown": "vp exec node ./scripts/maintain-markdown.mjs --write-report",
     "website:dev": "vp run -F reason-tracker-repo-website dev",
-    "website:build": "vp run -F reason-tracker-repo-website build",
-    "website:publish": "vp run -F reason-tracker-repo-website publish-website",
-    "website:preview": "vp run -F reason-tracker-repo-website preview",
-    "developer:doctor": "vp exec node ./scripts/check-tooling.mts",
-    "developer:setup-machine": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1"
+    "website:build": "vp run -F reason-tracker-repo-website build"
   },
   "devDependencies": {
     "typescript": "^6.0.2"

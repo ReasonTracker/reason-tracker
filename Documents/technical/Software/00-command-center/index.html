@@ -11,6 +11,7 @@
 <body>
   <div id="app">
     <div id="menu">
+      <!-- Edit command groups and data-command values here. Add matching handlers in server/core.ts. -->
       <h1>Reason Tracker Command Center</h1>
       <div>
         <span>Remotion:</span>
@@ -26,9 +27,11 @@
       <div>
         <span>Website:</span>
         <button type="button" data-command="build-website">Build</button>
+        <button type="button" data-command="clean-website-dist">Clean</button>
       </div>
       <div>
         <span>Software:</span>
+        <button type="button" data-command="setup-software-machine">Install</button>
         <button type="button" data-command="typecheck-software">Typecheck</button>
       </div>
       <button type="button" id="clear-log">Clear</button>
