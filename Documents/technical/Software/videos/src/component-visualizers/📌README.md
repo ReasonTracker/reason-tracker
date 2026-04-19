@@ -12,5 +12,4 @@ This folder owns Remotion-only preview compositions for shared components and re
 ---
 
 <!-- autonav:start -->
-- [Path Geometry](./path-geometry/📌README.md)
 <!-- autonav:end -->

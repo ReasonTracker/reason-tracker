@@ -11,5 +11,4 @@ This folder owns the shared source entrypoints for the components package.
 ---
 
 <!-- autonav:start -->
-- [Path Geometry](./path-geometry/📌README.md)
 <!-- autonav:end -->

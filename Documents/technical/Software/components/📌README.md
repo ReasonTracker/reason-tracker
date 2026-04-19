@@ -14,7 +14,6 @@ This package is the home for shared components and nearby rendering helpers that
 ## Main Entrypoints
 
 - `src/index.ts`
-- `src/path-geometry/📌README.md`
 
 ## Change Here When
 

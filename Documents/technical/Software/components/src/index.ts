@@ -1,1 +1,1 @@
-export * from "./path-geometry/index";
+export * from "./path-geometry";

@@ -1,7 +1,19 @@
-export { buildPathGeometry } from "./buildPathGeometry.ts";
+export { buildPathGeometry } from "./buildPathGeometry";
 export type {
-	OffsetBand,
+	OffsetSection,
+	PathExtremityInstruction,
 	PathGeometry,
 	PathGeometryCommand,
+	PathGeometryExtremityKind,
 	PathGeometryInput,
-} from "./buildPathGeometry.ts";
+	PathGeometryInstruction,
+	PathGeometryIssue,
+	PathGeometryIssueCode,
+	PathGeometryTransitionKind,
+	PathLinearExtremityInstruction,
+	PathOffsetsInstruction,
+	PathOpenExtremityInstruction,
+	PathTransitionInstruction,
+	Point,
+	Waypoint,
+} from "./buildPathGeometry";
