@@ -27,7 +27,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - support stable offsets states between edge extremities
 - support asymmetric sections that are not centered on the path
 - support explicit transition ranges between offsets states
-- support explicit extremity ranges that begin or end geometry at the path edges
+- support explicit extremity ranges that begin or end geometry at chosen positions along the path
 - measure transition positions as path-relative percentages and transition or extremity spans in pixels along the routed path
 - output renderer-agnostic path commands that a consumer can map to SVG or another renderer
 
@@ -38,7 +38,8 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - The instruction sequence starts with an `extremity` instruction and ends with an `extremity` instruction.
 - Between the two edge extremities, stable section states are expressed by `offsets` instructions.
 - A `transition` instruction sits between two `offsets` instructions and describes how the active section morphs from the earlier offsets state into the later one.
-- An `extremity` instruction belongs to the start or the end of the routed path.
+- An `extremity` instruction belongs to the start or the end of the instruction sequence.
+- A leading `extremity` controls how visible geometry begins along the path, and a trailing `extremity` controls how visible geometry ends along the path.
 
 ## Instruction Semantics
 
@@ -48,10 +49,13 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - An `offsets` instruction defines a stable section state between transitions and extremities.
 - A `transition` instruction uses `startPositionPercent` and `lengthPx` because it occupies a path range that begins at a path-relative position and extends for a pixel length.
 - A `transition` instruction should declare a transition kind such as `linear`.
-- An `extremity` instruction is anchored to the start or end of the path and uses `lengthPx`.
+- An `extremity` instruction uses `startPositionPercent` to declare where its visible edge behavior begins or ends along the path.
 - An `extremity` instruction should declare an extremity kind such as `open` or `linear`.
 - A `linear` extremity uses `collapseOffset` to expand from or collapse toward a chosen target offset.
-- An `open` has no `lengthPx` span and no collapse behavior and leaves the geometry open at that edge.
+- A leading `linear` extremity expands from `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
+- A trailing `linear` extremity collapses toward `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
+- A leading `open` begins visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
+- A trailing `open` ends visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - `startPositionPercent` is measured as a percentage of total path length, and `lengthPx` is measured in pixels along the routed centerline.
 - A linear extremity uses `collapseOffset` to define the edge shape across its span.
 
@@ -63,8 +67,9 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - A `transition` instruction requires active offsets before it and a following offsets instruction after it.
 - A leading `extremity` instruction requires a following offsets instruction.
 - A trailing `extremity` instruction requires active offsets before it.
-- A leading `extremity` may consume an edge-anchored `lengthPx` span before the first stable offsets state becomes fully active. `open` does not have a `lengthpx` because it cannot have a length.
-- A trailing `extremity` ends drawable geometry after its edge-anchored `lengthPx` span.
+- A leading `extremity` may begin after 0% and may consume a `lengthPx` span after its `startPositionPercent` before the first stable offsets state becomes fully active.
+- A trailing `extremity` may begin before 100% and defines where visible geometry ends.
+- `open` does not have a `lengthPx` because it cannot have a span.
 - Out-of-range `startPositionPercent` values and negative or oversized `lengthPx` values are clamped into the routed path length and reported as warnings.
 - Terminal behavior should be expressed through an `extremity` instruction.
 

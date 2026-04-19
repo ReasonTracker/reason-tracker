@@ -46,11 +46,13 @@ export type PathGeometryExtremityKind = "open" | "linear";
 export interface PathOpenExtremityInstruction {
 	type: "extremity";
 	kind: "open";
+	startPositionPercent: number;
 }
 
 export interface PathLinearExtremityInstruction {
 	type: "extremity";
 	kind: "linear";
+	startPositionPercent: number;
 	lengthPx: number;
 	collapseOffset: number;
 }
@@ -411,18 +413,29 @@ function buildProfileSegments(
 	}
 
 	const segments: PathProfileSegment[] = [];
-	let cursor = 0;
+	let cursor = clampStartPositionPercent(
+		firstInstruction.startPositionPercent,
+		totalLength,
+		issues,
+		0,
+	);
 	let instructionIndex = 1;
 	let activeSection = extractOffsetSection(instructions[1]);
 
 	if (firstInstruction.kind === "linear") {
-		const leadingLength = clampLengthPx(firstInstruction.lengthPx, totalLength, issues, 0);
+		const leadingLength = clampLengthPx(
+			firstInstruction.lengthPx,
+			Math.max(0, totalLength - cursor),
+			issues,
+			0,
+		);
+		const leadingEnd = clampNumber(cursor + leadingLength, cursor, totalLength);
 		const collapsedSection = {
 			offsetA: firstInstruction.collapseOffset,
 			offsetB: firstInstruction.collapseOffset,
 		};
-		pushProfileSegment(segments, 0, leadingLength, collapsedSection, activeSection);
-		cursor = leadingLength;
+		pushProfileSegment(segments, cursor, leadingEnd, collapsedSection, activeSection);
+		cursor = leadingEnd;
 	}
 
 	instructionIndex += 1;
@@ -498,16 +511,33 @@ function buildProfileSegments(
 	}
 
 	const trailingExtremity = lastInstruction;
-	let trailingStart = totalLength;
+	let trailingStart = clampStartPositionPercent(
+		trailingExtremity.startPositionPercent,
+		totalLength,
+		issues,
+		instructions.length - 1,
+	);
+
+	if (trailingStart < cursor) {
+		issues.push({
+			code: "invalid-instruction-order",
+			message: "A trailing extremity started before the previous visible section finished; it was clamped forward.",
+			severity: "warning",
+			instructionIndex: instructions.length - 1,
+		});
+		trailingStart = cursor;
+	}
+
+	let trailingEnd = trailingStart;
 
 	if (trailingExtremity.kind === "linear") {
 		const trailingLength = clampLengthPx(
 			trailingExtremity.lengthPx,
-			totalLength,
+			Math.max(0, totalLength - trailingStart),
 			issues,
 			instructions.length - 1,
 		);
-		trailingStart = Math.max(cursor, totalLength - trailingLength);
+		trailingEnd = clampNumber(trailingStart + trailingLength, trailingStart, totalLength);
 	}
 
 	pushProfileSegment(segments, cursor, trailingStart, activeSection, activeSection);
@@ -517,7 +547,7 @@ function buildProfileSegments(
 			offsetA: trailingExtremity.collapseOffset,
 			offsetB: trailingExtremity.collapseOffset,
 		};
-		pushProfileSegment(segments, trailingStart, totalLength, activeSection, collapsedSection);
+		pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection);
 	}
 
 	return segments;
@@ -805,7 +835,7 @@ function clampStartPositionPercent(
 	if (clampedPercent !== startPositionPercent) {
 		issues.push({
 			code: "instruction-position-out-of-range",
-			message: "A transition start position percent was clamped into the routed path length.",
+			message: "An instruction start position percent was clamped into the routed path length.",
 			severity: "warning",
 			instructionIndex,
 		});

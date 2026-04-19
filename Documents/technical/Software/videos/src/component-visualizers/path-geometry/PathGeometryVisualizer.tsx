@@ -22,6 +22,10 @@ const CANVAS_HEIGHT = 1080;
 /** Stroke width used for the two open boundary outlines in the preview. */
 const GEOMETRY_OUTLINE_STROKE_WIDTH = 5;
 
+const PRO_COLOR = "var(--pro)";
+const PRO_FILL_SOFT = "hsla(var(--pro-h), 100%, var(--pro-l), 0.18)";
+const PRO_FILL_STRONG = "var(--pro)";
+
 const VISUALIZER_POINTS = [
 	{ x: 1600, y: 360 },
 	{ x: 1120, y: 360, radius: 120 },
@@ -39,12 +43,14 @@ const offsetsSectionSchema = z.object({
 
 const linearExtremitySchema = z.object({
 	kind: z.literal("linear"),
+	startPositionPercent: z.number().min(0).max(100),
 	lengthPx: z.number().min(0).step(1),
 	collapseOffset: z.number(),
 });
 
 const openExtremitySchema = z.object({
 	kind: z.literal("open"),
+	startPositionPercent: z.number().min(0).max(100),
 });
 
 const extremityEditorSchema = z.discriminatedUnion("kind", [
@@ -78,13 +84,13 @@ export const PathGeometryVisualizer = (
 	const pipeInput: PathGeometryInput = {
 		points: VISUALIZER_POINTS,
 		instructions: [
-			{ type: "extremity", kind: "open" },
+			{ type: "extremity", kind: "open", startPositionPercent: 0 },
 			{
 				type: "offsets",
 				offsetA: -props.pipeWidth / 2,
 				offsetB: props.pipeWidth / 2,
 			},
-			{ type: "extremity", kind: "open" },
+			{ type: "extremity", kind: "open", startPositionPercent: 100 },
 		],
 	};
 	const fluidInput: PathGeometryInput = {
@@ -119,8 +125,7 @@ export const PathGeometryVisualizer = (
 		AbsoluteFill,
 		{
 			style: {
-				background:
-					"radial-gradient(circle at top left, #13203e 0%, #08111f 55%, #050a12 100%)",
+				background: "#000000",
 				color: "#e2e8f0",
 				fontFamily: '"Segoe UI", sans-serif',
 			},
@@ -132,22 +137,14 @@ export const PathGeometryVisualizer = (
 				viewBox: `0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`,
 			},
 			createElement("path", {
-				d: centerlinePathData,
-				fill: "none",
-				opacity: 0.6,
-				stroke: "#334155",
-				strokeDasharray: "14 10",
-				strokeWidth: 4,
-			}),
-			createElement("path", {
 				d: pipeClosedPathData,
-				fill: "rgba(148, 163, 184, 0.18)",
+				fill: PRO_FILL_SOFT,
 				stroke: "none",
 			}),
 			createElement("path", {
 				d: pipeBoundaryAPathData,
 				fill: "none",
-				stroke: "#e2e8f0",
+				stroke: PRO_COLOR,
 				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH,
@@ -155,20 +152,20 @@ export const PathGeometryVisualizer = (
 			createElement("path", {
 				d: pipeBoundaryBPathData,
 				fill: "none",
-				stroke: "#e2e8f0",
+				stroke: PRO_COLOR,
 				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH,
 			}),
 			createElement("path", {
 				d: fluidClosedPathData,
-				fill: "rgba(125, 211, 252, 0.52)",
+				fill: PRO_FILL_STRONG,
 				stroke: "none",
 			}),
 			createElement("path", {
 				d: fluidBoundaryAPathData,
 				fill: "none",
-				stroke: "#7dd3fc",
+				stroke: PRO_COLOR,
 				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH - 1,
@@ -176,10 +173,18 @@ export const PathGeometryVisualizer = (
 			createElement("path", {
 				d: fluidBoundaryBPathData,
 				fill: "none",
-				stroke: "#7dd3fc",
+				stroke: PRO_COLOR,
 				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH - 1,
+			}),
+			createElement("path", {
+				d: centerlinePathData,
+				fill: "none",
+				opacity: 1,
+				stroke: "#808080",
+				strokeDasharray: "14 10",
+				strokeWidth: 4,
 			}),
 		),
 		createElement(
@@ -270,10 +275,15 @@ function normalizeExtremityInstruction(
 		return {
 			type: "extremity",
 			kind: "linear",
+			startPositionPercent: extremity.startPositionPercent,
 			lengthPx: extremity.lengthPx,
 			collapseOffset: extremity.collapseOffset,
 		};
 	}
 
-	return { type: "extremity", kind: "open" };
+	return {
+		type: "extremity",
+		kind: "open",
+		startPositionPercent: extremity.startPositionPercent,
+	};
 }
