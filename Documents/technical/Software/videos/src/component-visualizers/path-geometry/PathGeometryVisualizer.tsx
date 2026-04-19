@@ -7,7 +7,10 @@ import { createElement } from "react";
 import { AbsoluteFill } from "remotion";
 import { z } from "zod";
 
-import { pathGeometryBoundariesToClosedSvgPathData } from "./pathGeometryCommandsToSvgPathData";
+import {
+	pathGeometryBoundariesToClosedSvgPathData,
+	pathGeometryCommandsToSvgPathData,
+} from "./pathGeometryCommandsToSvgPathData";
 
 // AGENT NOTE: Keep tunable numeric preview constants grouped here.
 /** Width of the Remotion preview canvas in pixels. */
@@ -16,68 +19,101 @@ const CANVAS_WIDTH = 1920;
 /** Height of the Remotion preview canvas in pixels. */
 const CANVAS_HEIGHT = 1080;
 
-/** Stroke width used for the final geometry outline in the preview. */
+/** Stroke width used for the two open boundary outlines in the preview. */
 const GEOMETRY_OUTLINE_STROKE_WIDTH = 5;
 
-const waypointSchema = z.object({
-	x: z.number(),
-	y: z.number(),
-	radius: z.number().positive().optional(),
+const VISUALIZER_POINTS = [
+	{ x: 1600, y: 360 },
+	{ x: 1120, y: 360, radius: 120 },
+	{ x: 700, y: 780, radius: 120 },
+	{ x: 260, y: 780 },
+] satisfies Array<{ x: number; y: number; radius?: number }>;
+
+const pipeWidthSchema = z.number().min(1).step(1);
+
+const offsetsSectionSchema = z.object({
+	type: z.literal("offsets"),
+	offsetA: z.number(),
+	offsetB: z.number(),
 });
 
-const instructionEditorSchema = z.object({
-	type: z.enum(["offsets", "transition", "extremity"]),
-	kind: z.enum(["linear", "open"]).optional(),
-	startPositionPercent: z.number().min(0).max(100).optional(),
-	lengthPx: z.number().min(0).step(1).optional(),
-	collapseOffset: z.number().optional(),
-	offsetA: z.number().optional(),
-	offsetB: z.number().optional(),
+const linearExtremitySchema = z.object({
+	kind: z.literal("linear"),
+	lengthPx: z.number().min(0).step(1),
+	collapseOffset: z.number(),
+});
+
+const openExtremitySchema = z.object({
+	kind: z.literal("open"),
+});
+
+const extremityEditorSchema = z.discriminatedUnion("kind", [
+	openExtremitySchema,
+	linearExtremitySchema,
+]);
+
+const transitionStepSchema = z.object({
+	type: z.literal("transition"),
+	startPositionPercent: z.number().min(0).max(100),
+	lengthPx: z.number().min(0).step(1),
+	kind: z.enum(["linear"]),
 });
 
 export const pathGeometryVisualizerSchema = z.object({
-	instructions: z.array(instructionEditorSchema).min(1),
-	points: z.array(waypointSchema).min(2),
+	pipeWidth: pipeWidthSchema,
+	fluidLeadingExtremity: extremityEditorSchema,
+	fluidSections: z.array(
+		z.discriminatedUnion("type", [offsetsSectionSchema, transitionStepSchema]),
+	).min(1),
+	fluidTrailingExtremity: extremityEditorSchema,
 });
 
 export type PathGeometryVisualizerProps = z.infer<
 	typeof pathGeometryVisualizerSchema
 >;
 
-export const defaultPathGeometryVisualizerProps: PathGeometryVisualizerProps = {
-	instructions: [
-		{ type: "extremity", kind: "open" },
-		{ type: "offsets", offsetA: -64, offsetB: 64 },
-		{
-			type: "transition",
-			startPositionPercent: 36,
-			lengthPx: 180,
-			kind: "linear",
-		},
-		{ type: "offsets", offsetA: -64, offsetB: 24 },
-		{ type: "extremity", kind: "linear", lengthPx: 36, collapseOffset: 0 },
-	],
-	points: [
-		{ x: 1600, y: 360 },
-		{ x: 1120, y: 360, radius: 120 },
-		{ x: 700, y: 780, radius: 120 },
-		{ x: 260, y: 780 },
-	],
-};
-
 export const PathGeometryVisualizer = (
 	props: PathGeometryVisualizerProps,
 ) => {
-	const input: PathGeometryInput = {
-		points: props.points,
-		instructions: props.instructions.map(normalizeInstruction),
+	const pipeInput: PathGeometryInput = {
+		points: VISUALIZER_POINTS,
+		instructions: [
+			{ type: "extremity", kind: "open" },
+			{
+				type: "offsets",
+				offsetA: -props.pipeWidth / 2,
+				offsetB: props.pipeWidth / 2,
+			},
+			{ type: "extremity", kind: "open" },
+		],
 	};
-	const geometry = buildPathGeometry(input);
-	const closedPathData = pathGeometryBoundariesToClosedSvgPathData(
-		geometry.boundaryAPathCommands,
-		geometry.boundaryBPathCommands,
+	const fluidInput: PathGeometryInput = {
+		points: VISUALIZER_POINTS,
+		instructions: normalizeFluidInstructions(props),
+	};
+	const pipeGeometry = buildPathGeometry(pipeInput);
+	const fluidGeometry = buildPathGeometry(fluidInput);
+	const pipeBoundaryAPathData = pathGeometryCommandsToSvgPathData(
+		pipeGeometry.boundaryAPathCommands,
 	);
-	const centerlinePathData = buildCenterlineGuidePathData(props.points);
+	const pipeBoundaryBPathData = pathGeometryCommandsToSvgPathData(
+		pipeGeometry.boundaryBPathCommands,
+	);
+	const pipeClosedPathData = pathGeometryBoundariesToClosedSvgPathData(
+		pipeGeometry.boundaryAPathCommands,
+		pipeGeometry.boundaryBPathCommands,
+	);
+	const fluidBoundaryAPathData = pathGeometryCommandsToSvgPathData(
+		fluidGeometry.boundaryAPathCommands,
+	);
+	const fluidBoundaryBPathData = pathGeometryCommandsToSvgPathData(
+		fluidGeometry.boundaryBPathCommands,
+	);
+	const fluidClosedPathData = pathGeometryBoundariesToClosedSvgPathData(
+		fluidGeometry.boundaryAPathCommands,
+		fluidGeometry.boundaryBPathCommands,
+	);
+	const centerlinePathData = buildCenterlineGuidePathData(VISUALIZER_POINTS);
 
 	return createElement(
 		AbsoluteFill,
@@ -104,11 +140,46 @@ export const PathGeometryVisualizer = (
 				strokeWidth: 4,
 			}),
 			createElement("path", {
-				d: closedPathData,
-				fill: "rgba(125, 211, 252, 0.28)",
+				d: pipeClosedPathData,
+				fill: "rgba(148, 163, 184, 0.18)",
+				stroke: "none",
+			}),
+			createElement("path", {
+				d: pipeBoundaryAPathData,
+				fill: "none",
 				stroke: "#e2e8f0",
+				strokeLinecap: "butt",
 				strokeLinejoin: "round",
 				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH,
+			}),
+			createElement("path", {
+				d: pipeBoundaryBPathData,
+				fill: "none",
+				stroke: "#e2e8f0",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH,
+			}),
+			createElement("path", {
+				d: fluidClosedPathData,
+				fill: "rgba(125, 211, 252, 0.52)",
+				stroke: "none",
+			}),
+			createElement("path", {
+				d: fluidBoundaryAPathData,
+				fill: "none",
+				stroke: "#7dd3fc",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH - 1,
+			}),
+			createElement("path", {
+				d: fluidBoundaryBPathData,
+				fill: "none",
+				stroke: "#7dd3fc",
+				strokeLinecap: "butt",
+				strokeLinejoin: "round",
+				strokeWidth: GEOMETRY_OUTLINE_STROKE_WIDTH - 1,
 			}),
 		),
 		createElement(
@@ -134,19 +205,19 @@ export const PathGeometryVisualizer = (
 			createElement(
 				"div",
 				{ style: { color: "#cbd5e1", fontSize: 28, fontWeight: 700, marginTop: 10 } },
-				`${props.instructions.length} instructions, ${props.points.length} waypoints`,
+				`${fluidInput.instructions.length} fluid instructions, ${VISUALIZER_POINTS.length} fixed path waypoints`,
 			),
 			createElement(
 				"div",
 				{ style: { color: "#94a3b8", fontSize: 18, lineHeight: 1.45, marginTop: 8 } },
-				"This visualizer passes points and instructions directly into buildPathGeometry with no visualizer-side geometry translation.",
+				"This visualizer uses one fixed routed path, one width control for the pipe shell, and separate start-to-end controls for the fluid inside it.",
 			),
 			createElement(
 				"div",
-				{ style: { color: geometry.issues.length === 0 ? "#86efac" : "#fbbf24", fontSize: 16, marginTop: 18 } },
-				geometry.issues.length === 0
-					? "No geometry issues reported for this input."
-					: `Geometry issues: ${geometry.issues.map((issue) => issue.code).join(", ")}`,
+				{ style: { color: pipeGeometry.issues.length + fluidGeometry.issues.length === 0 ? "#86efac" : "#fbbf24", fontSize: 16, marginTop: 18 } },
+				pipeGeometry.issues.length + fluidGeometry.issues.length === 0
+					? "No geometry issues reported for the pipe or fluid."
+					: `Geometry issues: ${[...pipeGeometry.issues, ...fluidGeometry.issues].map((issue) => issue.code).join(", ")}`,
 			),
 		),
 	);
@@ -162,37 +233,47 @@ function buildCenterlineGuidePathData(points: { x: number; y: number }[]): strin
 	return [`M ${start.x} ${start.y}`, ...rest.map((point) => `L ${point.x} ${point.y}`)].join(" ");
 }
 
-function normalizeInstruction(
-	instruction: PathGeometryVisualizerProps["instructions"][number],
-): PathGeometryInstruction {
-	if (instruction.type === "offsets") {
-		return {
-			type: "offsets",
-			offsetA: instruction.offsetA ?? 0,
-			offsetB: instruction.offsetB ?? 0,
-		};
-	}
+function normalizeFluidInstructions(
+	props: PathGeometryVisualizerProps,
+): PathGeometryInstruction[] {
+	const instructions: PathGeometryInstruction[] = [
+		normalizeExtremityInstruction(props.fluidLeadingExtremity),
+	];
 
-	if (instruction.type === "transition") {
-		return {
+	for (const section of props.fluidSections) {
+		if (section.type === "offsets") {
+			instructions.push({
+				type: "offsets",
+				offsetA: section.offsetA,
+				offsetB: section.offsetB,
+			});
+			continue;
+		}
+
+		instructions.push({
 			type: "transition",
-			startPositionPercent: instruction.startPositionPercent ?? 0,
-			lengthPx: instruction.lengthPx ?? 0,
+			startPositionPercent: section.startPositionPercent,
+			lengthPx: section.lengthPx,
 			kind: "linear",
-		};
+		});
 	}
 
-	if (instruction.kind === "linear") {
+	instructions.push(normalizeExtremityInstruction(props.fluidTrailingExtremity));
+
+	return instructions;
+}
+
+function normalizeExtremityInstruction(
+	extremity: PathGeometryVisualizerProps["fluidLeadingExtremity"],
+): PathGeometryInstruction {
+	if (extremity.kind === "linear") {
 		return {
 			type: "extremity",
 			kind: "linear",
-			lengthPx: instruction.lengthPx ?? 0,
-			collapseOffset: instruction.collapseOffset ?? 0,
+			lengthPx: extremity.lengthPx,
+			collapseOffset: extremity.collapseOffset,
 		};
 	}
 
-	return {
-		type: "extremity",
-		kind: "open",
-	};
+	return { type: "extremity", kind: "open" };
 }

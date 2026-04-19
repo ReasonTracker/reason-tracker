@@ -3,7 +3,6 @@ import type { ComponentType } from "react";
 import { AbsoluteFill, Composition } from "remotion";
 
 import {
-	defaultPathGeometryVisualizerProps,
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
@@ -21,7 +20,7 @@ export const RemotionRoot = () => {
 				fps={30}
 				height={1080}
 				schema={pathGeometryVisualizerSchema}
-				defaultProps={defaultPathGeometryVisualizerProps}
+				defaultProps={{"pipeWidth":128,"fluidLeadingExtremity":{"kind":"open" as const},"fluidSections":[{"type":"offsets" as const,"offsetA":-59,"offsetB":28},{"type":"transition" as const,"startPositionPercent":65,"lengthPx":50,"kind":"linear" as const},{"type":"offsets" as const,"offsetA":-64,"offsetB":-32}],"fluidTrailingExtremity":{"kind":"linear" as const,"lengthPx":53,"collapseOffset":-64}}}
 				width={1920}
 			/>
 			<Composition

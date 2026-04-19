@@ -8,9 +8,6 @@
 /** Small tolerance for treating numeric values as effectively equal. */
 const GEOMETRY_EPSILON = 1e-6;
 
-/** Largest angle span one sampled arc slice may cover. */
-const MAX_ARC_SAMPLE_ANGLE_RADIANS = Math.PI / 12;
-
 //#region Geometry primitives
 
 export interface Point {
@@ -531,38 +528,66 @@ function buildBoundaryPathCommands(
 	profileSegments: PathProfileSegment[],
 	selectOffset: (section: OffsetSection) => number,
 ): PathGeometryCommand[] {
-	const sampledPoints: Point[] = [];
+	const commands: PathGeometryCommand[] = [];
 
 	for (const profileSegment of profileSegments) {
-		const segmentPoints = sampleBoundaryPoints(parts, profileSegment, selectOffset);
-		for (const point of segmentPoints) {
-			if (sampledPoints.length === 0 || !pointsEqual(sampledPoints[sampledPoints.length - 1], point)) {
-				sampledPoints.push(point);
-			}
+		const fromOffset = selectOffset(profileSegment.fromSection);
+		const toOffset = selectOffset(profileSegment.toSection);
+
+		if (Math.abs(fromOffset - toOffset) > GEOMETRY_EPSILON) {
+			appendVaryingOffsetSegment(commands, parts, profileSegment, selectOffset);
+			continue;
 		}
+
+		appendConstantOffsetSegments(commands, parts, profileSegment, fromOffset);
 	}
 
-	if (sampledPoints.length < 2) {
-		return [];
-	}
-
-	return sampledPoints.map((point, index) =>
-		index === 0
-			? { kind: "moveTo", x: point.x, y: point.y }
-			: { kind: "lineTo", x: point.x, y: point.y },
-	);
+	return commands;
 }
 
-function sampleBoundaryPoints(
+function appendVaryingOffsetSegment(
+	commands: PathGeometryCommand[],
 	parts: CenterlinePart[],
 	profileSegment: PathProfileSegment,
 	selectOffset: (section: OffsetSection) => number,
-): Point[] {
+): void {
 	if (profileSegment.endDistance - profileSegment.startDistance <= GEOMETRY_EPSILON) {
-		return [];
+		return;
 	}
 
-	const sampledPoints: Point[] = [];
+	const startPart = findCenterlinePartAtDistance(parts, profileSegment.startDistance);
+	const endPart = findCenterlinePartAtDistance(parts, profileSegment.endDistance);
+
+	if (!startPart || !endPart) {
+		return;
+	}
+
+	const startPoint = evaluateBoundaryPoint(
+		startPart,
+		profileSegment,
+		profileSegment.startDistance,
+		selectOffset,
+	);
+	const endPoint = evaluateBoundaryPoint(
+		endPart,
+		profileSegment,
+		profileSegment.endDistance,
+		selectOffset,
+	);
+
+	appendPointCommand(commands, startPoint);
+	appendLineCommand(commands, endPoint);
+}
+
+function appendConstantOffsetSegments(
+	commands: PathGeometryCommand[],
+	parts: CenterlinePart[],
+	profileSegment: PathProfileSegment,
+	offset: number,
+): void {
+	if (profileSegment.endDistance - profileSegment.startDistance <= GEOMETRY_EPSILON) {
+		return;
+	}
 
 	for (const part of parts) {
 		const overlapStart = Math.max(profileSegment.startDistance, part.startDistance);
@@ -572,38 +597,45 @@ function sampleBoundaryPoints(
 			continue;
 		}
 
-		const distances = buildSampleDistances(part, overlapStart, overlapEnd);
-
-		for (const distance of distances) {
-			const boundaryPoint = evaluateBoundaryPoint(part, profileSegment, distance, selectOffset);
-			if (sampledPoints.length === 0 || !pointsEqual(sampledPoints[sampledPoints.length - 1], boundaryPoint)) {
-				sampledPoints.push(boundaryPoint);
-			}
-		}
+		appendConstantOffsetPart(commands, part, overlapStart, overlapEnd, offset);
 	}
-
-	return sampledPoints;
 }
 
-function buildSampleDistances(
+function appendConstantOffsetPart(
+	commands: PathGeometryCommand[],
 	part: CenterlinePart,
 	startDistance: number,
 	endDistance: number,
-): number[] {
+	offset: number,
+): void {
+	const startPoint = evaluateConstantOffsetPoint(part, startDistance, offset);
+	const endPoint = evaluateConstantOffsetPoint(part, endDistance, offset);
+	appendPointCommand(commands, startPoint);
+
 	if (part.kind === "line") {
-		return [startDistance, endDistance];
+		appendLineCommand(commands, endPoint);
+		return;
 	}
 
-	const coveredFraction = (endDistance - startDistance) / (part.endDistance - part.startDistance);
-	const coveredAngle = Math.abs(part.deltaAngle) * coveredFraction;
-	const sliceCount = Math.max(1, Math.ceil(coveredAngle / MAX_ARC_SAMPLE_ANGLE_RADIANS));
-	const distances: number[] = [];
-
-	for (let sliceIndex = 0; sliceIndex <= sliceCount; sliceIndex += 1) {
-		distances.push(startDistance + ((endDistance - startDistance) * sliceIndex) / sliceCount);
+	const boundaryRadius = calculateBoundaryArcRadius(part, offset);
+	if (boundaryRadius <= GEOMETRY_EPSILON) {
+		appendLineCommand(commands, endPoint);
+		return;
 	}
 
-	return distances;
+	const startAngle = calculateAngleAtDistance(part, startDistance);
+	const endAngle = calculateAngleAtDistance(part, endDistance);
+	const deltaAngle = resolveArcDeltaAngle(startAngle, endAngle, part.deltaAngle >= 0 ? 1 : -1);
+	commands.push({
+		kind: "arc",
+		rx: boundaryRadius,
+		ry: boundaryRadius,
+		xAxisRotation: 0,
+		largeArc: Math.abs(deltaAngle) > Math.PI,
+		sweep: deltaAngle > 0,
+		x: endPoint.x,
+		y: endPoint.y,
+	});
 }
 
 function evaluateBoundaryPoint(
@@ -621,6 +653,75 @@ function evaluateBoundaryPoint(
 	const offset = interpolateNumber(fromOffset, toOffset, clampNumber(interpolation, 0, 1));
 
 	return addPoint(centerline.point, scalePoint(left, offset));
+}
+
+function evaluateConstantOffsetPoint(
+	part: CenterlinePart,
+	distance: number,
+	offset: number,
+): Point {
+	if (part.kind === "line") {
+		const centerline = evaluateCenterlinePart(part, distance);
+		return addPoint(centerline.point, scalePoint(leftNormal(centerline.tangent), offset));
+	}
+
+	const angle = calculateAngleAtDistance(part, distance);
+	const radial = { x: Math.cos(angle), y: Math.sin(angle) };
+	return addPoint(part.center, scalePoint(radial, calculateBoundaryArcRadius(part, offset)));
+}
+
+function calculateAngleAtDistance(part: Extract<CenterlinePart, { kind: "arc" }>, distance: number): number {
+	const span = part.endDistance - part.startDistance;
+	const interpolation = span <= GEOMETRY_EPSILON ? 0 : (distance - part.startDistance) / span;
+	return part.startAngle + part.deltaAngle * clampNumber(interpolation, 0, 1);
+}
+
+function calculateBoundaryArcRadius(
+	part: Extract<CenterlinePart, { kind: "arc" }>,
+	offset: number,
+): number {
+	return part.deltaAngle >= 0 ? part.radius - offset : part.radius + offset;
+}
+
+function findCenterlinePartAtDistance(
+	parts: CenterlinePart[],
+	distance: number,
+): CenterlinePart | undefined {
+	for (const part of parts) {
+		if (distance >= part.startDistance - GEOMETRY_EPSILON && distance <= part.endDistance + GEOMETRY_EPSILON) {
+			return part;
+		}
+	}
+
+	return parts.at(-1);
+}
+
+function appendPointCommand(commands: PathGeometryCommand[], point: Point): void {
+	appendEndpointCommand(commands, point);
+}
+
+function appendLineCommand(commands: PathGeometryCommand[], point: Point): void {
+	appendEndpointCommand(commands, point);
+}
+
+function appendEndpointCommand(commands: PathGeometryCommand[], point: Point): void {
+	if (commands.length === 0) {
+		commands.push({ kind: "moveTo", x: point.x, y: point.y });
+		return;
+	}
+
+	const currentPoint = getCommandEndpoint(commands[commands.length - 1]);
+	if (!currentPoint || !pointsEqual(currentPoint, point)) {
+		commands.push({ kind: "lineTo", x: point.x, y: point.y });
+	}
+}
+
+function getCommandEndpoint(command: PathGeometryCommand | undefined): Point | undefined {
+	if (!command) {
+		return undefined;
+	}
+
+	return { x: command.x, y: command.y };
 }
 
 function evaluateCenterlinePart(part: CenterlinePart, distance: number): CenterlineEvaluation {
