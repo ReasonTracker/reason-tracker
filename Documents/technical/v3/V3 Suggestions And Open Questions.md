@@ -10,7 +10,6 @@ When an item is settled and moved into durable docs or implementation, remove it
 ## Open Questions
 
 - What reference frame should a claim connection use at authoring time: relative to the target claim, relative to the main claim, or both?
-- Do connectors need a general update command, or are explicit relationship commands such as connect and delete sufficient?
 - If claim-target and connector-target connections stay as separate command paths, should moving across those target types remain delete-and-recreate, or later become a first-class move operation?
 - What is the minimal operation model needed after the command boundary: translator plus operations plus reducer, or a simpler execution path first?
 
@@ -35,11 +34,9 @@ Each cell should eventually capture the default move behavior without prompting 
 Questions this matrix is meant to force:
 
 - Which authored claim states are actually valid and stable enough to persist?
-- Which authored connector states belong on `Connector` versus projected `Score` values now that both `claimSide` and `connectorSide` are projected?
 - When a move happens, what should stay authored, what should be recomputed, and what should remain system-determined without an extra user prompt?
 
 ## Next Good Candidates
 
 - Turn the claim move decision matrix into real default behaviors once the valid authored state set is clearer.
-- Decide whether connector mutations need more than connect and delete.
 - Define the smallest useful post-command execution model without overcommitting to names too early.

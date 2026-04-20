@@ -1,5 +1,7 @@
 # 📌 Software
 
+Prototype status: this repository is currently a prototype. Do not build or add tests until this rule is explicitly changed in the documentation and agent guidance
+
 ## Organization Pattern
 
 Software assets are organized as one asset per top-level folder.

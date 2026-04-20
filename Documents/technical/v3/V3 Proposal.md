@@ -16,66 +16,6 @@ When a proposal section is accepted and implemented, remove that resolved guidan
 Persist settled guidance in durable docs.
 Keep suggestions, follow-up ideas, and unresolved questions in the companion notes document.
 
-## Core Model
-
-### Entities (Canonical Graph)
-
-#### Claim
-
-Represents the idea or content.
-
-- Has identity via `claimId`
-- Contains no positional data
-- Contains no score-specific data
-
-#### Connector
-
-Represents relationships between claims.
-
-- Exists only in the canonical graph
-- Source is a claim
-- Target may be a claim or a connector
-
-### Projected Model (Scoring Tree)
-
-#### Score
-
-`Score` represents a positional instance of a claim.
-
-- Exists in a tree projection
-- Appears once per path or location
-- Combines a claim reference, incoming connection, and local scoring state
-
-```ts
-interface Score {
-  id: ScoreId
-  claimId: ClaimId
-  claimSide: Side
-  connectorSide: Side
-  connectorId?: ConnectorId
-  incomingScoreIds: ScoreId[]
-
-  claimScore: {
-    confidence: number
-    reversibleConfidence: number
-  }
-
-  connectorScore: {
-    confidence: number
-    reversibleConfidence: number
-  }
-
-  relevance: number
-  scaleOfSources: number
-}
-```
-
-This object represents:
-
-- A node plus its incoming edge
-- Scoring context at a specific position
-- A propagation unit
-
 ## Command System
 
 ### CommandTranslator
@@ -152,7 +92,7 @@ A sparse index over the timeline supports locating the nearest state before time
 
 #### Canonical State
 
-Graph of Claims and Connectors.
+Graph of claims and connectors.
 
 - Source of truth
 
@@ -169,12 +109,6 @@ Tree of `Score` values built for:
 Projection is:
 
 - Derived from canonical state
-- Optionally stored for performance or reproducibility
-
-Hybrid approach:
-
-- Store canonical state
-- Optionally store visual or scoring state for playback fidelity
 
 ## Naming Decisions
 
