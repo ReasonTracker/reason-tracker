@@ -41,10 +41,5 @@ It is expected to be the primary graph-consumption shape through much of the pro
 
 `authoritative`
 
-## Change Guard
-
-All entity files in this folder are `CHANGE-GUARD` areas.
-Changes require explicit approval before editing because these files define authoritative shared engine contracts.
-
 <!-- autonav:start -->
 <!-- autonav:end -->

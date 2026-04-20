@@ -1,8 +1,3 @@
-/**
- * CHANGE-GUARD
- * Explicit approval required before changing this area.
- * Reason: core engine entity contract.
- */
 // See 📌README.md in this folder for local coding standards before editing this file.
 import type { ClaimId } from "./Claim.ts";
 

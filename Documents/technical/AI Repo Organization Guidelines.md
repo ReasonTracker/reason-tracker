@@ -213,36 +213,6 @@ Status markers are important because prototypes often mix thin scaffolds with re
 
 Do not assume readers can infer maturity from file size or naming.
 
-## Change Guard Standard
-
-Use `CHANGE-GUARD` as the neutral marker for code or documentation that should only be changed intentionally and with explicit approval.
-
-This marker applies to both humans and agents.
-
-Use it sparingly for areas such as:
-
-- core domain contracts
-- intentional behavior boundaries
-- fragile workflow pivots
-- documentation that defines a protected policy boundary
-
-Recommended form:
-
-```ts
-/**
- * CHANGE-GUARD
- * Explicit approval required before changing this area.
- * Reason: core domain contract.
- */
-```
-
-Guidance:
-
-- place the marker directly on the guarded file, declaration, or code region
-- include a short reason so reviewers know why the guard exists
-- do not use the marker on routine implementation details
-- if the guarded boundary moves, move or remove the marker intentionally rather than leaving stale guards behind
-
 ## Ownership And Update Rules
 
 When code or docs change, update the narrowest document that owns the truth.

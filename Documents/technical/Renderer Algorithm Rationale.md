@@ -74,22 +74,6 @@ Reason:
 - avoids infinite expansion in self-referential loops
 - keeps each branch interpretable as a finite argument chain
 
-## Why The Hard Expansion Guard Exists
-
-Unrolling can still grow quickly across branches even with branch-local no-repeat.
-
-Policy choice:
-
-- fail deterministically when generated appearances would exceed `2 * original claim count`
-
-Business reasons:
-
-- predictable resource usage
-- consistent behavior across environments
-- explicit failure is safer than silently truncating argument structure
-
-The failure is intentionally surfaced as a named error so callers can decide UX handling.
-
 ## Why Deterministic Ordering Matters
 
 Deterministic traversal and ordering are required for:

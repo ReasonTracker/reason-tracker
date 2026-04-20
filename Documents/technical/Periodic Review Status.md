@@ -14,5 +14,5 @@ It is current-state scheduling, not a historical log.
 
 - Next prompt after: 2026-04-17
 - Cadence: 30 days
-- Scope: Review whether the repository is following its own documented rules, including prototype constraints, CHANGE-GUARD usage, README patterns, and agent guidance.
+- Scope: Review whether the repository is following its own documented rules, including prototype constraints, README patterns, and agent guidance.
 - Notes: Offer at a natural idle point, especially after meaningful structural or documentation changes.
