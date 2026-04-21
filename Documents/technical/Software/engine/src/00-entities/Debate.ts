@@ -1,8 +1,10 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
+
 import type { Claim, ClaimId } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
 import type { Score, ScoreId } from "./Score.ts";
+import { PartialExceptId } from "../00-commands.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
 
@@ -19,3 +21,6 @@ export type DebateDetails = {
 }
 
 export type Debate = DebateCore & DebateDetails
+
+// For patch/update, allow partial except id
+export type DebatePatch = PartialExceptId<Debate>;

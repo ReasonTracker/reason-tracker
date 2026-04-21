@@ -1,5 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 import type { ClaimId } from "./Claim.ts";
+import { PartialExceptId } from "../00-commands.ts";
 
 interface BaseConnector {
 	id: ConnectorId
@@ -19,9 +20,13 @@ export interface ClaimToConnectorConnector extends BaseConnector {
 	targetConnectorId: ConnectorId
 }
 
+// For creation, allow all fields except id to be partial, but require type and target/source as appropriate
 export type ConnectorCreate =
-	| (Partial<ClaimToClaimConnector> & Pick<ClaimToClaimConnector, "source" | "type" | "targetClaimId">)
-	| (Partial<ClaimToConnectorConnector> & Pick<ClaimToConnectorConnector, "source" | "type" | "targetConnectorId">);
+	| (Omit<ClaimToClaimConnector, "id"> | PartialExceptId<ClaimToClaimConnector>)
+	| (Omit<ClaimToConnectorConnector, "id"> | PartialExceptId<ClaimToConnectorConnector>);
+
+// For patch/update, allow partial except id
+export type ConnectorPatch = PartialExceptId<Connector>;
 
 export type ConnectorId = string & { readonly __brand: "ConnectorId" };
 export type TargetRelation = "proTarget" | "conTarget";

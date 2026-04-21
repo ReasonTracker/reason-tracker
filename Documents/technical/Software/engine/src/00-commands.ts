@@ -1,9 +1,7 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Claim, ClaimId } from "./00-entities/Claim.ts";
+import type { Claim, ClaimId, ClaimCreate, ClaimPatch } from "./00-entities/Claim.ts";
 import type {
-	ClaimToClaimConnector,
-	ClaimToConnectorConnector,
 	ConnectorCreate,
 	ConnectorId,
 } from "./00-entities/Connector.ts";
@@ -22,35 +20,35 @@ export type EngineCommand =
 	| UpdateDebateCommand
 // #endregion
 
+
 // #region Claim commands
 export type AddClaimCommand<TClaimId extends ClaimId = ClaimId> =
 	| {
 		type: "claim/add"
-		// Caller provided an id for the new claim.
-		claim: Claim & { id: TClaimId }
-		// If a connector is provided and it includes an id, its `source` MUST be the same id type.
-		connector?: Omit<ConnectorCreate, "id" | "source"> & (
-			| {
-				id?: never
-				source?: never
-			}
-			| {
-				id?: ConnectorId
-				source: TClaimId
-			}
-		)
+		/**
+		 * Caller provided an id for the new claim.
+		 */
+		claim: ClaimCreate & { id: TClaimId }
+		/**
+		 * If a connector is provided and it includes an id, its `source` MUST be the same id type.
+		 */
+		connector?: ConnectorCreate
 	}
 	| {
 		type: "claim/add"
-		// Caller did NOT provide an id; one will be created.
-		claim: Omit<Claim, "id">
-		// Connector must not include a source (it will be filled in by the translator).
-		connector?: Omit<ConnectorCreate, "id" | "source">
+		/**
+		 * Caller did NOT provide an id; one will be created.
+		 */
+		claim: ClaimCreate
+		/**
+		 * Connector must not include a source (it will be filled in by the translator).
+		 */
+		connector?: ConnectorCreate
 	};
 
 export interface UpdateClaimCommand {
 	type: "claim/update"
-	patch: PartialExceptId<Claim>
+	patch: ClaimPatch
 }
 
 export interface DeleteClaimCommand {
@@ -62,7 +60,7 @@ export interface DeleteClaimCommand {
 // #region Connector commands
 export interface CreateConnectorCommand {
 	type: "connector/create"
-	connector: PartialExceptId<ClaimToClaimConnector> | PartialExceptId<ClaimToConnectorConnector>
+	connector: ConnectorCreate
 }
 
 export interface DeleteConnectorCommand {
