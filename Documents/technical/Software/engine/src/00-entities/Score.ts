@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { ClaimId, Side } from "./Claim.ts";
+import type { ClaimId } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
 
 export interface claimScores {
@@ -25,4 +25,5 @@ export interface Score extends claimScores, connectorScores {
 };
 
 export type ScoreId = string & { readonly __brand: "ScoreId" };
+export type Side = "proMain" | "conMain";
 

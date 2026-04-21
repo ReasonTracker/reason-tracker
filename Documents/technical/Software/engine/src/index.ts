@@ -1,8 +1,7 @@
 export type { EngineCommand } from "./00-commands.ts";
 export type {
 	AddClaimCommand,
-	ConnectClaimToClaimCommand,
-	ConnectClaimToConnectorCommand,
+	CreateConnectorCommand,
 	CreateDebateCommand,
 	DeleteClaimCommand,
 	DeleteConnectorCommand,
@@ -15,7 +14,8 @@ export type {
 	CommandTranslator,
 	Operation as EngineOperation,
 } from "./command-translator/CommandTranslator.ts";
-export type { Claim, ClaimId, Side } from "./00-entities/Claim.ts";
+export type { Claim, ClaimId } from "./00-entities/Claim.ts";
+export type { Side } from "./00-entities/Score.ts";
 export type {
 	Affects,
 	ClaimToClaimConnector,

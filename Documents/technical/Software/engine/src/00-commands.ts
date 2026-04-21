@@ -7,7 +7,9 @@ import type {
 	ConnectorCreate,
 	ConnectorId,
 } from "./00-entities/Connector.ts";
-import type { Debate } from "./00-entities/Debate.ts";
+import type { DebateCore, Debate } from "./00-entities/Debate.ts";
+
+export type PartialExceptId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id?: T["id"] };
 
 // #region Command union
 export type EngineCommand =
@@ -15,31 +17,40 @@ export type EngineCommand =
 	| AddClaimCommand
 	| UpdateClaimCommand
 	| DeleteClaimCommand
-	| ConnectClaimToClaimCommand
-	| ConnectClaimToConnectorCommand
+	| CreateConnectorCommand
 	| DeleteConnectorCommand
 	| UpdateDebateCommand
 // #endregion
 
 // #region Claim commands
-export type AddClaimCommand<TClaimId extends ClaimId = ClaimId> = {
-	type: "claim/add"
-	claim: Claim & { id: TClaimId }
-	connector?: Omit<ConnectorCreate, "id" | "source"> & (
-		| {
-			id?: undefined
-			source?: undefined
-		}
-		| {
-			id?: ConnectorId
-			source: TClaimId
-		}
-	)
-};
+export type AddClaimCommand<TClaimId extends ClaimId = ClaimId> =
+	| {
+		type: "claim/add"
+		// Caller provided an id for the new claim.
+		claim: Claim & { id: TClaimId }
+		// If a connector is provided and it includes an id, its `source` MUST be the same id type.
+		connector?: Omit<ConnectorCreate, "id" | "source"> & (
+			| {
+				id?: never
+				source?: never
+			}
+			| {
+				id?: ConnectorId
+				source: TClaimId
+			}
+		)
+	}
+	| {
+		type: "claim/add"
+		// Caller did NOT provide an id; one will be created.
+		claim: Omit<Claim, "id">
+		// Connector must not include a source (it will be filled in by the translator).
+		connector?: Omit<ConnectorCreate, "id" | "source">
+	};
 
 export interface UpdateClaimCommand {
 	type: "claim/update"
-	patch: Partial<Omit<Claim, "id">>
+	patch: PartialExceptId<Claim>
 }
 
 export interface DeleteClaimCommand {
@@ -49,14 +60,9 @@ export interface DeleteClaimCommand {
 // #endregion
 
 // #region Connector commands
-export interface ConnectClaimToClaimCommand {
-	type: "claims/connect-to-claim"
-	connector: Omit<ClaimToClaimConnector, "id"> & { id?: ConnectorId }
-}
-
-export interface ConnectClaimToConnectorCommand {
-	type: "claims/connect-to-connector"
-	connector: Omit<ClaimToConnectorConnector, "id"> & { id?: ConnectorId }
+export interface CreateConnectorCommand {
+	type: "connector/create"
+	connector: PartialExceptId<ClaimToClaimConnector> | PartialExceptId<ClaimToConnectorConnector>
 }
 
 export interface DeleteConnectorCommand {
@@ -69,22 +75,18 @@ export interface DeleteConnectorCommand {
 export type CreateDebateCommand<TClaimId extends ClaimId = ClaimId> =
 	| {
 		type: "debate/create"
-		debate: Omit<Debate, "claims" | "connectors" | "scores" | "mainClaimId"> & {
-			mainClaimId?: undefined
-		}
-		mainClaim?: undefined
+		debate: DebateCore
+		mainClaim?: never
 	}
 	| {
 		type: "debate/create"
-		debate: Omit<Debate, "claims" | "connectors" | "scores" | "mainClaimId"> & {
-			mainClaimId: TClaimId
-		}
+		debate: DebateCore
 		mainClaim: Claim & { id: TClaimId }
 	};
 
 export interface UpdateDebateCommand {
 	type: "debate/update"
-	patch: Partial<Omit<Debate, "id" | "claims" | "connectors" | "scores">>
+	patch: DebateCore
 }
 
 // #endregion

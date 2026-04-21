@@ -4,14 +4,18 @@ import type { Claim, ClaimId } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
 import type { Score, ScoreId } from "./Score.ts";
 
-export interface Debate {
+export type DebateId = string & { readonly __brand: "DebateId" };
+
+export type DebateCore = {
 	id: DebateId
 	description: string
 	name: string
-	mainClaimId: ClaimId
+}
+
+export type DebateDetails = {
 	claims: Record<ClaimId, Claim>
 	connectors: Record<ConnectorId, Connector>
 	scores: Record<ScoreId, Score>
 }
 
-export type DebateId = string & { readonly __brand: "DebateId" };
+export type Debate = DebateCore & DebateDetails

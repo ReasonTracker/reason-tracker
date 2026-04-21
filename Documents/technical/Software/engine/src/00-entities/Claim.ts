@@ -19,5 +19,3 @@ export interface Claim {
 }
 
 export type ClaimId = string & { readonly __brand: "ClaimId" };
-export type Side = "proMain" | "conMain";
-

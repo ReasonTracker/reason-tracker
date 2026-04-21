@@ -43,14 +43,6 @@ These are implementation guidelines for repository code structure and file organ
 - Keep internal implementation type contracts DRY: do not redefine equivalent option/type contracts repeatedly across internal functions.
 - Define and reuse shared contracts at real boundaries (for example package/library boundaries), then thread those through internal call chains.
 
-## Local Type Ordering
-
-- Within a file, group related types and interfaces by domain area or responsibility instead of by keyword alone.
-- Prefer fewer total local types. If an object shape is used only once and does not need an independent name for construction or reuse, inline it at the point of use.
-- When a helper type exists only to support one interface or function and still deserves a name, place that helper immediately above the interface or function that uses it.
-- Prefer `#region` markers over plain section comments when a file holds multiple major contract groups.
-- If there is no stronger reason to order by dependency, prefer reading order by usage and responsibility.
-
 ## Human Review Notes
 
 - When documentation in a technical area refers to review status, explicitly state the level of human review instead of using an unqualified word such as `reviewed`.
@@ -66,3 +58,21 @@ These are implementation guidelines for repository code structure and file organ
 - Add symbol-level TSDoc or JSDoc comments to each tunable constant when the meaning is not obvious from the name alone.
 - Do not assume the reader knows specialized domain terms. If a constant uses a term such as `epsilon`, explain the practical meaning in plain language at the symbol itself.
 - Prefer comments that explain what changing the constant does to behavior, tolerances, or visual output.
+
+## Type Patterns
+
+- **PartialExceptId:** Use `PartialExceptId<T extends { id: unknown }>` (defined as `Partial<Omit<T, "id">> & { id?: T["id"] }`) for create/patch shapes that accept partial payloads but must preserve correct `id` typing when an `id` is supplied.
+
+- **Forbid fields in union variants:** When a union member must forbid a field, prefer `field?: never` (e.g. `id?: never` or `source?: never`) over `field?: undefined` so TypeScript surfaces a clear compile-time error if the field is provided. After changes, run a type-check to validate downstream consumers.
+
+- **Id-present vs id-absent variants:** Represent caller-provided vs system-generated ids with two union members (e.g. `T & { id: ID }` vs `Omit<T, "id">`). Keep related connector types aligned so required fields (like `connector.source`) follow the claim variant.
+
+- **Command payloads and generated IDs:** Translator/reducer code generates system IDs. Commands should not accept or expose generated IDs such as `mainClaimId`; allow `mainClaim` only when the caller supplies a complete `Claim` with an `id`.
+
+## Local Type Ordering
+
+- Within a file, group related types and interfaces by domain area or responsibility instead of by keyword alone.
+- Prefer fewer total local types. If an object shape is used only once and does not need an independent name for construction or reuse, inline it at the point of use.
+- When a helper type exists only to support one interface or function and still deserves a name, place that helper immediately above the interface or function that uses it.
+- Prefer `#region` markers over plain section comments when a file holds multiple major contract groups.
+- If there is no stronger reason to order by dependency, prefer reading order by usage and responsibility.
