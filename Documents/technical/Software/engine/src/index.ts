@@ -3,12 +3,18 @@ export type {
 	AddClaimCommand,
 	ConnectClaimToClaimCommand,
 	ConnectClaimToConnectorCommand,
+	CreateDebateCommand,
 	DeleteClaimCommand,
 	DeleteConnectorCommand,
-	SetMainClaimCommand,
 	UpdateClaimCommand,
 	UpdateDebateCommand,
 } from "./00-commands.ts";
+export type {
+	AddClaimOp,
+	CommandTranslationResult,
+	CommandTranslator,
+	Operation as EngineOperation,
+} from "./command-translator/CommandTranslator.ts";
 export type { Claim, ClaimId, Side } from "./00-entities/Claim.ts";
 export type {
 	Affects,

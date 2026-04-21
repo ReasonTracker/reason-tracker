@@ -18,6 +18,6 @@ export interface Claim {
 	defaultRelevance?: number
 }
 
-export type ClaimId = string & { readonly __brand: "ClaimIdV2" };
+export type ClaimId = string & { readonly __brand: "ClaimId" };
 export type Side = "proMain" | "conMain";
 

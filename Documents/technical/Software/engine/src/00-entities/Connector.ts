@@ -23,6 +23,6 @@ export type ConnectorCreate =
 	| (Partial<ClaimToClaimConnector> & Pick<ClaimToClaimConnector, "source" | "type" | "targetClaimId">)
 	| (Partial<ClaimToConnectorConnector> & Pick<ClaimToConnectorConnector, "source" | "type" | "targetConnectorId">);
 
-export type ConnectorId = string & { readonly __brand: "ConnectorIdV2" };
+export type ConnectorId = string & { readonly __brand: "ConnectorId" };
 export type TargetRelation = "proTarget" | "conTarget";
 export type Affects = "confidence" | "relevance";

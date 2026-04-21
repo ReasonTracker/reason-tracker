@@ -10,12 +10,14 @@ This page is only a local routing note for where to go next inside `src`.
 
 - you are looking for the engine package entry surface in `index.ts`
 - you are shaping command payload definitions in `00-commands.ts`
+- you are defining command-to-operation translator contracts in `command-translator/`
 - you need the shared domain contracts in `00-entities/`
 
 ## Local Boundary
 
 - commands define semantic mutation input first
 - the command contract in `00-commands.ts` is authoritative and changes require explicit approval
+- translator contracts and translator-local files belong in `command-translator/`
 - general engine source may evolve here
 - shared entity contracts are defined in `00-entities/` and changes require explicit approval
 - package-level ownership decisions belong in the parent engine README
@@ -31,6 +33,7 @@ If a patch shape is used only once and does not need its own name, inline it at 
 ## Related Docs
 
 - [00 Entities](./00-entities/📌README.md)
+- [Command Translator](./command-translator/📌README.md)
 - [Engine](../📌README.md)
 
 <!-- autonav:start -->

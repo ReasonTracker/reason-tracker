@@ -14,4 +14,4 @@ export interface Debate {
 	scores: Record<ScoreId, Score>
 }
 
-export type DebateId = string & { readonly __brand: "DebateIdV2" };
+export type DebateId = string & { readonly __brand: "DebateId" };

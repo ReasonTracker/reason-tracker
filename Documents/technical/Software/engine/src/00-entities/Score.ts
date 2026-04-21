@@ -3,24 +3,26 @@
 import type { ClaimId, Side } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
 
-export interface Score {
-	id: ScoreId
-	claimId: ClaimId
-	claimSide: Side
-	connectorSide: Side
-	connectorId?: ConnectorId
-	incomingScoreIds: ScoreId[]
-
+export interface claimScores {
 	claimConfidence: number
 	reversibleClaimConfidence: number
-
-	connectorConfidence: number
-	reversibleConnectorConfidence: number
-
-	relevance: number
-
-	scaleOfSources: number
+	claimSide: Side
 }
 
-export type ScoreId = string & { readonly __brand: "ScoreIdV2" };
+export interface connectorScores {
+	connectorConfidence: number
+	reversibleConnectorConfidence: number
+	connectorSide: Side
+}
+
+export interface Score extends claimScores, connectorScores {
+	id: ScoreId
+	claimId: ClaimId
+	connectorId?: ConnectorId
+	incomingScoreIds: ScoreId[]
+	relevance: number
+	scaleOfSources: number
+};
+
+export type ScoreId = string & { readonly __brand: "ScoreId" };
 
