@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 import type { ClaimId } from "./Claim.ts";
-import { PartialExceptId } from "../00-commands.ts";
+import { PartialExceptId } from "../01--Commands.ts";
 
 interface BaseConnector {
 	id: ConnectorId

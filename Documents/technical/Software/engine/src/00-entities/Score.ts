@@ -3,7 +3,7 @@
 
 import type { ClaimId } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
-import { PartialExceptId } from "../00-commands.ts";
+import { PartialExceptId } from "../01--Commands.ts";
 
 
 export interface claimScores {
