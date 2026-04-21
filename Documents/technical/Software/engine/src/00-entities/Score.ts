@@ -3,13 +3,16 @@
 import type { ClaimId } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
 
+
 export interface claimScores {
+	id: ScoreId
 	claimConfidence: number
 	reversibleClaimConfidence: number
 	claimSide: Side
 }
 
 export interface connectorScores {
+	id: ScoreId
 	connectorConfidence: number
 	reversibleConnectorConfidence: number
 	connectorSide: Side

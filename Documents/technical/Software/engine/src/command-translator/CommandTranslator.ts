@@ -1,4 +1,4 @@
-import type { EngineCommand } from "../00-commands.ts";
+import type { EngineCommand, PartialExceptId } from "../00-commands.ts";
 import type { Claim } from "../00-entities/Claim.ts";
 import type { Debate } from "../00-entities/Debate.ts";
 import { claimScores, connectorScores } from "../00-entities/Score.ts";
@@ -22,21 +22,20 @@ export interface AddClaimOp {
 
 export interface ConnectClaimAnimationOp {
     type: "ConnectClaimAnimation"
-    scores: Pick<Score, "id"> & Partial<connectorScores>[]
-
+    scores: PartialExceptId<connectorScores>[]
 }
 
 export interface ClaimScoreAnimationOp {
     type: "ClaimScoreUpdate"
-    scores: Pick<Score, "id"> & Partial<claimScores>[]
+    scores: PartialExceptId<claimScores>[]
 }
 
 export interface ConnectorScoreAnimationOp {
     type: "ConnectorScoreUpdate"
-    scores: Pick<Score, "id"> & Partial<connectorScores>[]
+    scores: PartialExceptId<connectorScores>[]
 }
 
 export interface ScaleUpdateOp {
     type: "ScaleUpdate"
-    scores: Pick<Score, "id"> & Partial<Pick<Score, "scaleOfSources">>[]
+    scores: PartialExceptId<Pick<Score, "id" | "scaleOfSources">>[]
 }

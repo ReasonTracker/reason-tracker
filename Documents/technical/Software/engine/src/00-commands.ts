@@ -7,7 +7,7 @@ import type {
 	ConnectorCreate,
 	ConnectorId,
 } from "./00-entities/Connector.ts";
-import type { DebateCore, Debate } from "./00-entities/Debate.ts";
+import type { DebateCore } from "./00-entities/Debate.ts";
 
 export type PartialExceptId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id?: T["id"] };
 

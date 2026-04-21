@@ -1,5 +1,7 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
+import { PartialExceptId } from "../00-commands.ts";
+
 export interface Claim {
 	id: ClaimId
 	content: string
@@ -17,5 +19,8 @@ export interface Claim {
 	 */
 	defaultRelevance?: number
 }
+
+export type ClaimCreate = Omit<Claim, "id"> | PartialExceptId<Claim>;
+export type ClaimPatch = PartialExceptId<Claim>;
 
 export type ClaimId = string & { readonly __brand: "ClaimId" };
