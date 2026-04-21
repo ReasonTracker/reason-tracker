@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import { PartialExceptId } from "../01--Commands.ts";
+import { PartialExceptId } from "../01-Commands.ts";
 
 export interface Claim {
 	id: ClaimId

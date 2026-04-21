@@ -1,5 +1,5 @@
-export type { EngineCommand } from "./01--Commands.ts";
 export type {
+	EngineCommand,
 	AddClaimCommand,
 	CreateConnectorCommand,
 	CreateDebateCommand,
@@ -7,10 +7,22 @@ export type {
 	DeleteConnectorCommand,
 	UpdateClaimCommand,
 	UpdateDebateCommand,
-} from "./01--Commands.ts";
+} from "./01-Commands.ts";
 
-export type { Claim, ClaimId } from "./00-entities/Claim.ts";
-export type { Side } from "./00-entities/Score.ts";
+export type {
+	Claim,
+	ClaimId,
+	ClaimCreate,
+	ClaimPatch,
+} from "./00-entities/Claim.ts";
+
+export type {
+	Side,
+	claimScores,
+	connectorScores,
+	ScorePatch,
+} from "./00-entities/Score.ts";
+
 export type {
 	Affects,
 	ClaimToClaimConnector,
@@ -19,6 +31,18 @@ export type {
 	ConnectorCreate,
 	ConnectorId,
 	TargetRelation,
+	ConnectorPatch,
 } from "./00-entities/Connector.ts";
-export type { Debate, DebateId } from "./00-entities/Debate.ts";
-export type { Score, ScoreId } from "./00-entities/Score.ts";
+
+export type {
+	Debate,
+	DebateId,
+	DebateCore,
+	DebateDetails,
+	DebatePatch,
+} from "./00-entities/Debate.ts";
+
+export type {
+	Score,
+	ScoreId
+} from "./00-entities/Score.ts";

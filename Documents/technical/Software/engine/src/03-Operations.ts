@@ -1,5 +1,5 @@
 // PlannerResult interface for Planner output
-import type { EngineCommand } from "./01--Commands.ts";
+import type { EngineCommand } from "./01-Commands.ts";
 export interface PlannerResult {
     commands: readonly [EngineCommand, ...EngineCommand[]];
     operations: readonly Operation[];
@@ -9,7 +9,7 @@ export type Operation = AddClaimOp | ConnectClaimAnimationOp | ClaimScoreAnimati
 // 03-Operations.ts
 // Engine operation contracts emitted from Planner
 
-import type { PartialExceptId } from "./01--Commands.ts";
+import type { PartialExceptId } from "./01-Commands.ts";
 import type { Claim } from "./00-entities/Claim.ts";
 import { claimScores, connectorScores } from "./00-entities/Score.ts";
 import { Score } from "./index.ts";
