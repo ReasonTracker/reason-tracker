@@ -36,6 +36,13 @@ These are implementation guidelines for repository code structure and file organ
 - Reduce file tree clutter.
 - Preserve clear and predictable structure while coding.
 
+## Prototype Abstraction Pressure
+
+- In prototype code, prefer one concrete class or one plain function over an interface plus a single implementation.
+- Avoid `DefaultX` names, exported singleton instances, factories, or injection seams when there is only one real implementation.
+- Do not add abstractions for hypothetical CLI, plugin, or test needs. Add them only when a second real caller, implementation, or lifecycle requirement actually appears.
+- If a near-term entry surface such as a CLI is likely, a single concrete class is acceptable, but keep it concrete until another implementation is truly needed.
+
 ## Options And Type Contracts
 
 - Prefer direct `options.x` usage at the point of use instead of creating one-off local aliases.

@@ -9,6 +9,8 @@ import type { DebateCore } from "./00-entities/Debate.ts";
 
 export type PartialExceptId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id?: T["id"] };
 
+type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
+
 // #region Command union
 export type EngineCommand =
 	| CreateDebateCommand
@@ -73,18 +75,18 @@ export interface DeleteConnectorCommand {
 export type CreateDebateCommand<TClaimId extends ClaimId = ClaimId> =
 	| {
 		type: "debate/create"
-		debate: DebateCore
+		debate: CreateDebateInput
 		mainClaim?: never
 	}
 	| {
 		type: "debate/create"
-		debate: DebateCore
+		debate: CreateDebateInput
 		mainClaim: Claim & { id: TClaimId }
 	};
 
 export interface UpdateDebateCommand {
 	type: "debate/update"
-	patch: DebateCore
+	patch: PartialExceptId<DebateCore>
 }
 
 // #endregion

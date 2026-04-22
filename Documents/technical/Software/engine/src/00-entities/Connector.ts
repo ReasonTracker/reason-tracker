@@ -6,7 +6,10 @@ interface BaseConnector {
 	id: ConnectorId
 	source: ClaimId
 	affects: Affects
+	targetRelationship: TargetRelation
 }
+
+type CreateWithOptionalId<T extends { id: unknown }> = Omit<T, "id"> & { id?: T["id"] };
 
 export type Connector = ClaimToClaimConnector | ClaimToConnectorConnector;
 
@@ -20,10 +23,10 @@ export interface ClaimToConnectorConnector extends BaseConnector {
 	targetConnectorId: ConnectorId
 }
 
-// For creation, allow all fields except id to be partial, but require type and target/source as appropriate
+// For creation, require the connector shape except for the optional id.
 export type ConnectorCreate =
-	| (Omit<ClaimToClaimConnector, "id"> | PartialExceptId<ClaimToClaimConnector>)
-	| (Omit<ClaimToConnectorConnector, "id"> | PartialExceptId<ClaimToConnectorConnector>);
+	| CreateWithOptionalId<ClaimToClaimConnector>
+	| CreateWithOptionalId<ClaimToConnectorConnector>;
 
 // For patch/update, allow partial except id
 export type ConnectorPatch = PartialExceptId<Connector>;

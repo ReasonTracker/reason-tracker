@@ -6,6 +6,7 @@ import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
+import { Episode0001 } from "./Episode0001";
 
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
@@ -20,7 +21,15 @@ export const RemotionRoot = () => {
 				fps={30}
 				height={1080}
 				schema={pathGeometryVisualizerSchema}
-				defaultProps={{"pipeWidth":128,"fluidLeadingExtremity":{"kind":"open" as const,"startPositionPercent":0},"fluidSections":[{"type":"offsets" as const,"offsetA":-64,"offsetB":28},{"type":"transition" as const,"startPositionPercent":45,"lengthPx":171,"kind":"linear" as const},{"type":"offsets" as const,"offsetA":-64,"offsetB":-32}],"fluidTrailingExtremity":{"kind":"linear" as const,"startPositionPercent":80,"lengthPx":53,"collapseOffset":-64}}}
+				defaultProps={{ "pipeWidth": 128, "fluidLeadingExtremity": { "kind": "open" as const, "startPositionPercent": 0 }, "fluidSections": [{ "type": "offsets" as const, "offsetA": -64, "offsetB": 28 }, { "type": "transition" as const, "startPositionPercent": 45, "lengthPx": 171, "kind": "linear" as const }, { "type": "offsets" as const, "offsetA": -64, "offsetB": -32 }], "fluidTrailingExtremity": { "kind": "linear" as const, "startPositionPercent": 80, "lengthPx": 53, "collapseOffset": -64 } }}
+				width={1920}
+			/>
+			<Composition
+				id="Episode0001"
+				component={Episode0001}
+				durationInFrames={240}
+				fps={30}
+				height={1080}
 				width={1920}
 			/>
 			<Composition

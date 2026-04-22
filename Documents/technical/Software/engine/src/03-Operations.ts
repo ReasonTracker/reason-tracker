@@ -11,8 +11,7 @@ export type Operation = AddClaimOp | ConnectClaimAnimationOp | ClaimScoreAnimati
 
 import type { PartialExceptId } from "./01-Commands.ts";
 import type { Claim } from "./00-entities/Claim.ts";
-import { claimScores, connectorScores } from "./00-entities/Score.ts";
-import { Score } from "./index.ts";
+import type { Score, claimScores, connectorScores } from "./00-entities/Score.ts";
 
 // Supports step 2: Animate new claim appearance and scale
 export interface AddClaimOp {

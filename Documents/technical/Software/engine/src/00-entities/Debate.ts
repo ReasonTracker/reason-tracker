@@ -12,6 +12,7 @@ export type DebateCore = {
 	id: DebateId
 	description: string
 	name: string
+	mainClaimId: ClaimId
 }
 
 export type DebateDetails = {

@@ -9,6 +9,20 @@ export type {
 	UpdateDebateCommand,
 } from "./01-Commands.ts";
 
+export {
+	Planner,
+} from "./02-Planner.ts";
+
+export type {
+	AddClaimOp,
+	ClaimScoreAnimationOp,
+	ConnectClaimAnimationOp,
+	ConnectorScoreAnimationOp,
+	Operation,
+	PlannerResult,
+	ScaleUpdateOp,
+} from "./03-Operations.ts";
+
 export type {
 	Claim,
 	ClaimId,
