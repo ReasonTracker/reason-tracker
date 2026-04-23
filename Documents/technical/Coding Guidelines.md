@@ -80,6 +80,7 @@ These are implementation guidelines for repository code structure and file organ
 
 - Within a file, group related types and interfaces by domain area or responsibility instead of by keyword alone.
 - Prefer fewer total local types. If an object shape is used only once and does not need an independent name for construction or reuse, inline it at the point of use.
+- This includes one-off local `type` aliases created only to feed another exported type; inline them unless they carry independent meaning or are reused.
 - When a helper type exists only to support one interface or function and still deserves a name, place that helper immediately above the interface or function that uses it.
 - Prefer `#region` markers over plain section comments when a file holds multiple major contract groups.
 - If there is no stronger reason to order by dependency, prefer reading order by usage and responsibility.

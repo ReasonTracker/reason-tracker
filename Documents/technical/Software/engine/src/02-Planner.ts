@@ -19,7 +19,7 @@ import type {
     TargetRelation,
 } from "./00-entities/Connector.ts";
 import type { Debate } from "./00-entities/Debate.ts";
-import type { Side, Score, ScoreId, ScorePatch } from "./00-entities/Score.ts";
+import type { Side, Score, ScoreId, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
 import type { Operation, PlannerResult } from "./03-Operations.ts";
 
 const DEFAULT_SCORE_VALUE = 1;
@@ -34,7 +34,6 @@ type CalculatedScoreState = Pick<
     | "connectorConfidence"
     | "reversibleConnectorConfidence"
     | "relevance"
-    | "scaleOfSources"
 >;
 
 interface NormalizedAddClaimCommand {
@@ -62,6 +61,11 @@ interface ClaimRemovalResult {
     removedConnectorIds: ConnectorId[];
     removedScoreIds: ScoreId[];
     recalculationStartScoreIds: ScoreId[];
+}
+
+interface ScorePropagationResult {
+    debate: Debate;
+    operations: Operation[];
 }
 
 interface ScoreIndexes {
@@ -166,32 +170,26 @@ function translateAddClaimCommand(command: AddClaimCommand, debate: Debate): {
 } {
     const normalized = normalizeAddClaimCommand(command, debate);
     const structurallyUpdatedDebate = addClaimToDebate(debate, normalized);
-    const recalculatedDebate = recalculateDebateFromScores(structurallyUpdatedDebate, [normalized.targetScoreId]);
-    const scorePatches = buildScorePatches(debate, recalculatedDebate);
+    const propagation = propagateScoreUpdates(debate, structurallyUpdatedDebate, [normalized.targetScoreId]);
     const operations: Operation[] = [
         {
             type: "ClaimAdded",
-            claims: [normalized.claim],
+            claim: normalized.claim,
         },
         {
             type: "ConnectorAdded",
-            connectors: [normalized.connector],
+            connector: normalized.connector,
         },
         {
             type: "ScoreAdded",
-            scores: [getRequiredScore(recalculatedDebate, normalized.score.id)],
+            score: normalized.score,
         },
     ];
 
-    if (scorePatches.length > 0) {
-        operations.push({
-            type: "ScoreUpdated",
-            patches: scorePatches,
-        });
-    }
+    operations.push(...propagation.operations);
 
     return {
-        debate: recalculatedDebate,
+        debate: propagation.debate,
         result: {
             commands: [normalized.command],
             operations,
@@ -205,31 +203,23 @@ function translateUpdateClaimCommand(command: UpdateClaimCommand, debate: Debate
 } {
     const patch = normalizeClaimPatch(command.patch, debate);
     const structurallyUpdatedDebate = applyClaimPatch(debate, patch);
-    const recalculatedDebate = patchChangesClaimScoring(patch)
-        ? recalculateDebateFromScores(
-            structurallyUpdatedDebate,
-            getScoresForClaimId(structurallyUpdatedDebate, patch.id).map((score) => score.id),
-        )
-        : structurallyUpdatedDebate;
-    const scorePatches = buildScorePatches(debate, recalculatedDebate);
+    const recalculationStartScoreIds = patchChangesClaimScoring(patch)
+        ? getScoresForClaimId(structurallyUpdatedDebate, patch.id).map((score) => score.id)
+        : [];
+    const propagation = propagateScoreUpdates(debate, structurallyUpdatedDebate, recalculationStartScoreIds);
     const operations: Operation[] = [];
 
     if (hasClaimPatchFields(patch)) {
         operations.push({
             type: "ClaimUpdated",
-            patches: [patch],
+            patch,
         });
     }
 
-    if (scorePatches.length > 0) {
-        operations.push({
-            type: "ScoreUpdated",
-            patches: scorePatches,
-        });
-    }
+    operations.push(...propagation.operations);
 
     return {
-        debate: recalculatedDebate,
+        debate: propagation.debate,
         result: {
             commands: [{ type: "claim/update", patch }],
             operations,
@@ -242,38 +232,32 @@ function translateDeleteClaimCommand(command: DeleteClaimCommand, debate: Debate
     result: PlannerResult;
 } {
     const structural = removeClaimFromDebate(debate, command.claimId);
-    const recalculatedDebate = recalculateDebateFromScores(structural.debate, structural.recalculationStartScoreIds);
-    const scorePatches = buildScorePatches(debate, recalculatedDebate);
+    const propagation = propagateScoreUpdates(debate, structural.debate, structural.recalculationStartScoreIds);
     const operations: Operation[] = [];
 
-    if (structural.removedConnectorIds.length > 0) {
+    for (const connectorId of structural.removedConnectorIds) {
         operations.push({
             type: "ConnectorDeleted",
-            connectorIds: structural.removedConnectorIds,
+            connectorId,
         });
     }
 
-    if (structural.removedScoreIds.length > 0) {
+    for (const scoreId of structural.removedScoreIds) {
         operations.push({
             type: "ScoreDeleted",
-            scoreIds: structural.removedScoreIds,
+            scoreId,
         });
     }
 
     operations.push({
         type: "ClaimDeleted",
-        claimIds: [command.claimId],
+        claimId: command.claimId,
     });
 
-    if (scorePatches.length > 0) {
-        operations.push({
-            type: "ScoreUpdated",
-            patches: scorePatches,
-        });
-    }
+    operations.push(...propagation.operations);
 
     return {
-        debate: recalculatedDebate,
+        debate: propagation.debate,
         result: {
             commands: [command],
             operations,
@@ -287,28 +271,22 @@ function translateCreateConnectorCommand(command: CreateConnectorCommand, debate
 } {
     const normalized = normalizeCreateConnectorCommand(command, debate);
     const structurallyUpdatedDebate = addConnectionToDebate(debate, normalized);
-    const recalculatedDebate = recalculateDebateFromScores(structurallyUpdatedDebate, [normalized.targetScoreId]);
-    const scorePatches = buildScorePatches(debate, recalculatedDebate);
+    const propagation = propagateScoreUpdates(debate, structurallyUpdatedDebate, [normalized.targetScoreId]);
     const operations: Operation[] = [
         {
             type: "ConnectorAdded",
-            connectors: [normalized.connector],
+            connector: normalized.connector,
         },
         {
             type: "ScoreAdded",
-            scores: [getRequiredScore(recalculatedDebate, normalized.score.id)],
+            score: normalized.score,
         },
     ];
 
-    if (scorePatches.length > 0) {
-        operations.push({
-            type: "ScoreUpdated",
-            patches: scorePatches,
-        });
-    }
+    operations.push(...propagation.operations);
 
     return {
-        debate: recalculatedDebate,
+        debate: propagation.debate,
         result: {
             commands: [normalized.command],
             operations,
@@ -321,28 +299,22 @@ function translateDeleteConnectorCommand(command: DeleteConnectorCommand, debate
     result: PlannerResult;
 } {
     const structural = removeConnectionFromDebate(debate, command.connectorId);
-    const recalculatedDebate = recalculateDebateFromScores(structural.debate, [structural.targetScoreId]);
-    const scorePatches = buildScorePatches(debate, recalculatedDebate);
+    const propagation = propagateScoreUpdates(debate, structural.debate, [structural.targetScoreId]);
     const operations: Operation[] = [
         {
             type: "ConnectorDeleted",
-            connectorIds: [structural.removedConnectorId],
+            connectorId: structural.removedConnectorId,
         },
         {
             type: "ScoreDeleted",
-            scoreIds: [structural.removedScoreId],
+            scoreId: structural.removedScoreId,
         },
     ];
 
-    if (scorePatches.length > 0) {
-        operations.push({
-            type: "ScoreUpdated",
-            patches: scorePatches,
-        });
-    }
+    operations.push(...propagation.operations);
 
     return {
-        debate: recalculatedDebate,
+        debate: propagation.debate,
         result: {
             commands: [command],
             operations,
@@ -738,67 +710,160 @@ function removeClaimFromDebate(debate: Debate, claimId: ClaimId): ClaimRemovalRe
     };
 }
 
-function recalculateDebateFromScores(debate: Debate, startingScoreIds: readonly ScoreId[]): Debate {
-    if (startingScoreIds.length < 1) {
-        return synchronizeScoreScaleOfSources(debate);
-    }
+function propagateScoreUpdates(
+    patchBaseline: Debate,
+    structurallyUpdatedDebate: Debate,
+    startingScoreIds: readonly ScoreId[],
+): ScorePropagationResult {
+    const calculatedPropagation = propagateCalculatedScoreUpdates(
+        patchBaseline,
+        structurallyUpdatedDebate,
+        startingScoreIds,
+    );
+    const scalePropagation = propagateScoreScaleOfSources(calculatedPropagation.debate);
 
-    let workingDebate = debate;
-    const scoreIndexes = createScoreIndexes(debate);
-    const pendingScoreIds = [...startingScoreIds];
-    const seenScoreIds = new Set<ScoreId>();
-
-    while (pendingScoreIds.length > 0) {
-        const scoreId = pendingScoreIds.shift();
-        if (!scoreId || seenScoreIds.has(scoreId)) {
-            continue;
-        }
-
-        seenScoreIds.add(scoreId);
-
-        const score = workingDebate.scores[scoreId];
-        if (!score) {
-            continue;
-        }
-
-        workingDebate = updateCalculatedScoreState(workingDebate, scoreId, calculateScoreState(workingDebate, score));
-
-        for (const nextScoreId of getOutgoingTargetScoreIds(scoreIndexes, scoreId)) {
-            if (!seenScoreIds.has(nextScoreId)) {
-                pendingScoreIds.push(nextScoreId);
-            }
-        }
-    }
-
-    return synchronizeScoreScaleOfSources(workingDebate);
+    return {
+        debate: scalePropagation.debate,
+        operations: [
+            ...calculatedPropagation.operations,
+            ...scalePropagation.operations,
+        ],
+    };
 }
 
-function updateCalculatedScoreState(debate: Debate, scoreId: ScoreId, nextState: CalculatedScoreState): Debate {
-    const currentScore = debate.scores[scoreId];
-    if (!currentScore) {
-        throw new Error(`Score ${scoreId} was not found while updating score state.`);
-    }
+function propagateCalculatedScoreUpdates(
+    previousDebate: Debate,
+    structurallyUpdatedDebate: Debate,
+    startingScoreIds: readonly ScoreId[],
+): ScorePropagationResult {
+    let workingDebate = structurallyUpdatedDebate;
+    const operations: Operation[] = [];
+    let stepBaselineDebate = previousDebate;
 
-    if (
-        currentScore.claimConfidence === nextState.claimConfidence
-        && currentScore.reversibleClaimConfidence === nextState.reversibleClaimConfidence
-        && currentScore.connectorConfidence === nextState.connectorConfidence
-        && currentScore.reversibleConnectorConfidence === nextState.reversibleConnectorConfidence
-        && currentScore.relevance === nextState.relevance
-        && currentScore.scaleOfSources === nextState.scaleOfSources
-    ) {
-        return debate;
+    for (const currentStepScoreIds of collectUpwardScorePropagationSteps(structurallyUpdatedDebate, startingScoreIds)) {
+        const patches: ScorePatch[] = [];
+        let nextScores = workingDebate.scores;
+
+        for (const scoreId of currentStepScoreIds) {
+            const currentScore = nextScores[scoreId];
+            if (!currentScore) {
+                continue;
+            }
+
+            const beforeScore = stepBaselineDebate.scores[scoreId] ?? workingDebate.scores[scoreId];
+            if (!beforeScore) {
+                continue;
+            }
+
+            const nextScore = applyCalculatedScoreStateToScore(
+                currentScore,
+                calculateScoreState(
+                    {
+                        ...workingDebate,
+                        scores: nextScores,
+                    },
+                    currentScore,
+                ),
+            );
+            nextScores = nextScore === currentScore
+                ? nextScores
+                : {
+                    ...nextScores,
+                    [scoreId]: nextScore,
+                };
+            const patch = buildScorePatch(beforeScore, nextScore);
+
+            if (patch) {
+                patches.push(patch);
+            }
+        }
+
+        workingDebate = nextScores === workingDebate.scores
+            ? workingDebate
+            : {
+                ...workingDebate,
+                scores: nextScores,
+            };
+
+        if (patches.length > 0) {
+            operations.push({
+                type: "ScoreUpdated",
+                patches,
+            });
+        }
+
+        stepBaselineDebate = workingDebate;
     }
 
     return {
-        ...debate,
-        scores: {
-            ...debate.scores,
-            [scoreId]: {
-                ...currentScore,
-                ...nextState,
-            },
-        },
+        debate: workingDebate,
+        operations,
+    };
+}
+
+function collectUpwardScorePropagationSteps(debate: Debate, startingScoreIds: readonly ScoreId[]): ScoreId[][] {
+    const scoreIndexes = createScoreIndexes(debate);
+    const startingStep = uniqueExistingScoreIds(startingScoreIds, debate);
+    const stepIndexByScoreId = new Map<ScoreId, number>();
+
+    for (const scoreId of startingStep) {
+        stepIndexByScoreId.set(scoreId, 0);
+    }
+
+    const pendingScoreIds = [...startingStep];
+    while (pendingScoreIds.length > 0) {
+        const scoreId = pendingScoreIds.shift();
+        if (!scoreId) {
+            continue;
+        }
+
+        const currentStepIndex = stepIndexByScoreId.get(scoreId);
+        if (currentStepIndex === undefined) {
+            continue;
+        }
+
+        for (const nextScoreId of getOutgoingTargetScoreIds(scoreIndexes, scoreId)) {
+            const nextStepIndex = currentStepIndex + 1;
+            const existingStepIndex = stepIndexByScoreId.get(nextScoreId);
+            if (existingStepIndex !== undefined && existingStepIndex >= nextStepIndex) {
+                continue;
+            }
+
+            stepIndexByScoreId.set(nextScoreId, nextStepIndex);
+            pendingScoreIds.push(nextScoreId);
+        }
+    }
+
+    const steps: ScoreId[][] = [];
+    for (const [scoreId, stepIndex] of stepIndexByScoreId.entries()) {
+        const existingStep = steps[stepIndex];
+        if (existingStep) {
+            existingStep.push(scoreId);
+            continue;
+        }
+
+        steps[stepIndex] = [scoreId];
+    }
+
+    return steps
+        .filter((step): step is ScoreId[] => Array.isArray(step) && step.length > 0)
+        .map((step) => uniqueExistingScoreIds(step, debate));
+}
+
+function applyCalculatedScoreStateToScore(score: Score, nextState: CalculatedScoreState): Score {
+    if (
+        score.claimConfidence === nextState.claimConfidence
+        && score.reversibleClaimConfidence === nextState.reversibleClaimConfidence
+        && score.connectorConfidence === nextState.connectorConfidence
+        && score.reversibleConnectorConfidence === nextState.reversibleConnectorConfidence
+        && score.relevance === nextState.relevance
+    ) {
+        return score;
+    }
+
+    return {
+        ...score,
+        ...nextState,
     };
 }
 
@@ -841,7 +906,6 @@ function calculateScoreState(debate: Debate, score: Score): CalculatedScoreState
             connectorConfidence: claimConfidence,
             reversibleConnectorConfidence: reversibleClaimConfidence,
             relevance: Math.max(0, claim.defaultRelevance ?? DEFAULT_SCORE_VALUE),
-            scaleOfSources: score.scaleOfSources,
         };
     }
 
@@ -855,7 +919,6 @@ function calculateScoreState(debate: Debate, score: Score): CalculatedScoreState
         connectorConfidence: confidenceResult.claimConfidence,
         reversibleConnectorConfidence: confidenceResult.reversibleClaimConfidence,
         relevance: calculateRelevance(relevanceChildren),
-        scaleOfSources: score.scaleOfSources,
     };
 }
 
@@ -912,28 +975,6 @@ function calculateRelevance(children: Array<{ score: Score; targetRelation: Targ
     return Math.max(relevance, 0);
 }
 
-function buildScorePatches(before: Debate, after: Debate): ScorePatch[] {
-    const scorePatches: ScorePatch[] = [];
-    const orderedScoreIds = Object.keys(after.scores).length > 0
-        ? collectScoreIdsInLayoutOrder(after, getRequiredMainClaimRootScore(after).id)
-        : [];
-
-    for (const scoreId of orderedScoreIds) {
-        const beforeScore = before.scores[scoreId];
-        const afterScore = after.scores[scoreId];
-        if (!beforeScore || !afterScore) {
-            continue;
-        }
-
-        const patch = buildScorePatch(beforeScore, afterScore);
-        if (patch) {
-            scorePatches.push(patch);
-        }
-    }
-
-    return scorePatches;
-}
-
 function buildScorePatch(beforeScore: Score, afterScore: Score): ScorePatch | undefined {
     const patch: ScorePatch = { id: afterScore.id };
 
@@ -969,10 +1010,6 @@ function buildScorePatch(beforeScore: Score, afterScore: Score): ScorePatch | un
         patch.relevance = afterScore.relevance;
     }
 
-    if (beforeScore.scaleOfSources !== afterScore.scaleOfSources) {
-        patch.scaleOfSources = afterScore.scaleOfSources;
-    }
-
     if (beforeScore.claimSide !== afterScore.claimSide) {
         patch.claimSide = afterScore.claimSide;
     }
@@ -982,6 +1019,17 @@ function buildScorePatch(beforeScore: Score, afterScore: Score): ScorePatch | un
     }
 
     return Object.keys(patch).length > 1 ? patch : undefined;
+}
+
+function buildScoreScalePatch(beforeScore: Score, afterScore: Score): ScoreScalePatch | undefined {
+    if (beforeScore.scaleOfSources === afterScore.scaleOfSources) {
+        return undefined;
+    }
+
+    return {
+        id: afterScore.id,
+        scaleOfSources: afterScore.scaleOfSources,
+    };
 }
 
 function createScoreIndexes(debate: Debate): ScoreIndexes {
@@ -1150,54 +1198,161 @@ function invertSide(side: Side): Side {
     return side === "proMain" ? "conMain" : "proMain";
 }
 
-function synchronizeScoreScaleOfSources(debate: Debate): Debate {
-    const scaleOfSourcesByScoreId = buildPropagatedScaleOfSourcesByScoreId(debate);
-    let hasChanges = false;
-    const nextScores = { ...debate.scores };
+function propagateScoreScaleOfSources(debate: Debate): ScorePropagationResult {
+    const rootScore = getRequiredMainClaimRootScore(debate);
+    const confidenceGroupScaleByTargetScoreId = buildConfidenceGroupScaleByTargetScoreId(debate);
+    const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
+    const scaleOfSourcesByScoreId = {} as Record<ScoreId, number>;
+    let workingDebate = debate;
+    const allPatches: ScoreScalePatch[] = [];
+    let pendingTargetScoreIds: ScoreId[] = [rootScore.id];
+    const traversedTargetScoreIds = new Set<ScoreId>();
 
-    for (const [scoreId, score] of Object.entries(debate.scores) as Array<[ScoreId, Score]>) {
-        const nextScaleOfSources = scaleOfSourcesByScoreId[scoreId] ?? score.scaleOfSources;
-        if (score.scaleOfSources === nextScaleOfSources) {
+    for (const scoreId of Object.keys(debate.scores) as ScoreId[]) {
+        confidenceCascadeScaleByScoreId[scoreId] = DEFAULT_SCORE_VALUE;
+        scaleOfSourcesByScoreId[scoreId] = scoreId === rootScore.id
+            ? DEFAULT_SCORE_VALUE
+            : DEFAULT_SCALE_OF_SOURCES;
+    }
+
+    const rootPatch = applyScaleOfSourcesWave([rootScore.id]);
+    if (rootPatch.patches.length > 0) {
+        workingDebate = rootPatch.debate;
+        allPatches.push(...rootPatch.patches);
+    }
+
+    while (pendingTargetScoreIds.length > 0) {
+        const currentTargetScoreIds = uniqueExistingScoreIds(pendingTargetScoreIds, workingDebate)
+            .filter((scoreId) => !traversedTargetScoreIds.has(scoreId));
+        pendingTargetScoreIds = [];
+
+        if (currentTargetScoreIds.length < 1) {
             continue;
         }
 
-        hasChanges = true;
-        nextScores[scoreId] = {
-            ...score,
-            scaleOfSources: nextScaleOfSources,
+        const nextSourceScoreIds: ScoreId[] = [];
+
+        for (const targetScoreId of currentTargetScoreIds) {
+            traversedTargetScoreIds.add(targetScoreId);
+
+            const targetScore = workingDebate.scores[targetScoreId];
+            if (!targetScore || targetScore.incomingScoreIds.length < 1) {
+                continue;
+            }
+
+            const targetFinalScale = scaleOfSourcesByScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE;
+            const cascadedConfidenceScaleFromTarget =
+                targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE);
+            const maxIncomingRelevance = Math.max(
+                DEFAULT_SCORE_VALUE,
+                ...targetScore.incomingScoreIds.map((incomingScoreId) => {
+                    const incomingScore = workingDebate.scores[incomingScoreId];
+                    if (!incomingScore) {
+                        throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+                    }
+
+                    return Math.max(0, incomingScore.relevance);
+                }),
+            );
+
+            for (const incomingScoreId of targetScore.incomingScoreIds) {
+                const incomingScore = workingDebate.scores[incomingScoreId];
+                if (!incomingScore) {
+                    throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+                }
+
+                const nextConfidenceCascadeScale = Math.min(
+                    confidenceCascadeScaleByScoreId[incomingScoreId] ?? DEFAULT_SCORE_VALUE,
+                    cascadedConfidenceScaleFromTarget,
+                );
+                confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
+
+                const relevanceNormalizedScale = Math.min(
+                    DEFAULT_SCORE_VALUE,
+                    Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
+                );
+                scaleOfSourcesByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
+                nextSourceScoreIds.push(incomingScoreId);
+            }
+        }
+
+        const scaleWave = applyScaleOfSourcesWave(nextSourceScoreIds);
+        workingDebate = scaleWave.debate;
+
+        if (scaleWave.patches.length > 0) {
+            allPatches.push(...scaleWave.patches);
+        }
+
+        pendingTargetScoreIds = nextSourceScoreIds;
+    }
+
+    return {
+        debate: workingDebate,
+        operations: allPatches.length > 0
+            ? [
+                {
+                    type: "scaleOfSources",
+                    patches: allPatches,
+                },
+            ]
+            : [],
+    };
+
+    function applyScaleOfSourcesWave(scoreIds: readonly ScoreId[]): {
+        debate: Debate;
+        patches: ScoreScalePatch[];
+    } {
+        const patches: ScoreScalePatch[] = [];
+        let nextScores = workingDebate.scores;
+
+        for (const scoreId of uniqueExistingScoreIds(scoreIds, workingDebate)) {
+            const score = nextScores[scoreId];
+            if (!score) {
+                continue;
+            }
+
+            const nextScaleOfSources = scaleOfSourcesByScoreId[scoreId] ?? score.scaleOfSources;
+            if (score.scaleOfSources === nextScaleOfSources) {
+                continue;
+            }
+
+            const nextScore: Score = {
+                ...score,
+                scaleOfSources: nextScaleOfSources,
+            };
+            nextScores = {
+                ...nextScores,
+                [scoreId]: nextScore,
+            };
+
+            const patch = buildScoreScalePatch(score, nextScore);
+            if (patch) {
+                patches.push(patch);
+            }
+        }
+
+        return {
+            debate: nextScores === workingDebate.scores
+                ? workingDebate
+                : {
+                    ...workingDebate,
+                    scores: nextScores,
+                },
+            patches,
         };
     }
-
-    return hasChanges
-        ? {
-            ...debate,
-            scores: nextScores,
-        }
-        : debate;
 }
 
-function buildPropagatedScaleOfSourcesByScoreId(debate: Debate): Record<ScoreId, number> {
-    const rootScore = getRequiredMainClaimRootScore(debate);
-    const scoreIdsInLayoutOrder = collectScoreIdsInLayoutOrder(debate, rootScore.id);
-    const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
-    const scaleOfSourcesByScoreId = {} as Record<ScoreId, number>;
-    const incomingScoreIdsByTargetScoreId = {} as Record<ScoreId, Set<ScoreId>>;
-
-    for (const scoreId of scoreIdsInLayoutOrder) {
-        confidenceCascadeScaleByScoreId[scoreId] = DEFAULT_SCORE_VALUE;
-        scaleOfSourcesByScoreId[scoreId] = scoreId === rootScore.id ? DEFAULT_SCORE_VALUE : DEFAULT_SCALE_OF_SOURCES;
-        incomingScoreIdsByTargetScoreId[scoreId] = new Set(debate.scores[scoreId]?.incomingScoreIds ?? []);
-    }
-
+function buildConfidenceGroupScaleByTargetScoreId(debate: Debate): Record<ScoreId, number> {
     const confidenceGroupScaleByTargetScoreId = {} as Record<ScoreId, number>;
-    for (const targetScoreId of scoreIdsInLayoutOrder) {
-        const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-        if (!incomingScoreIds || incomingScoreIds.size === 0) {
+
+    for (const targetScore of Object.values(debate.scores)) {
+        if (targetScore.incomingScoreIds.length < 1) {
             continue;
         }
 
         let totalPositiveConfidenceMass = 0;
-        for (const incomingScoreId of incomingScoreIds) {
+        for (const incomingScoreId of targetScore.incomingScoreIds) {
             const incomingScore = debate.scores[incomingScoreId];
             if (!incomingScore) {
                 throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
@@ -1208,53 +1363,11 @@ function buildPropagatedScaleOfSourcesByScoreId(debate: Debate): Record<ScoreId,
             }
         }
 
-        confidenceGroupScaleByTargetScoreId[targetScoreId] = DEFAULT_SCORE_VALUE / Math.max(DEFAULT_SCORE_VALUE, totalPositiveConfidenceMass);
+        confidenceGroupScaleByTargetScoreId[targetScore.id] =
+            DEFAULT_SCORE_VALUE / Math.max(DEFAULT_SCORE_VALUE, totalPositiveConfidenceMass);
     }
 
-    for (const targetScoreId of scoreIdsInLayoutOrder) {
-        const incomingScoreIds = incomingScoreIdsByTargetScoreId[targetScoreId];
-        if (!incomingScoreIds || incomingScoreIds.size === 0) {
-            continue;
-        }
-
-        const targetFinalScale = scaleOfSourcesByScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE;
-        const cascadedConfidenceScaleFromTarget = targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE);
-
-        let maxIncomingRelevance = 0;
-        for (const incomingScoreId of incomingScoreIds) {
-            const incomingScore = debate.scores[incomingScoreId];
-            if (!incomingScore) {
-                throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-            }
-
-            maxIncomingRelevance = Math.max(maxIncomingRelevance, Math.max(0, incomingScore.relevance));
-        }
-
-        if (maxIncomingRelevance <= 0) {
-            maxIncomingRelevance = DEFAULT_SCORE_VALUE;
-        }
-
-        for (const incomingScoreId of incomingScoreIds) {
-            const incomingScore = debate.scores[incomingScoreId];
-            if (!incomingScore) {
-                throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-            }
-
-            const nextConfidenceCascadeScale = Math.min(
-                confidenceCascadeScaleByScoreId[incomingScoreId] ?? DEFAULT_SCORE_VALUE,
-                cascadedConfidenceScaleFromTarget,
-            );
-            confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
-
-            const relevanceNormalizedScale = Math.min(
-                DEFAULT_SCORE_VALUE,
-                Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
-            );
-            scaleOfSourcesByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
-        }
-    }
-
-    return scaleOfSourcesByScoreId;
+    return confidenceGroupScaleByTargetScoreId;
 }
 
 function collectScoreIdsInLayoutOrder(debate: Debate, rootScoreId: ScoreId): ScoreId[] {

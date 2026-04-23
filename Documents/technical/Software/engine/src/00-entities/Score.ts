@@ -29,8 +29,14 @@ export interface Score extends claimScores, connectorScores {
 	scaleOfSources: number
 };
 
-// For patch/update, allow partial except id
-export type ScorePatch = PatchWithRequiredId<Score>;
+export type ScorePatch = PatchWithRequiredId<Omit<Score, "scaleOfSources"> & {
+	scaleOfSources?: never
+}>;
+
+export interface ScoreScalePatch {
+	id: ScoreId
+	scaleOfSources: number
+}
 
 export type ScoreId = string & { readonly __brand: "ScoreId" };
 export type Side = "proMain" | "conMain";

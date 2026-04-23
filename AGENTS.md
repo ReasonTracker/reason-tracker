@@ -10,6 +10,11 @@
 - Before finishing a refactor, verify that old files and empty folders introduced by the old structure are cleaned up unless the user asked to keep a compatibility layer.
 - If a temporary compatibility layer is kept, name it as temporary in code or docs and remove it in the same task when practical.
 
+## Architecture Bias
+- If implementation work exposes a fundamental architectural flaw in the active area, prefer correcting the architecture in the same task instead of preserving the current shape with a narrow patch.
+- Err on the side of proper architecture over surgical minimalism unless the user explicitly asks for a temporary fix, a compatibility stopgap, or a narrowly scoped change.
+- When re-architecting, keep the rewrite centered on the broken design boundary and restore the core invariant that was being violated.
+
 ## Execution Mode
 - Determine mode first: Discussion Mode or Action Mode.
 - Default to Discussion Mode unless the user explicitly asks for execution.

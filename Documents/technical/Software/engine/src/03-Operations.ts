@@ -2,7 +2,7 @@ import type { DebateMetadataPatch, EngineCommand } from "./01-Commands.ts";
 import type { Claim, ClaimId, ClaimPatch } from "./00-entities/Claim.ts";
 import type { Connector, ConnectorId } from "./00-entities/Connector.ts";
 import type { Debate } from "./00-entities/Debate.ts";
-import type { Score, ScoreId, ScorePatch } from "./00-entities/Score.ts";
+import type { Score, ScoreId, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
 
 export interface PlannerResult {
     commands: readonly [EngineCommand, ...EngineCommand[]];
@@ -19,6 +19,7 @@ export type Operation =
     | ConnectorDeletedOp
     | ScoreAddedOp
     | ScoreUpdatedOp
+    | ScaleOfSourcesOp
     | ScoreDeletedOp;
 
 export interface DebateCreatedOp {
@@ -33,32 +34,32 @@ export interface DebateUpdatedOp {
 
 export interface ClaimAddedOp {
     type: "ClaimAdded"
-    claims: Claim[]
+    claim: Claim
 }
 
 export interface ClaimUpdatedOp {
     type: "ClaimUpdated"
-    patches: ClaimPatch[]
+    patch: ClaimPatch
 }
 
 export interface ClaimDeletedOp {
     type: "ClaimDeleted"
-    claimIds: ClaimId[]
+    claimId: ClaimId
 }
 
 export interface ConnectorAddedOp {
     type: "ConnectorAdded"
-    connectors: Connector[]
+    connector: Connector
 }
 
 export interface ConnectorDeletedOp {
     type: "ConnectorDeleted"
-    connectorIds: ConnectorId[]
+    connectorId: ConnectorId
 }
 
 export interface ScoreAddedOp {
     type: "ScoreAdded"
-    scores: Score[]
+    score: Score
 }
 
 export interface ScoreUpdatedOp {
@@ -66,7 +67,12 @@ export interface ScoreUpdatedOp {
     patches: ScorePatch[]
 }
 
+export interface ScaleOfSourcesOp {
+    type: "scaleOfSources"
+    patches: ScoreScalePatch[]
+}
+
 export interface ScoreDeletedOp {
     type: "ScoreDeleted"
-    scoreIds: ScoreId[]
+    scoreId: ScoreId
 }

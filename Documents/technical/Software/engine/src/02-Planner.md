@@ -53,12 +53,24 @@ An EngineCommand batch is sent to the Planner, for example `AddClaimCommand` wit
 - For `claim-to-claim`, the planner derives the canonical `targetClaimId` from that target score.
 - For `claim-to-connector`, the planner derives the canonical `targetConnectorId` from the target score's `connectorId`.
 
-The planner emits grouped structural operations rather than animation-specific instructions. Those structural operations can later drive reducers, animation planners, or other downstream systems.
+The planner emits structural operations rather than animation-specific instructions. Those structural operations can later drive reducers, animation planners, or other downstream systems.
+
+Traversal terminology:
+
+- A `wave` is the full traversal of one command's effect through the projected score graph.
+- A `step` is one frontier advance within that wave.
+- A step is not a single node or a single edge.
+- One step may update multiple score occurrences when parallel branches advance together.
 
 1. Include the normalized EngineCommand so later systems can reference the resolved ids and authored intent.
-2. Emit structural add, update, or delete operations for claims, connectors, and scores.
-3. Recalculate the affected projected score occurrences upward through the projected graph.
-4. Emit `ScoreUpdated` patches for any surviving score whose structure or calculated values changed, including `incomingScoreIds`, confidence values, relevance, and `scaleOfSources`.
+2. Emit structural add, update, or delete operations for individual claims, connectors, and score occurrences.
+3. Traverse the projected score graph from the affected score occurrences rather than calculating all changes first and ordering them later.
+4. Emit one `ScoreUpdated` operation for each upward confidence or relevance step.
+5. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `scaleOfSources`.
+6. After the upward steps finish for the current command, recompute `scaleOfSources` for the whole projected score graph.
+7. Emit at most one `scaleOfSources` operation for that recomputation, containing every changed `ScoreScalePatch` in the graph.
+8. `scaleOfSources` carries `ScoreScalePatch[]`, which only update `scaleOfSources`.
+9. `ScoreUpdated` steps remain traversal-ordered within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
 
 ## Related Docs
 
