@@ -11,9 +11,9 @@ const BASE_NODE_HEIGHT_PX = 176;
 /** Smallest visible scale used for preview boxes so zero-scale scores still render inspectable geometry. */
 const MIN_VISIBLE_LAYOUT_SCALE = 0.4;
 /** Full-size horizontal distance between one depth column and the next. */
-const BASE_HORIZONTAL_GAP_PX = 120;
+const BASE_HORIZONTAL_GAP_PX = 528;
 /** Minimum horizontal distance retained when source scores shrink heavily. */
-const MIN_HORIZONTAL_GAP_PX = 52;
+const MIN_HORIZONTAL_GAP_PX = 264;
 /** Full-size vertical distance between sibling subtree blocks. */
 const BASE_VERTICAL_GAP_PX = 72;
 /** Minimum vertical distance retained for dense groups of small source scores. */

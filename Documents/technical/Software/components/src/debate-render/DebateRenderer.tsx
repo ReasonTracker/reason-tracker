@@ -1,0 +1,609 @@
+import type {
+    ConfidenceConnector,
+    Debate,
+    DebateLayout,
+    DebateLayoutNode,
+    RelevanceConnector,
+    ScoreId,
+    Score,
+} from "@reasontracker/engine";
+import type { ReactNode } from "react";
+
+import {
+    type Waypoint,
+} from "../path-geometry";
+import { DebateConnector } from "./DebateConnector";
+
+// AGENT NOTE: Keep tunable render constants grouped here so visual tuning stays localized.
+/** Padding inserted between the graph bounds and the visible scene edge. */
+const GRAPH_PADDING_PX = 96;
+
+/** Outer inset retained so the centered graph does not touch the frame edge. */
+const FRAME_PADDING_PX = 40;
+
+/** Base width used by a full-scale claim card before layout scaling is applied. */
+const BASE_CARD_WIDTH_PX = 360;
+
+/** Base height used by a full-scale claim card before layout scaling is applied. */
+const BASE_CARD_HEIGHT_PX = 176;
+
+/** Smallest visible fluid width retained when a connector still carries non-zero strength. */
+const MIN_FLUID_WIDTH_PX = 3;
+
+/** Outline width shared by connector walls so pipe width stays aligned with the source card height. */
+const CONNECTOR_OUTLINE_WIDTH_PX = 4;
+
+/** Shortest horizontal run kept before a connector turns into its diagonal middle section. */
+const MIN_CONNECTOR_STRAIGHT_PX = 34;
+
+/** Smallest diagonal run preserved between the two horizontal connector stubs. */
+const MIN_CONNECTOR_DIAGONAL_PX = 36;
+
+/** Largest corner radius used where a connector leaves or enters a claim box. */
+const MAX_CONNECTOR_BEND_RADIUS_PX = 42;
+
+export interface DebateRendererProps {
+    debate: Debate;
+    layout: DebateLayout;
+    viewportHeightPx?: number;
+    viewportWidthPx?: number;
+}
+
+interface RenderNode {
+    node: DebateLayoutNode;
+    score: Score;
+    renderX: number;
+    renderY: number;
+}
+
+interface ConnectorVisual {
+    connectorId: string;
+    centerlinePoints: Waypoint[];
+    fluidWidth: number;
+    outlineWidth: number;
+    pipeWidth: number;
+    side: Score["connectorSide"];
+}
+
+interface ConfidenceConnectorDraft {
+    connector: ConfidenceConnector;
+    fluidWidth: number;
+    pipeWidth: number;
+    side: Score["connectorSide"];
+    sourceNode: RenderNode;
+    targetNode: RenderNode;
+}
+
+interface ConfidenceConnectorTarget {
+    centerlinePoints: Waypoint[];
+    midpoint: { x: number; y: number };
+}
+
+export const DebateRenderer = ({
+    debate,
+    layout,
+    viewportHeightPx,
+    viewportWidthPx,
+}: DebateRendererProps) => {
+    const graphWidth = Math.max(1, Math.ceil(layout.bounds.width + (GRAPH_PADDING_PX * 2)));
+    const graphHeight = Math.max(1, Math.ceil(layout.bounds.height + (GRAPH_PADDING_PX * 2)));
+    const graphScale = getGraphScale({
+        graphHeight,
+        graphWidth,
+        viewportHeightPx,
+        viewportWidthPx,
+    });
+    const scaledGraphHeight = Math.max(1, Math.ceil(graphHeight * graphScale));
+    const scaledGraphWidth = Math.max(1, Math.ceil(graphWidth * graphScale));
+    const renderNodes = layout.nodesInOrder.map((node) => buildRenderNode(debate, layout, node));
+    const nodeByScoreId = new Map<ScoreId, RenderNode>(renderNodes.map((renderNode) => [renderNode.node.scoreId, renderNode]));
+    const confidenceTargetsByConnectorId = new Map<string, ConfidenceConnectorTarget>();
+    const confidenceConnectorDrafts: ConfidenceConnectorDraft[] = [];
+
+    for (const renderNode of renderNodes) {
+        const connector = renderNode.node.connectorId
+            ? debate.connectors[renderNode.node.connectorId]
+            : undefined;
+        if (!connector || connector.type !== "confidence") {
+            continue;
+        }
+
+        const targetScoreId = renderNode.node.layoutParentScoreId;
+        if (!targetScoreId) {
+            continue;
+        }
+
+        const targetNode = nodeByScoreId.get(targetScoreId);
+        if (!targetNode) {
+            continue;
+        }
+
+        const pipeWidth = getConnectorPipeWidth(renderNode);
+        confidenceConnectorDrafts.push({
+            connector,
+            fluidWidth: getConnectorFluidWidth(renderNode.score, pipeWidth, connector.type),
+            pipeWidth,
+            side: renderNode.score.connectorSide,
+            sourceNode: renderNode,
+            targetNode,
+        });
+    }
+
+    const targetAttachmentCenterYByConnectorId = buildTargetAttachmentCenterYByConnectorId(
+        confidenceConnectorDrafts,
+    );
+    const confidenceConnectorVisuals = confidenceConnectorDrafts.map((draft) => {
+        const centerlinePoints = buildConfidenceCenterline(
+            draft.sourceNode,
+            {
+                x: draft.targetNode.renderX + draft.targetNode.node.width,
+                y: targetAttachmentCenterYByConnectorId.get(draft.connector.id)
+                    ?? getNodeCenterY(draft.targetNode),
+            },
+        );
+
+        confidenceTargetsByConnectorId.set(draft.connector.id, {
+            centerlinePoints,
+            midpoint: getPointAtPolylineProgress(centerlinePoints, 0.5),
+        });
+
+        return {
+            connectorId: draft.connector.id,
+            centerlinePoints,
+            fluidWidth: draft.fluidWidth,
+            outlineWidth: getConnectorOutlineWidth(),
+            pipeWidth: draft.pipeWidth,
+            side: draft.side,
+        } satisfies ConnectorVisual;
+    });
+
+    const relevanceConnectorVisuals = renderNodes.flatMap((renderNode) => {
+        const connector = renderNode.node.connectorId
+            ? debate.connectors[renderNode.node.connectorId]
+            : undefined;
+        if (!connector || connector.type !== "relevance") {
+            return [];
+        }
+
+        const targetGeometry =
+            confidenceTargetsByConnectorId.get(connector.targetConfidenceConnectorId)
+            ?? buildConfidenceTargetFromLayout(connector, nodeByScoreId, debate, layout);
+        if (!targetGeometry) {
+            return [];
+        }
+
+        const centerlinePoints = buildRelevanceCenterline(renderNode, targetGeometry.midpoint);
+        const pipeWidth = getConnectorPipeWidth(renderNode);
+        return [
+            {
+                connectorId: connector.id,
+                centerlinePoints,
+                fluidWidth: getConnectorFluidWidth(renderNode.score, pipeWidth, connector.type),
+                outlineWidth: getConnectorOutlineWidth(),
+                pipeWidth,
+                side: renderNode.score.connectorSide,
+            },
+        ];
+    });
+
+    const connectorLayers: ReactNode[] = [...confidenceConnectorVisuals, ...relevanceConnectorVisuals].map((connector) => (
+        <DebateConnector
+            key={connector.connectorId}
+            centerlinePoints={connector.centerlinePoints}
+            fluidWidth={connector.fluidWidth}
+            outlineWidth={connector.outlineWidth}
+            pipeWidth={connector.pipeWidth}
+            side={connector.side}
+        />
+    ));
+
+    return (
+        <div
+            style={{
+                background: "#000000",
+                boxSizing: "border-box",
+                color: "#ffffff",
+                display: "flex",
+                fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
+                height: "100%",
+                justifyContent: "center",
+                overflow: "hidden",
+                padding: FRAME_PADDING_PX,
+                width: "100%",
+            }}
+        >
+            <div
+                style={{
+                    alignSelf: "center",
+                    flex: "0 0 auto",
+                    height: scaledGraphHeight,
+                    position: "relative",
+                    width: scaledGraphWidth,
+                }}
+            >
+                <div
+                    style={{
+                        height: graphHeight,
+                        left: 0,
+                        position: "absolute",
+                        top: 0,
+                        transform: `scale(${graphScale})`,
+                        transformOrigin: "top left",
+                        width: graphWidth,
+                    }}
+                >
+                    <svg
+                        aria-hidden="true"
+                        style={{
+                            inset: 0,
+                            overflow: "visible",
+                            position: "absolute",
+                        }}
+                        viewBox={`0 0 ${graphWidth} ${graphHeight}`}
+                    >
+                        {connectorLayers}
+                    </svg>
+                    {renderNodes.map((renderNode) => {
+                        const cardScale = Math.min(
+                            renderNode.node.width / BASE_CARD_WIDTH_PX,
+                            renderNode.node.height / BASE_CARD_HEIGHT_PX,
+                        );
+                        const cardFill = resolveSideFill(renderNode.score.claimSide, 0.3);
+                        const cardStroke = resolveSideStroke(renderNode.score.claimSide);
+                        const labelText = formatConfidenceLabel(renderNode.score.claimConfidence);
+
+                        return (
+                            <article
+                                key={renderNode.node.scoreId}
+                                style={{
+                                    boxSizing: "border-box",
+                                    height: renderNode.node.height,
+                                    left: renderNode.renderX,
+                                    overflow: "visible",
+                                    position: "absolute",
+                                    top: renderNode.renderY,
+                                    width: renderNode.node.width,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        height: BASE_CARD_HEIGHT_PX,
+                                        left: "50%",
+                                        position: "absolute",
+                                        top: "50%",
+                                        transform: `translate(-50%, -50%) scale(${cardScale})`,
+                                        transformOrigin: "center center",
+                                        width: BASE_CARD_WIDTH_PX,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            background: cardFill,
+                                            border: `4px solid ${cardStroke}`,
+                                            boxSizing: "border-box",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            height: "100%",
+                                            justifyContent: "space-between",
+                                            overflow: "hidden",
+                                            padding: "16px 20px 14px",
+                                            width: "100%",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: "-webkit-box",
+                                                fontSize: 18,
+                                                fontWeight: 600,
+                                                lineClamp: 4,
+                                                lineHeight: 1.08,
+                                                overflow: "hidden",
+                                                WebkitBoxOrient: "vertical",
+                                                WebkitLineClamp: 4,
+                                            }}
+                                        >
+                                            {renderNode.node.claimContent}
+                                        </div>
+                                        <small
+                                            style={{
+                                                color: "#d1d5db",
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                letterSpacing: "0.03em",
+                                                marginTop: 10,
+                                            }}
+                                        >
+                                            {labelText}
+                                        </small>
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+function buildRenderNode(
+    debate: Debate,
+    layout: DebateLayout,
+    node: DebateLayoutNode,
+): RenderNode {
+    const score = debate.scores[node.scoreId];
+    if (!score) {
+        throw new Error(`Score ${node.scoreId} was not found while rendering.`);
+    }
+
+    return {
+        node,
+        score,
+        renderX: Math.round(node.x - layout.bounds.left + GRAPH_PADDING_PX),
+        renderY: Math.round(node.y - layout.bounds.top + GRAPH_PADDING_PX),
+    };
+}
+
+function buildConfidenceTargetFromLayout(
+    connector: RelevanceConnector,
+    nodeByScoreId: ReadonlyMap<ScoreId, RenderNode>,
+    debate: Debate,
+    layout: DebateLayout,
+): ConfidenceConnectorTarget | undefined {
+    for (const node of layout.nodesInOrder) {
+        if (node.connectorId !== connector.targetConfidenceConnectorId) {
+            continue;
+        }
+
+        const sourceNode = nodeByScoreId.get(node.scoreId) ?? buildRenderNode(debate, layout, node);
+        const targetScoreId = node.layoutParentScoreId;
+        if (!targetScoreId) {
+            return undefined;
+        }
+
+        const targetNode = nodeByScoreId.get(targetScoreId);
+        if (!targetNode) {
+            return undefined;
+        }
+
+        const centerlinePoints = buildConfidenceCenterline(sourceNode, {
+            x: targetNode.renderX + targetNode.node.width,
+            y: getNodeCenterY(targetNode),
+        });
+        return {
+            centerlinePoints,
+            midpoint: getPointAtPolylineProgress(centerlinePoints, 0.5),
+        };
+    }
+
+    return undefined;
+}
+
+function buildConfidenceCenterline(
+    sourceNode: RenderNode,
+    targetPoint: { x: number; y: number },
+): Waypoint[] {
+    return buildAngularConnectorCenterline(
+        { x: sourceNode.renderX, y: getNodeCenterY(sourceNode) },
+        targetPoint,
+    );
+}
+
+function buildRelevanceCenterline(
+    sourceNode: RenderNode,
+    targetPoint: { x: number; y: number },
+): Waypoint[] {
+    return buildAngularConnectorCenterline(
+        { x: sourceNode.renderX, y: getNodeCenterY(sourceNode) },
+        targetPoint,
+    );
+}
+
+function buildAngularConnectorCenterline(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+): Waypoint[] {
+    const horizontalSpan = Math.max(0, startPoint.x - endPoint.x);
+    const verticalSpan = Math.abs(startPoint.y - endPoint.y);
+    const straightSegmentLength = resolveConnectorStraightSegmentLength(horizontalSpan, verticalSpan);
+
+    if (straightSegmentLength <= 1) {
+        return [startPoint, endPoint];
+    }
+
+    const bendStart = { x: startPoint.x - straightSegmentLength, y: startPoint.y };
+    const bendEnd = { x: endPoint.x + straightSegmentLength, y: endPoint.y };
+    const diagonalLength = Math.hypot(bendStart.x - bendEnd.x, bendStart.y - bendEnd.y);
+    const bendRadius = Math.min(
+        MAX_CONNECTOR_BEND_RADIUS_PX,
+        straightSegmentLength * 0.7,
+        diagonalLength * 0.22,
+    );
+
+    if (bendRadius < 8) {
+        return [startPoint, bendStart, bendEnd, endPoint];
+    }
+
+    return [
+        startPoint,
+        { x: bendStart.x, y: bendStart.y, radius: bendRadius },
+        { x: bendEnd.x, y: bendEnd.y, radius: bendRadius },
+        endPoint,
+    ];
+}
+
+function resolveConnectorStraightSegmentLength(
+    horizontalSpan: number,
+    verticalSpan: number,
+): number {
+    const maximumStraightSegmentLength = Math.max(
+        0,
+        (horizontalSpan - MIN_CONNECTOR_DIAGONAL_PX) / 2,
+    );
+    if (maximumStraightSegmentLength <= 0) {
+        return 0;
+    }
+
+    const preferredStraightSegmentLength = Math.max(
+        MIN_CONNECTOR_STRAIGHT_PX,
+        (horizontalSpan - verticalSpan) / 2,
+    );
+
+    return Math.min(preferredStraightSegmentLength, maximumStraightSegmentLength);
+}
+
+function getPointAtPolylineProgress(
+    points: Waypoint[],
+    progress: number,
+): { x: number; y: number } {
+    if (points.length <= 1) {
+        return points[0] ? { x: points[0].x, y: points[0].y } : { x: 0, y: 0 };
+    }
+
+    const clampedProgress = Math.min(1, Math.max(0, progress));
+    const segmentLengths = points.slice(1).map((point, index) => {
+        const previousPoint = points[index];
+        return Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
+    });
+    const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0);
+    if (totalLength <= 1e-6) {
+        return { x: points[0].x, y: points[0].y };
+    }
+
+    const targetLength = totalLength * clampedProgress;
+    let traversedLength = 0;
+
+    for (let index = 1; index < points.length; index += 1) {
+        const segmentLength = segmentLengths[index - 1] ?? 0;
+        if (traversedLength + segmentLength < targetLength) {
+            traversedLength += segmentLength;
+            continue;
+        }
+
+        const segmentStart = points[index - 1];
+        const segmentEnd = points[index];
+        const segmentProgress = segmentLength <= 1e-6
+            ? 0
+            : (targetLength - traversedLength) / segmentLength;
+
+        return {
+            x: segmentStart.x + ((segmentEnd.x - segmentStart.x) * segmentProgress),
+            y: segmentStart.y + ((segmentEnd.y - segmentStart.y) * segmentProgress),
+        };
+    }
+
+    const finalPoint = points.at(-1)!;
+    return { x: finalPoint.x, y: finalPoint.y };
+}
+
+function getNodeCenterY(node: RenderNode): number {
+    return node.renderY + (node.node.height / 2);
+}
+
+function buildTargetAttachmentCenterYByConnectorId(
+    drafts: readonly ConfidenceConnectorDraft[],
+): ReadonlyMap<string, number> {
+    const centerYByConnectorId = new Map<string, number>();
+    const draftsByTargetAndSide = new Map<string, ConfidenceConnectorDraft[]>();
+
+    for (const draft of drafts) {
+        const key = `${draft.targetNode.node.scoreId}:${draft.side}`;
+        const existingDrafts = draftsByTargetAndSide.get(key);
+        if (existingDrafts) {
+            existingDrafts.push(draft);
+            continue;
+        }
+
+        draftsByTargetAndSide.set(key, [draft]);
+    }
+
+    for (const draftsForTargetAndSide of draftsByTargetAndSide.values()) {
+        const orderedDrafts = [...draftsForTargetAndSide].sort((left, right) => {
+            const verticalDelta = getNodeCenterY(left.sourceNode) - getNodeCenterY(right.sourceNode);
+            if (verticalDelta !== 0) {
+                return verticalDelta;
+            }
+
+            return left.connector.id.localeCompare(right.connector.id);
+        });
+        const targetCenterY = getNodeCenterY(orderedDrafts[0].targetNode);
+        const totalStackHeight = orderedDrafts.reduce(
+            (totalHeight, draft) => totalHeight + draft.fluidWidth,
+            0,
+        );
+        let currentTop = orderedDrafts[0].side === "proMain"
+            ? targetCenterY - totalStackHeight
+            : targetCenterY;
+
+        for (const draft of orderedDrafts) {
+            centerYByConnectorId.set(
+                draft.connector.id,
+                currentTop + (draft.fluidWidth / 2),
+            );
+            currentTop += draft.fluidWidth;
+        }
+    }
+
+    return centerYByConnectorId;
+}
+
+function getGraphScale(args: {
+    graphHeight: number;
+    graphWidth: number;
+    viewportHeightPx: number | undefined;
+    viewportWidthPx: number | undefined;
+}): number {
+    const availableWidth = args.viewportWidthPx === undefined
+        ? args.graphWidth
+        : Math.max(1, args.viewportWidthPx - (FRAME_PADDING_PX * 2));
+    const availableHeight = args.viewportHeightPx === undefined
+        ? args.graphHeight
+        : Math.max(1, args.viewportHeightPx - (FRAME_PADDING_PX * 2));
+
+    return Math.min(1, availableWidth / args.graphWidth, availableHeight / args.graphHeight);
+}
+
+function getConnectorPipeWidth(node: RenderNode): number {
+    return node.node.height;
+}
+
+function getConnectorFluidWidth(
+    score: Score,
+    pipeWidth: number,
+    type: ConfidenceConnector["type"] | RelevanceConnector["type"],
+): number {
+    const fluidRatio = clampUnit(type === "confidence" ? score.connectorConfidence : score.relevance);
+    if (fluidRatio <= 0) {
+        return 0;
+    }
+
+    return Math.max(MIN_FLUID_WIDTH_PX, pipeWidth * fluidRatio);
+}
+
+function getConnectorOutlineWidth(): number {
+    return CONNECTOR_OUTLINE_WIDTH_PX;
+}
+
+function resolveSideStroke(side: Score["claimSide"]): string {
+    return side === "proMain" ? "var(--pro)" : "var(--con)";
+}
+
+function resolveSideFill(side: Score["claimSide"], alpha: number): string {
+    if (side === "proMain") {
+        return `hsl(var(--pro-h) 100% var(--pro-l) / ${alpha})`;
+    }
+
+    return `hsl(var(--con-h) 100% var(--con-l) / ${alpha})`;
+}
+
+function clampUnit(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.min(1, Math.max(0, value));
+}
+
+function formatConfidenceLabel(confidence: number): string {
+    return `${Math.round(confidence * 100)}% confidence`;
+}

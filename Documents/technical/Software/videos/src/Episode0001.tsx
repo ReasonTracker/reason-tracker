@@ -1,4 +1,5 @@
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, useVideoConfig } from "remotion";
+import { DebateRenderer } from "@reasontracker/components";
 
 import {
     type AddClaimCommand,
@@ -24,6 +25,9 @@ const SAFETY_PRIORITY_CLAIM_ID = "claim-safety-priority" as ClaimId;
 const RAILROAD_STREET_CLAIM_ID = "claim-railroad-street" as ClaimId;
 const COST_CLAIM_ID = "claim-cost" as ClaimId;
 const PAYBACK_CLAIM_ID = "claim-payback" as ClaimId;
+const FOOT_TRAFFIC_EVENTS_CLAIM_ID = "claim-foot-traffic-events" as ClaimId;
+const FOOT_TRAFFIC_DINING_CLAIM_ID = "claim-foot-traffic-dining" as ClaimId;
+const FOOT_TRAFFIC_DELIVERIES_CLAIM_ID = "claim-foot-traffic-deliveries" as ClaimId;
 
 const FOOT_TRAFFIC_CONNECTOR_ID = "connector-foot-traffic" as ConfidenceConnectorId;
 const SAFETY_RISK_CONNECTOR_ID = "connector-safety-risk" as ConfidenceConnectorId;
@@ -31,6 +35,9 @@ const SAFETY_PRIORITY_CONNECTOR_ID = "connector-safety-priority" as RelevanceCon
 const RAILROAD_STREET_CONNECTOR_ID = "connector-railroad-street" as ConfidenceConnectorId;
 const COST_CONNECTOR_ID = "connector-cost" as ConfidenceConnectorId;
 const PAYBACK_CONNECTOR_ID = "connector-payback" as RelevanceConnectorId;
+const FOOT_TRAFFIC_EVENTS_CONNECTOR_ID = "connector-foot-traffic-events" as ConfidenceConnectorId;
+const FOOT_TRAFFIC_DINING_CONNECTOR_ID = "connector-foot-traffic-dining" as ConfidenceConnectorId;
+const FOOT_TRAFFIC_DELIVERIES_CONNECTOR_ID = "connector-foot-traffic-deliveries" as ConfidenceConnectorId;
 
 const FOOT_TRAFFIC_SCORE_ID = "score-foot-traffic" as ScoreId;
 const SAFETY_RISK_SCORE_ID = "score-safety-risk" as ScoreId;
@@ -38,6 +45,9 @@ const SAFETY_PRIORITY_SCORE_ID = "score-safety-priority" as ScoreId;
 const RAILROAD_STREET_SCORE_ID = "score-railroad-street" as ScoreId;
 const COST_SCORE_ID = "score-cost" as ScoreId;
 const PAYBACK_SCORE_ID = "score-payback" as ScoreId;
+const FOOT_TRAFFIC_EVENTS_SCORE_ID = "score-foot-traffic-events" as ScoreId;
+const FOOT_TRAFFIC_DINING_SCORE_ID = "score-foot-traffic-dining" as ScoreId;
+const FOOT_TRAFFIC_DELIVERIES_SCORE_ID = "score-foot-traffic-deliveries" as ScoreId;
 
 const episode0001Debate: Debate = {
     id: EPISODE_DEBATE_ID,
@@ -68,7 +78,12 @@ const episode0001Debate: Debate = {
     },
 };
 
-const episode0001Actions = [
+interface Episode0001StoryboardAction {
+    scriptBeat: string;
+    command: AddClaimCommand;
+}
+
+const episode0001BaseActions: Episode0001StoryboardAction[] = [
     {
         scriptBeat: "To start, we add that converting Elm Street will increase foot traffic to local shops by 15%.",
         command: {
@@ -173,51 +188,86 @@ const episode0001Actions = [
     },
 ] as const;
 
+const episode0001EndSegmentActions: Episode0001StoryboardAction[] = [
+    {
+        scriptBeat: "At the end, we add that weekend street events would drive even more visitors onto Elm Street.",
+        command: {
+            type: "claim/add",
+            targetScoreId: FOOT_TRAFFIC_SCORE_ID,
+            claim: {
+                id: FOOT_TRAFFIC_EVENTS_CLAIM_ID,
+                content: "Weekend street events would drive even more visitors onto Elm Street.",
+            },
+            connection: {
+                type: "confidence",
+                id: FOOT_TRAFFIC_EVENTS_CONNECTOR_ID,
+                scoreId: FOOT_TRAFFIC_EVENTS_SCORE_ID,
+                targetRelationship: "proTarget",
+            },
+        } satisfies AddClaimCommand,
+    },
+    {
+        scriptBeat: "We also add that outdoor dining would keep shoppers on the street longer.",
+        command: {
+            type: "claim/add",
+            targetScoreId: FOOT_TRAFFIC_SCORE_ID,
+            claim: {
+                id: FOOT_TRAFFIC_DINING_CLAIM_ID,
+                content: "Outdoor dining would keep shoppers on Elm Street for longer visits.",
+            },
+            connection: {
+                type: "confidence",
+                id: FOOT_TRAFFIC_DINING_CONNECTOR_ID,
+                scoreId: FOOT_TRAFFIC_DINING_SCORE_ID,
+                targetRelationship: "proTarget",
+            },
+        } satisfies AddClaimCommand,
+    },
+    {
+        scriptBeat: "We end that section by adding a con that delivery disruptions could reduce some shop visits.",
+        command: {
+            type: "claim/add",
+            targetScoreId: FOOT_TRAFFIC_SCORE_ID,
+            claim: {
+                id: FOOT_TRAFFIC_DELIVERIES_CLAIM_ID,
+                content: "Delivery disruptions could reduce some shop visits during the transition.",
+            },
+            connection: {
+                type: "confidence",
+                id: FOOT_TRAFFIC_DELIVERIES_CONNECTOR_ID,
+                scoreId: FOOT_TRAFFIC_DELIVERIES_SCORE_ID,
+                targetRelationship: "conTarget",
+            },
+        } satisfies AddClaimCommand,
+    },
+];
+
 const planner = new Planner();
 const reducer = new Reducer();
-const episode0001PlannerResults = planner.plan(episode0001Actions.map((action) => action.command), episode0001Debate);
-const episode0001Run = buildEpisode0001Run(episode0001Debate, reducer);
-const episode0001Layout = layoutDebate(episode0001Run.finalState);
+const episode0001EndRun = buildEpisode0001Run(
+    episode0001Debate,
+    [...episode0001BaseActions, ...episode0001EndSegmentActions],
+    planner,
+    reducer,
+);
+const episode0001EndLayout = layoutDebate(episode0001EndRun.finalState);
 
 
 export const Episode0001 = () => {
+    const { height, width } = useVideoConfig();
+
     return (
         <AbsoluteFill
             style={{
-                background: "#e5e7eb",
-                color: "#0f172a",
-                fontFamily: '"Segoe UI", sans-serif',
+                background: "#000000",
             }}
         >
-            {episode0001Layout.nodesInOrder.map((node) => {
-                const padding = Math.max(12, Math.round(20 * node.layoutScale));
-                const fontSize = Math.max(15, Math.round(24 * node.layoutScale));
-
-                return (
-                    <div
-                        key={node.scoreId}
-                        style={{
-                            background: "#ffffff",
-                            border: "2px solid #0f172a",
-                            boxSizing: "border-box",
-                            color: "#0f172a",
-                            display: "flex",
-                            fontSize,
-                            fontWeight: 500,
-                            height: node.height,
-                            left: node.x,
-                            lineHeight: 1.2,
-                            overflow: "hidden",
-                            padding,
-                            position: "absolute",
-                            top: node.y,
-                            width: node.width,
-                        }}
-                    >
-                        {node.claimContent}
-                    </div>
-                );
-            })}
+            <DebateRenderer
+                debate={episode0001EndRun.finalState}
+                layout={episode0001EndLayout}
+                viewportHeightPx={height}
+                viewportWidthPx={width}
+            />
         </AbsoluteFill>
     );
 };
@@ -247,13 +297,19 @@ type Episode0001OperationReplayEntry = {
 
 function buildEpisode0001Run(
     initialState: Debate,
+    storyboardActions: readonly Episode0001StoryboardAction[],
+    replayPlanner: Planner,
     replayReducer: Reducer,
 ): Episode0001Run {
+    const plannerResults = replayPlanner.plan(
+        storyboardActions.map((action) => action.command),
+        initialState,
+    );
     let workingState = initialState;
     let timelineOperation = 0;
-    const steps = episode0001Actions.map((action, stepIndex) => {
+    const steps = storyboardActions.map((action, stepIndex) => {
         const stateBefore = workingState;
-        const operations = episode0001PlannerResults[stepIndex]?.operations ?? [];
+        const operations = plannerResults[stepIndex]?.operations ?? [];
         const operationReplay = operations.map((operation, operationIndex) => {
             const operationStateBefore = workingState;
             workingState = replayReducer.apply(workingState, operation);
