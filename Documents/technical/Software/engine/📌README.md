@@ -10,6 +10,7 @@ It currently mixes early scaffold surfaces with the authoritative core entity mo
 - the engine package boundary
 - the semantic command boundary for engine mutations
 - the command-to-operation translator boundary
+- the operation-to-state reducer boundary
 - engine source layout
 - the shared core entity contract under `src/00-entities`
 - small engine-dependent code that does not yet justify its own package boundary
@@ -18,6 +19,7 @@ It currently mixes early scaffold surfaces with the authoritative core entity mo
 
 - `src/index.ts`
 - `src/00-commands.ts`
+- `src/04-Reducer.ts`
 - `src/command-translator/📌README.md`
 - `src/00-entities/📌README.md`
 
@@ -26,6 +28,7 @@ It currently mixes early scaffold surfaces with the authoritative core entity mo
 - you are shaping the engine package surface
 - you need to add or refine mutation commands before internal engine behavior
 - you need to define or relocate command translator contracts
+- you need to add or refine reducer behavior for engine operations
 - you need to add engine-oriented source files or folders
 - you need to route new engine behavior toward commands, entities, or nearby engine-dependent code
 

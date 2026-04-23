@@ -5,7 +5,7 @@
 This folder holds the planner boundary for the engine.
 
 Use this folder for planner contracts and nearby planner implementation.
-Keep reducer behavior elsewhere.
+Keep reducer behavior in [`04-Reducer.ts`](./04-Reducer.ts).
 
 The planner boundary is stateless.
 It should receive existing engine state explicitly rather than storing mutable planner state internally.
@@ -25,7 +25,7 @@ It should return grouped translation results that pair the original one-or-more 
 
 ## Does Not Own
 
-- reducer behavior
+- reducer behavior in [`04-Reducer.ts`](./04-Reducer.ts)
 - state mutation rules
 - timeline storage
 
@@ -53,7 +53,7 @@ An EngineCommand batch is sent to the Planner, for example `AddClaimCommand` wit
 - For `claim-to-claim`, the planner derives the canonical `targetClaimId` from that target score.
 - For `claim-to-connector`, the planner derives the canonical `targetConnectorId` from the target score's `connectorId`.
 
-The planner emits structural operations rather than animation-specific instructions. Those structural operations can later drive reducers, animation planners, or other downstream systems.
+The planner emits structural operations rather than animation-specific instructions. Those structural operations can later drive the engine reducer in [`04-Reducer.ts`](./04-Reducer.ts), animation planners, or other downstream systems.
 
 Traversal terminology:
 
@@ -74,6 +74,7 @@ Traversal terminology:
 
 ## Related Docs
 
+- [Reducer](./04-Reducer.ts)
 - [Src](../📌README.md)
 - [Engine](../../📌README.md)
 

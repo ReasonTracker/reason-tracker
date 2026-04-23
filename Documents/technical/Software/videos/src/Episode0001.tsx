@@ -6,8 +6,9 @@ import {
     type ConnectorId,
     type Debate,
     type DebateId,
+    type Operation,
     Planner,
-    type PlannerResult,
+    Reducer,
     type ScoreId,
 } from "../../engine/src/index.ts";
 
@@ -171,10 +172,16 @@ const episode0001Actions = [
 ] as const;
 
 const planner = new Planner();
+const reducer = new Reducer();
 const episode0001PlannerResults = planner.plan(episode0001Actions.map((action) => action.command), episode0001Debate);
-const episodeData = buildEpisode0001Timeline(episode0001PlannerResults);
-const episode0001Json = JSON.stringify(episodeData, null, 2);
-console.log(episodeData);
+const episode0001Operations = episode0001PlannerResults.flatMap((result) => result.operations);
+const episode0001ReducerReplay = buildEpisode0001ReducerReplay(episode0001Operations, episode0001Debate, reducer);
+const episode0001FinalState =
+    episode0001ReducerReplay.length > 0
+        ? episode0001ReducerReplay[episode0001ReducerReplay.length - 1].state
+        : episode0001Debate;
+const episode0001Json = JSON.stringify(episode0001FinalState, null, 2);
+console.log("Episode0001 reducer replay", episode0001ReducerReplay);
 
 
 export const Episode0001 = () => {
@@ -233,7 +240,7 @@ export const Episode0001 = () => {
                         textTransform: "uppercase",
                     }}
                 >
-                    Story-driven planner array
+                    Reducer replay final state
                 </div>
                 <div
                     style={{
@@ -245,7 +252,7 @@ export const Episode0001 = () => {
                         padding: "0 36px",
                     }}
                 >
-                    Elm Street episode commands and planner output, rendered raw before animation polish.
+                    Elm Street commands replayed through the reducer, showing the final debate state before animation polish.
                 </div>
                 <div
                     style={{
@@ -272,11 +279,26 @@ export const Episode0001 = () => {
     );
 };
 
-function buildEpisode0001Timeline(results: readonly PlannerResult[]) {
-    return episode0001Actions.map((action, index) => ({
-        step: index + 1,
-        scriptBeat: action.scriptBeat,
-        command: action.command,
-        plan: results[index],
-    }));
+type Episode0001ReducerReplayEntry = {
+    operationIndex: number;
+    operation: Operation;
+    state: Debate;
+};
+
+function buildEpisode0001ReducerReplay(
+    operations: readonly Operation[],
+    initialState: Debate,
+    replayReducer: Reducer,
+): Episode0001ReducerReplayEntry[] {
+    let workingState = initialState;
+
+    return operations.map((operation, index) => {
+        workingState = replayReducer.apply(workingState, operation);
+
+        return {
+            operationIndex: index + 1,
+            operation,
+            state: workingState,
+        };
+    });
 }

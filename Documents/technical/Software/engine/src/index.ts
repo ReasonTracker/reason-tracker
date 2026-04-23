@@ -14,6 +14,9 @@ export type {
 export {
 	Planner,
 } from "./02-Planner.ts";
+export {
+	Reducer,
+} from "./04-Reducer.ts";
 
 export type {
 	ClaimAddedOp,
