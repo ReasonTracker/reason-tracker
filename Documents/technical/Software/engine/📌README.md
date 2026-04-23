@@ -18,7 +18,7 @@ It currently mixes early scaffold surfaces with the authoritative core entity mo
 ## Main Entrypoints
 
 - `src/index.ts`
-- `src/00-commands.ts`
+- `src/01-Commands.ts`
 - `src/04-Reducer.ts`
 - `src/command-translator/📌README.md`
 - `src/00-entities/📌README.md`
@@ -45,7 +45,7 @@ Package status: `scaffold`
 
 Mutation boundary status: `command-first scaffold`
 
-Command contract status: `authoritative` in `src/00-commands.ts`
+Command contract status: `authoritative` in `src/01-Commands.ts`
 
 Shared domain contract status: `authoritative` in `src/00-entities`
 
@@ -57,7 +57,7 @@ They should express semantic intent rather than mirroring internal entity or dat
 Prefer the most meaningful domain verb available.
 Use `update` only when a partial object change does not have a stronger domain name.
 
-Prefer commands such as `ConnectClaimToClaimCommand` and `ConnectClaimToConnectorCommand` over storage-shaped names such as `AddConnectorCommand`.
+Prefer commands such as `ConnectClaimWithConfidenceCommand` and `ConnectClaimWithRelevanceCommand` over storage-shaped connector-create names.
 Keep special domain actions separate when they carry distinct validation or downstream behavior, for example `SetMainClaimCommand`.
 
 Avoid one-command-per-property setter and clearer patterns by default.
@@ -81,6 +81,9 @@ Do not create a dedicated incubation area until real engine-adjacent code needs 
 If temporary engine-adjacent code is added here, keep it in a clearly named subfolder or file group rather than mixing it into `00-entities`.
 
 ## Related Docs
+
+- [Layout Engine](./Layout%20Engine.md)
+- [Connector Targeting Model](./Connector%20Targeting%20Model.md)
 
 - [Src](./src/📌README.md)
 - [Software](../📌README.md)

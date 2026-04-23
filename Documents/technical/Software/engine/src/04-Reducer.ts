@@ -188,10 +188,15 @@ function addConnector(debate: Debate, connector: Connector): Debate {
 
 	getRequiredClaim(debate, connector.source)
 
-	if (connector.type === "claim-to-claim") {
+	if (connector.type === "confidence") {
 		getRequiredClaim(debate, connector.targetClaimId)
 	} else {
-		getRequiredConnector(debate, connector.targetConnectorId)
+		const targetConnector = getRequiredConnector(debate, connector.targetConfidenceConnectorId)
+		if (targetConnector.type !== "confidence") {
+			throw new Error(
+				`Connector ${connector.id} cannot target connector ${targetConnector.id} because ${targetConnector.type} is not a valid relevance target.`,
+			)
+		}
 	}
 
 	return {

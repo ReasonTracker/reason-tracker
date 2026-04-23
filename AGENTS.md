@@ -27,6 +27,8 @@
 - Treat this repository as a prototype until the documentation says otherwise.
 - Do not create, add, expand, or propose new automated tests while this prototype rule is in effect.
 - Avoid routine change-log style documentation during prototype iteration.
+- Write durable docs as current truth, not as migration narration.
+- Do not document replaced code or prior naming with phrases such as `was previously`, `formerly`, `renamed from`, or similar old-to-new comparisons unless the user explicitly asks for history or a live compatibility layer makes the old shape operationally relevant.
 - Update documentation during prototype work only when standing truth changes, such as structure, ownership, entrypoints, glossary terms, protected areas, or stable workflow rules.
 - If a task would normally include tests or extensive change documentation, stop at implementation and only update the durable docs that need to stay accurate unless the user explicitly says the prototype rule has changed.
 

@@ -38,20 +38,25 @@ Current implemented scope:
 - `claim/add`
 - `claim/update`
 - `claim/delete`
-- `connector/create`
-- `connector/delete`
+- `confidence/connect`
+- `relevance/connect`
+- `confidence/disconnect`
+- `relevance/disconnect`
 - score-targeted translation via `targetScoreId` so non-root claims may have multiple projected score occurrences
 - connector meaning derived from connector type:
-  - `claim-to-claim` contributes confidence
-  - `claim-to-connector` contributes relevance
+  - `confidence` contributes confidence
+  - `relevance` contributes relevance
+- `relevance` targets are limited to existing `confidence` connectors
+- disconnect commands remove the targeted projected occurrence together with dependent projected descendants and attached `relevance` occurrences when applicable
+- `claim/delete` removes the claim plus all projected occurrences rooted at that claim
 - one root score is still expected for `mainClaimId`
 
 ## Example Process
 
 An EngineCommand batch is sent to the Planner, for example `AddClaimCommand` with an existing Debate state. The command targets a specific projected score occurrence using `targetScoreId`.
 
-- For `claim-to-claim`, the planner derives the canonical `targetClaimId` from that target score.
-- For `claim-to-connector`, the planner derives the canonical `targetConnectorId` from the target score's `connectorId`.
+- For `confidence`, the planner derives the canonical `targetClaimId` from that target score.
+- For `relevance`, the planner derives the canonical `targetConfidenceConnectorId` from the target score's `connectorId`, and that connector must be `confidence`.
 
 The planner emits structural operations rather than animation-specific instructions. Those structural operations can later drive the engine reducer in [`04-Reducer.ts`](./04-Reducer.ts), animation planners, or other downstream systems.
 

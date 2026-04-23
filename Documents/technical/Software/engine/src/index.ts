@@ -1,12 +1,18 @@
 export type {
 	EngineCommand,
 	AddClaimCommand,
-	ClaimToScoreConnectionInput,
-	CreateConnectorCommand,
+	ClaimConnectionInput,
+	ConfidenceConnectionInput,
+	ConnectClaimCommand,
+	ConnectClaimWithConfidenceCommand,
+	ConnectClaimWithRelevanceCommand,
 	CreateDebateCommand,
 	DebateMetadataPatch,
 	DeleteClaimCommand,
-	DeleteConnectorCommand,
+	DisconnectConfidenceCommand,
+	DisconnectConnectionCommand,
+	DisconnectRelevanceCommand,
+	RelevanceConnectionInput,
 	UpdateClaimCommand,
 	UpdateDebateCommand,
 } from "./01-Commands.ts";
@@ -17,6 +23,9 @@ export {
 export {
 	Reducer,
 } from "./04-Reducer.ts";
+export {
+	layoutDebate,
+} from "./05-Layout.ts";
 
 export type {
 	ClaimAddedOp,
@@ -53,13 +62,17 @@ export type {
 } from "./00-entities/Score.ts";
 
 export type {
-	ClaimToClaimConnector,
-	ClaimToConnectorConnector,
+	ConfidenceConnector,
+	ConfidenceConnectorCreate,
+	ConfidenceConnectorId,
 	Connector,
 	ConnectorCreate,
 	ConnectorId,
-	TargetRelation,
 	ConnectorPatch,
+	RelevanceConnector,
+	RelevanceConnectorCreate,
+	RelevanceConnectorId,
+	TargetRelation,
 } from "./00-entities/Connector.ts";
 
 export type {
@@ -69,6 +82,13 @@ export type {
 	DebateDetails,
 	DebatePatch,
 } from "./00-entities/Debate.ts";
+
+export type {
+	DebateLayout,
+	DebateLayoutNode,
+	DebateLayoutOptions,
+	LayoutBounds,
+} from "./05-Layout.ts";
 
 export type {
 	Score,

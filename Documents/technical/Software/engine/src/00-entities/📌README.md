@@ -18,6 +18,13 @@ Do not change these contracts without explicit approval.
 `Score` is a projection of the claim and connector entities.
 It is expected to be the primary graph-consumption shape through much of the project, except where data remains on claims or connectors and is not represented on `Score`, such as `content`.
 
+## Connector Model
+
+`Connector` is a discriminated union with two semantic connector families:
+
+- `ConfidenceConnector` values are primary connectors and may be targeted by `RelevanceConnector`
+- `RelevanceConnector` values are secondary connectors and may only target `ConfidenceConnector`
+
 ## Main Entrypoints
 
 - `Claim.ts`

@@ -1,7 +1,11 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import type { ClaimCreate, ClaimPatch, ClaimId } from "./00-entities/Claim.ts";
-import type { ConnectorId, TargetRelation } from "./00-entities/Connector.ts";
+import type {
+	ConfidenceConnectorId,
+	RelevanceConnectorId,
+	TargetRelation,
+} from "./00-entities/Connector.ts";
 import type { DebateCore } from "./00-entities/Debate.ts";
 import type { ScoreId } from "./00-entities/Score.ts";
 
@@ -11,15 +15,37 @@ export type PatchWithRequiredId<T extends { id: unknown }> = Partial<Omit<T, "id
 type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
 export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateCore, "id" | "name" | "description">>;
 
-type ConnectionInputBase<TConnectorId extends ConnectorId = ConnectorId> = {
+type ConnectionInputBase<TConnectorId extends ConfidenceConnectorId | RelevanceConnectorId> = {
 	id?: TConnectorId
 	scoreId?: ScoreId
 	targetRelationship: TargetRelation
 };
 
-export type ClaimToScoreConnectionInput<TConnectorId extends ConnectorId = ConnectorId> =
-	| ({ type: "claim-to-claim" } & ConnectionInputBase<TConnectorId>)
-	| ({ type: "claim-to-connector" } & ConnectionInputBase<TConnectorId>);
+export type ConfidenceConnectionInput = {
+	type: "confidence"
+} & ConnectionInputBase<ConfidenceConnectorId>;
+
+export type RelevanceConnectionInput = {
+	type: "relevance"
+} & ConnectionInputBase<RelevanceConnectorId>;
+
+export type ClaimConnectionInput =
+	| ConfidenceConnectionInput
+	| RelevanceConnectionInput;
+
+type ConnectClaimCommandBase<TConnection extends ClaimConnectionInput> = {
+	sourceClaimId: ClaimId
+	targetScoreId: ScoreId
+	connection: TConnection
+};
+
+export type ConnectClaimCommand =
+	| ConnectClaimWithConfidenceCommand
+	| ConnectClaimWithRelevanceCommand;
+
+export type DisconnectConnectionCommand =
+	| DisconnectConfidenceCommand
+	| DisconnectRelevanceCommand;
 
 // #region Command union
 export type EngineCommand =
@@ -27,8 +53,8 @@ export type EngineCommand =
 	| AddClaimCommand
 	| UpdateClaimCommand
 	| DeleteClaimCommand
-	| CreateConnectorCommand
-	| DeleteConnectorCommand
+	| ConnectClaimCommand
+	| DisconnectConnectionCommand
 	| UpdateDebateCommand
 // #endregion
 
@@ -38,7 +64,7 @@ export interface AddClaimCommand {
 	type: "claim/add"
 	claim: ClaimCreate
 	targetScoreId: ScoreId
-	connector: ClaimToScoreConnectionInput
+	connection: ClaimConnectionInput
 }
 
 export interface UpdateClaimCommand {
@@ -52,17 +78,23 @@ export interface DeleteClaimCommand {
 }
 // #endregion
 
-// #region Connector commands
-export interface CreateConnectorCommand {
-	type: "connector/create"
-	sourceClaimId: ClaimId
-	targetScoreId: ScoreId
-	connector: ClaimToScoreConnectionInput
+// #region Connection commands
+export interface ConnectClaimWithConfidenceCommand extends ConnectClaimCommandBase<ConfidenceConnectionInput> {
+	type: "confidence/connect"
 }
 
-export interface DeleteConnectorCommand {
-	type: "connector/delete"
-	connectorId: ConnectorId
+export interface ConnectClaimWithRelevanceCommand extends ConnectClaimCommandBase<RelevanceConnectionInput> {
+	type: "relevance/connect"
+}
+
+export interface DisconnectConfidenceCommand {
+	type: "confidence/disconnect"
+	confidenceConnectorId: ConfidenceConnectorId
+}
+
+export interface DisconnectRelevanceCommand {
+	type: "relevance/disconnect"
+	relevanceConnectorId: RelevanceConnectorId
 }
 // #endregion
 

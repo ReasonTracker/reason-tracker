@@ -1,21 +1,25 @@
 import type {
     AddClaimCommand,
-    ClaimToScoreConnectionInput,
-    CreateConnectorCommand,
+    ClaimConnectionInput,
+    ConnectClaimCommand,
     CreateDebateCommand,
     DebateMetadataPatch,
     DeleteClaimCommand,
-    DeleteConnectorCommand,
+    DisconnectConnectionCommand,
     EngineCommand,
+    ConfidenceConnectionInput,
+    RelevanceConnectionInput,
     UpdateClaimCommand,
     UpdateDebateCommand,
 } from "./01-Commands.ts";
 import type { Claim, ClaimCreate, ClaimId, ClaimPatch } from "./00-entities/Claim.ts";
 import type {
-    ClaimToClaimConnector,
-    ClaimToConnectorConnector,
+    ConfidenceConnector,
+    ConfidenceConnectorId,
     Connector,
     ConnectorId,
+    RelevanceConnector,
+    RelevanceConnectorId,
     TargetRelation,
 } from "./00-entities/Connector.ts";
 import type { Debate } from "./00-entities/Debate.ts";
@@ -44,8 +48,8 @@ interface NormalizedAddClaimCommand {
     targetScoreId: ScoreId;
 }
 
-interface NormalizedCreateConnectorCommand {
-    command: CreateConnectorCommand;
+interface NormalizedConnectClaimCommand {
+    command: ConnectClaimCommand;
     connector: Connector;
     score: Score;
     targetScoreId: ScoreId;
@@ -56,10 +60,14 @@ interface NormalizedCreateDebateCommand {
     debate: Debate;
 }
 
-interface ClaimRemovalResult {
+interface RemovedScoreOccurrence {
+    connectorId: ConnectorId;
+    scoreId: ScoreId;
+}
+
+interface StructuralRemovalResult {
     debate: Debate;
-    removedConnectorIds: ConnectorId[];
-    removedScoreIds: ScoreId[];
+    removedOccurrences: RemovedScoreOccurrence[];
     recalculationStartScoreIds: ScoreId[];
 }
 
@@ -103,13 +111,15 @@ export class Planner {
                     workingDebate = translation.debate;
                     return translation.result;
                 }
-                case "connector/create": {
-                    const translation = translateCreateConnectorCommand(command, workingDebate);
+                case "confidence/connect":
+                case "relevance/connect": {
+                    const translation = translateConnectClaimCommand(command, workingDebate);
                     workingDebate = translation.debate;
                     return translation.result;
                 }
-                case "connector/delete": {
-                    const translation = translateDeleteConnectorCommand(command, workingDebate);
+                case "confidence/disconnect":
+                case "relevance/disconnect": {
+                    const translation = translateDisconnectConnectionCommand(command, workingDebate);
                     workingDebate = translation.debate;
                     return translation.result;
                 }
@@ -235,17 +245,14 @@ function translateDeleteClaimCommand(command: DeleteClaimCommand, debate: Debate
     const propagation = propagateScoreUpdates(debate, structural.debate, structural.recalculationStartScoreIds);
     const operations: Operation[] = [];
 
-    for (const connectorId of structural.removedConnectorIds) {
-        operations.push({
-            type: "ConnectorDeleted",
-            connectorId,
-        });
-    }
-
-    for (const scoreId of structural.removedScoreIds) {
+    for (const occurrence of structural.removedOccurrences) {
         operations.push({
             type: "ScoreDeleted",
-            scoreId,
+            scoreId: occurrence.scoreId,
+        });
+        operations.push({
+            type: "ConnectorDeleted",
+            connectorId: occurrence.connectorId,
         });
     }
 
@@ -265,11 +272,11 @@ function translateDeleteClaimCommand(command: DeleteClaimCommand, debate: Debate
     };
 }
 
-function translateCreateConnectorCommand(command: CreateConnectorCommand, debate: Debate): {
+function translateConnectClaimCommand(command: ConnectClaimCommand, debate: Debate): {
     debate: Debate;
     result: PlannerResult;
 } {
-    const normalized = normalizeCreateConnectorCommand(command, debate);
+    const normalized = normalizeConnectClaimCommand(command, debate);
     const structurallyUpdatedDebate = addConnectionToDebate(debate, normalized);
     const propagation = propagateScoreUpdates(debate, structurallyUpdatedDebate, [normalized.targetScoreId]);
     const operations: Operation[] = [
@@ -294,22 +301,24 @@ function translateCreateConnectorCommand(command: CreateConnectorCommand, debate
     };
 }
 
-function translateDeleteConnectorCommand(command: DeleteConnectorCommand, debate: Debate): {
+function translateDisconnectConnectionCommand(command: DisconnectConnectionCommand, debate: Debate): {
     debate: Debate;
     result: PlannerResult;
 } {
-    const structural = removeConnectionFromDebate(debate, command.connectorId);
-    const propagation = propagateScoreUpdates(debate, structural.debate, [structural.targetScoreId]);
-    const operations: Operation[] = [
-        {
-            type: "ConnectorDeleted",
-            connectorId: structural.removedConnectorId,
-        },
-        {
+    const structural = removeConnectionFromDebate(debate, getConnectorIdFromDisconnectCommand(command));
+    const propagation = propagateScoreUpdates(debate, structural.debate, structural.recalculationStartScoreIds);
+    const operations: Operation[] = [];
+
+    for (const occurrence of structural.removedOccurrences) {
+        operations.push({
             type: "ScoreDeleted",
-            scoreId: structural.removedScoreId,
-        },
-    ];
+            scoreId: occurrence.scoreId,
+        });
+        operations.push({
+            type: "ConnectorDeleted",
+            connectorId: occurrence.connectorId,
+        });
+    }
 
     operations.push(...propagation.operations);
 
@@ -352,6 +361,10 @@ function normalizeCreateDebateCommand(command: CreateDebateCommand): NormalizedC
 }
 
 function normalizeAddClaimCommand(command: AddClaimCommand, debate: Debate): NormalizedAddClaimCommand {
+    if (!command.connection) {
+        throw new Error(`AddClaimCommand.connection is required. Use the semantic command payload field 'connection', not 'connector'.`);
+    }
+
     const claimId = hasId(command.claim)
         ? command.claim.id
         : createUniqueId<ClaimId>((candidate) => candidate in debate.claims);
@@ -361,7 +374,7 @@ function normalizeAddClaimCommand(command: AddClaimCommand, debate: Debate): Nor
 
     const targetScore = getRequiredScore(debate, command.targetScoreId);
     const connector = createConnectorForTarget({
-        commandInput: command.connector,
+        commandInput: command.connection,
         sourceClaimId: claim.id,
         targetScore,
         debate,
@@ -372,7 +385,7 @@ function normalizeAddClaimCommand(command: AddClaimCommand, debate: Debate): Nor
         connector,
         targetScore,
         debate,
-        requestedScoreId: command.connector.scoreId,
+        requestedScoreId: command.connection.scoreId,
     });
 
     return {
@@ -380,12 +393,7 @@ function normalizeAddClaimCommand(command: AddClaimCommand, debate: Debate): Nor
             type: "claim/add",
             claim,
             targetScoreId: targetScore.id,
-            connector: {
-                type: command.connector.type,
-                id: connector.id,
-                scoreId: score.id,
-                targetRelationship: connector.targetRelationship,
-            },
+            connection: createNormalizedConnectionInput(connector, score.id),
         },
         claim,
         connector,
@@ -394,11 +402,15 @@ function normalizeAddClaimCommand(command: AddClaimCommand, debate: Debate): Nor
     };
 }
 
-function normalizeCreateConnectorCommand(command: CreateConnectorCommand, debate: Debate): NormalizedCreateConnectorCommand {
+function normalizeConnectClaimCommand(command: ConnectClaimCommand, debate: Debate): NormalizedConnectClaimCommand {
+    if (!command.connection) {
+        throw new Error(`Connect claim commands require a 'connection' payload. Use 'connection', not 'connector'.`);
+    }
+
     const sourceClaim = getRequiredClaim(debate, command.sourceClaimId);
     const targetScore = getRequiredScore(debate, command.targetScoreId);
     const connector = createConnectorForTarget({
-        commandInput: command.connector,
+        commandInput: command.connection,
         sourceClaimId: sourceClaim.id,
         targetScore,
         debate,
@@ -409,20 +421,37 @@ function normalizeCreateConnectorCommand(command: CreateConnectorCommand, debate
         connector,
         targetScore,
         debate,
-        requestedScoreId: command.connector.scoreId,
+        requestedScoreId: command.connection.scoreId,
     });
+
+    if (command.type === "confidence/connect") {
+        if (connector.type !== "confidence") {
+            throw new Error(`Confidence connect command resolved non-confidence connector ${connector.id}.`);
+        }
+
+        return {
+            command: {
+                type: "confidence/connect",
+                sourceClaimId: sourceClaim.id,
+                targetScoreId: targetScore.id,
+                connection: createNormalizedConfidenceConnectionInput(connector, score.id),
+            },
+            connector,
+            score,
+            targetScoreId: targetScore.id,
+        };
+    }
+
+    if (connector.type !== "relevance") {
+        throw new Error(`Relevance connect command resolved non-relevance connector ${connector.id}.`);
+    }
 
     return {
         command: {
-            type: "connector/create",
+            type: "relevance/connect",
             sourceClaimId: sourceClaim.id,
             targetScoreId: targetScore.id,
-            connector: {
-                type: command.connector.type,
-                id: connector.id,
-                scoreId: score.id,
-                targetRelationship: connector.targetRelationship,
-            },
+            connection: createNormalizedRelevanceConnectionInput(connector, score.id),
         },
         connector,
         score,
@@ -540,24 +569,24 @@ function createInitialLeafScore(args: {
 }
 
 function createConnectorForTarget(args: {
-    commandInput: ClaimToScoreConnectionInput;
+    commandInput: ClaimConnectionInput;
     sourceClaimId: ClaimId;
     targetScore: Score;
     debate: Debate;
 }): Connector {
-    const connectorId = resolveRequestedId(
-        args.commandInput.id,
-        (candidate) => candidate in args.debate.connectors,
-        () => createUniqueId<ConnectorId>((candidate) => candidate in args.debate.connectors),
-        "Connector",
-    );
+    if (args.commandInput.type === "confidence") {
+        const connectorId = resolveRequestedId(
+            args.commandInput.id,
+            (candidate) => candidate in args.debate.connectors,
+            () => createUniqueId<ConfidenceConnectorId>((candidate) => candidate in args.debate.connectors),
+            "Connector",
+        );
 
-    if (args.commandInput.type === "claim-to-claim") {
         getRequiredClaim(args.debate, args.targetScore.claimId);
 
-        const connector: ClaimToClaimConnector = {
+        const connector: ConfidenceConnector = {
             id: connectorId,
-            type: "claim-to-claim",
+            type: "confidence",
             source: args.sourceClaimId,
             targetClaimId: args.targetScore.claimId,
             targetRelationship: args.commandInput.targetRelationship,
@@ -567,20 +596,64 @@ function createConnectorForTarget(args: {
     }
 
     if (!args.targetScore.connectorId) {
-        throw new Error(`Score ${args.targetScore.id} cannot be targeted as claim-to-connector because it has no connectorId.`);
+        throw new Error(`Score ${args.targetScore.id} cannot be targeted for relevance because it has no connectorId.`);
     }
 
-    getRequiredConnector(args.debate, args.targetScore.connectorId);
+    const connectorId = resolveRequestedId(
+        args.commandInput.id,
+        (candidate) => candidate in args.debate.connectors,
+        () => createUniqueId<RelevanceConnectorId>((candidate) => candidate in args.debate.connectors),
+        "Connector",
+    );
+    const targetConnector = getRequiredConnector(args.debate, args.targetScore.connectorId);
 
-    const connector: ClaimToConnectorConnector = {
+    if (targetConnector.type !== "confidence") {
+        throw new Error(
+            `Score ${args.targetScore.id} cannot be targeted for relevance because connector ${targetConnector.id} is ${targetConnector.type}.`,
+        );
+    }
+
+    const connector: RelevanceConnector = {
         id: connectorId,
-        type: "claim-to-connector",
+        type: "relevance",
         source: args.sourceClaimId,
-        targetConnectorId: args.targetScore.connectorId,
+        targetConfidenceConnectorId: targetConnector.id,
         targetRelationship: args.commandInput.targetRelationship,
     };
 
     return connector;
+}
+
+function createNormalizedConnectionInput(connector: Connector, scoreId: ScoreId): ClaimConnectionInput {
+    if (connector.type === "confidence") {
+        return createNormalizedConfidenceConnectionInput(connector, scoreId);
+    }
+
+    return createNormalizedRelevanceConnectionInput(connector, scoreId);
+}
+
+function createNormalizedConfidenceConnectionInput(
+    connector: ConfidenceConnector,
+    scoreId: ScoreId,
+): ConfidenceConnectionInput {
+    return {
+        type: "confidence",
+        id: connector.id,
+        scoreId,
+        targetRelationship: connector.targetRelationship,
+    };
+}
+
+function createNormalizedRelevanceConnectionInput(
+    connector: RelevanceConnector,
+    scoreId: ScoreId,
+): RelevanceConnectionInput {
+    return {
+        type: "relevance",
+        id: connector.id,
+        scoreId,
+        targetRelationship: connector.targetRelationship,
+    };
 }
 
 function addClaimToDebate(debate: Debate, normalized: NormalizedAddClaimCommand): Debate {
@@ -597,7 +670,7 @@ function addClaimToDebate(debate: Debate, normalized: NormalizedAddClaimCommand)
 
 function addConnectionToDebate(
     debate: Debate,
-    normalized: Pick<NormalizedAddClaimCommand, "connector" | "score" | "targetScoreId"> | NormalizedCreateConnectorCommand,
+    normalized: Pick<NormalizedAddClaimCommand, "connector" | "score" | "targetScoreId"> | NormalizedConnectClaimCommand,
 ): Debate {
     const targetScore = getRequiredScore(debate, normalized.targetScoreId);
     const nextTargetScore: Score = {
@@ -624,88 +697,109 @@ function addConnectionToDebate(
     };
 }
 
-function removeConnectionFromDebate(debate: Debate, connectorId: ConnectorId): {
-    debate: Debate;
-    targetScoreId: ScoreId;
-    removedConnectorId: ConnectorId;
-    removedScoreId: ScoreId;
-} {
+function removeConnectionFromDebate(debate: Debate, connectorId: ConnectorId): StructuralRemovalResult {
     const score = getScoreByConnectorId(debate, connectorId);
-    const targetScore = getTargetScoreForIncomingScoreId(debate, score.id);
-    if (!targetScore) {
-        throw new Error(`Target score for connector ${connectorId} was not found in the debate.`);
-    }
-
-    const nextTargetScore: Score = {
-        ...targetScore,
-        incomingScoreIds: targetScore.incomingScoreIds.filter((incomingScoreId) => incomingScoreId !== score.id),
-    };
-
-    const nextConnectors = { ...debate.connectors };
-    delete nextConnectors[connectorId];
-
-    const nextScores = { ...debate.scores };
-    delete nextScores[score.id];
-    nextScores[nextTargetScore.id] = nextTargetScore;
-
-    return {
-        debate: {
-            ...debate,
-            connectors: nextConnectors,
-            scores: nextScores,
-        },
-        targetScoreId: targetScore.id,
-        removedConnectorId: connectorId,
-        removedScoreId: score.id,
-    };
+    return removeScoreOccurrencesFromDebate(debate, [score.id]);
 }
 
-function removeClaimFromDebate(debate: Debate, claimId: ClaimId): ClaimRemovalResult {
+function getConnectorIdFromDisconnectCommand(command: DisconnectConnectionCommand): ConnectorId {
+    return command.type === "confidence/disconnect"
+        ? command.confidenceConnectorId
+        : command.relevanceConnectorId;
+}
+
+function removeClaimFromDebate(debate: Debate, claimId: ClaimId): StructuralRemovalResult {
     if (claimId === debate.mainClaimId) {
         throw new Error(`Deleting main claim ${claimId} is not supported.`);
     }
 
     getRequiredClaim(debate, claimId);
 
-    const subtreeScoreIds = collectClaimSubtreeScoreIds(debate, claimId);
-    let workingDebate = debate;
-    const removedConnectorIds: ConnectorId[] = [];
-    const removedScoreIds: ScoreId[] = [];
+    const removal = removeScoreOccurrencesFromDebate(
+        debate,
+        getScoresForClaimId(debate, claimId).map((score) => score.id),
+    );
+    const nextClaims = { ...removal.debate.claims };
+    delete nextClaims[claimId];
+    const nextDebate: Debate = {
+        ...removal.debate,
+        claims: nextClaims,
+    };
+
+    return {
+        debate: nextDebate,
+        removedOccurrences: removal.removedOccurrences,
+        recalculationStartScoreIds: uniqueExistingScoreIds(
+            removal.recalculationStartScoreIds,
+            nextDebate,
+        ),
+    };
+}
+
+function removeScoreOccurrencesFromDebate(
+    debate: Debate,
+    rootScoreIds: readonly ScoreId[],
+): StructuralRemovalResult {
+    const removedScoreIds = collectRemovableScoreOccurrenceIds(debate, rootScoreIds);
+    const removedScoreIdSet = new Set(removedScoreIds);
+    const removedConnectorIdSet = new Set<ConnectorId>();
+    const removedOccurrences: RemovedScoreOccurrence[] = [];
     const recalculationStartScoreIds: ScoreId[] = [];
 
-    for (const subtreeScoreId of subtreeScoreIds) {
-        const score = workingDebate.scores[subtreeScoreId];
-        if (!score) {
-            continue;
-        }
-
+    for (const scoreId of removedScoreIds) {
+        const score = getRequiredScore(debate, scoreId);
         if (!score.connectorId) {
-            throw new Error(`Score ${score.id} is missing a connectorId while deleting claim ${claimId}.`);
+            throw new Error(`Score ${score.id} is missing a connectorId while being removed from the debate.`);
         }
 
-        const removal = removeConnectionFromDebate(workingDebate, score.connectorId);
-        workingDebate = removal.debate;
-        removedConnectorIds.push(removal.removedConnectorId);
-        removedScoreIds.push(removal.removedScoreId);
+        removedConnectorIdSet.add(score.connectorId);
+        removedOccurrences.push({
+            connectorId: score.connectorId,
+            scoreId: score.id,
+        });
 
-        if (workingDebate.scores[removal.targetScoreId]) {
-            recalculationStartScoreIds.push(removal.targetScoreId);
+        const targetScore = getTargetScoreForIncomingScoreId(debate, score.id);
+        if (targetScore && !removedScoreIdSet.has(targetScore.id)) {
+            recalculationStartScoreIds.push(targetScore.id);
         }
     }
 
-    const nextClaims = { ...workingDebate.claims };
-    delete nextClaims[claimId];
+    const nextConnectors = {} as Debate["connectors"];
+    for (const connector of Object.values(debate.connectors)) {
+        if (!removedConnectorIdSet.has(connector.id)) {
+            nextConnectors[connector.id] = connector;
+        }
+    }
+
+    const nextScores = {} as Debate["scores"];
+    for (const score of Object.values(debate.scores)) {
+        if (removedScoreIdSet.has(score.id)) {
+            continue;
+        }
+
+        const nextIncomingScoreIds = score.incomingScoreIds.filter(
+            (incomingScoreId) => !removedScoreIdSet.has(incomingScoreId),
+        );
+        nextScores[score.id] = nextIncomingScoreIds.length === score.incomingScoreIds.length
+            ? score
+            : {
+                ...score,
+                incomingScoreIds: nextIncomingScoreIds,
+            };
+    }
+
+    const nextDebate: Debate = {
+        ...debate,
+        connectors: nextConnectors,
+        scores: nextScores,
+    };
 
     return {
-        debate: {
-            ...workingDebate,
-            claims: nextClaims,
-        },
-        removedConnectorIds,
-        removedScoreIds,
+        debate: nextDebate,
+        removedOccurrences,
         recalculationStartScoreIds: uniqueExistingScoreIds(
             recalculationStartScoreIds,
-            workingDebate,
+            nextDebate,
         ),
     };
 }
@@ -991,8 +1085,8 @@ function calculateScoreState(debate: Debate, score: Score): CalculatedScoreState
         };
     }
 
-    const confidenceChildren = incomingChildren.filter(({ connector }) => connector.type === "claim-to-claim");
-    const relevanceChildren = incomingChildren.filter(({ connector }) => connector.type === "claim-to-connector");
+    const confidenceChildren = incomingChildren.filter(({ connector }) => connector.type === "confidence");
+    const relevanceChildren = incomingChildren.filter(({ connector }) => connector.type === "relevance");
     const confidenceResult = calculateConfidence(confidenceChildren);
 
     return {
@@ -1213,12 +1307,16 @@ function getTargetScoreForIncomingScoreId(debate: Debate, incomingScoreId: Score
     return Object.values(debate.scores).find((candidate) => candidate.incomingScoreIds.includes(incomingScoreId));
 }
 
-function collectClaimSubtreeScoreIds(debate: Debate, claimId: ClaimId): ScoreId[] {
+function collectRemovableScoreOccurrenceIds(debate: Debate, rootScoreIds: readonly ScoreId[]): ScoreId[] {
     const visited = new Set<ScoreId>();
     const ordered: ScoreId[] = [];
 
-    for (const score of getScoresForClaimId(debate, claimId)) {
-        visit(score.id);
+    for (const rootScoreId of rootScoreIds) {
+        if (!(rootScoreId in debate.scores)) {
+            continue;
+        }
+
+        visit(rootScoreId);
     }
 
     return ordered;
@@ -1235,8 +1333,41 @@ function collectClaimSubtreeScoreIds(debate: Debate, claimId: ClaimId): ScoreId[
             visit(incomingScoreId);
         }
 
+        if (score.connectorId) {
+            const connector = getRequiredConnector(debate, score.connectorId);
+            if (connector.type === "confidence") {
+                for (const attachedScoreId of getScoreIdsByTargetConfidenceConnectorId(debate, connector.id)) {
+                    visit(attachedScoreId);
+                }
+            }
+        }
+
         ordered.push(scoreId);
     }
+}
+
+function getScoreIdsByTargetConfidenceConnectorId(
+    debate: Debate,
+    targetConfidenceConnectorId: ConfidenceConnectorId,
+): ScoreId[] {
+    const scoreIds: ScoreId[] = [];
+
+    for (const score of Object.values(debate.scores)) {
+        if (!score.connectorId) {
+            continue;
+        }
+
+        const connector = debate.connectors[score.connectorId];
+        if (
+            connector
+            && connector.type === "relevance"
+            && connector.targetConfidenceConnectorId === targetConfidenceConnectorId
+        ) {
+            scoreIds.push(score.id);
+        }
+    }
+
+    return scoreIds;
 }
 
 function insertIncomingScoreId(args: {
@@ -1332,7 +1463,7 @@ function calculateImpact(score: Score): number {
 }
 
 function getTargetSideForNewSourceScore(targetScore: Score, connector: Connector): Side {
-    return connector.type === "claim-to-connector"
+    return connector.type === "relevance"
         ? targetScore.connectorSide
         : targetScore.claimSide;
 }

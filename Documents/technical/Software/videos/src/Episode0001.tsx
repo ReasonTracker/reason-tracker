@@ -3,11 +3,13 @@ import { AbsoluteFill } from "remotion";
 import {
     type AddClaimCommand,
     type ClaimId,
-    type ConnectorId,
+    type ConfidenceConnectorId,
     type Debate,
     type DebateId,
+    layoutDebate,
     type Operation,
     Planner,
+    type RelevanceConnectorId,
     Reducer,
     type ScoreId,
 } from "../../engine/src/index.ts";
@@ -23,12 +25,12 @@ const RAILROAD_STREET_CLAIM_ID = "claim-railroad-street" as ClaimId;
 const COST_CLAIM_ID = "claim-cost" as ClaimId;
 const PAYBACK_CLAIM_ID = "claim-payback" as ClaimId;
 
-const FOOT_TRAFFIC_CONNECTOR_ID = "connector-foot-traffic" as ConnectorId;
-const SAFETY_RISK_CONNECTOR_ID = "connector-safety-risk" as ConnectorId;
-const SAFETY_PRIORITY_CONNECTOR_ID = "connector-safety-priority" as ConnectorId;
-const RAILROAD_STREET_CONNECTOR_ID = "connector-railroad-street" as ConnectorId;
-const COST_CONNECTOR_ID = "connector-cost" as ConnectorId;
-const PAYBACK_CONNECTOR_ID = "connector-payback" as ConnectorId;
+const FOOT_TRAFFIC_CONNECTOR_ID = "connector-foot-traffic" as ConfidenceConnectorId;
+const SAFETY_RISK_CONNECTOR_ID = "connector-safety-risk" as ConfidenceConnectorId;
+const SAFETY_PRIORITY_CONNECTOR_ID = "connector-safety-priority" as RelevanceConnectorId;
+const RAILROAD_STREET_CONNECTOR_ID = "connector-railroad-street" as ConfidenceConnectorId;
+const COST_CONNECTOR_ID = "connector-cost" as ConfidenceConnectorId;
+const PAYBACK_CONNECTOR_ID = "connector-payback" as RelevanceConnectorId;
 
 const FOOT_TRAFFIC_SCORE_ID = "score-foot-traffic" as ScoreId;
 const SAFETY_RISK_SCORE_ID = "score-safety-risk" as ScoreId;
@@ -76,8 +78,8 @@ const episode0001Actions = [
                 id: FOOT_TRAFFIC_CLAIM_ID,
                 content: "Converting Elm Street to pedestrian use only will increase foot traffic to local shops by 15%.",
             },
-            connector: {
-                type: "claim-to-claim",
+            connection: {
+                type: "confidence",
                 id: FOOT_TRAFFIC_CONNECTOR_ID,
                 scoreId: FOOT_TRAFFIC_SCORE_ID,
                 targetRelationship: "proTarget",
@@ -93,8 +95,8 @@ const episode0001Actions = [
                 id: SAFETY_RISK_CLAIM_ID,
                 content: "The conversion will divert traffic down residential streets and endanger the lives of children.",
             },
-            connector: {
-                type: "claim-to-claim",
+            connection: {
+                type: "confidence",
                 id: SAFETY_RISK_CONNECTOR_ID,
                 scoreId: SAFETY_RISK_SCORE_ID,
                 targetRelationship: "conTarget",
@@ -110,8 +112,8 @@ const episode0001Actions = [
                 id: SAFETY_PRIORITY_CLAIM_ID,
                 content: "Child safety is more important than local shop profit.",
             },
-            connector: {
-                type: "claim-to-connector",
+            connection: {
+                type: "relevance",
                 id: SAFETY_PRIORITY_CONNECTOR_ID,
                 scoreId: SAFETY_PRIORITY_SCORE_ID,
                 targetRelationship: "proTarget",
@@ -127,8 +129,8 @@ const episode0001Actions = [
                 id: RAILROAD_STREET_CLAIM_ID,
                 content: "Unused railroad tracks can be converted into a new street, cancelling out the traffic diversion problem.",
             },
-            connector: {
-                type: "claim-to-claim",
+            connection: {
+                type: "confidence",
                 id: RAILROAD_STREET_CONNECTOR_ID,
                 scoreId: RAILROAD_STREET_SCORE_ID,
                 targetRelationship: "conTarget",
@@ -144,8 +146,8 @@ const episode0001Actions = [
                 id: COST_CLAIM_ID,
                 content: "The conversion will cost 2 million dollars.",
             },
-            connector: {
-                type: "claim-to-claim",
+            connection: {
+                type: "confidence",
                 id: COST_CONNECTOR_ID,
                 scoreId: COST_SCORE_ID,
                 targetRelationship: "conTarget",
@@ -161,8 +163,8 @@ const episode0001Actions = [
                 id: PAYBACK_CLAIM_ID,
                 content: "The increase in revenue will pay off the expense in under 2 years, meeting the city's investment requirements.",
             },
-            connector: {
-                type: "claim-to-claim",
+            connection: {
+                type: "relevance",
                 id: PAYBACK_CONNECTOR_ID,
                 scoreId: PAYBACK_SCORE_ID,
                 targetRelationship: "conTarget",
@@ -175,101 +177,47 @@ const planner = new Planner();
 const reducer = new Reducer();
 const episode0001PlannerResults = planner.plan(episode0001Actions.map((action) => action.command), episode0001Debate);
 const episode0001Run = buildEpisode0001Run(episode0001Debate, reducer);
-const episode0001Json = JSON.stringify(episode0001Run, null, 2);
-console.log("Episode0001 run", episode0001Run);
+const episode0001Layout = layoutDebate(episode0001Run.finalState);
 
 
 export const Episode0001 = () => {
     return (
         <AbsoluteFill
             style={{
-                background: "radial-gradient(circle at top, #1f3a5f 0%, #0f172a 45%, #080b12 100%)",
-                color: "#d9f4ff",
-                fontFamily: '"IBM Plex Mono", "Fira Code", monospace',
-                padding: 72,
+                background: "#e5e7eb",
+                color: "#0f172a",
+                fontFamily: '"Segoe UI", sans-serif',
             }}
         >
-            <AbsoluteFill
-                style={{
-                    background: "linear-gradient(180deg, rgba(10, 18, 31, 0.78) 0%, rgba(8, 12, 20, 0.94) 100%)",
-                    border: "1px solid rgba(125, 211, 252, 0.22)",
-                    borderRadius: 36,
-                    boxShadow: "0 32px 80px rgba(0, 0, 0, 0.35)",
-                    inset: 48,
-                    overflow: "hidden",
-                }}
-            >
-                <div
-                    style={{
-                        alignItems: "center",
-                        borderBottom: "1px solid rgba(125, 211, 252, 0.18)",
-                        display: "flex",
-                        gap: 18,
-                        justifyContent: "space-between",
-                        padding: "28px 36px",
-                    }}
-                >
-                    <div style={{ display: "flex", gap: 14 }}>
-                        <div style={{ background: "#f97316", borderRadius: 999, height: 14, width: 14 }} />
-                        <div style={{ background: "#facc15", borderRadius: 999, height: 14, width: 14 }} />
-                        <div style={{ background: "#22c55e", borderRadius: 999, height: 14, width: 14 }} />
-                    </div>
+            {episode0001Layout.nodesInOrder.map((node) => {
+                const padding = Math.max(12, Math.round(20 * node.layoutScale));
+                const fontSize = Math.max(15, Math.round(24 * node.layoutScale));
+
+                return (
                     <div
+                        key={node.scoreId}
                         style={{
-                            color: "#7dd3fc",
-                            fontSize: 24,
-                            fontWeight: 600,
-                            letterSpacing: "0.12em",
-                            textTransform: "uppercase",
+                            background: "#ffffff",
+                            border: "2px solid #0f172a",
+                            boxSizing: "border-box",
+                            color: "#0f172a",
+                            display: "flex",
+                            fontSize,
+                            fontWeight: 500,
+                            height: node.height,
+                            left: node.x,
+                            lineHeight: 1.2,
+                            overflow: "hidden",
+                            padding,
+                            position: "absolute",
+                            top: node.y,
+                            width: node.width,
                         }}
                     >
-                        Episode0001
+                        {node.claimContent}
                     </div>
-                </div>
-                <div
-                    style={{
-                        color: "#93c5fd",
-                        fontSize: 22,
-                        letterSpacing: "0.04em",
-                        padding: "30px 36px 12px",
-                        textTransform: "uppercase",
-                    }}
-                >
-                    Episode replay data
-                </div>
-                <div
-                    style={{
-                        color: "#e0f2fe",
-                        fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
-                        fontSize: 54,
-                        fontWeight: 700,
-                        lineHeight: 1.05,
-                        padding: "0 36px",
-                    }}
-                >
-                    Elm Street steps with script beats, commands, operations, and reducer states, rendered raw before animation polish.
-                </div>
-                <div
-                    style={{
-                        flex: 1,
-                        overflowX: "auto",
-                        overflowY: "auto",
-                        padding: "28px 36px 42px",
-                    }}
-                >
-                    <pre
-                        style={{
-                            color: "#d9f4ff",
-                            fontSize: 24,
-                            lineHeight: 1.45,
-                            margin: 0,
-                            whiteSpace: "pre-wrap",
-                        }}
-                    >
-                        {episode0001Json}
-                    </pre>
-                </div>
-            </AbsoluteFill>
+                );
+            })}
         </AbsoluteFill>
     );
 };

@@ -16,7 +16,7 @@ This folder is the planned home for the shared claim-connector component and nea
 
 ## Likely Responsibilities
 
-- claim-to-claim connector inputs and shared contracts
+- confidence and relevance connector inputs and shared contracts
 - layered connector output suitable for ordered SVG rendering
 - helper logic that decides connector body and overlap layers
 
