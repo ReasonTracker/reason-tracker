@@ -2,7 +2,7 @@ import type { DebateMetadataPatch, EngineCommand } from "./01-Commands.ts";
 import type { Claim, ClaimId, ClaimPatch } from "./00-entities/Claim.ts";
 import type { Connector, ConnectorId } from "./00-entities/Connector.ts";
 import type { Debate } from "./00-entities/Debate.ts";
-import type { Score, ScoreId, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
+import type { Score, ScoreId, ScoreIncomingPatch, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
 
 export interface PlannerResult {
     commands: readonly [EngineCommand, ...EngineCommand[]];
@@ -19,6 +19,8 @@ export type Operation =
     | ConnectorDeletedOp
     | ScoreAddedOp
     | ScoreUpdatedOp
+    | IncomingScoresChangedOp
+    | IncomingScoresSortedOp
     | ScaleOfSourcesOp
     | ScoreDeletedOp;
 
@@ -65,6 +67,16 @@ export interface ScoreAddedOp {
 export interface ScoreUpdatedOp {
     type: "ScoreUpdated"
     patches: ScorePatch[]
+}
+
+export interface IncomingScoresChangedOp {
+    type: "incomingScoresChanged"
+    patches: ScoreIncomingPatch[]
+}
+
+export interface IncomingScoresSortedOp {
+    type: "incomingScoresSorted"
+    patches: ScoreIncomingPatch[]
 }
 
 export interface ScaleOfSourcesOp {

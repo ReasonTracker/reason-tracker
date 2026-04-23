@@ -26,6 +26,8 @@ export type {
 	ConnectorDeletedOp,
 	DebateCreatedOp,
 	DebateUpdatedOp,
+	IncomingScoresChangedOp,
+	IncomingScoresSortedOp,
 	Operation,
 	PlannerResult,
 	ScaleOfSourcesOp,
@@ -45,6 +47,7 @@ export type {
 	Side,
 	claimScores,
 	connectorScores,
+	ScoreIncomingPatch,
 	ScorePatch,
 	ScoreScalePatch,
 } from "./00-entities/Score.ts";

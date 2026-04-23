@@ -19,7 +19,7 @@ import type {
     TargetRelation,
 } from "./00-entities/Connector.ts";
 import type { Debate } from "./00-entities/Debate.ts";
-import type { Side, Score, ScoreId, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
+import type { Side, Score, ScoreId, ScoreIncomingPatch, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts";
 import type { Operation, PlannerResult } from "./03-Operations.ts";
 
 const DEFAULT_SCORE_VALUE = 1;
@@ -715,19 +715,45 @@ function propagateScoreUpdates(
     structurallyUpdatedDebate: Debate,
     startingScoreIds: readonly ScoreId[],
 ): ScorePropagationResult {
-    const calculatedPropagation = propagateCalculatedScoreUpdates(
+    const incomingChangePropagation = propagateIncomingScoreChanges(
         patchBaseline,
         structurallyUpdatedDebate,
+    );
+    const calculatedPropagation = propagateCalculatedScoreUpdates(
+        patchBaseline,
+        incomingChangePropagation.debate,
         startingScoreIds,
     );
-    const scalePropagation = propagateScoreScaleOfSources(calculatedPropagation.debate);
+    const incomingSortPropagation = propagateIncomingScoreSorting(calculatedPropagation.debate);
+    const scalePropagation = propagateScoreScaleOfSources(incomingSortPropagation.debate);
 
     return {
         debate: scalePropagation.debate,
         operations: [
+            ...incomingChangePropagation.operations,
             ...calculatedPropagation.operations,
+            ...incomingSortPropagation.operations,
             ...scalePropagation.operations,
         ],
+    };
+}
+
+function propagateIncomingScoreChanges(
+    previousDebate: Debate,
+    structurallyUpdatedDebate: Debate,
+): ScorePropagationResult {
+    const patches = collectScoreIncomingPatches(previousDebate, structurallyUpdatedDebate);
+
+    return {
+        debate: structurallyUpdatedDebate,
+        operations: patches.length > 0
+            ? [
+                {
+                    type: "incomingScoresChanged",
+                    patches,
+                },
+            ]
+            : [],
     };
 }
 
@@ -798,6 +824,62 @@ function propagateCalculatedScoreUpdates(
     return {
         debate: workingDebate,
         operations,
+    };
+}
+
+function propagateIncomingScoreSorting(debate: Debate): ScorePropagationResult {
+    const rootScore = getRequiredMainClaimRootScore(debate);
+    const orderedScoreIds = collectScoreIdsInLayoutOrder(debate, rootScore.id);
+    let nextScores = debate.scores;
+    const patches: ScoreIncomingPatch[] = [];
+
+    for (const scoreId of orderedScoreIds) {
+        const currentScore = nextScores[scoreId];
+        if (!currentScore || currentScore.incomingScoreIds.length < 2) {
+            continue;
+        }
+
+        const nextIncomingScoreIds = sortIncomingScoreIds(
+            {
+                ...debate,
+                scores: nextScores,
+            },
+            currentScore,
+        );
+        if (arraysEqual(currentScore.incomingScoreIds, nextIncomingScoreIds)) {
+            continue;
+        }
+
+        const nextScore: Score = {
+            ...currentScore,
+            incomingScoreIds: nextIncomingScoreIds,
+        };
+        nextScores = {
+            ...nextScores,
+            [scoreId]: nextScore,
+        };
+
+        const patch = buildScoreIncomingPatch(currentScore, nextScore);
+        if (patch) {
+            patches.push(patch);
+        }
+    }
+
+    return {
+        debate: nextScores === debate.scores
+            ? debate
+            : {
+                ...debate,
+                scores: nextScores,
+            },
+        operations: patches.length > 0
+            ? [
+                {
+                    type: "incomingScoresSorted",
+                    patches,
+                },
+            ]
+            : [],
     };
 }
 
@@ -986,10 +1068,6 @@ function buildScorePatch(beforeScore: Score, afterScore: Score): ScorePatch | un
         patch.connectorId = afterScore.connectorId;
     }
 
-    if (!arraysEqual(beforeScore.incomingScoreIds, afterScore.incomingScoreIds)) {
-        patch.incomingScoreIds = [...afterScore.incomingScoreIds];
-    }
-
     if (beforeScore.claimConfidence !== afterScore.claimConfidence) {
         patch.claimConfidence = afterScore.claimConfidence;
     }
@@ -1021,6 +1099,17 @@ function buildScorePatch(beforeScore: Score, afterScore: Score): ScorePatch | un
     return Object.keys(patch).length > 1 ? patch : undefined;
 }
 
+function buildScoreIncomingPatch(beforeScore: Score, afterScore: Score): ScoreIncomingPatch | undefined {
+    if (arraysEqual(beforeScore.incomingScoreIds, afterScore.incomingScoreIds)) {
+        return undefined;
+    }
+
+    return {
+        id: afterScore.id,
+        incomingScoreIds: [...afterScore.incomingScoreIds],
+    };
+}
+
 function buildScoreScalePatch(beforeScore: Score, afterScore: Score): ScoreScalePatch | undefined {
     if (beforeScore.scaleOfSources === afterScore.scaleOfSources) {
         return undefined;
@@ -1030,6 +1119,26 @@ function buildScoreScalePatch(beforeScore: Score, afterScore: Score): ScoreScale
         id: afterScore.id,
         scaleOfSources: afterScore.scaleOfSources,
     };
+}
+
+function collectScoreIncomingPatches(beforeDebate: Debate, afterDebate: Debate): ScoreIncomingPatch[] {
+    const rootScore = getRequiredMainClaimRootScore(afterDebate);
+    const patches: ScoreIncomingPatch[] = [];
+
+    for (const scoreId of collectScoreIdsInLayoutOrder(afterDebate, rootScore.id)) {
+        const beforeScore = beforeDebate.scores[scoreId];
+        const afterScore = afterDebate.scores[scoreId];
+        if (!beforeScore || !afterScore) {
+            continue;
+        }
+
+        const patch = buildScoreIncomingPatch(beforeScore, afterScore);
+        if (patch) {
+            patches.push(patch);
+        }
+    }
+
+    return patches;
 }
 
 function createScoreIndexes(debate: Debate): ScoreIndexes {
@@ -1165,6 +1274,44 @@ function insertIncomingScoreId(args: {
 
     nextIncomingScoreIds.splice(insertAt, 0, args.newSourceScore.id);
     return nextIncomingScoreIds;
+}
+
+function sortIncomingScoreIds(debate: Debate, targetScore: Score): ScoreId[] {
+    return targetScore.incomingScoreIds
+        .map((incomingScoreId, originalIndex) => {
+            const incomingScore = debate.scores[incomingScoreId];
+            if (!incomingScore) {
+                throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
+            }
+
+            if (!incomingScore.connectorId) {
+                throw new Error(`Incoming score ${incomingScoreId} is missing its connectorId.`);
+            }
+
+            const connector = debate.connectors[incomingScore.connectorId];
+            if (!connector) {
+                throw new Error(`Connector ${incomingScore.connectorId} was not found in the debate.`);
+            }
+
+            return {
+                scoreId: incomingScoreId,
+                targetRelationship: connector.targetRelationship,
+                impact: calculateImpact(incomingScore),
+                originalIndex,
+            };
+        })
+        .sort((left, right) => {
+            if (left.targetRelationship !== right.targetRelationship) {
+                return left.targetRelationship === "proTarget" ? -1 : 1;
+            }
+
+            if (left.impact !== right.impact) {
+                return right.impact - left.impact;
+            }
+
+            return left.originalIndex - right.originalIndex;
+        })
+        .map(({ scoreId }) => scoreId);
 }
 
 function shouldExistingStayBeforeNew(

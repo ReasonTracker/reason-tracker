@@ -29,9 +29,15 @@ export interface Score extends claimScores, connectorScores {
 	scaleOfSources: number
 };
 
-export type ScorePatch = PatchWithRequiredId<Omit<Score, "scaleOfSources"> & {
+export type ScorePatch = PatchWithRequiredId<Omit<Score, "incomingScoreIds" | "scaleOfSources"> & {
+	incomingScoreIds?: never
 	scaleOfSources?: never
 }>;
+
+export interface ScoreIncomingPatch {
+	id: ScoreId
+	incomingScoreIds: ScoreId[]
+}
 
 export interface ScoreScalePatch {
 	id: ScoreId

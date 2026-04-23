@@ -85,6 +85,9 @@ Deterministic traversal and ordering are required for:
 
 Non-deterministic layouts make quality and correctness harder to validate.
 
+The engine keeps incoming-score reordering explicit for the same reason.
+Structural attachment and detachment are emitted separately from the later canonical resort so animation can distinguish those phases without hiding ordering logic inside score-value updates.
+
 ## Why Scores Are Referenced, Not Recomputed
 
 Unrolled appearances reuse the score of the underlying claim.

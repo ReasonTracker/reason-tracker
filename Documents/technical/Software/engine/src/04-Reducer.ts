@@ -2,7 +2,7 @@ import type { DebateMetadataPatch } from "./01-Commands.ts"
 import type { Claim, ClaimId, ClaimPatch } from "./00-entities/Claim.ts"
 import type { Connector, ConnectorId } from "./00-entities/Connector.ts"
 import type { Debate } from "./00-entities/Debate.ts"
-import type { Score, ScoreId, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts"
+import type { Score, ScoreId, ScoreIncomingPatch, ScorePatch, ScoreScalePatch } from "./00-entities/Score.ts"
 import type { Operation } from "./03-Operations.ts"
 
 export class Reducer {
@@ -26,6 +26,10 @@ export class Reducer {
 				return addScore(requireState(state, operation.type), operation.score)
 			case "ScoreUpdated":
 				return applyScorePatches(requireState(state, operation.type), operation.patches)
+			case "incomingScoresChanged":
+				return applyIncomingScorePatches(requireState(state, operation.type), operation.patches)
+			case "incomingScoresSorted":
+				return applyIncomingScorePatches(requireState(state, operation.type), operation.patches)
 			case "scaleOfSources":
 				return applyScaleOfSourcesPatches(requireState(state, operation.type), operation.patches)
 			case "ScoreDeleted":
@@ -237,6 +241,10 @@ function applyScorePatches(debate: Debate, patches: readonly ScorePatch[]): Deba
 	let nextScores = debate.scores
 
 	for (const patch of patches) {
+		if (hasOwn(patch, "incomingScoreIds")) {
+			throw new Error(`ScoreUpdated patch for ${patch.id} cannot include incomingScoreIds.`)
+		}
+
 		if (hasOwn(patch, "scaleOfSources")) {
 			throw new Error(`ScoreUpdated patch for ${patch.id} cannot include scaleOfSources.`)
 		}
@@ -246,7 +254,7 @@ function applyScorePatches(debate: Debate, patches: readonly ScorePatch[]): Deba
 			throw new Error(`Score ${patch.id} was not found in the debate.`)
 		}
 
-		const nextScore = applyScorePatch(currentScore, patch, debate, nextScores)
+		const nextScore = applyScorePatch(currentScore, patch, debate)
 		if (nextScore === currentScore) {
 			continue
 		}
@@ -269,10 +277,8 @@ function applyScorePatch(
 	score: Score,
 	patch: ScorePatch,
 	debate: Debate,
-	scores: Debate["scores"],
 ): Score {
 	const patchClaimId = hasOwn(patch, "claimId") ? patch.claimId : undefined
-	const patchIncomingScoreIds = hasOwn(patch, "incomingScoreIds") ? patch.incomingScoreIds : undefined
 	const patchClaimConfidence = hasOwn(patch, "claimConfidence") ? patch.claimConfidence : undefined
 	const patchReversibleClaimConfidence = hasOwn(patch, "reversibleClaimConfidence")
 		? patch.reversibleClaimConfidence
@@ -288,7 +294,6 @@ function applyScorePatch(
 	if (
 		patchClaimId === undefined
 		&& !hasOwn(patch, "connectorId")
-		&& patchIncomingScoreIds === undefined
 		&& patchClaimConfidence === undefined
 		&& patchReversibleClaimConfidence === undefined
 		&& patchConnectorConfidence === undefined
@@ -308,14 +313,9 @@ function applyScorePatch(
 		getRequiredConnector(debate, patch.connectorId)
 	}
 
-	if (patchIncomingScoreIds !== undefined) {
-		ensureScoreIdsExist(scores, patchIncomingScoreIds, `Score ${patch.id}`)
-	}
-
 	const nextScore: Score = {
 		...score,
 		...(patchClaimId !== undefined ? { claimId: patchClaimId } : {}),
-		...(patchIncomingScoreIds !== undefined ? { incomingScoreIds: [...patchIncomingScoreIds] } : {}),
 		...(patchClaimConfidence !== undefined ? { claimConfidence: patchClaimConfidence } : {}),
 		...(patchReversibleClaimConfidence !== undefined ? { reversibleClaimConfidence: patchReversibleClaimConfidence } : {}),
 		...(patchConnectorConfidence !== undefined ? { connectorConfidence: patchConnectorConfidence } : {}),
@@ -334,6 +334,38 @@ function applyScorePatch(
 	}
 
 	return nextScore
+}
+
+function applyIncomingScorePatches(debate: Debate, patches: readonly ScoreIncomingPatch[]): Debate {
+	let nextScores = debate.scores
+
+	for (const patch of patches) {
+		const currentScore = nextScores[patch.id]
+		if (!currentScore) {
+			throw new Error(`Score ${patch.id} was not found in the debate.`)
+		}
+
+		ensureScoreIdsExist(nextScores, patch.incomingScoreIds, `Score ${patch.id}`)
+
+		if (arraysEqual(currentScore.incomingScoreIds, patch.incomingScoreIds)) {
+			continue
+		}
+
+		nextScores = {
+			...nextScores,
+			[patch.id]: {
+				...currentScore,
+				incomingScoreIds: [...patch.incomingScoreIds],
+			},
+		}
+	}
+
+	return nextScores === debate.scores
+		? debate
+		: {
+			...debate,
+			scores: nextScores,
+		}
 }
 
 function applyScaleOfSourcesPatches(debate: Debate, patches: readonly ScoreScalePatch[]): Debate {
@@ -363,7 +395,21 @@ function applyScaleOfSourcesPatches(debate: Debate, patches: readonly ScoreScale
 		: {
 			...debate,
 			scores: nextScores,
+	}
+}
+
+function arraysEqual<T>(left: readonly T[], right: readonly T[]): boolean {
+	if (left.length !== right.length) {
+		return false
+	}
+
+	for (let index = 0; index < left.length; index += 1) {
+		if (left[index] !== right[index]) {
+			return false
 		}
+	}
+
+	return true
 }
 
 function deleteScore(debate: Debate, scoreId: ScoreId): Debate {

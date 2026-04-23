@@ -64,13 +64,17 @@ Traversal terminology:
 
 1. Include the normalized EngineCommand so later systems can reference the resolved ids and authored intent.
 2. Emit structural add, update, or delete operations for individual claims, connectors, and score occurrences.
-3. Traverse the projected score graph from the affected score occurrences rather than calculating all changes first and ordering them later.
-4. Emit one `ScoreUpdated` operation for each upward confidence or relevance step.
-5. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `scaleOfSources`.
-6. After the upward steps finish for the current command, recompute `scaleOfSources` for the whole projected score graph.
-7. Emit at most one `scaleOfSources` operation for that recomputation, containing every changed `ScoreScalePatch` in the graph.
-8. `scaleOfSources` carries `ScoreScalePatch[]`, which only update `scaleOfSources`.
-9. `ScoreUpdated` steps remain traversal-ordered within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
+3. Emit at most one `incomingScoresChanged` operation after the structural changes, carrying every `ScoreIncomingPatch` whose `incomingScoreIds` membership changed because a source score was added or removed.
+4. Traverse the projected score graph from the affected score occurrences rather than calculating all changes first and ordering them later.
+5. Emit one `ScoreUpdated` operation for each upward confidence or relevance step.
+6. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `incomingScoreIds` or `scaleOfSources`.
+7. After the upward steps finish for the current command, recompute canonical incoming score ordering from the settled impacts.
+8. Emit at most one `incomingScoresSorted` operation for that reordering, carrying every changed `ScoreIncomingPatch`.
+9. Canonical incoming score order is `proTarget` before `conTarget`, then descending `abs(connectorConfidence) * relevance`, with ties keeping the current order.
+10. After sorting finishes for the current command, recompute `scaleOfSources` for the whole projected score graph.
+11. Emit at most one `scaleOfSources` operation for that recomputation, containing every changed `ScoreScalePatch` in the graph.
+12. `scaleOfSources` carries `ScoreScalePatch[]`, which only update `scaleOfSources`.
+13. `incomingScoresChanged`, `ScoreUpdated`, and `incomingScoresSorted` remain ordered as separate animation phases within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
 
 ## Related Docs
 
