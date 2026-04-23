@@ -1,8 +1,10 @@
 export type {
 	EngineCommand,
 	AddClaimCommand,
+	ClaimToScoreConnectionInput,
 	CreateConnectorCommand,
 	CreateDebateCommand,
+	DebateMetadataPatch,
 	DeleteClaimCommand,
 	DeleteConnectorCommand,
 	UpdateClaimCommand,
@@ -14,13 +16,18 @@ export {
 } from "./02-Planner.ts";
 
 export type {
-	AddClaimOp,
-	ClaimScoreAnimationOp,
-	ConnectClaimAnimationOp,
-	ConnectorScoreAnimationOp,
+	ClaimAddedOp,
+	ClaimDeletedOp,
+	ClaimUpdatedOp,
+	ConnectorAddedOp,
+	ConnectorDeletedOp,
+	DebateCreatedOp,
+	DebateUpdatedOp,
 	Operation,
 	PlannerResult,
-	ScaleUpdateOp,
+	ScoreAddedOp,
+	ScoreDeletedOp,
+	ScoreUpdatedOp,
 } from "./03-Operations.ts";
 
 export type {
@@ -38,7 +45,6 @@ export type {
 } from "./00-entities/Score.ts";
 
 export type {
-	Affects,
 	ClaimToClaimConnector,
 	ClaimToConnectorConnector,
 	Connector,

@@ -3,7 +3,7 @@
 
 import type { ClaimId } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
-import { PartialExceptId } from "../01-Commands.ts";
+import type { PatchWithRequiredId } from "../01-Commands.ts";
 
 
 export interface claimScores {
@@ -30,7 +30,7 @@ export interface Score extends claimScores, connectorScores {
 };
 
 // For patch/update, allow partial except id
-export type ScorePatch = PartialExceptId<Score>;
+export type ScorePatch = PatchWithRequiredId<Score>;
 
 export type ScoreId = string & { readonly __brand: "ScoreId" };
 export type Side = "proMain" | "conMain";

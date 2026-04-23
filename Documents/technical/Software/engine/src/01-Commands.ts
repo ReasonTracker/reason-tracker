@@ -1,15 +1,25 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Claim, ClaimId, ClaimCreate, ClaimPatch } from "./00-entities/Claim.ts";
-import type {
-	ConnectorCreate,
-	ConnectorId,
-} from "./00-entities/Connector.ts";
+import type { ClaimCreate, ClaimPatch, ClaimId } from "./00-entities/Claim.ts";
+import type { ConnectorId, TargetRelation } from "./00-entities/Connector.ts";
 import type { DebateCore } from "./00-entities/Debate.ts";
+import type { ScoreId } from "./00-entities/Score.ts";
 
 export type PartialExceptId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id?: T["id"] };
+export type PatchWithRequiredId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id: T["id"] };
 
 type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
+export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateCore, "id" | "name" | "description">>;
+
+type ConnectionInputBase<TConnectorId extends ConnectorId = ConnectorId> = {
+	id?: TConnectorId
+	scoreId?: ScoreId
+	targetRelationship: TargetRelation
+};
+
+export type ClaimToScoreConnectionInput<TConnectorId extends ConnectorId = ConnectorId> =
+	| ({ type: "claim-to-claim" } & ConnectionInputBase<TConnectorId>)
+	| ({ type: "claim-to-connector" } & ConnectionInputBase<TConnectorId>);
 
 // #region Command union
 export type EngineCommand =
@@ -24,29 +34,12 @@ export type EngineCommand =
 
 
 // #region Claim commands
-export type AddClaimCommand<TClaimId extends ClaimId = ClaimId> =
-	| {
-		type: "claim/add"
-		/**
-		 * Caller provided an id for the new claim.
-		 */
-		claim: ClaimCreate & { id: TClaimId }
-		/**
-		 * If a connector is provided and it includes an id, its `source` MUST be the same id type.
-		 */
-		connector?: ConnectorCreate
-	}
-	| {
-		type: "claim/add"
-		/**
-		 * Caller did NOT provide an id; one will be created.
-		 */
-		claim: ClaimCreate
-		/**
-		 * Connector must not include a source (it will be filled in by the translator).
-		 */
-		connector?: ConnectorCreate
-	};
+export interface AddClaimCommand {
+	type: "claim/add"
+	claim: ClaimCreate
+	targetScoreId: ScoreId
+	connector: ClaimToScoreConnectionInput
+}
 
 export interface UpdateClaimCommand {
 	type: "claim/update"
@@ -62,7 +55,9 @@ export interface DeleteClaimCommand {
 // #region Connector commands
 export interface CreateConnectorCommand {
 	type: "connector/create"
-	connector: ConnectorCreate
+	sourceClaimId: ClaimId
+	targetScoreId: ScoreId
+	connector: ClaimToScoreConnectionInput
 }
 
 export interface DeleteConnectorCommand {
@@ -72,21 +67,16 @@ export interface DeleteConnectorCommand {
 // #endregion
 
 // #region Debate commands
-export type CreateDebateCommand<TClaimId extends ClaimId = ClaimId> =
-	| {
-		type: "debate/create"
-		debate: CreateDebateInput
-		mainClaim?: never
-	}
-	| {
-		type: "debate/create"
-		debate: CreateDebateInput
-		mainClaim: Claim & { id: TClaimId }
-	};
+export interface CreateDebateCommand {
+	type: "debate/create"
+	debate: CreateDebateInput
+	mainClaim: ClaimCreate
+	mainScoreId?: ScoreId
+}
 
 export interface UpdateDebateCommand {
 	type: "debate/update"
-	patch: PartialExceptId<DebateCore>
+	patch: DebateMetadataPatch
 }
 
 // #endregion

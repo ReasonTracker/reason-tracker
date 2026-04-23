@@ -1,6 +1,8 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import { PartialExceptId } from "../01-Commands.ts";
+import type { PartialExceptId, PatchWithRequiredId } from "../01-Commands.ts";
+
+type CreateWithOptionalId<T extends { id: unknown }> = Omit<T, "id"> & { id?: T["id"] };
 
 export interface Claim {
 	id: ClaimId
@@ -20,7 +22,7 @@ export interface Claim {
 	defaultRelevance?: number
 }
 
-export type ClaimCreate = Omit<Claim, "id"> | PartialExceptId<Claim>;
-export type ClaimPatch = PartialExceptId<Claim>;
+export type ClaimCreate = CreateWithOptionalId<Claim>;
+export type ClaimPatch = PatchWithRequiredId<Claim>;
 
 export type ClaimId = string & { readonly __brand: "ClaimId" };

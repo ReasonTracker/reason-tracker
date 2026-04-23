@@ -29,6 +29,13 @@ const RAILROAD_STREET_CONNECTOR_ID = "connector-railroad-street" as ConnectorId;
 const COST_CONNECTOR_ID = "connector-cost" as ConnectorId;
 const PAYBACK_CONNECTOR_ID = "connector-payback" as ConnectorId;
 
+const FOOT_TRAFFIC_SCORE_ID = "score-foot-traffic" as ScoreId;
+const SAFETY_RISK_SCORE_ID = "score-safety-risk" as ScoreId;
+const SAFETY_PRIORITY_SCORE_ID = "score-safety-priority" as ScoreId;
+const RAILROAD_STREET_SCORE_ID = "score-railroad-street" as ScoreId;
+const COST_SCORE_ID = "score-cost" as ScoreId;
+const PAYBACK_SCORE_ID = "score-payback" as ScoreId;
+
 const episode0001Debate: Debate = {
     id: EPISODE_DEBATE_ID,
     name: "Episode 1 Elm Street",
@@ -63,16 +70,15 @@ const episode0001Actions = [
         scriptBeat: "To start, we add that converting Elm Street will increase foot traffic to local shops by 15%.",
         command: {
             type: "claim/add",
+            targetScoreId: MAIN_SCORE_ID,
             claim: {
                 id: FOOT_TRAFFIC_CLAIM_ID,
                 content: "Converting Elm Street to pedestrian use only will increase foot traffic to local shops by 15%.",
             },
             connector: {
-                id: FOOT_TRAFFIC_CONNECTOR_ID,
                 type: "claim-to-claim",
-                source: FOOT_TRAFFIC_CLAIM_ID,
-                targetClaimId: MAIN_CLAIM_ID,
-                affects: "confidence",
+                id: FOOT_TRAFFIC_CONNECTOR_ID,
+                scoreId: FOOT_TRAFFIC_SCORE_ID,
                 targetRelationship: "proTarget",
             },
         } satisfies AddClaimCommand,
@@ -81,16 +87,15 @@ const episode0001Actions = [
         scriptBeat: "Someone points out that the conversion will divert traffic down residential streets and endanger the lives of children.",
         command: {
             type: "claim/add",
+            targetScoreId: MAIN_SCORE_ID,
             claim: {
                 id: SAFETY_RISK_CLAIM_ID,
                 content: "The conversion will divert traffic down residential streets and endanger the lives of children.",
             },
             connector: {
-                id: SAFETY_RISK_CONNECTOR_ID,
                 type: "claim-to-claim",
-                source: SAFETY_RISK_CLAIM_ID,
-                targetClaimId: MAIN_CLAIM_ID,
-                affects: "confidence",
+                id: SAFETY_RISK_CONNECTOR_ID,
+                scoreId: SAFETY_RISK_SCORE_ID,
                 targetRelationship: "conTarget",
             },
         } satisfies AddClaimCommand,
@@ -99,16 +104,15 @@ const episode0001Actions = [
         scriptBeat: "We add that child safety is more important than local shop profit.",
         command: {
             type: "claim/add",
+            targetScoreId: SAFETY_RISK_SCORE_ID,
             claim: {
                 id: SAFETY_PRIORITY_CLAIM_ID,
                 content: "Child safety is more important than local shop profit.",
             },
             connector: {
+                type: "claim-to-connector",
                 id: SAFETY_PRIORITY_CONNECTOR_ID,
-                type: "claim-to-claim",
-                source: SAFETY_PRIORITY_CLAIM_ID,
-                targetClaimId: SAFETY_RISK_CLAIM_ID,
-                affects: "relevance",
+                scoreId: SAFETY_PRIORITY_SCORE_ID,
                 targetRelationship: "proTarget",
             },
         } satisfies AddClaimCommand,
@@ -117,16 +121,15 @@ const episode0001Actions = [
         scriptBeat: "The city realizes unused railroad tracks can be converted into a new street, cancelling out the traffic problem.",
         command: {
             type: "claim/add",
+            targetScoreId: SAFETY_RISK_SCORE_ID,
             claim: {
                 id: RAILROAD_STREET_CLAIM_ID,
                 content: "Unused railroad tracks can be converted into a new street, cancelling out the traffic diversion problem.",
             },
             connector: {
-                id: RAILROAD_STREET_CONNECTOR_ID,
                 type: "claim-to-claim",
-                source: RAILROAD_STREET_CLAIM_ID,
-                targetClaimId: SAFETY_RISK_CLAIM_ID,
-                affects: "confidence",
+                id: RAILROAD_STREET_CONNECTOR_ID,
+                scoreId: RAILROAD_STREET_SCORE_ID,
                 targetRelationship: "conTarget",
             },
         } satisfies AddClaimCommand,
@@ -135,16 +138,15 @@ const episode0001Actions = [
         scriptBeat: "A con is that the conversion will cost 2 million dollars.",
         command: {
             type: "claim/add",
+            targetScoreId: MAIN_SCORE_ID,
             claim: {
                 id: COST_CLAIM_ID,
                 content: "The conversion will cost 2 million dollars.",
             },
             connector: {
-                id: COST_CONNECTOR_ID,
                 type: "claim-to-claim",
-                source: COST_CLAIM_ID,
-                targetClaimId: MAIN_CLAIM_ID,
-                affects: "confidence",
+                id: COST_CONNECTOR_ID,
+                scoreId: COST_SCORE_ID,
                 targetRelationship: "conTarget",
             },
         } satisfies AddClaimCommand,
@@ -153,16 +155,15 @@ const episode0001Actions = [
         scriptBeat: "We add that the increase in revenue will pay off the expense in under 2 years, meeting the city's investment requirements.",
         command: {
             type: "claim/add",
+            targetScoreId: COST_SCORE_ID,
             claim: {
                 id: PAYBACK_CLAIM_ID,
                 content: "The increase in revenue will pay off the expense in under 2 years, meeting the city's investment requirements.",
             },
             connector: {
-                id: PAYBACK_CONNECTOR_ID,
                 type: "claim-to-claim",
-                source: PAYBACK_CLAIM_ID,
-                targetClaimId: COST_CLAIM_ID,
-                affects: "confidence",
+                id: PAYBACK_CONNECTOR_ID,
+                scoreId: PAYBACK_SCORE_ID,
                 targetRelationship: "conTarget",
             },
         } satisfies AddClaimCommand,
@@ -171,7 +172,10 @@ const episode0001Actions = [
 
 const planner = new Planner();
 const episode0001PlannerResults = planner.plan(episode0001Actions.map((action) => action.command), episode0001Debate);
-const episode0001Json = JSON.stringify(buildEpisode0001Timeline(episode0001PlannerResults), null, 2);
+const episodeData = buildEpisode0001Timeline(episode0001PlannerResults);
+const episode0001Json = JSON.stringify(episodeData, null, 2);
+console.log(episodeData);
+
 
 export const Episode0001 = () => {
     return (
@@ -273,6 +277,6 @@ function buildEpisode0001Timeline(results: readonly PlannerResult[]) {
         step: index + 1,
         scriptBeat: action.scriptBeat,
         command: action.command,
-        plannerResult: results[index],
+        plan: results[index],
     }));
 }

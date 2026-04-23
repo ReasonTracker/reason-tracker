@@ -74,7 +74,7 @@ These are implementation guidelines for repository code structure and file organ
 
 - **Id-present vs id-absent variants:** Represent caller-provided vs system-generated ids with two union members (e.g. `T & { id: ID }` vs `Omit<T, "id">`). Keep related connector types aligned so required fields (like `connector.source`) follow the claim variant.
 
-- **Command payloads and generated IDs:** Translator/reducer code generates system IDs. Commands should not accept or expose generated IDs such as `mainClaimId`; allow `mainClaim` only when the caller supplies a complete `Claim` with an `id`.
+- **Command payloads and generated IDs:** Prefer commands that express authored intent instead of exposing system-generated IDs. Exception: when the projection layer must target or refer to a specific projected occurrence, command payloads may carry projected score ids such as `targetScoreId` or an optional caller-provided `scoreId`. Keep those ids scoped to the projection need, not as general substitutes for canonical claim identity.
 
 ## Local Type Ordering
 

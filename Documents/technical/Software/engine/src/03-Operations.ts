@@ -1,40 +1,72 @@
-// PlannerResult interface for Planner output
-import type { EngineCommand } from "./01-Commands.ts";
+import type { DebateMetadataPatch, EngineCommand } from "./01-Commands.ts";
+import type { Claim, ClaimId, ClaimPatch } from "./00-entities/Claim.ts";
+import type { Connector, ConnectorId } from "./00-entities/Connector.ts";
+import type { Debate } from "./00-entities/Debate.ts";
+import type { Score, ScoreId, ScorePatch } from "./00-entities/Score.ts";
+
 export interface PlannerResult {
     commands: readonly [EngineCommand, ...EngineCommand[]];
     operations: readonly Operation[];
 }
-// Union type for all operation variants
-export type Operation = AddClaimOp | ConnectClaimAnimationOp | ClaimScoreAnimationOp | ConnectorScoreAnimationOp | ScaleUpdateOp;
-// 03-Operations.ts
-// Engine operation contracts emitted from Planner
 
-import type { PartialExceptId } from "./01-Commands.ts";
-import type { Claim } from "./00-entities/Claim.ts";
-import type { Score, claimScores, connectorScores } from "./00-entities/Score.ts";
+export type Operation =
+    | DebateCreatedOp
+    | DebateUpdatedOp
+    | ClaimAddedOp
+    | ClaimUpdatedOp
+    | ClaimDeletedOp
+    | ConnectorAddedOp
+    | ConnectorDeletedOp
+    | ScoreAddedOp
+    | ScoreUpdatedOp
+    | ScoreDeletedOp;
 
-// Supports step 2: Animate new claim appearance and scale
-export interface AddClaimOp {
-    type: "AddClaim"
-    claim: Claim
+export interface DebateCreatedOp {
+    type: "DebateCreated"
+    debate: Debate
 }
-// Supports step 3: Animate connector line from new claim to target
-export interface ConnectClaimAnimationOp {
-    type: "ConnectClaimAnimation"
-    scores: PartialExceptId<connectorScores>[]
+
+export interface DebateUpdatedOp {
+    type: "DebateUpdated"
+    patch: DebateMetadataPatch
 }
-// Supports step 4: Animate claim confidence/score update
-export interface ClaimScoreAnimationOp {
-    type: "ClaimScoreUpdate"
-    scores: PartialExceptId<claimScores>[]
+
+export interface ClaimAddedOp {
+    type: "ClaimAdded"
+    claims: Claim[]
 }
-// Supports step 5 & 6: Animate connector thickness/score update (traverses graph, outputs for each connector)
-export interface ConnectorScoreAnimationOp {
-    type: "ConnectorScoreUpdate"
-    scores: PartialExceptId<connectorScores>[]
+
+export interface ClaimUpdatedOp {
+    type: "ClaimUpdated"
+    patches: ClaimPatch[]
 }
-// Supports step 7: Final pass to ensure all claims are at correct scale/position
-export interface ScaleUpdateOp {
-    type: "ScaleUpdate"
-    scores: PartialExceptId<Pick<Score, "id" | "scaleOfSources">>[]
+
+export interface ClaimDeletedOp {
+    type: "ClaimDeleted"
+    claimIds: ClaimId[]
+}
+
+export interface ConnectorAddedOp {
+    type: "ConnectorAdded"
+    connectors: Connector[]
+}
+
+export interface ConnectorDeletedOp {
+    type: "ConnectorDeleted"
+    connectorIds: ConnectorId[]
+}
+
+export interface ScoreAddedOp {
+    type: "ScoreAdded"
+    scores: Score[]
+}
+
+export interface ScoreUpdatedOp {
+    type: "ScoreUpdated"
+    patches: ScorePatch[]
+}
+
+export interface ScoreDeletedOp {
+    type: "ScoreDeleted"
+    scoreIds: ScoreId[]
 }

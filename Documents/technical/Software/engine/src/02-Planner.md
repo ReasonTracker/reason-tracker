@@ -1,24 +1,24 @@
-# 📌 Command Translator
+# 📌 Planner
 
 ## Purpose
 
-This folder holds the command-to-operation translation boundary for the engine.
+This folder holds the planner boundary for the engine.
 
-Use this folder for translator contracts and nearby translator implementation once that work starts.
+Use this folder for planner contracts and nearby planner implementation.
 Keep reducer behavior elsewhere.
 
-The translator boundary is stateless.
-It should receive existing engine state explicitly rather than storing mutable translation state internally.
+The planner boundary is stateless.
+It should receive existing engine state explicitly rather than storing mutable planner state internally.
 
 ## Owns
 
-- the `CommandTranslator` contract
+- the `Planner` contract
 - engine operation contracts emitted from commands
-- nearby translator-specific files that stay focused on command batches and emitted operation groups
+- nearby planner-specific files that stay focused on command batches and emitted operation groups
 
 ## Stateless Rule
 
-`CommandTranslator` should take the existing `Debate` state as input.
+`Planner` should take the existing `Debate` state as input.
 Do not design translator instances around retained per-debate or per-run state.
 
 It should return grouped translation results that pair the original one-or-more commands with the corresponding emitted operations.
@@ -31,17 +31,34 @@ It should return grouped translation results that pair the original one-or-more 
 
 ## Current Scope
 
+Current implemented scope:
+
+- `debate/create`
+- `debate/update`
+- `claim/add`
+- `claim/update`
+- `claim/delete`
+- `connector/create`
+- `connector/delete`
+- score-targeted translation via `targetScoreId` so non-root claims may have multiple projected score occurrences
+- connector meaning derived from connector type:
+  - `claim-to-claim` contributes confidence
+  - `claim-to-connector` contributes relevance
+- one root score is still expected for `mainClaimId`
+
 ## Example Process
 
-An EngineCommand batch is sent to the Planner, for example `AddClaimCommand` with an existing Debate state. These are the effects we expect to see in the UI and how they align with the operations emitted from the Planner:
+An EngineCommand batch is sent to the Planner, for example `AddClaimCommand` with an existing Debate state. The command targets a specific projected score occurrence using `targetScoreId`.
 
-1. Include the original EngineCommand so later systems can reference it for intent.
-2. The UI will display the new claim in its final location but at 0 scale. As it grows to its target scale, the UI will animate the other claims moving out of the way. (see AddClaimOp in 03-Operations.ts)
-3. The new connector line will grow from the new claim to its target claim. (see ConnectClaimAnimationOp in 03-Operations.ts)
-4. The target claim's confidence will adjust in value and animate to the new confidence level. (see ClaimScoreAnimationOp in 03-Operations.ts)
-5. The connector between that claim and its target will animate to the new thickness level. (see ConnectorScoreAnimationOp in 03-Operations.ts)
-6. The Planner will traverse the graph upward, emitting a ConnectorScoreAnimationOp and ClaimScoreAnimationOp for each connector and claim it passes through, until the main claim is reached.
-7. The scaling might have changed, so do a final pass to ensure all claims are at the correct scale and position. (see ScaleUpdateOp in 03-Operations.ts)
+- For `claim-to-claim`, the planner derives the canonical `targetClaimId` from that target score.
+- For `claim-to-connector`, the planner derives the canonical `targetConnectorId` from the target score's `connectorId`.
+
+The planner emits grouped structural operations rather than animation-specific instructions. Those structural operations can later drive reducers, animation planners, or other downstream systems.
+
+1. Include the normalized EngineCommand so later systems can reference the resolved ids and authored intent.
+2. Emit structural add, update, or delete operations for claims, connectors, and scores.
+3. Recalculate the affected projected score occurrences upward through the projected graph.
+4. Emit `ScoreUpdated` patches for any surviving score whose structure or calculated values changed, including `incomingScoreIds`, confidence values, relevance, and `scaleOfSources`.
 
 ## Related Docs
 
