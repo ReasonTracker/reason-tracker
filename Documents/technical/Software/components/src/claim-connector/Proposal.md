@@ -13,10 +13,10 @@
 
 ### Claim aggregation
 - A target claim may receive multiple incoming claims.
-- Incoming claims are grouped into two stacks:
-  - **Pro stack above**
-  - **Con stack below**
-- Within each stack, flows are packed with no gaps so they merge into a continuous stream.
+- Incoming claims are arranged in one total stack per target claim.
+- Pro and con sides keep their color and semantic side, but do not reserve separate top or bottom half-stacks.
+- The total incoming stack is centered on the target claim.
+- Within the total stack, flows are packed with no gaps so they merge into a continuous stream.
 - When flows merge, their **actual confidences sum exactly**.
 
 ### Target claims
@@ -28,6 +28,8 @@
 
 ### Stacking and overlap
 - Stacking is based only on **actual confidence**.
+- Actual confidence widths are normalized against the target's total positive incoming confidence so a full stack is exactly the target claim height.
+- Potential pipe width is not an input to stack height or centering.
 - No space is reserved for unused potential.
 - Pipes and unused capacity may overlap visually.
 

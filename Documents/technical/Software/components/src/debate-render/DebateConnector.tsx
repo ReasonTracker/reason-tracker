@@ -16,28 +16,43 @@ const PIPE_INTERIOR_ALPHA = 0.18;
 export interface DebateConnectorProps {
     centerlinePoints: Waypoint[];
     fluidWidth: number;
+    layer: DebateConnectorLayer;
     outlineWidth: number;
     pipeWidth: number;
     side: Side;
 }
 
+export type DebateConnectorLayer = "pipeWalls" | "pipeInterior" | "fluid";
+
 export const DebateConnector = ({
     centerlinePoints,
     fluidWidth,
+    layer,
     outlineWidth,
     pipeWidth,
     side,
 }: DebateConnectorProps) => {
+    if (layer === "fluid") {
+        if (fluidWidth <= 0.5) {
+            return null;
+        }
+
+        const fluidGeometry = buildBandGeometry(centerlinePoints, fluidWidth);
+        return fluidGeometry.closedPathData.length > 0
+            ? <path d={fluidGeometry.closedPathData} fill={resolveSideStroke(side)} stroke="none" />
+            : null;
+    }
+
     const pipeGeometry = buildBandGeometry(centerlinePoints, pipeWidth);
-    const fluidGeometry = fluidWidth > 0.5
-        ? buildBandGeometry(centerlinePoints, fluidWidth)
-        : undefined;
+
+    if (layer === "pipeInterior") {
+        return pipeGeometry.closedPathData.length > 0
+            ? <path d={pipeGeometry.closedPathData} fill={resolveSideFill(side, PIPE_INTERIOR_ALPHA)} stroke="none" />
+            : null;
+    }
 
     return (
         <g>
-            {pipeGeometry.closedPathData.length > 0 ? (
-                <path d={pipeGeometry.closedPathData} fill={resolveSideFill(side, PIPE_INTERIOR_ALPHA)} stroke="none" />
-            ) : null}
             {pipeGeometry.boundaryAPathData.length > 0 ? (
                 <path
                     d={pipeGeometry.boundaryAPathData}
@@ -57,9 +72,6 @@ export const DebateConnector = ({
                     strokeLinejoin="round"
                     strokeWidth={outlineWidth}
                 />
-            ) : null}
-            {fluidGeometry && fluidGeometry.closedPathData.length > 0 ? (
-                <path d={fluidGeometry.closedPathData} fill={resolveSideStroke(side)} stroke="none" />
             ) : null}
         </g>
     );

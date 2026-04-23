@@ -3,6 +3,7 @@ export {
 } from "./DebateConnector";
 
 export type {
+    DebateConnectorLayer,
     DebateConnectorProps,
 } from "./DebateConnector";
 

@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 import {
     type Waypoint,
 } from "../path-geometry";
-import { DebateConnector } from "./DebateConnector";
+import { DebateConnector, type DebateConnectorLayer } from "./DebateConnector";
 
 // AGENT NOTE: Keep tunable render constants grouped here so visual tuning stays localized.
 /** Padding inserted between the graph bounds and the visible scene edge. */
@@ -67,11 +67,14 @@ interface ConnectorVisual {
 
 interface ConfidenceConnectorDraft {
     connector: ConfidenceConnector;
-    fluidWidth: number;
-    pipeWidth: number;
     side: Score["connectorSide"];
     sourceNode: RenderNode;
     targetNode: RenderNode;
+}
+
+interface ActualConfidenceSlot {
+    centerY: number;
+    fluidWidth: number;
 }
 
 interface ConfidenceConnectorTarget {
@@ -118,26 +121,24 @@ export const DebateRenderer = ({
             continue;
         }
 
-        const pipeWidth = getConnectorPipeWidth(renderNode);
         confidenceConnectorDrafts.push({
             connector,
-            fluidWidth: getConnectorFluidWidth(renderNode.score, pipeWidth, connector.type),
-            pipeWidth,
             side: renderNode.score.connectorSide,
             sourceNode: renderNode,
             targetNode,
         });
     }
 
-    const targetAttachmentCenterYByConnectorId = buildTargetAttachmentCenterYByConnectorId(
+    const actualConfidenceSlotByConnectorId = buildActualConfidenceSlotByConnectorId(
         confidenceConnectorDrafts,
     );
     const confidenceConnectorVisuals = confidenceConnectorDrafts.map((draft) => {
+        const actualConfidenceSlot = actualConfidenceSlotByConnectorId.get(draft.connector.id);
         const centerlinePoints = buildConfidenceCenterline(
             draft.sourceNode,
             {
                 x: draft.targetNode.renderX + draft.targetNode.node.width,
-                y: targetAttachmentCenterYByConnectorId.get(draft.connector.id)
+                y: actualConfidenceSlot?.centerY
                     ?? getNodeCenterY(draft.targetNode),
             },
         );
@@ -150,9 +151,9 @@ export const DebateRenderer = ({
         return {
             connectorId: draft.connector.id,
             centerlinePoints,
-            fluidWidth: draft.fluidWidth,
+            fluidWidth: actualConfidenceSlot?.fluidWidth ?? 0,
             outlineWidth: getConnectorOutlineWidth(),
-            pipeWidth: draft.pipeWidth,
+            pipeWidth: getConnectorPipeWidth(draft.sourceNode),
             side: draft.side,
         } satisfies ConnectorVisual;
     });
@@ -186,15 +187,20 @@ export const DebateRenderer = ({
         ];
     });
 
-    const connectorLayers: ReactNode[] = [...confidenceConnectorVisuals, ...relevanceConnectorVisuals].map((connector) => (
-        <DebateConnector
-            key={connector.connectorId}
-            centerlinePoints={connector.centerlinePoints}
-            fluidWidth={connector.fluidWidth}
-            outlineWidth={connector.outlineWidth}
-            pipeWidth={connector.pipeWidth}
-            side={connector.side}
-        />
+    const connectorVisuals = [...confidenceConnectorVisuals, ...relevanceConnectorVisuals];
+    const connectorLayers: DebateConnectorLayer[] = ["pipeWalls", "pipeInterior", "fluid"];
+    const connectorLayerElements: ReactNode[] = connectorLayers.flatMap((layer) => (
+        connectorVisuals.map((connector) => (
+            <DebateConnector
+                key={`${layer}:${connector.connectorId}`}
+                centerlinePoints={connector.centerlinePoints}
+                fluidWidth={connector.fluidWidth}
+                layer={layer}
+                outlineWidth={connector.outlineWidth}
+                pipeWidth={connector.pipeWidth}
+                side={connector.side}
+            />
+        ))
     ));
 
     return (
@@ -241,7 +247,7 @@ export const DebateRenderer = ({
                         }}
                         viewBox={`0 0 ${graphWidth} ${graphHeight}`}
                     >
-                        {connectorLayers}
+                        {connectorLayerElements}
                     </svg>
                     {renderNodes.map((renderNode) => {
                         const cardScale = Math.min(
@@ -500,51 +506,79 @@ function getNodeCenterY(node: RenderNode): number {
     return node.renderY + (node.node.height / 2);
 }
 
-function buildTargetAttachmentCenterYByConnectorId(
+function buildActualConfidenceSlotByConnectorId(
     drafts: readonly ConfidenceConnectorDraft[],
-): ReadonlyMap<string, number> {
-    const centerYByConnectorId = new Map<string, number>();
-    const draftsByTargetAndSide = new Map<string, ConfidenceConnectorDraft[]>();
+): ReadonlyMap<string, ActualConfidenceSlot> {
+    const actualConfidenceSlotByConnectorId = new Map<string, ActualConfidenceSlot>();
+    const draftsByTarget = new Map<string, ConfidenceConnectorDraft[]>();
 
     for (const draft of drafts) {
-        const key = `${draft.targetNode.node.scoreId}:${draft.side}`;
-        const existingDrafts = draftsByTargetAndSide.get(key);
+        const existingDrafts = draftsByTarget.get(draft.targetNode.node.scoreId);
         if (existingDrafts) {
             existingDrafts.push(draft);
             continue;
         }
 
-        draftsByTargetAndSide.set(key, [draft]);
+        draftsByTarget.set(draft.targetNode.node.scoreId, [draft]);
     }
 
-    for (const draftsForTargetAndSide of draftsByTargetAndSide.values()) {
-        const orderedDrafts = [...draftsForTargetAndSide].sort((left, right) => {
-            const verticalDelta = getNodeCenterY(left.sourceNode) - getNodeCenterY(right.sourceNode);
-            if (verticalDelta !== 0) {
-                return verticalDelta;
-            }
-
-            return left.connector.id.localeCompare(right.connector.id);
-        });
-        const targetCenterY = getNodeCenterY(orderedDrafts[0].targetNode);
-        const totalStackHeight = orderedDrafts.reduce(
-            (totalHeight, draft) => totalHeight + draft.fluidWidth,
+    for (const draftsForTarget of draftsByTarget.values()) {
+        const orderedDrafts = orderConfidenceConnectorDraftsForTarget(draftsForTarget);
+        const targetNode = orderedDrafts[0].targetNode;
+        const targetHeight = targetNode.node.height;
+        const targetCenterY = getNodeCenterY(targetNode);
+        const positiveConfidenceMass = orderedDrafts.reduce(
+            (totalConfidence, draft) => totalConfidence + Math.max(0, draft.sourceNode.score.connectorConfidence),
             0,
         );
-        let currentTop = orderedDrafts[0].side === "proMain"
-            ? targetCenterY - totalStackHeight
-            : targetCenterY;
+        const targetConfidenceScale = positiveConfidenceMass > 0
+            ? 1 / Math.max(1, positiveConfidenceMass)
+            : 0;
+        const actualConfidenceSlots = orderedDrafts.map((draft) => ({
+            draft,
+            fluidWidth: targetHeight * Math.max(0, draft.sourceNode.score.connectorConfidence) * targetConfidenceScale,
+        }));
+        const totalStackHeight = actualConfidenceSlots.reduce(
+            (totalHeight, actualConfidenceSlot) => totalHeight + actualConfidenceSlot.fluidWidth,
+            0,
+        );
+        let currentTop = targetCenterY - (totalStackHeight / 2);
 
-        for (const draft of orderedDrafts) {
-            centerYByConnectorId.set(
-                draft.connector.id,
-                currentTop + (draft.fluidWidth / 2),
-            );
-            currentTop += draft.fluidWidth;
+        for (const actualConfidenceSlot of actualConfidenceSlots) {
+            actualConfidenceSlotByConnectorId.set(actualConfidenceSlot.draft.connector.id, {
+                centerY: currentTop + (actualConfidenceSlot.fluidWidth / 2),
+                fluidWidth: actualConfidenceSlot.fluidWidth,
+            });
+            currentTop += actualConfidenceSlot.fluidWidth;
         }
     }
 
-    return centerYByConnectorId;
+    return actualConfidenceSlotByConnectorId;
+}
+
+function orderConfidenceConnectorDraftsForTarget(
+    drafts: readonly ConfidenceConnectorDraft[],
+): ConfidenceConnectorDraft[] {
+    const targetScore = drafts[0]?.targetNode.score;
+    const incomingScoreOrder = new Map<ScoreId, number>(
+        targetScore?.incomingScoreIds.map((scoreId, index) => [scoreId, index]) ?? [],
+    );
+
+    return [...drafts].sort((left, right) => {
+        const orderDelta =
+            (incomingScoreOrder.get(left.sourceNode.node.scoreId) ?? Number.POSITIVE_INFINITY)
+            - (incomingScoreOrder.get(right.sourceNode.node.scoreId) ?? Number.POSITIVE_INFINITY);
+        if (orderDelta !== 0) {
+            return orderDelta;
+        }
+
+        const verticalDelta = getNodeCenterY(left.sourceNode) - getNodeCenterY(right.sourceNode);
+        if (verticalDelta !== 0) {
+            return verticalDelta;
+        }
+
+        return left.connector.id.localeCompare(right.connector.id);
+    });
 }
 
 function getGraphScale(args: {
