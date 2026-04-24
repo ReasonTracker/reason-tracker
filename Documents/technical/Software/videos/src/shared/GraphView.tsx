@@ -800,16 +800,14 @@ function buildAddRelevanceTransitionSegments(
             timelineFrom,
         },
         junctionShapeSnapshot,
-        [
-            ...[...targetConfidenceConnectorIds].map((connectorId) => ({
-                kind: "connector",
-                connectorId,
-                effect: "update",
-                direction: "sourceToTarget",
-                junctionEffect: "update",
-                spanTypes: [] as const,
-            } satisfies GraphTransitionDirective)),
-        ],
+        [...targetConfidenceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "update",
+            direction: "sourceToTarget",
+            junctionEffect: "update",
+            spanTypes: [] as const,
+        } satisfies GraphTransitionDirective)),
     ));
 
     timelineFrom += phaseDurations[3] ?? 1;
@@ -822,17 +820,15 @@ function buildAddRelevanceTransitionSegments(
             timelineFrom,
         },
         finalSnapshot,
-        [
-            ...[...targetConfidenceConnectorIds].map((connectorId) => ({
-                kind: "connector",
-                connectorId,
-                effect: "update",
-                direction: "sourceToTarget",
-                junctionEffect: "none",
-                spanTypes: ["confidenceDelivery"] as const,
-                widthAnimation: "interpolate",
-            } satisfies GraphTransitionDirective)),
-        ],
+        [...targetConfidenceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "update",
+            direction: "sourceToTarget",
+            junctionEffect: "none",
+            spanTypes: ["confidenceDelivery"] as const,
+            widthAnimation: "interpolate",
+        } satisfies GraphTransitionDirective)),
     ));
 
     return segments;
