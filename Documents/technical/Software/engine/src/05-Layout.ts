@@ -9,11 +9,11 @@ export const BASE_NODE_WIDTH_PX = 360;
 /** Full-size claim box height before score scaling is applied; connector potential width uses this same base unit. */
 export const BASE_NODE_HEIGHT_PX = 176;
 /** Full-size horizontal distance between one depth column and the next. */
-const BASE_HORIZONTAL_GAP_PX = 700;
-/** Extra horizontal room reserved before a layer that contains relevance connectors. */
-const RELEVANCE_LAYER_HORIZONTAL_GAP_MULTIPLIER = 2;
+const BASE_HORIZONTAL_GAP_PX = 500;
+/** Extra horizontal room reserved before a layer that can host connector junctions. */
+const CONNECTOR_JUNCTION_LAYER_HORIZONTAL_GAP_MULTIPLIER = 2;
 /** Full-size vertical distance between sibling subtree blocks. */
-const BASE_VERTICAL_GAP_PX = 50;
+const BASE_VERTICAL_GAP_PX = 100;
 /** Minimum vertical distance retained for dense groups of small source scores. */
 const MIN_VERTICAL_GAP_PX = 28;
 /** Preferred share of the horizontal connector span kept as each straight stub before and after the diagonal section. */
@@ -141,8 +141,9 @@ interface ConfidenceConnectorDraft {
 interface ConfidenceConnectorPlan {
     actualConfidenceSlot: ActualConfidenceSlot | undefined
     draft: ConfidenceConnectorDraft
+    hasTargetingRelevance: boolean
+    junction: DebateLayoutConnectorJunction
     targetPoint: { x: number; y: number }
-    junction?: DebateLayoutConnectorJunction
 }
 
 interface RelevanceConnectorDraft {
@@ -355,8 +356,8 @@ function buildColumnLeftByDepth(nodesByDepth: ReadonlyMap<number, readonly Draft
 
     for (let depth = 1; depth <= maxDepth; depth += 1) {
         const previousColumnLeft = columnLeftByDepth[depth - 1] ?? originX;
-        const horizontalGapMultiplier = hasRelevanceConnectorInDepth(nodesByDepth, depth)
-            ? RELEVANCE_LAYER_HORIZONTAL_GAP_MULTIPLIER
+        const horizontalGapMultiplier = hasConfidenceConnectorInDepth(nodesByDepth, depth)
+            ? CONNECTOR_JUNCTION_LAYER_HORIZONTAL_GAP_MULTIPLIER
             : 1;
         let nextColumnLeft = previousColumnLeft;
 
@@ -373,11 +374,11 @@ function buildColumnLeftByDepth(nodesByDepth: ReadonlyMap<number, readonly Draft
     return columnLeftByDepth;
 }
 
-function hasRelevanceConnectorInDepth(
+function hasConfidenceConnectorInDepth(
     nodesByDepth: ReadonlyMap<number, readonly DraftLayoutNode[]>,
     depth: number,
 ): boolean {
-    return (nodesByDepth.get(depth) ?? []).some((node) => node.connectorType === "relevance");
+    return (nodesByDepth.get(depth) ?? []).some((node) => node.connectorType === "confidence");
 }
 
 function buildConnectorGeometry(
@@ -451,23 +452,23 @@ function buildConnectorGeometry(
             targetPoint,
             draft.sourcePipeWidth,
         );
-        const relevancePipeWidth = relevancePipeWidthByTargetConnectorId.get(draft.connectorId);
-        const junction = relevancePipeWidth
-            ? buildConnectorJunction({
-                center: getPointAtPolylineProgress(centerlinePoints, CONNECTOR_JUNCTION_PATH_PROGRESS),
-                connectorId: draft.connectorId,
-                deliveryPipeWidth: draft.deliveryPipeWidth,
-                relevancePipeWidth,
-                side: draft.side,
-                sourcePipeWidth: draft.sourcePipeWidth,
-            })
-            : undefined;
+        const hasTargetingRelevance = relevancePipeWidthByTargetConnectorId.has(draft.connectorId);
+        const relevancePipeWidth = relevancePipeWidthByTargetConnectorId.get(draft.connectorId) ?? 0;
+        const junction = buildConnectorJunction({
+            center: getPointAtPolylineProgress(centerlinePoints, CONNECTOR_JUNCTION_PATH_PROGRESS),
+            connectorId: draft.connectorId,
+            deliveryPipeWidth: draft.deliveryPipeWidth,
+            relevancePipeWidth,
+            side: draft.side,
+            sourcePipeWidth: draft.sourcePipeWidth,
+        });
 
         return {
             actualConfidenceSlot,
             draft,
+            hasTargetingRelevance,
+            junction,
             targetPoint,
-            ...(junction ? { junction } : {}),
         } satisfies ConfidenceConnectorPlan;
     });
     const turnGuideByTargetScoreId = buildTurnGuideByTargetScoreId(confidencePlans);
@@ -477,41 +478,40 @@ function buildConnectorGeometry(
     }>();
     const confidenceConnectorSpans = confidencePlans.flatMap((plan) => {
         const { actualConfidenceSlot, draft, junction, targetPoint } = plan;
-        const centerlinePoints = buildConfidenceCenterline(
-            draft.sourceNode,
-            targetPoint,
-            draft.deliveryPipeWidth,
-            junction ? undefined : turnGuideByTargetScoreId.get(draft.targetNode.scoreId),
-        );
-
-        confidenceTargetByConnectorId.set(draft.connectorId, {
-            midpoint: junction
-                ? { x: junction.centerX, y: junction.centerY }
-                : getPointAtPolylineProgress(centerlinePoints, 0.5),
-            ...(junction ? { junction } : {}),
-        });
-
-        if (!junction) {
-            return [{
-                centerlinePoints,
-                connectorId: draft.connectorId,
-                connectorType: "confidence",
-                fluidWidth: actualConfidenceSlot?.fluidWidth ?? draft.deliveryFluidWidth,
-                pipeWidth: draft.deliveryPipeWidth,
-                side: draft.side,
-                spanType: "confidenceDelivery",
-                visualId: draft.connectorId,
-            } satisfies DebateLayoutConnectorSpan];
-        }
-
+        const deliveryCenterlinePoints = plan.hasTargetingRelevance
+            ? undefined
+            : buildConfidenceCenterline(
+                draft.sourceNode,
+                targetPoint,
+                draft.deliveryPipeWidth,
+                turnGuideByTargetScoreId.get(draft.targetNode.scoreId),
+            );
+        const targetSegmentStartPoint = plan.hasTargetingRelevance
+            ? {
+                x: junction.centerX - (junction.width / 2),
+                y: junction.centerY,
+            }
+            : undefined;
         const sourceSegmentEndPoint = {
             x: junction.centerX + (junction.width / 2),
             y: junction.centerY,
         };
-        const targetSegmentStartPoint = {
-            x: junction.centerX - (junction.width / 2),
-            y: junction.centerY,
-        };
+
+        const centerlinePoints = deliveryCenterlinePoints ?? buildAngularConnectorCenterline(
+            targetSegmentStartPoint ?? {
+                x: draft.sourceNode.x,
+                y: getNodeCenterY(draft.sourceNode),
+            },
+            targetPoint,
+            draft.deliveryPipeWidth,
+        );
+
+        confidenceTargetByConnectorId.set(draft.connectorId, {
+            midpoint: plan.hasTargetingRelevance
+                ? { x: junction.centerX, y: junction.centerY }
+                : getPointAtPolylineProgress(centerlinePoints, 0.5),
+            ...(plan.hasTargetingRelevance ? { junction } : {}),
+        });
 
         return [
             {
@@ -522,18 +522,14 @@ function buildConnectorGeometry(
                 ),
                 connectorId: draft.connectorId,
                 connectorType: "confidence",
-                fluidWidth: draft.sourceFluidWidth,
-                pipeWidth: draft.sourcePipeWidth,
+                fluidWidth: plan.hasTargetingRelevance ? draft.sourceFluidWidth : 0,
+                pipeWidth: plan.hasTargetingRelevance ? draft.sourcePipeWidth : 0,
                 side: draft.side,
                 spanType: "confidenceSource",
                 visualId: `${draft.connectorId}:source-span`,
             },
             {
-                centerlinePoints: buildAngularConnectorCenterline(
-                    targetSegmentStartPoint,
-                    targetPoint,
-                    draft.deliveryPipeWidth,
-                ),
+                centerlinePoints,
                 connectorId: draft.connectorId,
                 connectorType: "confidence",
                 fluidWidth: actualConfidenceSlot?.fluidWidth ?? draft.deliveryFluidWidth,
@@ -571,9 +567,7 @@ function buildConnectorGeometry(
     });
 
     return {
-        connectorJunctionsInOrder: confidencePlans.flatMap((plan) => (
-            plan.junction ? [plan.junction] : []
-        )),
+        connectorJunctionsInOrder: confidencePlans.map((plan) => plan.junction),
         connectorSpansInOrder: [...confidenceConnectorSpans, ...relevanceConnectorSpans],
     };
 }
@@ -944,7 +938,7 @@ function buildTurnGuideByTargetScoreId(
     const turnGuideByTargetScoreId = new Map<ScoreId, ConnectorTurnGuide>();
 
     for (const plan of plans) {
-        if (!plan.junction) {
+        if (!plan.hasTargetingRelevance) {
             continue;
         }
 

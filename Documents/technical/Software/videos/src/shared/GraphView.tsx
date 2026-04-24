@@ -79,7 +79,12 @@ type GraphTransitionDirective =
         connectorId: ConnectorId;
         effect: "fluidGrow" | "pipeGrow" | "shrink" | "update";
         direction?: GraphTransitionDirection;
+        junctionEffect?: "hide" | "none" | "reveal" | "update";
+        spanTypes?: readonly DebateLayoutConnectorSpan["spanType"][];
     };
+
+type GraphConnectorTransitionDirective = Extract<GraphTransitionDirective, { kind: "connector" }>;
+type GraphConnectorUpdateDirective = GraphConnectorTransitionDirective & { effect: "update" };
 
 type GraphZoomTarget =
     | { claimId: string | readonly string[] }
@@ -147,6 +152,7 @@ type GraphNodeVisual = {
 type GraphConnectorSpanVisual = {
     visualId: string;
     connectorId: ConnectorId;
+    spanType: DebateLayoutConnectorSpan["spanType"];
     centerlinePoints: Waypoint[];
     fluidWidth: number;
     pipeWidth: number;
@@ -287,7 +293,7 @@ export function countGraphEventTransitionSegments(args: {
 
         return {
             nextDebate: applyOperations(args.debate, operations),
-            transitionSegmentCount: countTransitionSegmentsForOperations(operations),
+            transitionSegmentCount: countTransitionSegmentsForOperations(args.debate, operations),
         };
     }
 
@@ -296,7 +302,7 @@ export function countGraphEventTransitionSegments(args: {
 
     for (const action of args.actions) {
         const operations = planOperations(workingDebate, [action.command]);
-        transitionSegmentCount += countTransitionSegmentsForOperations(operations);
+        transitionSegmentCount += countTransitionSegmentsForOperations(workingDebate, operations);
         workingDebate = applyOperations(workingDebate, operations);
     }
 
@@ -564,8 +570,17 @@ function buildTransitionSegments(args: TransitionSegmentInput): GraphTransitionS
     const nextDebate = applyOperations(args.fromSnapshot.debate, args.operations);
     const toSnapshot = args.toSnapshotOverride ?? buildGraphSnapshot(nextDebate);
 
+    if (shouldUseAddRelevanceVisualPhases(args.operations)) {
+        return buildAddRelevanceTransitionSegments(args, toSnapshot);
+    }
+
     if (shouldUseAddClaimVisualPhases(args.operations)) {
         return buildAddClaimTransitionSegments(args, toSnapshot);
+    }
+
+    const sequencedConnectorUpdateSegments = buildSequencedConnectorUpdateSegments(args, nextDebate, toSnapshot);
+    if (sequencedConnectorUpdateSegments) {
+        return sequencedConnectorUpdateSegments;
     }
 
     return [buildTransitionSegment(args, toSnapshot, buildTransitionDirectives(
@@ -662,10 +677,317 @@ function buildAddClaimTransitionSegments(
     return segments;
 }
 
+function buildAddRelevanceTransitionSegments(
+    args: TransitionSegmentInput,
+    finalSnapshot: GraphSnapshot,
+): GraphTransitionSegment[] {
+    const addedRelevanceConnectors = getAddedRelevanceConnectors(args.operations);
+    const addedRelevanceConnectorIds = new Set<ConnectorId>(
+        addedRelevanceConnectors.map((connector) => connector.id),
+    );
+    const targetConfidenceConnectorIds = new Set<ConnectorId>(
+        addedRelevanceConnectors.map((connector) => connector.targetConfidenceConnectorId),
+    );
+    const newJunctionVisualIds = getNewConnectorJunctionVisualIds(
+        args.fromSnapshot.renderState,
+        finalSnapshot.renderState,
+    );
+    const phaseDurations = distributeFrames(args.durationInFrames, 5);
+    const baseDirectives = buildTransitionDirectives(
+        args.fromSnapshot.debate,
+        finalSnapshot.debate,
+        args.operations,
+    );
+    const layoutDirectives = baseDirectives.filter((directive) => {
+        if (directive.kind === "claim") {
+            return true;
+        }
+
+        return directive.effect === "update"
+            && !addedRelevanceConnectorIds.has(directive.connectorId)
+            && !targetConfidenceConnectorIds.has(directive.connectorId);
+    });
+    const layoutFromSnapshot = withAddRelevanceTargetLineJunctionGeometry(
+        withAddRelevanceTargetConfidenceWidths(
+            args.fromSnapshot,
+            args.fromSnapshot,
+            finalSnapshot,
+            targetConfidenceConnectorIds,
+        ),
+        args.fromSnapshot,
+        finalSnapshot,
+        targetConfidenceConnectorIds,
+    );
+    const layoutSnapshot = withAddRelevanceTargetLineJunctionGeometry(
+        withAddRelevanceTargetConfidenceWidths(
+            withoutAddedConnectorVisuals(
+                finalSnapshot,
+                addedRelevanceConnectorIds,
+                newJunctionVisualIds,
+            ),
+            args.fromSnapshot,
+            finalSnapshot,
+            targetConfidenceConnectorIds,
+        ),
+        args.fromSnapshot,
+        finalSnapshot,
+        targetConfidenceConnectorIds,
+    );
+    const pipeSnapshot = withAddRelevanceTargetLineJunctionGeometry(
+        withAddRelevanceTargetConfidenceWidths(
+            withConnectorPhaseVisibility(
+                finalSnapshot,
+                addedRelevanceConnectorIds,
+                newJunctionVisualIds,
+                1,
+                0,
+                1,
+            ),
+            args.fromSnapshot,
+            finalSnapshot,
+            targetConfidenceConnectorIds,
+        ),
+        args.fromSnapshot,
+        finalSnapshot,
+        targetConfidenceConnectorIds,
+    );
+    const relevanceFluidSnapshot = withAddRelevanceTargetLineJunctionGeometry(
+        withAddRelevanceTargetConfidenceWidths(
+            withConnectorPhaseVisibility(
+                finalSnapshot,
+                addedRelevanceConnectorIds,
+                newJunctionVisualIds,
+                1,
+                1,
+                1,
+            ),
+            args.fromSnapshot,
+            finalSnapshot,
+            targetConfidenceConnectorIds,
+        ),
+        args.fromSnapshot,
+        finalSnapshot,
+        targetConfidenceConnectorIds,
+    );
+    const junctionShapeSnapshot = withAddRelevanceTargetConfidenceWidths(
+        finalSnapshot,
+        args.fromSnapshot,
+        finalSnapshot,
+        targetConfidenceConnectorIds,
+    );
+    let timelineFrom = args.timelineFrom;
+    const segments: GraphTransitionSegment[] = [
+        buildTransitionSegment(
+            {
+                ...args,
+                durationInFrames: phaseDurations[0] ?? 1,
+                fromSnapshot: layoutFromSnapshot,
+                name: `${args.name} / layout and claim`,
+                timelineFrom,
+            },
+            layoutSnapshot,
+            layoutDirectives,
+        ),
+    ];
+
+    timelineFrom += phaseDurations[0] ?? 1;
+    segments.push(buildTransitionSegment(
+        {
+            ...args,
+            durationInFrames: phaseDurations[1] ?? 1,
+            fromSnapshot: layoutSnapshot,
+            name: `${args.name} / relevance pipe and junction`,
+            timelineFrom,
+        },
+        pipeSnapshot,
+        [...addedRelevanceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "pipeGrow",
+            direction: "sourceToTarget",
+            junctionEffect: "none",
+            spanTypes: ["relevance"] as const,
+        } satisfies GraphTransitionDirective)),
+    ));
+
+    timelineFrom += phaseDurations[1] ?? 1;
+    segments.push(buildTransitionSegment(
+        {
+            ...args,
+            durationInFrames: phaseDurations[2] ?? 1,
+            fromSnapshot: pipeSnapshot,
+            name: `${args.name} / relevance fluid`,
+            timelineFrom,
+        },
+        relevanceFluidSnapshot,
+        [...addedRelevanceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "fluidGrow",
+            direction: "sourceToTarget",
+            junctionEffect: "none",
+            spanTypes: ["relevance"] as const,
+        } satisfies GraphTransitionDirective)),
+    ));
+
+    timelineFrom += phaseDurations[2] ?? 1;
+    segments.push(buildTransitionSegment(
+        {
+            ...args,
+            durationInFrames: phaseDurations[3] ?? 1,
+            fromSnapshot: relevanceFluidSnapshot,
+            name: `${args.name} / junction shape`,
+            timelineFrom,
+        },
+        junctionShapeSnapshot,
+        [...targetConfidenceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "update",
+            direction: "sourceToTarget",
+            junctionEffect: "update",
+            spanTypes: [] as const,
+        } satisfies GraphTransitionDirective)),
+    ));
+
+    timelineFrom += phaseDurations[3] ?? 1;
+    segments.push(buildTransitionSegment(
+        {
+            ...args,
+            durationInFrames: phaseDurations[4] ?? 1,
+            fromSnapshot: junctionShapeSnapshot,
+            name: `${args.name} / confidence delivery`,
+            timelineFrom,
+        },
+        finalSnapshot,
+        [...targetConfidenceConnectorIds].map((connectorId) => ({
+            kind: "connector",
+            connectorId,
+            effect: "update",
+            direction: "sourceToTarget",
+            junctionEffect: "none",
+            spanTypes: ["confidenceDelivery"] as const,
+        } satisfies GraphTransitionDirective)),
+    ));
+
+    return segments;
+}
+
+function buildSequencedConnectorUpdateSegments(
+    args: TransitionSegmentInput,
+    nextDebate: Debate,
+    finalSnapshot: GraphSnapshot,
+): GraphTransitionSegment[] | undefined {
+    const baseDirectives = buildTransitionDirectives(
+        args.fromSnapshot.debate,
+        nextDebate,
+        args.operations,
+    );
+    const sequencedConnectorDirectives = baseDirectives.filter((directive): directive is GraphConnectorUpdateDirective => (
+        directive.kind === "connector"
+            && directive.effect === "update"
+            && shouldSequenceConnectorUpdate(
+                args.fromSnapshot.renderState,
+                finalSnapshot.renderState,
+                directive.connectorId,
+            )
+    ));
+
+    if (sequencedConnectorDirectives.length < 1) {
+        return undefined;
+    }
+
+    const sequencedConnectorIds = new Set<ConnectorId>(
+        sequencedConnectorDirectives.map((directive) => directive.connectorId),
+    );
+    const phaseDurations = distributeFrames(args.durationInFrames, 2);
+    const intermediateSnapshot = withHeldSequencedConnectorDeliveryGeometry(
+        finalSnapshot,
+        args.fromSnapshot,
+        sequencedConnectorIds,
+    );
+    const sourcePhaseDirectives = baseDirectives.flatMap((directive) => {
+        if (
+            directive.kind !== "connector"
+            || directive.effect !== "update"
+            || !sequencedConnectorIds.has(directive.connectorId)
+        ) {
+            return [directive];
+        }
+
+        return [{
+            ...directive,
+            junctionEffect: "none",
+            spanTypes: ["confidenceSource"],
+        } satisfies GraphTransitionDirective];
+    });
+    const deliveryPhaseDirectives = sequencedConnectorDirectives.map((directive) => ({
+        ...directive,
+        junctionEffect: "update",
+        spanTypes: ["confidenceDelivery"],
+    } satisfies GraphTransitionDirective));
+
+    return [
+        buildTransitionSegment(
+            {
+                ...args,
+                durationInFrames: phaseDurations[0] ?? 1,
+                name: `${args.name} / source to junction`,
+            },
+            intermediateSnapshot,
+            sourcePhaseDirectives,
+        ),
+        buildTransitionSegment(
+            {
+                ...args,
+                durationInFrames: phaseDurations[1] ?? 1,
+                fromSnapshot: intermediateSnapshot,
+                name: `${args.name} / junction to target`,
+                timelineFrom: args.timelineFrom + (phaseDurations[0] ?? 1),
+            },
+            finalSnapshot,
+            deliveryPhaseDirectives,
+        ),
+    ];
+}
+
+function shouldSequenceConnectorUpdate(
+    fromState: GraphRenderState,
+    toState: GraphRenderState,
+    connectorId: ConnectorId,
+): boolean {
+    const fromSourceSpan = findConnectorSpanVisual(fromState, connectorId, "confidenceSource");
+    const toSourceSpan = findConnectorSpanVisual(toState, connectorId, "confidenceSource");
+    const hasDeliverySpan = !!findConnectorSpanVisual(fromState, connectorId, "confidenceDelivery")
+        || !!findConnectorSpanVisual(toState, connectorId, "confidenceDelivery");
+
+    return hasDeliverySpan
+        && (isVisibleConnectorSpan(fromSourceSpan) || isVisibleConnectorSpan(toSourceSpan));
+}
+
+function isVisibleConnectorSpan(span: GraphConnectorSpanVisual | undefined): boolean {
+    return !!span && (span.pipeWidth > 0.5 || span.fluidWidth > 0.5);
+}
+
+function shouldUseAddRelevanceVisualPhases(operations: readonly Operation[]): boolean {
+    return shouldUseAddClaimVisualPhases(operations)
+        && getAddedRelevanceConnectors(operations).length > 0;
+}
+
 function shouldUseAddClaimVisualPhases(operations: readonly Operation[]): boolean {
     return operations.some((operation) => operation.type === "ClaimAdded")
         && operations.some((operation) => operation.type === "ConnectorAdded")
         && operations.some((operation) => operation.type === "ScoreAdded");
+}
+
+function getAddedRelevanceConnectors(
+    operations: readonly Operation[],
+): Extract<Extract<Operation, { type: "ConnectorAdded" }>["connector"], { type: "relevance" }>[] {
+    return operations.flatMap((operation) => (
+        operation.type === "ConnectorAdded" && operation.connector.type === "relevance"
+            ? [operation.connector]
+            : []
+    ));
 }
 
 function getAddedConnectorIds(operations: readonly Operation[]): ReadonlySet<ConnectorId> {
@@ -766,6 +1088,250 @@ function withConnectorPhaseVisibility(
             connectorJunctionByVisualId,
         },
     };
+}
+
+function withHeldSequencedConnectorDeliveryGeometry(
+    targetSnapshot: GraphSnapshot,
+    fromSnapshot: GraphSnapshot,
+    connectorIds: ReadonlySet<ConnectorId>,
+): GraphSnapshot {
+    if (connectorIds.size < 1) {
+        return targetSnapshot;
+    }
+
+    const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
+    const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
+
+    for (const [visualId, span] of Object.entries(targetSnapshot.renderState.connectorSpanByVisualId)) {
+        const fromSpan = fromSnapshot.renderState.connectorSpanByVisualId[visualId];
+        connectorSpanByVisualId[visualId] = connectorIds.has(span.connectorId)
+            && span.spanType === "confidenceDelivery"
+            && fromSpan
+            ? fromSpan
+            : span;
+    }
+
+    for (const [visualId, junction] of Object.entries(targetSnapshot.renderState.connectorJunctionByVisualId)) {
+        const fromJunction = fromSnapshot.renderState.connectorJunctionByVisualId[visualId];
+        connectorJunctionByVisualId[visualId] = connectorIds.has(junction.targetConfidenceConnectorId)
+            && fromJunction
+            ? fromJunction
+            : junction;
+    }
+
+    return withRenderState(targetSnapshot, {
+        ...targetSnapshot.renderState,
+        connectorSpanByVisualId,
+        connectorJunctionByVisualId,
+    });
+}
+
+function withAddRelevanceTargetConfidenceWidths(
+    snapshot: GraphSnapshot,
+    fromSnapshot: GraphSnapshot,
+    finalSnapshot: GraphSnapshot,
+    targetConfidenceConnectorIds: ReadonlySet<ConnectorId>,
+): GraphSnapshot {
+    if (targetConfidenceConnectorIds.size < 1) {
+        return snapshot;
+    }
+
+    const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
+
+    for (const [visualId, span] of Object.entries(snapshot.renderState.connectorSpanByVisualId)) {
+        if (!targetConfidenceConnectorIds.has(span.connectorId)) {
+            connectorSpanByVisualId[visualId] = span;
+            continue;
+        }
+
+        const finalSpan = finalSnapshot.renderState.connectorSpanByVisualId[visualId];
+        const fromSpan = fromSnapshot.renderState.connectorSpanByVisualId[visualId];
+        if (span.spanType === "confidenceSource" && finalSpan) {
+            connectorSpanByVisualId[visualId] = {
+                ...span,
+                fluidProgress: 1,
+                fluidWidth: finalSpan.fluidWidth,
+                pipeProgress: 1,
+                pipeWidth: finalSpan.pipeWidth,
+            };
+            continue;
+        }
+
+        if (span.spanType === "confidenceDelivery" && fromSpan) {
+            connectorSpanByVisualId[visualId] = {
+                ...span,
+                fluidProgress: 1,
+                fluidWidth: fromSpan.fluidWidth,
+                pipeProgress: 1,
+                pipeWidth: fromSpan.pipeWidth,
+            };
+            continue;
+        }
+
+        connectorSpanByVisualId[visualId] = span;
+    }
+
+    return withRenderState(snapshot, {
+        ...snapshot.renderState,
+        connectorSpanByVisualId,
+    });
+}
+
+function withAddRelevanceTargetLineJunctionGeometry(
+    snapshot: GraphSnapshot,
+    fromSnapshot: GraphSnapshot,
+    finalSnapshot: GraphSnapshot,
+    targetConfidenceConnectorIds: ReadonlySet<ConnectorId>,
+): GraphSnapshot {
+    if (targetConfidenceConnectorIds.size < 1) {
+        return snapshot;
+    }
+
+    const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
+    const lineJunctionByTargetConnectorId = new Map<ConnectorId, GraphConnectorJunctionVisual>();
+
+    for (const [visualId, junction] of Object.entries(snapshot.renderState.connectorJunctionByVisualId)) {
+        if (!targetConfidenceConnectorIds.has(junction.targetConfidenceConnectorId)) {
+            connectorJunctionByVisualId[visualId] = junction;
+            continue;
+        }
+
+        const lineJunction = buildAddRelevanceLineJunctionVisual(junction, fromSnapshot, finalSnapshot);
+        connectorJunctionByVisualId[visualId] = lineJunction;
+        lineJunctionByTargetConnectorId.set(junction.targetConfidenceConnectorId, lineJunction);
+    }
+
+    const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
+
+    for (const [visualId, span] of Object.entries(snapshot.renderState.connectorSpanByVisualId)) {
+        const connector = snapshot.debate.connectors[span.connectorId];
+        const lineJunction = connector?.type === "relevance"
+            ? lineJunctionByTargetConnectorId.get(connector.targetConfidenceConnectorId)
+            : undefined;
+
+        connectorSpanByVisualId[visualId] = lineJunction
+            ? {
+                ...span,
+                centerlinePoints: buildRelevanceCenterlineToLineJunction(span, lineJunction),
+            }
+            : span;
+    }
+
+    return withRenderState(snapshot, {
+        ...snapshot.renderState,
+        connectorSpanByVisualId,
+        connectorJunctionByVisualId,
+    });
+}
+
+function buildAddRelevanceLineJunctionVisual(
+    junction: GraphConnectorJunctionVisual,
+    fromSnapshot: GraphSnapshot,
+    finalSnapshot: GraphSnapshot,
+): GraphConnectorJunctionVisual {
+    const fromDeliverySpan = findConnectorSpanVisual(
+        fromSnapshot.renderState,
+        junction.targetConfidenceConnectorId,
+        "confidenceDelivery",
+    );
+    const finalSourceSpan = findConnectorSpanVisual(
+        finalSnapshot.renderState,
+        junction.targetConfidenceConnectorId,
+        "confidenceSource",
+    );
+    const lineHeight = fromDeliverySpan?.pipeWidth ?? junction.leftHeight;
+
+    return {
+        ...junction,
+        leftHeight: lineHeight,
+        opacity: 1,
+        rightHeight: finalSourceSpan?.pipeWidth ?? lineHeight,
+        width: Math.max(junction.width, lineHeight),
+    };
+}
+
+function buildRelevanceCenterlineToLineJunction(
+    span: GraphConnectorSpanVisual,
+    junction: GraphConnectorJunctionVisual,
+): Waypoint[] {
+    const startPoint = span.centerlinePoints[0];
+    if (!startPoint) {
+        return span.centerlinePoints;
+    }
+
+    const fromAbove = startPoint.y < junction.centerY;
+    const targetPoint = getConnectorJunctionRelevanceTargetPoint(junction, fromAbove);
+    const edgeDeltaY = getConnectorJunctionRelevanceEdgeDeltaY(junction, fromAbove);
+    const cornerX = targetPoint.x + (
+        (edgeDeltaY * (targetPoint.y - startPoint.y))
+        / Math.max(0.0001, junction.width)
+    );
+
+    if (
+        Math.abs(startPoint.y - targetPoint.y) <= 1
+        || cornerX >= startPoint.x - 1
+    ) {
+        return [startPoint, targetPoint];
+    }
+
+    return [
+        startPoint,
+        {
+            x: cornerX,
+            y: startPoint.y,
+            ...(span.centerlinePoints[1]?.radius !== undefined
+                ? { radius: span.centerlinePoints[1].radius }
+                : {}),
+        },
+        targetPoint,
+    ];
+}
+
+function getConnectorJunctionRelevanceTargetPoint(
+    junction: GraphConnectorJunctionVisual,
+    fromAbove: boolean,
+): Waypoint {
+    return {
+        x: junction.centerX,
+        y: fromAbove
+            ? (getConnectorJunctionLeftTopY(junction) + getConnectorJunctionRightTopY(junction)) / 2
+            : (getConnectorJunctionLeftBottomY(junction) + getConnectorJunctionRightBottomY(junction)) / 2,
+    };
+}
+
+function getConnectorJunctionRelevanceEdgeDeltaY(
+    junction: GraphConnectorJunctionVisual,
+    fromAbove: boolean,
+): number {
+    return fromAbove
+        ? getConnectorJunctionRightTopY(junction) - getConnectorJunctionLeftTopY(junction)
+        : getConnectorJunctionRightBottomY(junction) - getConnectorJunctionLeftBottomY(junction);
+}
+
+function getConnectorJunctionLeftTopY(junction: GraphConnectorJunctionVisual): number {
+    return junction.centerY - (junction.leftHeight / 2);
+}
+
+function getConnectorJunctionRightTopY(junction: GraphConnectorJunctionVisual): number {
+    return junction.centerY - (junction.rightHeight / 2);
+}
+
+function getConnectorJunctionLeftBottomY(junction: GraphConnectorJunctionVisual): number {
+    return junction.centerY + (junction.leftHeight / 2);
+}
+
+function getConnectorJunctionRightBottomY(junction: GraphConnectorJunctionVisual): number {
+    return junction.centerY + (junction.rightHeight / 2);
+}
+
+function findConnectorSpanVisual(
+    state: GraphRenderState,
+    connectorId: ConnectorId,
+    spanType: DebateLayoutConnectorSpan["spanType"],
+): GraphConnectorSpanVisual | undefined {
+    return Object.values(state.connectorSpanByVisualId).find((span) => (
+        span.connectorId === connectorId && span.spanType === spanType
+    ));
 }
 
 function buildTransitionSegment(
@@ -893,14 +1459,32 @@ function buildOperationGroups(operations: readonly Operation[]): OperationGroup[
     return groups;
 }
 
-function countTransitionSegmentsForOperations(operations: readonly Operation[]): number {
-    return Math.max(
-        1,
-        buildOperationGroups(operations).reduce(
-            (total, group) => total + (shouldUseAddClaimVisualPhases(group.operations) ? 3 : 1),
-            0,
-        ),
-    );
+function countTransitionSegmentsForOperations(startDebate: Debate, operations: readonly Operation[]): number {
+    const operationGroups = buildOperationGroups(operations);
+    if (operationGroups.length < 1) {
+        return 1;
+    }
+
+    const groupPlans = buildOperationGroupPlans(buildGraphSnapshot(startDebate), operationGroups);
+    let currentSnapshot = buildGraphSnapshot(startDebate);
+    let transitionSegmentCount = 0;
+
+    for (let groupIndex = 0; groupIndex < operationGroups.length; groupIndex += 1) {
+        const groupPlan = groupPlans[groupIndex];
+        const nextSegments = buildTransitionSegments({
+            durationInFrames: 1,
+            fromSnapshot: currentSnapshot,
+            name: operationGroups[groupIndex]?.name ?? "Graph transition",
+            operations: operationGroups[groupIndex]?.operations ?? [],
+            timelineFrom: 0,
+            toSnapshotOverride: groupPlan?.toSnapshot,
+        });
+
+        transitionSegmentCount += Math.max(1, nextSegments.length);
+        currentSnapshot = nextSegments[nextSegments.length - 1]?.toSnapshot ?? currentSnapshot;
+    }
+
+    return Math.max(1, transitionSegmentCount);
 }
 
 function assertAnimationOperationScope(operations: readonly Operation[]): void {
@@ -1057,6 +1641,7 @@ function buildConnectorSpanVisual(
     return {
         visualId: span.visualId,
         connectorId: span.connectorId,
+        spanType: span.spanType,
         centerlinePoints: span.centerlinePoints.map((point) => ({
             ...point,
             x: mapLayoutX(layout, point.x),
@@ -1085,7 +1670,7 @@ function buildConnectorJunctionVisual(
         rightHeight: junction.rightHeight,
         side: junction.side,
         width: junction.width,
-        opacity: 1,
+        opacity: junction.width > 0.0001 ? 1 : 0,
     };
 }
 
@@ -1295,6 +1880,7 @@ function interpolateConnectorSpanVisual(
     return {
         ...fromSpan,
         side: toSpan.side,
+        spanType: toSpan.spanType,
         centerlinePoints: interpolateWaypoints(fromSpan.centerlinePoints, toSpan.centerlinePoints, progress),
         fluidWidth: lerp(fromSpan.fluidWidth, toSpan.fluidWidth, progress),
         pipeWidth: lerp(fromSpan.pipeWidth, toSpan.pipeWidth, progress),
@@ -1323,7 +1909,17 @@ function interpolateWaypoints(
     progress: number,
 ): Waypoint[] {
     if (fromPoints.length !== toPoints.length) {
-        return progress < 0.5 ? fromPoints : toPoints;
+        const pointCount = Math.max(2, fromPoints.length, toPoints.length);
+        const normalizedFromPoints = sampleWaypointsAtEvenProgress(fromPoints, pointCount);
+        const normalizedToPoints = sampleWaypointsAtEvenProgress(toPoints, pointCount);
+
+        return normalizedFromPoints.map((fromPoint, index) => {
+            const toPoint = normalizedToPoints[index];
+            return {
+                x: lerp(fromPoint.x, toPoint.x, progress),
+                y: lerp(fromPoint.y, toPoint.y, progress),
+            };
+        });
     }
 
     return fromPoints.map((fromPoint, index) => {
@@ -1338,6 +1934,57 @@ function interpolateWaypoints(
             ...radius,
         };
     });
+}
+
+function sampleWaypointsAtEvenProgress(points: Waypoint[], pointCount: number): Waypoint[] {
+    if (points.length < 1) {
+        return Array.from({ length: pointCount }, () => ({ x: 0, y: 0 }));
+    }
+
+    if (pointCount <= 1) {
+        return [points[0]];
+    }
+
+    return Array.from({ length: pointCount }, (_value, index) => (
+        getPointAtWaypointProgress(points, index / (pointCount - 1))
+    ));
+}
+
+function getPointAtWaypointProgress(points: Waypoint[], progress: number): Waypoint {
+    if (points.length <= 1) {
+        return points[0] ?? { x: 0, y: 0 };
+    }
+
+    const totalLength = estimateCenterlinePathLength(points);
+    if (totalLength <= 0.0001) {
+        return { x: points[0].x, y: points[0].y };
+    }
+
+    const targetLength = totalLength * clamp01(progress);
+    let traversedLength = 0;
+
+    for (let index = 1; index < points.length; index += 1) {
+        const segmentStart = points[index - 1];
+        const segmentEnd = points[index];
+        const segmentLength = Math.hypot(segmentEnd.x - segmentStart.x, segmentEnd.y - segmentStart.y);
+
+        if (traversedLength + segmentLength < targetLength) {
+            traversedLength += segmentLength;
+            continue;
+        }
+
+        const segmentProgress = segmentLength <= 0.0001
+            ? 0
+            : (targetLength - traversedLength) / segmentLength;
+
+        return {
+            x: lerp(segmentStart.x, segmentEnd.x, segmentProgress),
+            y: lerp(segmentStart.y, segmentEnd.y, segmentProgress),
+        };
+    }
+
+    const finalPoint = points[points.length - 1];
+    return { x: finalPoint.x, y: finalPoint.y };
 }
 
 function applyClaimDirective(
@@ -1408,7 +2055,11 @@ function applyConnectorDirective(
 ): void {
     for (const visualId of state.connectorSpanRenderOrder) {
         const workingSpan = state.connectorSpanByVisualId[visualId];
-        if (!workingSpan || workingSpan.connectorId !== directive.connectorId) {
+        if (
+            !workingSpan
+            || workingSpan.connectorId !== directive.connectorId
+            || !shouldAnimateConnectorSpan(workingSpan, directive)
+        ) {
             continue;
         }
 
@@ -1464,6 +2115,11 @@ function applyConnectorDirective(
         }
     }
 
+    const junctionEffect = resolveJunctionEffect(directive);
+    if (junctionEffect === "none") {
+        return;
+    }
+
     for (const visualId of state.connectorJunctionRenderOrder) {
         const workingJunction = state.connectorJunctionByVisualId[visualId];
         if (!workingJunction || workingJunction.targetConfidenceConnectorId !== directive.connectorId) {
@@ -1473,25 +2129,27 @@ function applyConnectorDirective(
         const fromJunction = fromSnapshot.renderState.connectorJunctionByVisualId[visualId];
         const toJunction = toSnapshot.renderState.connectorJunctionByVisualId[visualId];
 
-        if ((directive.effect === "pipeGrow" || directive.effect === "fluidGrow") && toJunction) {
+        if (junctionEffect === "reveal" && toJunction) {
             state.connectorJunctionByVisualId[visualId] = {
                 ...workingJunction,
                 ...toJunction,
-                opacity: directive.effect === "pipeGrow" ? progress : 1,
+                opacity: progress,
+                width: toJunction.width * progress,
             };
             continue;
         }
 
-        if (directive.effect === "shrink" && fromJunction) {
+        if (junctionEffect === "hide" && fromJunction) {
             state.connectorJunctionByVisualId[visualId] = {
                 ...workingJunction,
                 ...fromJunction,
                 opacity: 1 - progress,
+                width: fromJunction.width * (1 - progress),
             };
             continue;
         }
 
-        if (directive.effect === "update") {
+        if (junctionEffect === "update") {
             if (fromJunction && toJunction) {
                 state.connectorJunctionByVisualId[visualId] = {
                     ...interpolateConnectorJunctionVisual(fromJunction, toJunction, progress),
@@ -1515,6 +2173,32 @@ function applyConnectorDirective(
                 };
             }
         }
+    }
+}
+
+function shouldAnimateConnectorSpan(
+    span: GraphConnectorSpanVisual,
+    directive: Extract<GraphTransitionDirective, { kind: "connector" }>,
+): boolean {
+    return directive.spanTypes === undefined
+        || directive.spanTypes.includes(span.spanType);
+}
+
+function resolveJunctionEffect(
+    directive: Extract<GraphTransitionDirective, { kind: "connector" }>,
+): "hide" | "none" | "reveal" | "update" {
+    if (directive.junctionEffect) {
+        return directive.junctionEffect;
+    }
+
+    switch (directive.effect) {
+        case "pipeGrow":
+        case "fluidGrow":
+            return "reveal";
+        case "shrink":
+            return "hide";
+        case "update":
+            return "update";
     }
 }
 
@@ -1734,12 +2418,12 @@ function addDirective(
 ): void {
     const directiveKey = directive.kind === "claim"
         ? `${directive.kind}:${directive.scoreId}:${directive.effect}`
-        : `${directive.kind}:${directive.connectorId}:${directive.effect}`;
+        : `${directive.kind}:${directive.connectorId}:${directive.effect}:${directive.direction ?? "none"}:${directive.junctionEffect ?? "default"}:${directive.spanTypes?.join(",") ?? "all"}`;
 
     if (directives.some((existingDirective) => {
         const existingDirectiveKey = existingDirective.kind === "claim"
             ? `${existingDirective.kind}:${existingDirective.scoreId}:${existingDirective.effect}`
-            : `${existingDirective.kind}:${existingDirective.connectorId}:${existingDirective.effect}`;
+            : `${existingDirective.kind}:${existingDirective.connectorId}:${existingDirective.effect}:${existingDirective.direction ?? "none"}:${existingDirective.junctionEffect ?? "default"}:${existingDirective.spanTypes?.join(",") ?? "all"}`;
         return existingDirectiveKey === directiveKey;
     })) {
         return;
@@ -1766,7 +2450,8 @@ function renderConnectorSpan(
     }
 
     const layerProgress = layer === "fluid" ? connector.fluidProgress : connector.pipeProgress;
-    if (connector.opacity <= 0 || layerProgress <= 0) {
+    const activeWidth = layer === "fluid" ? connector.fluidWidth : connector.pipeWidth;
+    if (connector.opacity <= 0 || layerProgress <= 0 || activeWidth <= 0.5) {
         return null;
     }
     const geometryInstructions = buildConnectorRevealInstructions(
@@ -1911,7 +2596,7 @@ function buildConnectorUpdateInstructions(
 }
 
 function renderConnectorJunction(visual: GraphConnectorJunctionVisual): ReactNode {
-    if (visual.opacity <= 0) {
+    if (visual.opacity <= 0 || visual.width <= 0.0001) {
         return null;
     }
 

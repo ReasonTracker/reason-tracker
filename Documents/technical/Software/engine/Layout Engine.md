@@ -32,7 +32,7 @@ Visual styling, animation timing, and SVG band drawing stay downstream.
 8. Derive node width and node height from the shared layout scale of `score.scaleOfSources`.
 9. Use the same exported base node height and layout scale for claim height and the confidence source span's potential width.
 10. Scale horizontal depth spacing directly by the previous layer's `score.scaleOfSources`; do not apply a spacing floor, interpolation, or visible-preview adjustment to horizontal column gaps.
-11. If a target depth contains one or more relevance-connected score occurrences, double the horizontal spacing into that depth so connector junctions have room to route.
+11. If a target depth contains one or more confidence-connected score occurrences, double the horizontal spacing into that depth so connector junctions have room to route without shifting the layer when relevance is added.
 12. Pack vertically with a bottom-up subtree-height pass.
 13. Center each parent inside its subtree block.
 14. Compute confidence stack centers from actual confidence widths after node positions are known.
@@ -41,9 +41,11 @@ Visual styling, animation timing, and SVG band drawing stay downstream.
 
 ## Connector Span Terms
 
-- A confidence connector has a **source span** from the source claim to the connector junction.
-- A confidence connector has a **delivery span** from the connector junction to the target claim.
-- A confidence connector with no attached relevance connector is represented as one delivery span from source claim to target claim.
+- Every confidence connector has a stable **source span**, **delivery span**, and connector junction geometry.
+- The source span runs from the source claim toward the connector junction.
+- The delivery span carries confidence toward the target claim.
+- When no relevance connector targets the confidence connector, the source span has zero rendered width, the delivery span follows the full source-to-target route, and the junction has zero width.
+- When relevance targets the confidence connector, the source span renders from the source claim to the right side of the junction, and the delivery span renders from the left side of the junction to the target claim.
 - The source span uses the source score's `scaleOfSources` and is not multiplied by that score's relevance.
 - The delivery span uses the source score's `deliveryScaleOfSources`.
 - `deliveryScaleOfSources` is `scaleOfSources * relevance` for the score carried by the confidence connector.
@@ -57,17 +59,17 @@ Visual styling, animation timing, and SVG band drawing stay downstream.
 
 ## Relevance Handling
 
-- Relevance connectors target a connector junction on a confidence connector, not the claim box.
+- Relevance connectors target connector junction geometry on a confidence connector, not the claim box.
 - The relevance claim shares the same visual layer as the confidence claim whose connector is being targeted.
 - Connector widths are layout-owned world-unit measurements.
 - Claim height and the confidence source span's potential width share `BASE_NODE_HEIGHT_PX` and `toLayoutScale(score.scaleOfSources)`.
 - The connector junction is drawn as a tapered four-sided frame around the routing join.
 - The connector junction's left side height matches the confidence delivery span potential width.
 - The connector junction's right side height matches the confidence source span potential width.
-- The connector junction's width is the relevance connector's rendered potential pipe width.
+- The connector junction's width is the widest targeting relevance connector's rendered potential pipe width, or zero when the junction is latent.
 - The connector junction sits in front of the confidence source claim, about one-fifth of the connector path from that source claim toward the target claim.
 - A relevance connector enters the connector junction along the tapered top edge when its source is above the connector junction and along the tapered bottom edge when its source is below the connector junction.
-- The confidence connector is rendered as two connector spans: source span, then delivery span.
+- The confidence connector is rendered as two stable connector spans: source span, then delivery span.
 - Other confidence connectors into the same target use the connector-junction confidence connector's delivery span as their turn guide: they start bending when that span starts bending and return to the target when that span returns.
 - The connector junction is a routing construct and does not replace the score occurrence as the layout unit.
 - At 100% connector confidence, a span's actual confidence width matches that span's potential pipe width because both are calculated from the same base node height and span scale.
@@ -78,7 +80,7 @@ The first implementation should expose:
 
 - one positioned node per score occurrence
 - zero or more routed connector spans
-- zero or more connector junctions
+- one connector junction per confidence connector
 - the score id and claim id for each node
 - claim content for preview rendering
 - structural parent id and layout parent id for each node
