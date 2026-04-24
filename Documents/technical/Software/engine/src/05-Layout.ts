@@ -16,6 +16,10 @@ const RELEVANCE_LAYER_HORIZONTAL_GAP_MULTIPLIER = 2;
 const BASE_VERTICAL_GAP_PX = 50;
 /** Minimum vertical distance retained for dense groups of small source scores. */
 const MIN_VERTICAL_GAP_PX = 28;
+/** Preferred share of the horizontal connector span kept as each straight stub before and after the diagonal section. */
+const CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN = 0.2;
+/** Preferred share of the geometry-allowed diagonal bend radius; `1` uses the softest corner the local geometry can support. */
+const CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX = 1;
 /** Shortest horizontal run kept before a connector turns into its diagonal middle section. */
 const MIN_CONNECTOR_STRAIGHT_PX = 34;
 /** Smallest diagonal run preserved between the two horizontal connector stubs. */
@@ -25,7 +29,7 @@ const MIN_CONNECTOR_BEND_RADIUS_PX = 12;
 /** Minimum inner bend radius as a fraction of the rendered pipe width. */
 const MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO = 0.3;
 /** Position of a connector junction along its confidence connector, measured from source claim to target claim. */
-const CONNECTOR_JUNCTION_PATH_PROGRESS = 1 / 4;
+const CONNECTOR_JUNCTION_PATH_PROGRESS = 0.2;
 /** Default left offset for exported layout coordinates. */
 const DEFAULT_ORIGIN_X_PX = 96;
 /** Default top offset for exported layout coordinates. */
@@ -156,6 +160,7 @@ interface ActualConfidenceSlot {
 }
 
 interface ConnectorTurnGuide {
+    preferredBendRadius: number
     returnTurnX: number
     turnStartX: number
 }
@@ -697,15 +702,16 @@ function buildAngularConnectorCenterline(
         return [startPoint, endPoint];
     }
 
-    const diagonalLength = Math.hypot(
-        bendPoints.bendStart.x - bendPoints.bendEnd.x,
-        bendPoints.bendStart.y - bendPoints.bendEnd.y,
-    );
+    const diagonalDeltaX = Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x);
+    const diagonalDeltaY = Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y);
+    const diagonalLength = Math.hypot(diagonalDeltaX, diagonalDeltaY);
     const bendRadius = resolveDiagonalConnectorBendRadius(
         bendPoints.startStraightLength,
         bendPoints.endStraightLength,
         diagonalLength,
+        Math.atan2(diagonalDeltaY, diagonalDeltaX),
         getMinimumCenterlineBendRadius(pipeWidth),
+        turnGuide?.preferredBendRadius,
     );
 
     if (bendRadius < 8) {
@@ -750,7 +756,6 @@ function resolveAngularConnectorBendPoints(
 
     const straightSegmentLength = resolveConnectorStraightSegmentLength(
         Math.max(0, startPoint.x - endPoint.x),
-        Math.abs(startPoint.y - endPoint.y),
         getMinimumCenterlineBendRadius(pipeWidth),
     );
 
@@ -768,7 +773,6 @@ function resolveAngularConnectorBendPoints(
 
 function resolveConnectorStraightSegmentLength(
     horizontalSpan: number,
-    verticalSpan: number,
     minimumCenterlineBendRadius: number,
 ): number {
     const maximumStraightSegmentLength = Math.max(
@@ -782,7 +786,7 @@ function resolveConnectorStraightSegmentLength(
     const preferredStraightSegmentLength = Math.max(
         MIN_CONNECTOR_STRAIGHT_PX,
         minimumCenterlineBendRadius,
-        (horizontalSpan - verticalSpan) / 2,
+        horizontalSpan * CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN,
     );
 
     return Math.min(preferredStraightSegmentLength, maximumStraightSegmentLength);
@@ -802,6 +806,19 @@ function getAngularConnectorTurnGuide(
 
     return bendPoints
         ? {
+            preferredBendRadius: resolveDiagonalConnectorBendRadius(
+                bendPoints.startStraightLength,
+                bendPoints.endStraightLength,
+                Math.hypot(
+                    bendPoints.bendStart.x - bendPoints.bendEnd.x,
+                    bendPoints.bendStart.y - bendPoints.bendEnd.y,
+                ),
+                Math.atan2(
+                    Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y),
+                    Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x),
+                ),
+                getMinimumCenterlineBendRadius(pipeWidth),
+            ),
             returnTurnX: bendPoints.bendEnd.x,
             turnStartX: bendPoints.bendStart.x,
         }
@@ -812,18 +829,44 @@ function resolveDiagonalConnectorBendRadius(
     startStraightLength: number,
     endStraightLength: number,
     diagonalLength: number,
+    diagonalTurnAngleRadians: number,
     minimumCenterlineBendRadius: number,
+    preferredBendRadius?: number,
 ): number {
-    const maximumBendRadius = Math.min(
+    const maximumBendRadius = getMaximumDiagonalCornerBendRadius(
         startStraightLength,
         endStraightLength,
-        diagonalLength / 2,
+        diagonalLength,
+        diagonalTurnAngleRadians,
     );
+    const defaultPreferredBendRadius = maximumBendRadius * CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX;
 
     return Math.min(
-        Math.max(MIN_CONNECTOR_BEND_RADIUS_PX, minimumCenterlineBendRadius),
+        Math.max(
+            MIN_CONNECTOR_BEND_RADIUS_PX,
+            minimumCenterlineBendRadius,
+            preferredBendRadius ?? defaultPreferredBendRadius,
+        ),
         maximumBendRadius,
     );
+}
+
+function getMaximumDiagonalCornerBendRadius(
+    startStraightLength: number,
+    endStraightLength: number,
+    diagonalLength: number,
+    diagonalTurnAngleRadians: number,
+): number {
+    const tangentFactor = Math.tan(diagonalTurnAngleRadians / 2);
+    if (tangentFactor <= 1e-6) {
+        return 0;
+    }
+
+    return Math.min(
+        startStraightLength,
+        endStraightLength,
+        diagonalLength,
+    ) / tangentFactor;
 }
 
 function resolveOrthogonalConnectorBendRadius(
@@ -919,9 +962,19 @@ function buildTurnGuideByTargetScoreId(
 
         const targetScoreId = plan.draft.targetNode.scoreId;
         const currentTurnGuide = turnGuideByTargetScoreId.get(targetScoreId);
-        if (!currentTurnGuide || secondSegmentTurnGuide.turnStartX < currentTurnGuide.turnStartX) {
-            turnGuideByTargetScoreId.set(targetScoreId, secondSegmentTurnGuide);
-        }
+        const nextTurnGuide = !currentTurnGuide
+            || secondSegmentTurnGuide.turnStartX < currentTurnGuide.turnStartX
+            ? secondSegmentTurnGuide
+            : currentTurnGuide;
+
+        turnGuideByTargetScoreId.set(targetScoreId, {
+            preferredBendRadius: Math.max(
+                currentTurnGuide?.preferredBendRadius ?? 0,
+                secondSegmentTurnGuide.preferredBendRadius,
+            ),
+            returnTurnX: nextTurnGuide.returnTurnX,
+            turnStartX: nextTurnGuide.turnStartX,
+        });
     }
 
     return turnGuideByTargetScoreId;

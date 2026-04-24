@@ -55,6 +55,12 @@ const GRAPH_PADDING_PX = 96;
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 /** Multiplier applied to connector width when deriving the span of a path-geometry transition front. */
 const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
+/** Font size for the large numeric confidence value shown in each claim card footer. */
+const CLAIM_CONFIDENCE_VALUE_FONT_SIZE_PX = 32;
+/** Font size for the small confidence caption shown beneath the numeric value. */
+const CLAIM_CONFIDENCE_CAPTION_FONT_SIZE_PX = 11;
+/** Vertical gap between the numeric confidence value and its caption. */
+const CLAIM_CONFIDENCE_CAPTION_GAP_PX = 2;
 
 const planner = new Planner();
 const reducer = new Reducer();
@@ -1986,9 +1992,12 @@ function renderClaim(claim: GraphNodeVisual): ReactNode {
                     }}
                 >
                     <div style={claimContentStyle}>{claim.content}</div>
-                    <small style={claimScoreStyle}>
-                        {formatConfidenceLabel(claim.confidence)}
-                    </small>
+                    <div style={claimConfidenceStyle}>
+                        <span style={claimConfidenceValueStyle}>
+                            {formatConfidenceValue(claim.confidence)}
+                        </span>
+                        <small style={claimConfidenceCaptionStyle}>confidence</small>
+                    </div>
                 </div>
             </div>
         </article>
@@ -2389,8 +2398,8 @@ function resolveSideFill(side: Score["claimSide"], alpha: number): string {
     return `hsl(var(--con-h) 100% var(--con-l) / ${alpha})`;
 }
 
-function formatConfidenceLabel(confidence: number): string {
-    return `${Math.round(confidence * 100)}% confidence`;
+function formatConfidenceValue(confidence: number): string {
+    return `${Math.round(confidence * 100)}%`;
 }
 
 function invertAnimationDirection(
@@ -2435,10 +2444,27 @@ const claimContentStyle = {
     WebkitLineClamp: 4,
 } satisfies CSSProperties;
 
-const claimScoreStyle = {
+const claimConfidenceStyle = {
+    alignItems: "flex-start",
+    display: "flex",
+    flexDirection: "column",
+    marginTop: 8,
+} satisfies CSSProperties;
+
+const claimConfidenceValueStyle = {
+    color: "#f3f4f6",
+    fontSize: CLAIM_CONFIDENCE_VALUE_FONT_SIZE_PX,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 700,
+    lineHeight: 0.92,
+    whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const claimConfidenceCaptionStyle = {
     color: "#d1d5db",
-    fontSize: 14,
+    fontSize: CLAIM_CONFIDENCE_CAPTION_FONT_SIZE_PX,
     fontWeight: 600,
-    letterSpacing: "0.03em",
-    marginTop: 10,
+    letterSpacing: "0.06em",
+    lineHeight: 1,
+    marginTop: CLAIM_CONFIDENCE_CAPTION_GAP_PX,
 } satisfies CSSProperties;

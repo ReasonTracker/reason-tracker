@@ -28,6 +28,15 @@ const FRAME_PADDING_PX = 40;
 /** Outline width shared by connector walls and connector junction frames. */
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 
+/** Font size for the large numeric confidence value shown in each claim card footer. */
+const CLAIM_CONFIDENCE_VALUE_FONT_SIZE_PX = 32;
+
+/** Font size for the small confidence caption shown beneath the numeric value. */
+const CLAIM_CONFIDENCE_CAPTION_FONT_SIZE_PX = 11;
+
+/** Vertical gap between the numeric confidence value and its caption. */
+const CLAIM_CONFIDENCE_CAPTION_GAP_PX = 2;
+
 export interface DebateRendererProps {
     debate: Debate;
     layout: DebateLayout;
@@ -149,7 +158,7 @@ export const DebateRenderer = ({
                         );
                         const cardFill = resolveSideFill(renderNode.score.claimSide, 0.3);
                         const cardStroke = resolveSideStroke(renderNode.score.claimSide);
-                        const labelText = formatConfidenceLabel(renderNode.score.claimConfidence);
+                        const confidenceValue = formatConfidenceValue(renderNode.score.claimConfidence);
 
                         return (
                             <article
@@ -203,17 +212,39 @@ export const DebateRenderer = ({
                                         >
                                             {renderNode.node.claimContent}
                                         </div>
-                                        <small
+                                        <div
                                             style={{
-                                                color: "#d1d5db",
-                                                fontSize: 14,
-                                                fontWeight: 600,
-                                                letterSpacing: "0.03em",
-                                                marginTop: 10,
+                                                alignItems: "flex-start",
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                marginTop: 8,
                                             }}
                                         >
-                                            {labelText}
-                                        </small>
+                                            <span
+                                                style={{
+                                                    color: "#f3f4f6",
+                                                    fontSize: CLAIM_CONFIDENCE_VALUE_FONT_SIZE_PX,
+                                                    fontVariantNumeric: "tabular-nums",
+                                                    fontWeight: 700,
+                                                    lineHeight: 0.92,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {confidenceValue}
+                                            </span>
+                                            <small
+                                                style={{
+                                                    color: "#d1d5db",
+                                                    fontSize: CLAIM_CONFIDENCE_CAPTION_FONT_SIZE_PX,
+                                                    fontWeight: 600,
+                                                    letterSpacing: "0.06em",
+                                                    lineHeight: 1,
+                                                    marginTop: CLAIM_CONFIDENCE_CAPTION_GAP_PX,
+                                                }}
+                                            >
+                                                confidence
+                                            </small>
+                                        </div>
                                     </div>
                                 </div>
                             </article>
@@ -344,6 +375,6 @@ function resolveSideFill(side: Score["claimSide"], alpha: number): string {
     return `hsl(var(--con-h) 100% var(--con-l) / ${alpha})`;
 }
 
-function formatConfidenceLabel(confidence: number): string {
-    return `${Math.round(confidence * 100)}% confidence`;
+function formatConfidenceValue(confidence: number): string {
+    return `${Math.round(confidence * 100)}%`;
 }

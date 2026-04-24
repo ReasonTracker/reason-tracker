@@ -65,7 +65,7 @@ Visual styling, animation timing, and SVG band drawing stay downstream.
 - The connector junction's left side height matches the confidence delivery span potential width.
 - The connector junction's right side height matches the confidence source span potential width.
 - The connector junction's width is the relevance connector's rendered potential pipe width.
-- The connector junction sits in front of the confidence source claim, about one-quarter of the connector path from that source claim toward the target claim.
+- The connector junction sits in front of the confidence source claim, about one-fifth of the connector path from that source claim toward the target claim.
 - A relevance connector enters the connector junction along the tapered top edge when its source is above the connector junction and along the tapered bottom edge when its source is below the connector junction.
 - The confidence connector is rendered as two connector spans: source span, then delivery span.
 - Other confidence connectors into the same target use the connector-junction confidence connector's delivery span as their turn guide: they start bending when that span starts bending and return to the target when that span returns.
