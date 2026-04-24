@@ -7,6 +7,10 @@
 // AGENT NOTE: Keep tunable numeric geometry constants grouped here.
 /** Small tolerance for treating numeric values as effectively equal. */
 const GEOMETRY_EPSILON = 1e-6;
+/** Maximum routed-path span represented by one sampled segment in a curved transition. */
+const CURVED_TRANSITION_SAMPLE_LENGTH_PX = 12;
+/** Minimum number of sampled segments used to approximate a curved transition. */
+const CURVED_TRANSITION_MIN_SAMPLE_SEGMENTS = 6;
 
 //#region Geometry primitives
 
@@ -32,7 +36,7 @@ export interface PathOffsetsInstruction extends OffsetSection {
 	type: "offsets";
 }
 
-export type PathGeometryTransitionKind = "linear";
+export type PathGeometryTransitionKind = "curved" | "linear";
 
 export interface PathTransitionInstruction {
 	type: "transition";
@@ -41,7 +45,7 @@ export interface PathTransitionInstruction {
 	kind: PathGeometryTransitionKind;
 }
 
-export type PathGeometryExtremityKind = "open" | "linear";
+export type PathGeometryExtremityKind = "curved" | "open" | "linear";
 
 export interface PathOpenExtremityInstruction {
 	type: "extremity";
@@ -57,9 +61,18 @@ export interface PathLinearExtremityInstruction {
 	collapseOffset: number;
 }
 
+export interface PathCurvedExtremityInstruction {
+	type: "extremity";
+	kind: "curved";
+	startPositionPercent: number;
+	lengthPx: number;
+	collapseOffset: number;
+}
+
 export type PathExtremityInstruction =
 	| PathOpenExtremityInstruction
-	| PathLinearExtremityInstruction;
+	| PathLinearExtremityInstruction
+	| PathCurvedExtremityInstruction;
 
 export type PathGeometryInstruction =
 	| PathOffsetsInstruction
@@ -79,15 +92,15 @@ export type PathGeometryCommand =
 	| { kind: "moveTo"; x: number; y: number }
 	| { kind: "lineTo"; x: number; y: number }
 	| {
-			kind: "arc";
-			rx: number;
-			ry: number;
-			xAxisRotation: number;
-			largeArc: boolean;
-			sweep: boolean;
-			x: number;
-			y: number;
-	  };
+		kind: "arc";
+		rx: number;
+		ry: number;
+		xAxisRotation: number;
+		largeArc: boolean;
+		sweep: boolean;
+		x: number;
+		y: number;
+	};
 
 export type PathGeometryIssueCode =
 	| "insufficient-points"
@@ -124,27 +137,28 @@ export interface PathGeometry {
 
 type CenterlinePart =
 	| {
-			kind: "line";
-			startPoint: Point;
-			endPoint: Point;
-			startDistance: number;
-			endDistance: number;
-	  }
+		kind: "line";
+		startPoint: Point;
+		endPoint: Point;
+		startDistance: number;
+		endDistance: number;
+	}
 	| {
-			kind: "arc";
-			center: Point;
-			radius: number;
-			startAngle: number;
-			deltaAngle: number;
-			startDistance: number;
-			endDistance: number;
-	  };
+		kind: "arc";
+		center: Point;
+		radius: number;
+		startAngle: number;
+		deltaAngle: number;
+		startDistance: number;
+		endDistance: number;
+	};
 
 interface PathProfileSegment {
 	startDistance: number;
 	endDistance: number;
 	fromSection: OffsetSection;
 	toSection: OffsetSection;
+	transitionKind?: PathGeometryTransitionKind;
 }
 
 interface CenterlineEvaluation {
@@ -268,13 +282,13 @@ function buildFilletCorner(
 	issues: PathGeometryIssue[],
 ):
 	| {
-			center: Point;
-			radius: number;
-			startPoint: Point;
-			endPoint: Point;
-			startAngle: number;
-			deltaAngle: number;
-	  }
+		center: Point;
+		radius: number;
+		startPoint: Point;
+		endPoint: Point;
+		startAngle: number;
+		deltaAngle: number;
+	}
 	| undefined {
 	if (!cornerPoint.radius || cornerPoint.radius <= GEOMETRY_EPSILON) {
 		return undefined;
@@ -422,7 +436,7 @@ function buildProfileSegments(
 	let instructionIndex = 1;
 	let activeSection = extractOffsetSection(instructions[1]);
 
-	if (firstInstruction.kind === "linear") {
+	if (firstInstruction.kind !== "open") {
 		const leadingLength = clampLengthPx(
 			firstInstruction.lengthPx,
 			Math.max(0, totalLength - cursor),
@@ -434,7 +448,7 @@ function buildProfileSegments(
 			offsetA: firstInstruction.collapseOffset,
 			offsetB: firstInstruction.collapseOffset,
 		};
-		pushProfileSegment(segments, cursor, leadingEnd, collapsedSection, activeSection);
+		pushProfileSegment(segments, cursor, leadingEnd, collapsedSection, activeSection, firstInstruction.kind);
 		cursor = leadingEnd;
 	}
 
@@ -504,7 +518,14 @@ function buildProfileSegments(
 
 		const transitionEnd = clampNumber(transitionStart + transitionLength, transitionStart, totalLength);
 		pushProfileSegment(segments, cursor, transitionStart, activeSection, activeSection);
-		pushProfileSegment(segments, transitionStart, transitionEnd, activeSection, nextSection);
+		pushProfileSegment(
+			segments,
+			transitionStart,
+			transitionEnd,
+			activeSection,
+			nextSection,
+			instruction.kind,
+		);
 		activeSection = nextSection;
 		cursor = transitionEnd;
 		instructionIndex += 2;
@@ -530,7 +551,7 @@ function buildProfileSegments(
 
 	let trailingEnd = trailingStart;
 
-	if (trailingExtremity.kind === "linear") {
+	if (trailingExtremity.kind !== "open") {
 		const trailingLength = clampLengthPx(
 			trailingExtremity.lengthPx,
 			Math.max(0, totalLength - trailingStart),
@@ -542,12 +563,12 @@ function buildProfileSegments(
 
 	pushProfileSegment(segments, cursor, trailingStart, activeSection, activeSection);
 
-	if (trailingExtremity.kind === "linear") {
+	if (trailingExtremity.kind !== "open") {
 		const collapsedSection = {
 			offsetA: trailingExtremity.collapseOffset,
 			offsetB: trailingExtremity.collapseOffset,
 		};
-		pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection);
+		pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection, trailingExtremity.kind);
 	}
 
 	return segments;
@@ -584,29 +605,34 @@ function appendVaryingOffsetSegment(
 	if (profileSegment.endDistance - profileSegment.startDistance <= GEOMETRY_EPSILON) {
 		return;
 	}
+	const sampleCount = resolveVaryingSegmentSampleCount(profileSegment);
 
-	const startPart = findCenterlinePartAtDistance(parts, profileSegment.startDistance);
-	const endPart = findCenterlinePartAtDistance(parts, profileSegment.endDistance);
+	for (let sampleIndex = 0; sampleIndex <= sampleCount; sampleIndex += 1) {
+		const interpolation = sampleCount <= 0 ? 0 : sampleIndex / sampleCount;
+		const distance = interpolateNumber(
+			profileSegment.startDistance,
+			profileSegment.endDistance,
+			interpolation,
+		);
+		const part = findCenterlinePartAtDistance(parts, distance);
+		if (!part) {
+			continue;
+		}
 
-	if (!startPart || !endPart) {
-		return;
+		const point = evaluateBoundaryPoint(
+			part,
+			profileSegment,
+			distance,
+			selectOffset,
+		);
+
+		if (sampleIndex === 0) {
+			appendPointCommand(commands, point);
+			continue;
+		}
+
+		appendLineCommand(commands, point);
 	}
-
-	const startPoint = evaluateBoundaryPoint(
-		startPart,
-		profileSegment,
-		profileSegment.startDistance,
-		selectOffset,
-	);
-	const endPoint = evaluateBoundaryPoint(
-		endPart,
-		profileSegment,
-		profileSegment.endDistance,
-		selectOffset,
-	);
-
-	appendPointCommand(commands, startPoint);
-	appendLineCommand(commands, endPoint);
 }
 
 function appendConstantOffsetSegments(
@@ -680,9 +706,37 @@ function evaluateBoundaryPoint(
 	const interpolation = span <= GEOMETRY_EPSILON ? 0 : (distance - profileSegment.startDistance) / span;
 	const fromOffset = selectOffset(profileSegment.fromSection);
 	const toOffset = selectOffset(profileSegment.toSection);
-	const offset = interpolateNumber(fromOffset, toOffset, clampNumber(interpolation, 0, 1));
+	const offset = interpolateNumber(
+		fromOffset,
+		toOffset,
+		resolveTransitionInterpolation(profileSegment.transitionKind, interpolation),
+	);
 
 	return addPoint(centerline.point, scalePoint(left, offset));
+}
+
+function resolveVaryingSegmentSampleCount(profileSegment: PathProfileSegment): number {
+	if (profileSegment.transitionKind !== "curved") {
+		return 1;
+	}
+
+	const span = profileSegment.endDistance - profileSegment.startDistance;
+	return Math.max(
+		CURVED_TRANSITION_MIN_SAMPLE_SEGMENTS,
+		Math.ceil(span / CURVED_TRANSITION_SAMPLE_LENGTH_PX),
+	);
+}
+
+function resolveTransitionInterpolation(
+	transitionKind: PathGeometryTransitionKind | undefined,
+	interpolation: number,
+): number {
+	const clampedInterpolation = clampNumber(interpolation, 0, 1);
+	if (transitionKind !== "curved") {
+		return clampedInterpolation;
+	}
+
+	return Math.sin((Math.PI * clampedInterpolation) / 2);
 }
 
 function evaluateConstantOffsetPoint(
@@ -812,12 +866,13 @@ function pushProfileSegment(
 	endDistance: number,
 	fromSection: OffsetSection,
 	toSection: OffsetSection,
+	transitionKind?: PathGeometryTransitionKind,
 ): void {
 	if (endDistance - startDistance <= GEOMETRY_EPSILON) {
 		return;
 	}
 
-	segments.push({ startDistance, endDistance, fromSection, toSection });
+	segments.push({ startDistance, endDistance, fromSection, toSection, transitionKind });
 }
 
 function extractOffsetSection(instruction: PathOffsetsInstruction): OffsetSection {

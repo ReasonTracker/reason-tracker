@@ -70,6 +70,7 @@ Traversal terminology:
 1. Include the normalized EngineCommand so later systems can reference the resolved ids and authored intent.
 2. Emit structural add, update, or delete operations for individual claims, connectors, and score occurrences.
 3. Emit at most one `incomingScoresChanged` operation after the structural changes, carrying every `ScoreIncomingPatch` whose `incomingScoreIds` membership changed because a source score was added or removed.
+   Structural add states must stay layout-valid on their own. Newly added score occurrences therefore start at a full structural scale of `1`, and the later whole-graph `scaleOfSources` recomputation settles the canonical post-add scale.
 4. Traverse the projected score graph from the affected score occurrences rather than calculating all changes first and ordering them later.
 5. Emit one `ScoreUpdated` operation for each upward confidence or relevance step.
 6. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `incomingScoreIds`, `scaleOfSources`, or `deliveryScaleOfSources`.
@@ -82,9 +83,10 @@ Traversal terminology:
 13. `scaleOfSources` treats each confidence connector as two independently scaled spans:
     - the source span uses `scaleOfSources`
     - the delivery span uses `deliveryScaleOfSources`
-14. Relevance contributes to the delivery span only. A full pro relevance doubles the delivery span scale, and a full con relevance halves the delivery span scale.
-15. A score's claim occurrence and source span do not resize when that score's relevance changes.
-16. `incomingScoresChanged`, `ScoreUpdated`, and `incomingScoresSorted` remain ordered as separate animation phases within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
+14. Confidence-group source scaling is structural: normalize by the count of confidence-connected incoming scores at a target, not by those scores' live `connectorConfidence` values.
+15. Relevance contributes to the delivery span only. A full pro relevance doubles the delivery span scale, and a full con relevance halves the delivery span scale.
+16. A score's claim occurrence and source span do not resize when that score's relevance changes, and downstream confidence updates do not resize already-settled upstream sibling source spans.
+17. `incomingScoresChanged`, `ScoreUpdated`, and `incomingScoresSorted` remain ordered as separate animation phases within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
 
 ## Related Docs
 

@@ -1,19 +1,26 @@
-import { AbsoluteFill, useVideoConfig } from "remotion";
-import { DebateRenderer } from "@reasontracker/components";
-
 import {
     type AddClaimCommand,
     type ClaimId,
     type ConfidenceConnectorId,
     type Debate,
     type DebateId,
-    layoutDebate,
-    type Operation,
-    Planner,
     type RelevanceConnectorId,
-    Reducer,
     type ScoreId,
 } from "../../engine/src/index.ts";
+
+import { EpisodeBrandSequence } from "./shared/EpisodeBrandSequence";
+import { EpisodeTemplate } from "./shared/EpisodeTemplate";
+import { Fade } from "./shared/Fade";
+import {
+    countGraphEventTransitionSegments,
+    GraphEvents,
+    GraphView,
+    type GraphActionEntry,
+} from "./shared/GraphView";
+import { buildTimelineTimes, wait, type TimelineEntry } from "./shared/timeline";
+
+export const EPISODE0001_FPS = 30;
+export const EPISODE0001_SECONDS_PER_OPERATION = 2;
 
 const MAIN_CLAIM_ID = "claim-main" as ClaimId;
 const MAIN_SCORE_ID = "score-main" as ScoreId;
@@ -49,6 +56,30 @@ const FOOT_TRAFFIC_EVENTS_SCORE_ID = "score-foot-traffic-events" as ScoreId;
 const FOOT_TRAFFIC_DINING_SCORE_ID = "score-foot-traffic-dining" as ScoreId;
 const FOOT_TRAFFIC_DELIVERIES_SCORE_ID = "score-foot-traffic-deliveries" as ScoreId;
 
+type Episode0001ActionTimelineId =
+    | "addFootTraffic"
+    | "addSafetyRisk"
+    | "addSafetyPriority"
+    | "addRailroadStreet"
+    | "addCost"
+    | "addPayback"
+    | "addFootTrafficEvents"
+    | "addFootTrafficDining"
+    | "addFootTrafficDeliveries";
+
+type Episode0001TimelineId =
+    | Episode0001ActionTimelineId
+    | "BackgroundFadeIn"
+    | "brand"
+    | "BackgroundFadeout";
+
+interface Episode0001StoryboardAction {
+    id: Episode0001ActionTimelineId;
+    scriptBeat: string;
+    command: AddClaimCommand;
+    waitAfterSeconds: number;
+}
+
 const episode0001Debate: Debate = {
     id: EPISODE_DEBATE_ID,
     name: "Episode 1 Elm Street",
@@ -79,14 +110,11 @@ const episode0001Debate: Debate = {
     },
 };
 
-interface Episode0001StoryboardAction {
-    scriptBeat: string;
-    command: AddClaimCommand;
-}
-
-const episode0001BaseActions: Episode0001StoryboardAction[] = [
+const episode0001StoryboardActions: readonly Episode0001StoryboardAction[] = [
     {
+        id: "addFootTraffic",
         scriptBeat: "To start, we add that converting Elm Street will increase foot traffic to local shops by 15%.",
+        waitAfterSeconds: 1,
         command: {
             type: "claim/add",
             targetScoreId: MAIN_SCORE_ID,
@@ -100,10 +128,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: FOOT_TRAFFIC_SCORE_ID,
                 targetRelationship: "proTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addSafetyRisk",
         scriptBeat: "Someone points out that the conversion will divert traffic down residential streets and endanger the lives of children.",
+        waitAfterSeconds: 0.8,
         command: {
             type: "claim/add",
             targetScoreId: MAIN_SCORE_ID,
@@ -117,10 +147,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: SAFETY_RISK_SCORE_ID,
                 targetRelationship: "conTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addSafetyPriority",
         scriptBeat: "We add that child safety is more important than local shop profit.",
+        waitAfterSeconds: 0.8,
         command: {
             type: "claim/add",
             targetScoreId: SAFETY_RISK_SCORE_ID,
@@ -134,10 +166,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: SAFETY_PRIORITY_SCORE_ID,
                 targetRelationship: "proTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addRailroadStreet",
         scriptBeat: "The city realizes unused railroad tracks can be converted into a new street, cancelling out the traffic problem.",
+        waitAfterSeconds: 1,
         command: {
             type: "claim/add",
             targetScoreId: SAFETY_RISK_SCORE_ID,
@@ -151,10 +185,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: RAILROAD_STREET_SCORE_ID,
                 targetRelationship: "conTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addCost",
         scriptBeat: "A con is that the conversion will cost 2 million dollars.",
+        waitAfterSeconds: 0.8,
         command: {
             type: "claim/add",
             targetScoreId: MAIN_SCORE_ID,
@@ -168,10 +204,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: COST_SCORE_ID,
                 targetRelationship: "conTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addPayback",
         scriptBeat: "We add that the increase in revenue will pay off the expense in under 2 years, meeting the city's investment requirements.",
+        waitAfterSeconds: 1,
         command: {
             type: "claim/add",
             targetScoreId: COST_SCORE_ID,
@@ -185,13 +223,12 @@ const episode0001BaseActions: Episode0001StoryboardAction[] = [
                 scoreId: PAYBACK_SCORE_ID,
                 targetRelationship: "conTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
-] as const;
-
-const episode0001EndSegmentActions: Episode0001StoryboardAction[] = [
     {
+        id: "addFootTrafficEvents",
         scriptBeat: "At the end, we add that weekend street events would drive even more visitors onto Elm Street.",
+        waitAfterSeconds: 0.6,
         command: {
             type: "claim/add",
             targetScoreId: FOOT_TRAFFIC_SCORE_ID,
@@ -205,10 +242,12 @@ const episode0001EndSegmentActions: Episode0001StoryboardAction[] = [
                 scoreId: FOOT_TRAFFIC_EVENTS_SCORE_ID,
                 targetRelationship: "proTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addFootTrafficDining",
         scriptBeat: "We also add that outdoor dining would keep shoppers on the street longer.",
+        waitAfterSeconds: 0.6,
         command: {
             type: "claim/add",
             targetScoreId: FOOT_TRAFFIC_SCORE_ID,
@@ -222,10 +261,12 @@ const episode0001EndSegmentActions: Episode0001StoryboardAction[] = [
                 scoreId: FOOT_TRAFFIC_DINING_SCORE_ID,
                 targetRelationship: "proTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
     {
+        id: "addFootTrafficDeliveries",
         scriptBeat: "We end that section by adding a con that delivery disruptions could reduce some shop visits.",
+        waitAfterSeconds: 1,
         command: {
             type: "claim/add",
             targetScoreId: FOOT_TRAFFIC_SCORE_ID,
@@ -239,105 +280,91 @@ const episode0001EndSegmentActions: Episode0001StoryboardAction[] = [
                 scoreId: FOOT_TRAFFIC_DELIVERIES_SCORE_ID,
                 targetRelationship: "conTarget",
             },
-        } satisfies AddClaimCommand,
+        },
     },
-];
+] as const;
 
-const planner = new Planner();
-const reducer = new Reducer();
-const episode0001EndRun = buildEpisode0001Run(
-    episode0001Debate,
-    [...episode0001BaseActions, ...episode0001EndSegmentActions],
-    planner,
-    reducer,
-);
-const episode0001EndLayout = layoutDebate(episode0001EndRun.finalState);
+const episode0001Timeline = buildTimelineTimes(buildEpisode0001TimelineEntries(), EPISODE0001_FPS);
 
+export const EPISODE0001_DURATION_IN_FRAMES = episode0001Timeline.totalDurationInFrames;
 
 export const Episode0001 = () => {
-    const { height, width } = useVideoConfig();
+    const graphEventTimes = episode0001Timeline.times;
+    const graphFadeFrom = graphEventTimes.BackgroundFadeIn.from;
+    const graphFadeDurationInFrames = graphEventTimes.BackgroundFadeout.from
+        + graphEventTimes.BackgroundFadeout.durationInFrames
+        - graphFadeFrom;
 
     return (
-        <AbsoluteFill
-            style={{
-                background: "#000000",
-            }}
-        >
-            <DebateRenderer
-                debate={episode0001EndRun.finalState}
-                layout={episode0001EndLayout}
-                viewportHeightPx={height}
-                viewportWidthPx={width}
-            />
-        </AbsoluteFill>
+        <EpisodeTemplate>
+            <Fade
+                from={graphFadeFrom}
+                durationInFrames={graphFadeDurationInFrames}
+                fadeInFrames={graphEventTimes.BackgroundFadeIn.durationInFrames}
+                fadeOutFrames={graphEventTimes.BackgroundFadeout.durationInFrames}
+                name="Graph Fade"
+            >
+                <GraphView debate={episode0001Debate}>
+                    {episode0001StoryboardActions.map((action) => (
+                        <GraphEvents
+                            key={action.id}
+                            {...graphEventTimes[action.id]}
+                            id={action.id}
+                            actions={buildGraphActions(action)}
+                        />
+                    ))}
+                </GraphView>
+            </Fade>
+            <EpisodeBrandSequence {...graphEventTimes.brand} />
+        </EpisodeTemplate>
     );
 };
 
-type Episode0001Run = {
-    initialState: Debate;
-    steps: Episode0001Step[];
-    finalState: Debate;
-};
+function buildGraphActions(action: Episode0001StoryboardAction): GraphActionEntry[] {
+    return [
+        {
+            id: action.id,
+            command: action.command,
+        },
+    ];
+}
 
-type Episode0001Step = {
-    step: number;
-    scriptBeat: string;
-    command: AddClaimCommand;
-    stateBefore: Debate;
-    operations: Episode0001OperationReplayEntry[];
-    stateAfter: Debate;
-};
+function buildEpisode0001TimelineEntries(): TimelineEntry<Episode0001TimelineId>[] {
+    const entries: TimelineEntry<Episode0001TimelineId>[] = [
+        ["BackgroundFadeIn", 0.7],
+        [wait, 1.2],
+    ];
+    let workingDebate = episode0001Debate;
+    let brandScheduled = false;
 
-type Episode0001OperationReplayEntry = {
-    stepOperation: number;
-    timelineOperation: number;
-    operation: Operation;
-    stateBefore: Debate;
-    stateAfter: Debate;
-};
-
-function buildEpisode0001Run(
-    initialState: Debate,
-    storyboardActions: readonly Episode0001StoryboardAction[],
-    replayPlanner: Planner,
-    replayReducer: Reducer,
-): Episode0001Run {
-    const plannerResults = replayPlanner.plan(
-        storyboardActions.map((action) => action.command),
-        initialState,
-    );
-    let workingState = initialState;
-    let timelineOperation = 0;
-    const steps = storyboardActions.map((action, stepIndex) => {
-        const stateBefore = workingState;
-        const operations = plannerResults[stepIndex]?.operations ?? [];
-        const operationReplay = operations.map((operation, operationIndex) => {
-            const operationStateBefore = workingState;
-            workingState = replayReducer.apply(workingState, operation);
-            timelineOperation += 1;
-
-            return {
-                stepOperation: operationIndex + 1,
-                timelineOperation,
-                operation,
-                stateBefore: operationStateBefore,
-                stateAfter: workingState,
-            };
+    for (const action of episode0001StoryboardActions) {
+        const graphActions = buildGraphActions(action);
+        const { nextDebate, transitionSegmentCount } = countGraphEventTransitionSegments({
+            debate: workingDebate,
+            actions: graphActions,
         });
 
-        return {
-            step: stepIndex + 1,
-            scriptBeat: action.scriptBeat,
-            command: action.command,
-            stateBefore,
-            operations: operationReplay,
-            stateAfter: workingState,
-        };
-    });
+        entries.push([
+            action.id,
+            transitionSegmentCount * EPISODE0001_SECONDS_PER_OPERATION,
+        ]);
 
-    return {
-        initialState,
-        steps,
-        finalState: workingState,
-    };
+        if (!brandScheduled) {
+            entries.push(["brand", 3.3]);
+            brandScheduled = true;
+        }
+
+        if (action.waitAfterSeconds > 0) {
+            entries.push([wait, action.waitAfterSeconds]);
+        }
+
+        workingDebate = nextDebate;
+    }
+
+    entries.push(
+        [wait, 2],
+        ["BackgroundFadeout", 0.7],
+    );
+
+    return entries;
 }

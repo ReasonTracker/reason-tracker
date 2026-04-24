@@ -563,8 +563,8 @@ function createInitialLeafScore(args: {
         connectorConfidence: claimConfidence,
         reversibleConnectorConfidence: reversibleClaimConfidence,
         relevance: Math.max(0, args.claim.defaultRelevance ?? DEFAULT_SCORE_VALUE),
-        scaleOfSources: DEFAULT_SCALE_OF_SOURCES,
-        deliveryScaleOfSources: DEFAULT_SCALE_OF_SOURCES,
+        scaleOfSources: DEFAULT_SCORE_VALUE,
+        deliveryScaleOfSources: DEFAULT_SCORE_VALUE,
         claimSide: sourceSide,
         connectorSide: sourceSide,
     };
@@ -1631,7 +1631,7 @@ function buildConfidenceGroupScaleByTargetScoreId(debate: Debate): Record<ScoreI
             continue;
         }
 
-        let totalPositiveConfidenceMass = 0;
+        let confidenceChildCount = 0;
         for (const incomingScoreId of targetScore.incomingScoreIds) {
             const incomingScore = debate.scores[incomingScoreId];
             if (!incomingScore) {
@@ -1647,13 +1647,11 @@ function buildConfidenceGroupScaleByTargetScoreId(debate: Debate): Record<ScoreI
                 continue;
             }
 
-            if (incomingScore.connectorConfidence > 0) {
-                totalPositiveConfidenceMass += incomingScore.connectorConfidence;
-            }
+            confidenceChildCount += 1;
         }
 
         confidenceGroupScaleByTargetScoreId[targetScore.id] =
-            DEFAULT_SCORE_VALUE / Math.max(DEFAULT_SCORE_VALUE, totalPositiveConfidenceMass);
+            DEFAULT_SCORE_VALUE / Math.max(DEFAULT_SCORE_VALUE, confidenceChildCount);
     }
 
     return confidenceGroupScaleByTargetScoreId;

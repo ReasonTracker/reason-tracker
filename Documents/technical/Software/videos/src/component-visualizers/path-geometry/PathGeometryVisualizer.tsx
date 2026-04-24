@@ -48,6 +48,13 @@ const linearExtremitySchema = z.object({
 	collapseOffset: z.number(),
 });
 
+const curvedExtremitySchema = z.object({
+	kind: z.literal("curved"),
+	startPositionPercent: z.number().min(0).max(100),
+	lengthPx: z.number().min(0).step(1),
+	collapseOffset: z.number(),
+});
+
 const openExtremitySchema = z.object({
 	kind: z.literal("open"),
 	startPositionPercent: z.number().min(0).max(100),
@@ -55,6 +62,7 @@ const openExtremitySchema = z.object({
 
 const extremityEditorSchema = z.discriminatedUnion("kind", [
 	openExtremitySchema,
+	curvedExtremitySchema,
 	linearExtremitySchema,
 ]);
 
@@ -62,7 +70,7 @@ const transitionStepSchema = z.object({
 	type: z.literal("transition"),
 	startPositionPercent: z.number().min(0).max(100),
 	lengthPx: z.number().min(0).step(1),
-	kind: z.enum(["linear"]),
+	kind: z.enum(["curved", "linear"]),
 });
 
 export const pathGeometryVisualizerSchema = z.object({
@@ -259,7 +267,7 @@ function normalizeFluidInstructions(
 			type: "transition",
 			startPositionPercent: section.startPositionPercent,
 			lengthPx: section.lengthPx,
-			kind: "linear",
+			kind: section.kind,
 		});
 	}
 
@@ -275,6 +283,16 @@ function normalizeExtremityInstruction(
 		return {
 			type: "extremity",
 			kind: "linear",
+			startPositionPercent: extremity.startPositionPercent,
+			lengthPx: extremity.lengthPx,
+			collapseOffset: extremity.collapseOffset,
+		};
+	}
+
+	if (extremity.kind === "curved") {
+		return {
+			type: "extremity",
+			kind: "curved",
 			startPositionPercent: extremity.startPositionPercent,
 			lengthPx: extremity.lengthPx,
 			collapseOffset: extremity.collapseOffset,

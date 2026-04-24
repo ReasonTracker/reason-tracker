@@ -1,21 +1,25 @@
 # Agent Steering
 
 ## Workflow
+
 - Ask any questions necessary to clarify the goal.
 - Think of and suggest the next step only after you accomplish the current one so you can choose a better next step from what you learned.
 - If path, scope, or location is ambiguous, ask before creating, deleting, or moving files.
 
 ## Refactor Cleanup
+
 - When replacing, moving, flattening, or renaming code, explicitly check whether the superseded files, folders, re-export shims, and doc references should be removed.
 - Before finishing a refactor, verify that old files and empty folders introduced by the old structure are cleaned up unless the user asked to keep a compatibility layer.
 - If a temporary compatibility layer is kept, name it as temporary in code or docs and remove it in the same task when practical.
 
 ## Architecture Bias
+
 - If implementation work exposes a fundamental architectural flaw in the active area, prefer correcting the architecture in the same task instead of preserving the current shape with a narrow patch.
 - Err on the side of proper architecture over surgical minimalism unless the user explicitly asks for a temporary fix, a compatibility stopgap, or a narrowly scoped change.
 - When re-architecting, keep the rewrite centered on the broken design boundary and restore the core invariant that was being violated.
 
 ## Execution Mode
+
 - Determine mode first: Discussion Mode or Action Mode.
 - Default to Discussion Mode unless the user explicitly asks for execution.
 - In Discussion Mode, read-only work is allowed (inspect files, search, and analyze).
@@ -24,6 +28,7 @@
 - Do not weaken existing behavior rules without explicitly confirming the change with the user.
 
 ## Prototype Rule
+
 - Treat this repository as a prototype until the documentation says otherwise.
 - Do not create, add, expand, or propose new automated tests while this prototype rule is in effect.
 - Avoid routine change-log style documentation during prototype iteration.
@@ -33,11 +38,15 @@
 - If a task would normally include tests or extensive change documentation, stop at implementation and only update the durable docs that need to stay accurate unless the user explicitly says the prototype rule has changed.
 
 ## Approval and Clarification
+
 - If the user explicitly requests an action, proceed without asking for separate approval.
 - Ask clarifying questions only when needed to execute correctly.
 - Do not add an extra approval gate for actions the user already requested.
+- When asking permission for changes to a guarded area or other protected design boundary, include enough detail for the user to approve or reject the change without a second discovery round.
+- For guarded-area approval requests, explicitly call out the proposed type or flow changes and any contract changes, such as modified individual contracts, new or modified operations, payload or sequencing changes, affected public boundaries, and the recommended path.
 
 ## Response Style
+
 - Give a short, broad answer first for suggestions.
 - Do not dump long assumptions or large writeups unless explicitly requested.
 - Default to concise answers.
@@ -47,20 +56,24 @@
 - Prefer explicit nouns over pronouns when multiple nouns are in scope.
 
 ## Persistent Memory Policy
+
 - Always read this file at the start of work in this repository.
 - Do not store additional persistent memory notes unless the user explicitly asks.
 
 ## Root Cleanliness
+
 - Keep the repository root clean.
 - Files or folders needed by agents should live below the root unless the root is the only place they can function.
 - If you notice a root-level item other than the allowed exceptions below, notify the user before adding more root clutter.
 - Allowed root-level exceptions are: `.git/`, `.vscode/`, `AGENTS.md`, `Documents/`, and `README.md`.
 
 ## This Document Boundary
+
 - Keep this file for agent steering only.
 - Put general project documentation in shared docs.
 
 ## Shared Guidance
+
 - When working in a specific subtree, check for a closer `AGENTS.md` in that folder or its nearest ancestor below the repo root and apply it as additive guidance for that scope.
 - Do not scan unrelated folders for nested `AGENTS.md` files; only load subtree-specific steering when the task is actually related to that subtree.
 - Read and follow `Documents/technical/Coding Guidelines.md` for shared project conventions.

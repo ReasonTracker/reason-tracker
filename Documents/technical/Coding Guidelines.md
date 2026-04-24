@@ -50,6 +50,12 @@ These are implementation guidelines for repository code structure and file organ
 - Keep internal implementation type contracts DRY: do not redefine equivalent option/type contracts repeatedly across internal functions.
 - Define and reuse shared contracts at real boundaries (for example package/library boundaries), then thread those through internal call chains.
 
+## Owned Feature Contracts
+
+- When a lower-level package already owns a behavior contract, reuse that contract instead of adding a narrower surrogate API in a higher layer.
+- Higher layers may compose values for the owned contract, but they should not recreate the same behavior with clipping, visibility windows, duplicated transition math, or parallel props that drift from the source contract.
+- If the existing contract is insufficient, extend the owning layer or explicitly request a contract change there instead of working around it in the consumer.
+
 ## Human Review Notes
 
 - When documentation in a technical area refers to review status, explicitly state the level of human review instead of using an unqualified word such as `reviewed`.

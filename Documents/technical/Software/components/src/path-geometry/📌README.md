@@ -28,6 +28,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - support asymmetric sections that are not centered on the path
 - support explicit transition ranges between offsets states
 - support explicit extremity ranges that begin or end geometry at chosen positions along the path
+- own path-relative reveal, taper, and ordered state-sweep behavior when that behavior can be expressed as offsets plus transitions or extremities along the routed path
 - measure transition positions as path-relative percentages and transition or extremity spans in pixels along the routed path
 - output renderer-agnostic path commands that a consumer can map to SVG or another renderer
 
@@ -48,16 +49,22 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - Both offsets are signed distances from the reference path and may lie on opposite sides or the same side.
 - An `offsets` instruction defines a stable section state between transitions and extremities.
 - A `transition` instruction uses `startPositionPercent` and `lengthPx` because it occupies a path range that begins at a path-relative position and extends for a pixel length.
-- A `transition` instruction should declare a transition kind such as `linear`.
+- A `transition` instruction should declare a transition kind such as `linear` or `curved`.
+- A `linear` transition interpolates offsets directly from the earlier section state to the later section state.
+- A `curved` transition uses one continuous bowed interpolation from the earlier section state to the later section state, without flattening into a straight-feeling middle.
 - An `extremity` instruction uses `startPositionPercent` to declare where its visible edge behavior begins or ends along the path.
-- An `extremity` instruction should declare an extremity kind such as `open` or `linear`.
+- An `extremity` instruction should declare an extremity kind such as `open`, `linear`, or `curved`.
 - A `linear` extremity uses `collapseOffset` to expand from or collapse toward a chosen target offset.
+- A `curved` extremity uses the same inputs as `linear` but applies that same bowed interpolation toward `collapseOffset` so the visible frontier stays curved across the full span.
 - A leading `linear` extremity expands from `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
 - A trailing `linear` extremity collapses toward `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
+- A leading `curved` extremity expands from `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
+- A trailing `curved` extremity collapses toward `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
 - A leading `open` begins visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - A trailing `open` ends visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - `startPositionPercent` is measured as a percentage of total path length, and `lengthPx` is measured in pixels along the routed centerline.
-- A linear extremity uses `collapseOffset` to define the edge shape across its span.
+- A linear or curved extremity uses `collapseOffset` to define the edge shape across its span.
+- A curved transition is approximated by sampled intermediate boundary points along the routed path at a density that preserves the bow shape.
 
 ## Validation Rules
 
@@ -76,14 +83,15 @@ This folder owns shared path-geometry contracts and implementation that are inte
 ## Out Of Scope
 
 - layout or routing
-    - collision avoidance
-    - multi-line coordination
+  - collision avoidance
+  - multi-line coordination
 - rendering concerns such as SVG, canvas, or host-specific drawing APIs
 
 ## Boundaries
 
 - Keep Remotion runtime hooks out of this folder.
 - Keep higher-level component composition out of this folder unless it is specific to path geometry.
+- Consumers should express connector reveal, removal, and ordered geometry sweeps by composing `PathGeometryInstruction` values here instead of introducing host-side clipping, visibility-window, or surrogate transition props.
 - Prefer colocating the core contracts with `buildPathGeometry` until this slice clearly needs more separation.
 
 ---

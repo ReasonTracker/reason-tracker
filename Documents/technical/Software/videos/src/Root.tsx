@@ -1,12 +1,17 @@
 import "../../website/site/css/brand.css";
+import "../../website/site/css/brand-sequence.css";
 import type { ComponentType } from "react";
-import { AbsoluteFill, Composition } from "remotion";
+import { Composition } from "remotion";
 
 import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
-import { Episode0001 } from "./Episode0001";
+import {
+	EPISODE0001_DURATION_IN_FRAMES,
+	EPISODE0001_FPS,
+	Episode0001,
+} from "./Episode0001";
 
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
@@ -27,39 +32,11 @@ export const RemotionRoot = () => {
 			<Composition
 				id="Episode0001"
 				component={Episode0001}
-				durationInFrames={240}
-				fps={30}
-				height={1080}
-				width={1920}
-			/>
-			<Composition
-				id="StarterComposition"
-				component={StarterComposition}
-				durationInFrames={150}
-				fps={30}
+				durationInFrames={EPISODE0001_DURATION_IN_FRAMES}
+				fps={EPISODE0001_FPS}
 				height={1080}
 				width={1920}
 			/>
 		</>
-	);
-};
-
-const StarterComposition = () => {
-	return (
-		<AbsoluteFill
-			style={{
-				alignItems: "center",
-				background: "linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)",
-				color: "#f8fafc",
-				display: "flex",
-				fontFamily: '"Segoe UI", sans-serif',
-				fontSize: 72,
-				fontWeight: 700,
-				justifyContent: "center",
-				letterSpacing: "0.04em",
-			}}
-		>
-			Reason Tracker
-		</AbsoluteFill>
 	);
 };

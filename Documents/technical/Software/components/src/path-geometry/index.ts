@@ -1,6 +1,7 @@
 export { buildPathGeometry } from "./buildPathGeometry";
 export type {
 	OffsetSection,
+	PathCurvedExtremityInstruction,
 	PathExtremityInstruction,
 	PathGeometry,
 	PathGeometryCommand,

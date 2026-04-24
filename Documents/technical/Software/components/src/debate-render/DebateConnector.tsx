@@ -2,6 +2,7 @@ import type { Side } from "@reasontracker/engine";
 
 import {
     buildPathGeometry,
+    type PathGeometryInstruction,
     type Waypoint,
 } from "../path-geometry";
 import {
@@ -16,6 +17,7 @@ const PIPE_INTERIOR_ALPHA = 0.18;
 export interface DebateConnectorProps {
     centerlinePoints: Waypoint[];
     fluidWidth: number;
+    geometryInstructions?: PathGeometryInstruction[];
     layer: DebateConnectorLayer;
     outlineWidth: number;
     pipeWidth: number;
@@ -27,23 +29,34 @@ export type DebateConnectorLayer = "pipeWalls" | "pipeInterior" | "fluid";
 export const DebateConnector = ({
     centerlinePoints,
     fluidWidth,
+    geometryInstructions,
     layer,
     outlineWidth,
     pipeWidth,
     side,
 }: DebateConnectorProps) => {
+    const bandInstructions = geometryInstructions ?? (layer === "fluid"
+        ? buildDefaultFluidBandInstructions(pipeWidth, fluidWidth)
+        : buildDefaultCenteredBandInstructions(pipeWidth));
+
     if (layer === "fluid") {
-        if (fluidWidth <= 0.5) {
+        if (!geometryInstructions && fluidWidth <= 0.5) {
             return null;
         }
 
-        const fluidGeometry = buildBandGeometry(centerlinePoints, fluidWidth);
+        const fluidGeometry = buildBandGeometry(
+            centerlinePoints,
+            bandInstructions,
+        );
         return fluidGeometry.closedPathData.length > 0
             ? <path d={fluidGeometry.closedPathData} fill={resolveSideStroke(side)} stroke="none" />
             : null;
     }
 
-    const pipeGeometry = buildBandGeometry(centerlinePoints, pipeWidth);
+    const pipeGeometry = buildBandGeometry(
+        centerlinePoints,
+        bandInstructions,
+    );
 
     if (layer === "pipeInterior") {
         return pipeGeometry.closedPathData.length > 0
@@ -77,18 +90,17 @@ export const DebateConnector = ({
     );
 };
 
-function buildBandGeometry(centerlinePoints: Waypoint[], width: number): {
+function buildBandGeometry(
+    centerlinePoints: Waypoint[],
+    instructions: PathGeometryInstruction[],
+): {
     boundaryAPathData: string;
     boundaryBPathData: string;
     closedPathData: string;
 } {
     const geometry = buildPathGeometry({
         points: centerlinePoints,
-        instructions: [
-            { type: "extremity", kind: "open", startPositionPercent: 0 },
-            { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 },
-            { type: "extremity", kind: "open", startPositionPercent: 100 },
-        ],
+        instructions,
     });
 
     return {
@@ -99,6 +111,25 @@ function buildBandGeometry(centerlinePoints: Waypoint[], width: number): {
             geometry.boundaryBPathCommands,
         ),
     };
+}
+
+function buildDefaultCenteredBandInstructions(width: number): PathGeometryInstruction[] {
+    return [
+        { type: "extremity", kind: "open", startPositionPercent: 0 },
+        { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 },
+        { type: "extremity", kind: "open", startPositionPercent: 100 },
+    ];
+}
+
+function buildDefaultFluidBandInstructions(pipeWidth: number, fluidWidth: number): PathGeometryInstruction[] {
+    const bottomOffset = -(pipeWidth / 2);
+    const topOffset = bottomOffset + fluidWidth;
+
+    return [
+        { type: "extremity", kind: "open", startPositionPercent: 0 },
+        { type: "offsets", offsetA: bottomOffset, offsetB: topOffset },
+        { type: "extremity", kind: "open", startPositionPercent: 100 },
+    ];
 }
 
 function resolveSideStroke(side: Side): string {
