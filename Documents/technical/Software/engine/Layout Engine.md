@@ -28,20 +28,29 @@ Visual design, animation timing, connector drawing, and line routing stay downst
 5. Relevance-connected claims stay in the same visual layer as the confidence claim whose connector they target.
 6. A relevance-connected claim is a visual sibling of that targeted confidence claim, even if it remains a structural child in the reduced score tree.
 7. Left-justify each depth to one shared column start.
-8. Derive node width, node height, and spacing from `score.scaleOfSources`.
-9. Clamp preview geometry to a small visible minimum so zero-scale scores still produce inspectable boxes.
-10. Pack vertically with a bottom-up subtree-height pass.
-11. Center each parent inside its subtree block.
-12. Recompute exported bounds from the final positioned rectangles.
+8. Derive node width and node height from the shared layout scale of `score.scaleOfSources`.
+9. Use the same exported base node height and layout scale for claim height and connector potential width.
+10. Scale horizontal depth spacing directly by the previous layer's `score.scaleOfSources`; do not apply a spacing floor, interpolation, or visible-preview adjustment to horizontal column gaps.
+11. If a target depth contains one or more relevance-connected score occurrences, double the horizontal spacing into that depth so connector junctions have room to route.
+12. Pack vertically with a bottom-up subtree-height pass.
+13. Center each parent inside its subtree block.
+14. Recompute exported bounds from the final positioned rectangles.
 
 ## Relevance Handling
 
-- Relevance connectors target the middle of a confidence connector, not the claim box.
-- That means the relevance claim shares the same visual layer as the confidence claim whose connector is being targeted.
-- The first implementation still does not emit virtual relevance anchor nodes.
-- The first Episode 1 preview renders claim boxes only.
-- Connector lines and relevance routing stay out of scope for this pass.
-- Future routing work can attach connector geometry to the same node frames without replacing the packing pass.
+- Relevance connectors target a connector junction on a confidence connector, not the claim box.
+- The relevance claim shares the same visual layer as the confidence claim whose connector is being targeted.
+- Connector widths are renderer-owned world-unit measurements; rendered layout node dimensions do not feed connector width or confidence width calculations.
+- Claim height and connector potential width share `BASE_NODE_HEIGHT_PX` and `toLayoutScale(score.scaleOfSources)`.
+- The connector junction is drawn as a framed box around the routing join.
+- The connector junction's height is the confidence connector's rendered potential pipe width.
+- The connector junction's width is the relevance connector's rendered potential pipe width.
+- The connector junction sits in front of the confidence source claim, about one-quarter of the connector path from that source claim toward the target claim.
+- A relevance connector enters the connector junction from the top when its source is above the connector junction and from the bottom when its source is below the connector junction.
+- The confidence connector is rendered as two connector segments: source claim to connector junction, then connector junction to target claim.
+- Other confidence connectors into the same target use the connector-junction confidence connector's second segment as their turn guide: they start bending when that segment starts bending and return to the target when that segment returns.
+- The connector junction is a routing construct and does not replace the score occurrence as the layout unit.
+- At 100% connector confidence, the rendered actual confidence width matches the rendered potential pipe width because both are calculated from the same connector world unit and connector scale.
 
 ## Output Contract
 
@@ -57,7 +66,7 @@ The first implementation should expose:
 ## Non-Goals
 
 - animation interpolation
-- connector line geometry
-- virtual relevance-node rendering
+- connector line geometry ownership
+- connector junctions as score/layout units
 - crossing-minimization heuristics
 - multi-parent join support

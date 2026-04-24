@@ -7,6 +7,11 @@ import type {
     ScoreId,
     Score,
 } from "@reasontracker/engine";
+import {
+    BASE_NODE_HEIGHT_PX,
+    BASE_NODE_WIDTH_PX,
+    toLayoutScale,
+} from "@reasontracker/engine";
 import type { ReactNode } from "react";
 
 import {
@@ -21,16 +26,7 @@ const GRAPH_PADDING_PX = 96;
 /** Outer inset retained so the centered graph does not touch the frame edge. */
 const FRAME_PADDING_PX = 40;
 
-/** Base width used by a full-scale claim card before layout scaling is applied. */
-const BASE_CARD_WIDTH_PX = 360;
-
-/** Base height used by a full-scale claim card before layout scaling is applied. */
-const BASE_CARD_HEIGHT_PX = 176;
-
-/** Smallest visible fluid width retained when a connector still carries non-zero strength. */
-const MIN_FLUID_WIDTH_PX = 3;
-
-/** Outline width shared by connector walls so pipe width stays aligned with the source card height. */
+/** Outline width shared by connector walls and connector junction frames. */
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 
 /** Shortest horizontal run kept before a connector turns into its diagonal middle section. */
@@ -39,8 +35,17 @@ const MIN_CONNECTOR_STRAIGHT_PX = 34;
 /** Smallest diagonal run preserved between the two horizontal connector stubs. */
 const MIN_CONNECTOR_DIAGONAL_PX = 36;
 
-/** Largest corner radius used where a connector leaves or enters a claim box. */
-const MAX_CONNECTOR_BEND_RADIUS_PX = 42;
+/** Smallest centerline bend radius retained before pipe width is considered. */
+const MIN_CONNECTOR_BEND_RADIUS_PX = 12;
+
+/** Minimum inner bend radius as a fraction of the rendered pipe width. */
+const MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO = 0.3;
+
+/** Position of a connector junction along its confidence connector, measured from source claim to target claim. */
+const CONNECTOR_JUNCTION_PATH_PROGRESS = 1 / 4;
+
+/** Corner radius fraction used by connector junction frames. */
+const CONNECTOR_JUNCTION_CORNER_RADIUS_RATIO = 0.08;
 
 export interface DebateRendererProps {
     debate: Debate;
@@ -57,7 +62,7 @@ interface RenderNode {
 }
 
 interface ConnectorVisual {
-    connectorId: string;
+    visualId: string;
     centerlinePoints: Waypoint[];
     fluidWidth: number;
     outlineWidth: number;
@@ -67,9 +72,24 @@ interface ConnectorVisual {
 
 interface ConfidenceConnectorDraft {
     connector: ConfidenceConnector;
+    pipeWidth: number;
     side: Score["connectorSide"];
     sourceNode: RenderNode;
     targetNode: RenderNode;
+}
+
+interface ConfidenceConnectorPlan {
+    actualConfidenceSlot: ActualConfidenceSlot | undefined;
+    draft: ConfidenceConnectorDraft;
+    targetPoint: { x: number; y: number };
+    junction?: ConnectorJunction;
+}
+
+interface RelevanceConnectorDraft {
+    connector: RelevanceConnector;
+    pipeWidth: number;
+    side: Score["connectorSide"];
+    sourceNode: RenderNode;
 }
 
 interface ActualConfidenceSlot {
@@ -77,8 +97,26 @@ interface ActualConfidenceSlot {
     fluidWidth: number;
 }
 
+interface ConnectorJunction {
+    centerX: number;
+    centerY: number;
+    height: number;
+    width: number;
+}
+
+interface ConnectorJunctionVisual {
+    junction: ConnectorJunction;
+    side: Score["connectorSide"];
+    visualId: string;
+}
+
+interface ConnectorTurnGuide {
+    returnTurnX: number;
+    turnStartX: number;
+}
+
 interface ConfidenceConnectorTarget {
-    centerlinePoints: Waypoint[];
+    junction?: ConnectorJunction;
     midpoint: { x: number; y: number };
 }
 
@@ -102,12 +140,23 @@ export const DebateRenderer = ({
     const nodeByScoreId = new Map<ScoreId, RenderNode>(renderNodes.map((renderNode) => [renderNode.node.scoreId, renderNode]));
     const confidenceTargetsByConnectorId = new Map<string, ConfidenceConnectorTarget>();
     const confidenceConnectorDrafts: ConfidenceConnectorDraft[] = [];
+    const relevanceConnectorDrafts: RelevanceConnectorDraft[] = [];
 
     for (const renderNode of renderNodes) {
         const connector = renderNode.node.connectorId
             ? debate.connectors[renderNode.node.connectorId]
             : undefined;
-        if (!connector || connector.type !== "confidence") {
+        if (!connector) {
+            continue;
+        }
+
+        if (connector.type === "relevance") {
+            relevanceConnectorDrafts.push({
+                connector,
+                pipeWidth: getConnectorPotentialPipeWidth(renderNode.score),
+                side: renderNode.score.connectorSide,
+                sourceNode: renderNode,
+            });
             continue;
         }
 
@@ -123,6 +172,7 @@ export const DebateRenderer = ({
 
         confidenceConnectorDrafts.push({
             connector,
+            pipeWidth: getConnectorPotentialPipeWidth(renderNode.score),
             side: renderNode.score.connectorSide,
             sourceNode: renderNode,
             targetNode,
@@ -132,67 +182,140 @@ export const DebateRenderer = ({
     const actualConfidenceSlotByConnectorId = buildActualConfidenceSlotByConnectorId(
         confidenceConnectorDrafts,
     );
-    const confidenceConnectorVisuals = confidenceConnectorDrafts.map((draft) => {
+    const relevancePipeWidthByTargetConnectorId = buildRelevancePipeWidthByTargetConnectorId(
+        relevanceConnectorDrafts,
+    );
+    const confidenceConnectorPlans = confidenceConnectorDrafts.map((draft) => {
         const actualConfidenceSlot = actualConfidenceSlotByConnectorId.get(draft.connector.id);
+        const targetPoint = {
+            x: draft.targetNode.renderX + draft.targetNode.node.width,
+            y: actualConfidenceSlot?.centerY ?? getNodeCenterY(draft.targetNode),
+        };
         const centerlinePoints = buildConfidenceCenterline(
             draft.sourceNode,
-            {
-                x: draft.targetNode.renderX + draft.targetNode.node.width,
-                y: actualConfidenceSlot?.centerY
-                    ?? getNodeCenterY(draft.targetNode),
-            },
+            targetPoint,
+            draft.pipeWidth,
+        );
+        const relevancePipeWidth = relevancePipeWidthByTargetConnectorId.get(draft.connector.id);
+        const junction = relevancePipeWidth
+            ? buildConnectorJunction({
+                center: getPointAtPolylineProgress(centerlinePoints, CONNECTOR_JUNCTION_PATH_PROGRESS),
+                confidencePipeWidth: draft.pipeWidth,
+                relevancePipeWidth,
+            })
+            : undefined;
+
+        return {
+            actualConfidenceSlot,
+            draft,
+            targetPoint,
+            ...(junction ? { junction } : {}),
+        } satisfies ConfidenceConnectorPlan;
+    });
+    const turnGuideByTargetScoreId = buildTurnGuideByTargetScoreId(confidenceConnectorPlans);
+    const confidenceConnectorVisuals = confidenceConnectorPlans.flatMap((plan) => {
+        const { actualConfidenceSlot, draft, junction, targetPoint } = plan;
+        const centerlinePoints = buildConfidenceCenterline(
+            draft.sourceNode,
+            targetPoint,
+            draft.pipeWidth,
+            junction
+                ? undefined
+                : turnGuideByTargetScoreId.get(draft.targetNode.node.scoreId),
         );
 
         confidenceTargetsByConnectorId.set(draft.connector.id, {
-            centerlinePoints,
-            midpoint: getPointAtPolylineProgress(centerlinePoints, 0.5),
+            midpoint: junction
+                ? { x: junction.centerX, y: junction.centerY }
+                : getPointAtPolylineProgress(centerlinePoints, 0.5),
+            ...(junction ? { junction } : {}),
         });
 
-        return {
-            connectorId: draft.connector.id,
-            centerlinePoints,
-            fluidWidth: actualConfidenceSlot?.fluidWidth ?? 0,
-            outlineWidth: getConnectorOutlineWidth(),
-            pipeWidth: getConnectorPipeWidth(draft.sourceNode),
-            side: draft.side,
-        } satisfies ConnectorVisual;
-    });
-
-    const relevanceConnectorVisuals = renderNodes.flatMap((renderNode) => {
-        const connector = renderNode.node.connectorId
-            ? debate.connectors[renderNode.node.connectorId]
-            : undefined;
-        if (!connector || connector.type !== "relevance") {
-            return [];
+        if (!junction) {
+            return [{
+                visualId: draft.connector.id,
+                centerlinePoints,
+                fluidWidth: actualConfidenceSlot?.fluidWidth ?? 0,
+                outlineWidth: getConnectorOutlineWidth(),
+                pipeWidth: draft.pipeWidth,
+                side: draft.side,
+            } satisfies ConnectorVisual];
         }
 
+        const sourceSegmentEndPoint = {
+            x: junction.centerX + (junction.width / 2),
+            y: junction.centerY,
+        };
+        const targetSegmentStartPoint = {
+            x: junction.centerX - (junction.width / 2),
+            y: junction.centerY,
+        };
+
+        return [
+            {
+                visualId: `${draft.connector.id}:source-to-junction`,
+                centerlinePoints: buildConfidenceCenterline(draft.sourceNode, sourceSegmentEndPoint, draft.pipeWidth),
+                fluidWidth: actualConfidenceSlot?.fluidWidth ?? 0,
+                outlineWidth: getConnectorOutlineWidth(),
+                pipeWidth: draft.pipeWidth,
+                side: draft.side,
+            },
+            {
+                visualId: `${draft.connector.id}:junction-to-target`,
+                centerlinePoints: buildAngularConnectorCenterline(
+                    targetSegmentStartPoint,
+                    targetPoint,
+                    draft.pipeWidth,
+                ),
+                fluidWidth: actualConfidenceSlot?.fluidWidth ?? 0,
+                outlineWidth: getConnectorOutlineWidth(),
+                pipeWidth: draft.pipeWidth,
+                side: draft.side,
+            },
+        ] satisfies ConnectorVisual[];
+    });
+
+    const relevanceConnectorVisuals = relevanceConnectorDrafts.flatMap((draft) => {
         const targetGeometry =
-            confidenceTargetsByConnectorId.get(connector.targetConfidenceConnectorId)
-            ?? buildConfidenceTargetFromLayout(connector, nodeByScoreId, debate, layout);
+            confidenceTargetsByConnectorId.get(draft.connector.targetConfidenceConnectorId)
+            ?? buildConfidenceTargetFromLayout(draft.connector, nodeByScoreId, debate, layout);
         if (!targetGeometry) {
             return [];
         }
 
-        const centerlinePoints = buildRelevanceCenterline(renderNode, targetGeometry.midpoint);
-        const pipeWidth = getConnectorPipeWidth(renderNode);
+        const centerlinePoints = targetGeometry.junction
+            ? buildRelevanceCenterlineToConnectorJunction(draft.sourceNode, targetGeometry.junction, draft.pipeWidth)
+            : buildAngularConnectorCenterline(
+                { x: draft.sourceNode.renderX, y: getNodeCenterY(draft.sourceNode) },
+                targetGeometry.midpoint,
+                draft.pipeWidth,
+            );
         return [
             {
-                connectorId: connector.id,
+                visualId: draft.connector.id,
                 centerlinePoints,
-                fluidWidth: getConnectorFluidWidth(renderNode.score, pipeWidth, connector.type),
+                fluidWidth: getConnectorFluidWidth(draft.sourceNode.score, draft.connector.type),
                 outlineWidth: getConnectorOutlineWidth(),
-                pipeWidth,
-                side: renderNode.score.connectorSide,
+                pipeWidth: draft.pipeWidth,
+                side: draft.side,
             },
         ];
     });
 
     const connectorVisuals = [...confidenceConnectorVisuals, ...relevanceConnectorVisuals];
-    const connectorLayers: DebateConnectorLayer[] = ["pipeWalls", "pipeInterior", "fluid"];
-    const connectorLayerElements: ReactNode[] = connectorLayers.flatMap((layer) => (
+    const connectorJunctionVisuals: ConnectorJunctionVisual[] = confidenceConnectorPlans.flatMap((plan) => (
+        plan.junction
+            ? [{
+                junction: plan.junction,
+                side: plan.draft.side,
+                visualId: `${plan.draft.connector.id}:junction`,
+            }]
+            : []
+    ));
+    const connectorLayerElements: ReactNode[] = (["pipeWalls", "pipeInterior", "fluid"] satisfies DebateConnectorLayer[]).flatMap((layer) => (
         connectorVisuals.map((connector) => (
             <DebateConnector
-                key={`${layer}:${connector.connectorId}`}
+                key={`${layer}:${connector.visualId}`}
                 centerlinePoints={connector.centerlinePoints}
                 fluidWidth={connector.fluidWidth}
                 layer={layer}
@@ -202,6 +325,7 @@ export const DebateRenderer = ({
             />
         ))
     ));
+    const connectorJunctionElements = connectorJunctionVisuals.map(renderConnectorJunction);
 
     return (
         <div
@@ -248,11 +372,12 @@ export const DebateRenderer = ({
                         viewBox={`0 0 ${graphWidth} ${graphHeight}`}
                     >
                         {connectorLayerElements}
+                        {connectorJunctionElements}
                     </svg>
                     {renderNodes.map((renderNode) => {
                         const cardScale = Math.min(
-                            renderNode.node.width / BASE_CARD_WIDTH_PX,
-                            renderNode.node.height / BASE_CARD_HEIGHT_PX,
+                            renderNode.node.width / BASE_NODE_WIDTH_PX,
+                            renderNode.node.height / BASE_NODE_HEIGHT_PX,
                         );
                         const cardFill = resolveSideFill(renderNode.score.claimSide, 0.3);
                         const cardStroke = resolveSideStroke(renderNode.score.claimSide);
@@ -273,13 +398,13 @@ export const DebateRenderer = ({
                             >
                                 <div
                                     style={{
-                                        height: BASE_CARD_HEIGHT_PX,
+                                        height: BASE_NODE_HEIGHT_PX,
                                         left: "50%",
                                         position: "absolute",
                                         top: "50%",
                                         transform: `translate(-50%, -50%) scale(${cardScale})`,
                                         transformOrigin: "center center",
-                                        width: BASE_CARD_WIDTH_PX,
+                                        width: BASE_NODE_WIDTH_PX,
                                     }}
                                 >
                                     <div
@@ -332,6 +457,28 @@ export const DebateRenderer = ({
     );
 };
 
+function renderConnectorJunction(visual: ConnectorJunctionVisual): ReactNode {
+    const outlineWidth = getConnectorOutlineWidth();
+    const frameWidth = visual.junction.width + outlineWidth;
+    const frameHeight = visual.junction.height + outlineWidth;
+
+    return (
+        <rect
+            key={visual.visualId}
+            fill="none"
+            height={frameHeight}
+            pointerEvents="none"
+            rx={Math.min(frameWidth, frameHeight) * CONNECTOR_JUNCTION_CORNER_RADIUS_RATIO}
+            ry={Math.min(frameWidth, frameHeight) * CONNECTOR_JUNCTION_CORNER_RADIUS_RATIO}
+            stroke={resolveSideStroke(visual.side)}
+            strokeWidth={outlineWidth}
+            width={frameWidth}
+            x={visual.junction.centerX - (frameWidth / 2)}
+            y={visual.junction.centerY - (frameHeight / 2)}
+        />
+    );
+}
+
 function buildRenderNode(
     debate: Debate,
     layout: DebateLayout,
@@ -372,12 +519,12 @@ function buildConfidenceTargetFromLayout(
             return undefined;
         }
 
+        const pipeWidth = getConnectorPotentialPipeWidth(sourceNode.score);
         const centerlinePoints = buildConfidenceCenterline(sourceNode, {
             x: targetNode.renderX + targetNode.node.width,
             y: getNodeCenterY(targetNode),
-        });
+        }, pipeWidth);
         return {
-            centerlinePoints,
             midpoint: getPointAtPolylineProgress(centerlinePoints, 0.5),
         };
     }
@@ -388,59 +535,132 @@ function buildConfidenceTargetFromLayout(
 function buildConfidenceCenterline(
     sourceNode: RenderNode,
     targetPoint: { x: number; y: number },
+    pipeWidth: number,
+    turnGuide?: ConnectorTurnGuide,
 ): Waypoint[] {
     return buildAngularConnectorCenterline(
         { x: sourceNode.renderX, y: getNodeCenterY(sourceNode) },
         targetPoint,
+        pipeWidth,
+        turnGuide,
     );
 }
 
-function buildRelevanceCenterline(
+function buildRelevanceCenterlineToConnectorJunction(
     sourceNode: RenderNode,
-    targetPoint: { x: number; y: number },
+    junction: ConnectorJunction,
+    pipeWidth: number,
 ): Waypoint[] {
-    return buildAngularConnectorCenterline(
-        { x: sourceNode.renderX, y: getNodeCenterY(sourceNode) },
-        targetPoint,
-    );
+    const startPoint = { x: sourceNode.renderX, y: getNodeCenterY(sourceNode) };
+    const targetPoint = {
+        x: junction.centerX,
+        y: startPoint.y < junction.centerY
+            ? junction.centerY - (junction.height / 2)
+            : junction.centerY + (junction.height / 2),
+    };
+    const cornerPoint = {
+        x: junction.centerX,
+        y: startPoint.y,
+        radius: resolveOrthogonalConnectorBendRadius(startPoint, targetPoint, pipeWidth),
+    };
+
+    if (Math.abs(startPoint.y - targetPoint.y) <= 1) {
+        return [startPoint, targetPoint];
+    }
+
+    return [startPoint, cornerPoint, targetPoint];
 }
 
 function buildAngularConnectorCenterline(
     startPoint: { x: number; y: number },
     endPoint: { x: number; y: number },
+    pipeWidth: number,
+    turnGuide?: ConnectorTurnGuide,
 ): Waypoint[] {
-    const horizontalSpan = Math.max(0, startPoint.x - endPoint.x);
-    const verticalSpan = Math.abs(startPoint.y - endPoint.y);
-    const straightSegmentLength = resolveConnectorStraightSegmentLength(horizontalSpan, verticalSpan);
+    const bendPoints = resolveAngularConnectorBendPoints(
+        startPoint,
+        endPoint,
+        pipeWidth,
+        turnGuide,
+    );
 
-    if (straightSegmentLength <= 1) {
+    if (!bendPoints) {
         return [startPoint, endPoint];
     }
 
-    const bendStart = { x: startPoint.x - straightSegmentLength, y: startPoint.y };
-    const bendEnd = { x: endPoint.x + straightSegmentLength, y: endPoint.y };
-    const diagonalLength = Math.hypot(bendStart.x - bendEnd.x, bendStart.y - bendEnd.y);
-    const bendRadius = Math.min(
-        MAX_CONNECTOR_BEND_RADIUS_PX,
-        straightSegmentLength * 0.7,
-        diagonalLength * 0.22,
+    const diagonalLength = Math.hypot(
+        bendPoints.bendStart.x - bendPoints.bendEnd.x,
+        bendPoints.bendStart.y - bendPoints.bendEnd.y,
+    );
+    const bendRadius = resolveDiagonalConnectorBendRadius(
+        bendPoints.startStraightLength,
+        bendPoints.endStraightLength,
+        diagonalLength,
+        getMinimumCenterlineBendRadius(pipeWidth),
     );
 
     if (bendRadius < 8) {
-        return [startPoint, bendStart, bendEnd, endPoint];
+        return [startPoint, bendPoints.bendStart, bendPoints.bendEnd, endPoint];
     }
 
     return [
         startPoint,
-        { x: bendStart.x, y: bendStart.y, radius: bendRadius },
-        { x: bendEnd.x, y: bendEnd.y, radius: bendRadius },
+        { x: bendPoints.bendStart.x, y: bendPoints.bendStart.y, radius: bendRadius },
+        { x: bendPoints.bendEnd.x, y: bendPoints.bendEnd.y, radius: bendRadius },
         endPoint,
     ];
+}
+
+function resolveAngularConnectorBendPoints(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    pipeWidth: number,
+    turnGuide: ConnectorTurnGuide | undefined,
+): {
+    bendEnd: { x: number; y: number };
+    bendStart: { x: number; y: number };
+    endStraightLength: number;
+    startStraightLength: number;
+} | undefined {
+    if (turnGuide) {
+        const guidedStartStraightLength = startPoint.x - turnGuide.turnStartX;
+        const guidedEndStraightLength = turnGuide.returnTurnX - endPoint.x;
+        if (
+            guidedStartStraightLength > 1
+            && guidedEndStraightLength > 1
+            && turnGuide.turnStartX > turnGuide.returnTurnX
+        ) {
+            return {
+                bendEnd: { x: turnGuide.returnTurnX, y: endPoint.y },
+                bendStart: { x: turnGuide.turnStartX, y: startPoint.y },
+                endStraightLength: guidedEndStraightLength,
+                startStraightLength: guidedStartStraightLength,
+            };
+        }
+    }
+
+    const straightSegmentLength = resolveConnectorStraightSegmentLength(
+        Math.max(0, startPoint.x - endPoint.x),
+        Math.abs(startPoint.y - endPoint.y),
+        getMinimumCenterlineBendRadius(pipeWidth),
+    );
+
+    if (straightSegmentLength <= 1) {
+        return undefined;
+    }
+
+    return {
+        bendEnd: { x: endPoint.x + straightSegmentLength, y: endPoint.y },
+        bendStart: { x: startPoint.x - straightSegmentLength, y: startPoint.y },
+        endStraightLength: straightSegmentLength,
+        startStraightLength: straightSegmentLength,
+    };
 }
 
 function resolveConnectorStraightSegmentLength(
     horizontalSpan: number,
     verticalSpan: number,
+    minimumCenterlineBendRadius: number,
 ): number {
     const maximumStraightSegmentLength = Math.max(
         0,
@@ -452,10 +672,70 @@ function resolveConnectorStraightSegmentLength(
 
     const preferredStraightSegmentLength = Math.max(
         MIN_CONNECTOR_STRAIGHT_PX,
+        minimumCenterlineBendRadius,
         (horizontalSpan - verticalSpan) / 2,
     );
 
     return Math.min(preferredStraightSegmentLength, maximumStraightSegmentLength);
+}
+
+function getAngularConnectorTurnGuide(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    pipeWidth: number,
+): ConnectorTurnGuide | undefined {
+    const bendPoints = resolveAngularConnectorBendPoints(
+        startPoint,
+        endPoint,
+        pipeWidth,
+        undefined,
+    );
+
+    return bendPoints
+        ? {
+            returnTurnX: bendPoints.bendEnd.x,
+            turnStartX: bendPoints.bendStart.x,
+        }
+        : undefined;
+}
+
+function resolveDiagonalConnectorBendRadius(
+    startStraightLength: number,
+    endStraightLength: number,
+    diagonalLength: number,
+    minimumCenterlineBendRadius: number,
+): number {
+    const maximumBendRadius = Math.min(
+        startStraightLength,
+        endStraightLength,
+        diagonalLength / 2,
+    );
+
+    return Math.min(
+        Math.max(MIN_CONNECTOR_BEND_RADIUS_PX, minimumCenterlineBendRadius),
+        maximumBendRadius,
+    );
+}
+
+function resolveOrthogonalConnectorBendRadius(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    pipeWidth: number,
+): number {
+    const maximumBendRadius = Math.min(
+        Math.abs(startPoint.x - endPoint.x),
+        Math.abs(startPoint.y - endPoint.y),
+    );
+
+    return Math.min(
+        Math.max(MIN_CONNECTOR_BEND_RADIUS_PX, getMinimumCenterlineBendRadius(pipeWidth)),
+        maximumBendRadius,
+    );
+}
+
+function getMinimumCenterlineBendRadius(pipeWidth: number): number {
+    return (Math.max(0, pipeWidth) / 2)
+        + (Math.max(0, pipeWidth) * MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO);
 }
 
 function getPointAtPolylineProgress(
@@ -506,6 +786,69 @@ function getNodeCenterY(node: RenderNode): number {
     return node.renderY + (node.node.height / 2);
 }
 
+function buildTurnGuideByTargetScoreId(
+    plans: readonly ConfidenceConnectorPlan[],
+): ReadonlyMap<ScoreId, ConnectorTurnGuide> {
+    const turnGuideByTargetScoreId = new Map<ScoreId, ConnectorTurnGuide>();
+
+    for (const plan of plans) {
+        if (!plan.junction) {
+            continue;
+        }
+
+        const secondSegmentTurnGuide = getAngularConnectorTurnGuide(
+            {
+                x: plan.junction.centerX - (plan.junction.width / 2),
+                y: plan.junction.centerY,
+            },
+            plan.targetPoint,
+            plan.draft.pipeWidth,
+        );
+        if (!secondSegmentTurnGuide) {
+            continue;
+        }
+
+        const targetScoreId = plan.draft.targetNode.node.scoreId;
+        const currentTurnGuide = turnGuideByTargetScoreId.get(targetScoreId);
+        if (!currentTurnGuide || secondSegmentTurnGuide.turnStartX < currentTurnGuide.turnStartX) {
+            turnGuideByTargetScoreId.set(targetScoreId, secondSegmentTurnGuide);
+        }
+    }
+
+    return turnGuideByTargetScoreId;
+}
+
+function buildRelevancePipeWidthByTargetConnectorId(
+    drafts: readonly RelevanceConnectorDraft[],
+): ReadonlyMap<string, number> {
+    const pipeWidthByTargetConnectorId = new Map<string, number>();
+
+    for (const draft of drafts) {
+        pipeWidthByTargetConnectorId.set(
+            draft.connector.targetConfidenceConnectorId,
+            Math.max(
+                pipeWidthByTargetConnectorId.get(draft.connector.targetConfidenceConnectorId) ?? 0,
+                draft.pipeWidth,
+            ),
+        );
+    }
+
+    return pipeWidthByTargetConnectorId;
+}
+
+function buildConnectorJunction(args: {
+    center: { x: number; y: number };
+    confidencePipeWidth: number;
+    relevancePipeWidth: number;
+}): ConnectorJunction {
+    return {
+        centerX: args.center.x,
+        centerY: args.center.y,
+        height: args.confidencePipeWidth,
+        width: args.relevancePipeWidth,
+    };
+}
+
 function buildActualConfidenceSlotByConnectorId(
     drafts: readonly ConfidenceConnectorDraft[],
 ): ReadonlyMap<string, ActualConfidenceSlot> {
@@ -525,18 +868,10 @@ function buildActualConfidenceSlotByConnectorId(
     for (const draftsForTarget of draftsByTarget.values()) {
         const orderedDrafts = orderConfidenceConnectorDraftsForTarget(draftsForTarget);
         const targetNode = orderedDrafts[0].targetNode;
-        const targetHeight = targetNode.node.height;
         const targetCenterY = getNodeCenterY(targetNode);
-        const positiveConfidenceMass = orderedDrafts.reduce(
-            (totalConfidence, draft) => totalConfidence + Math.max(0, draft.sourceNode.score.connectorConfidence),
-            0,
-        );
-        const targetConfidenceScale = positiveConfidenceMass > 0
-            ? 1 / Math.max(1, positiveConfidenceMass)
-            : 0;
         const actualConfidenceSlots = orderedDrafts.map((draft) => ({
             draft,
-            fluidWidth: targetHeight * Math.max(0, draft.sourceNode.score.connectorConfidence) * targetConfidenceScale,
+            fluidWidth: getConfidenceConnectorFluidWidth(draft.sourceNode.score),
         }));
         const totalStackHeight = actualConfidenceSlots.reduce(
             (totalHeight, actualConfidenceSlot) => totalHeight + actualConfidenceSlot.fluidWidth,
@@ -597,25 +932,41 @@ function getGraphScale(args: {
     return Math.min(1, availableWidth / args.graphWidth, availableHeight / args.graphHeight);
 }
 
-function getConnectorPipeWidth(node: RenderNode): number {
-    return node.node.height;
+function getConnectorPotentialPipeWidth(score: Score): number {
+    return scaleWorldWidth(BASE_NODE_HEIGHT_PX, getConnectorScale(score));
+}
+
+function getConfidenceConnectorFluidWidth(score: Score): number {
+    return scaleWorldWidth(BASE_NODE_HEIGHT_PX, getConnectorScale(score) * getConnectorConfidenceRatio(score));
 }
 
 function getConnectorFluidWidth(
     score: Score,
-    pipeWidth: number,
     type: ConfidenceConnector["type"] | RelevanceConnector["type"],
 ): number {
-    const fluidRatio = clampUnit(type === "confidence" ? score.connectorConfidence : score.relevance);
-    if (fluidRatio <= 0) {
-        return 0;
-    }
+    return type === "confidence"
+        ? getConfidenceConnectorFluidWidth(score)
+        : getRelevanceConnectorFluidWidth(score);
+}
 
-    return Math.max(MIN_FLUID_WIDTH_PX, pipeWidth * fluidRatio);
+function getRelevanceConnectorFluidWidth(score: Score): number {
+    return scaleWorldWidth(BASE_NODE_HEIGHT_PX, getConnectorScale(score) * clampUnit(score.relevance));
 }
 
 function getConnectorOutlineWidth(): number {
     return CONNECTOR_OUTLINE_WIDTH_PX;
+}
+
+function getConnectorScale(score: Score): number {
+    return toLayoutScale(score.scaleOfSources);
+}
+
+function getConnectorConfidenceRatio(score: Score): number {
+    return clampUnit(score.connectorConfidence);
+}
+
+function scaleWorldWidth(baseWidth: number, scale: number): number {
+    return baseWidth * clampUnit(scale);
 }
 
 function resolveSideStroke(side: Score["claimSide"]): string {

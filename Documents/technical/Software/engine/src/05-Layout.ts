@@ -5,17 +5,15 @@ import type { Score, ScoreId } from "./00-entities/Score.ts";
 
 // AGENT NOTE: Keep layout sizing and spacing tunables grouped here so future tuning stays in one place.
 /** Full-size claim box width before score scaling is applied. */
-const BASE_NODE_WIDTH_PX = 360;
-/** Full-size claim box height before score scaling is applied. */
-const BASE_NODE_HEIGHT_PX = 176;
-/** Smallest visible scale used for preview boxes so zero-scale scores still render inspectable geometry. */
-const MIN_VISIBLE_LAYOUT_SCALE = 0.4;
+export const BASE_NODE_WIDTH_PX = 360;
+/** Full-size claim box height before score scaling is applied; connector potential width uses this same base unit. */
+export const BASE_NODE_HEIGHT_PX = 176;
 /** Full-size horizontal distance between one depth column and the next. */
-const BASE_HORIZONTAL_GAP_PX = 528;
-/** Minimum horizontal distance retained when source scores shrink heavily. */
-const MIN_HORIZONTAL_GAP_PX = 264;
+const BASE_HORIZONTAL_GAP_PX = 200;
+/** Extra horizontal room reserved before a layer that contains relevance connectors. */
+const RELEVANCE_LAYER_HORIZONTAL_GAP_MULTIPLIER = 2;
 /** Full-size vertical distance between sibling subtree blocks. */
-const BASE_VERTICAL_GAP_PX = 72;
+const BASE_VERTICAL_GAP_PX = 50;
 /** Minimum vertical distance retained for dense groups of small source scores. */
 const MIN_VERTICAL_GAP_PX = 28;
 /** Default left offset for exported layout coordinates. */
@@ -142,7 +140,7 @@ function buildDraftLayoutNode(args: {
         throw new Error(`Claim ${score.claimId} was not found for score ${score.id}.`);
     }
 
-    const layoutScale = toVisibleLayoutScale(score.scaleOfSources);
+    const layoutScale = toLayoutScale(score.scaleOfSources);
     const children = (args.derivedLayoutTree.childScoreIdsByLayoutParentScoreId.get(score.id) ?? []).map((childScoreId) => buildDraftLayoutNode({
         debate: args.debate,
         scoreId: childScoreId,
@@ -264,12 +262,15 @@ function buildColumnLeftByDepth(nodesByDepth: ReadonlyMap<number, readonly Draft
 
     for (let depth = 1; depth <= maxDepth; depth += 1) {
         const previousColumnLeft = columnLeftByDepth[depth - 1] ?? originX;
+        const horizontalGapMultiplier = hasRelevanceConnectorInDepth(nodesByDepth, depth)
+            ? RELEVANCE_LAYER_HORIZONTAL_GAP_MULTIPLIER
+            : 1;
         let nextColumnLeft = previousColumnLeft;
 
         for (const node of nodesByDepth.get(depth - 1) ?? []) {
             nextColumnLeft = Math.max(
                 nextColumnLeft,
-                previousColumnLeft + node.width + getHorizontalGap(node.layoutScale),
+                previousColumnLeft + node.width + getHorizontalGap(node.scaleOfSources, horizontalGapMultiplier),
             );
         }
 
@@ -277,6 +278,13 @@ function buildColumnLeftByDepth(nodesByDepth: ReadonlyMap<number, readonly Draft
     }
 
     return columnLeftByDepth;
+}
+
+function hasRelevanceConnectorInDepth(
+    nodesByDepth: ReadonlyMap<number, readonly DraftLayoutNode[]>,
+    depth: number,
+): boolean {
+    return (nodesByDepth.get(depth) ?? []).some((node) => node.connectorType === "relevance");
 }
 
 function buildLayoutBounds(nodes: readonly DebateLayoutNode[]): LayoutBounds {
@@ -363,13 +371,12 @@ function getRequiredScore(debate: Debate, scoreId: ScoreId): Score {
     return score;
 }
 
-function toVisibleLayoutScale(scaleOfSources: number): number {
-    const normalizedScale = clamp(Number.isFinite(scaleOfSources) ? scaleOfSources : 1, 0, 1);
-    return MIN_VISIBLE_LAYOUT_SCALE + ((1 - MIN_VISIBLE_LAYOUT_SCALE) * normalizedScale);
+export function toLayoutScale(scaleOfSources: number): number {
+    return clamp(Number.isFinite(scaleOfSources) ? scaleOfSources : 1, 0, 1);
 }
 
-function getHorizontalGap(layoutScale: number): number {
-    return Math.round(interpolate(layoutScale, MIN_HORIZONTAL_GAP_PX, BASE_HORIZONTAL_GAP_PX));
+function getHorizontalGap(scaleOfSources: number, multiplier: number): number {
+    return Math.round(BASE_HORIZONTAL_GAP_PX * scaleOfSources * multiplier);
 }
 
 function getVerticalGap(layoutScale: number): number {

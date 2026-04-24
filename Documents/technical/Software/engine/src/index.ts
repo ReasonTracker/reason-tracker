@@ -24,7 +24,10 @@ export {
 	Reducer,
 } from "./04-Reducer.ts";
 export {
+	BASE_NODE_HEIGHT_PX,
+	BASE_NODE_WIDTH_PX,
 	layoutDebate,
+	toLayoutScale,
 } from "./05-Layout.ts";
 
 export type {
