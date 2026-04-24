@@ -42,4 +42,5 @@ If a patch shape is used only once and does not need its own name, inline it at 
 - [Engine](../📌README.md)
 
 <!-- autonav:start -->
+- [📌 Planner](./02-Planner.md)
 <!-- autonav:end -->

@@ -13,7 +13,7 @@ The shared video helpers own Remotion sequencing, fades, graph-state interpolati
 2. The episode renders `GraphView` with an initial `Debate`.
 3. The episode places `GraphEvents` children inside `GraphView`.
 4. Each `GraphEvents` entry carries one or more `{ id, command }` action entries.
-5. `GraphView` runs those commands through `Planner`, applies emitted operations through `Reducer`, and creates layout snapshots with `layoutDebate`.
+5. `GraphView` runs those commands through `Planner`, applies emitted operations through `Reducer`, and creates operation-derived layout snapshots with `layoutDebate`.
 6. During render, `GraphView` uses `useCurrentFrame` to resolve the active segment and interpolates from one snapshot to the next.
 7. `CameraMove` children are resolved against the active graph frame so camera movement is also frame-driven.
 
@@ -77,11 +77,16 @@ Graph animation follows the planner operation order described by the engine.
 
 This preserves the planner distinction between a command and the operation wave emitted for that command.
 The renderer does not calculate new score values; it interpolates between the reduced states produced by applying each operation group.
+The renderer also does not pull values, layout, connector widths, graph bounds, or junction geometry from later operations into earlier operation snapshots.
+If an operation changes engine state without changing the rendered graph above the visual tolerance, `GraphView` advances to that state without allocating visible timeline time for the no-op segment.
 
 ## Add Claim Animation
 
 An add-claim command emits multiple engine operations, including `ClaimAdded`, `ConnectorAdded`, `ScoreAdded`, `incomingScoresChanged`, zero or more `ScoreUpdated` operations, optional `incomingScoresSorted`, and `scaleOfSources`.
-The video layer keeps those operations in order, but expands the structural add group into three visual phases:
+The video layer keeps those operations in order.
+The newly added score occurrence uses the source scale carried by its `ScoreAdded` operation; `GraphView` does not replace that scale with a future scale operation.
+
+For a confidence add, the structural add group expands into three visual phases:
 
 1. Layout and claim phase
    The new layout is calculated from the reduced state after the structural operations.
@@ -89,8 +94,7 @@ The video layer keeps those operations in order, but expands the structural add 
    The new claim occurrence is present at its final layout position, scales from `0` to full size, fades from `0` to `1`, and its displayed confidence scales from `0` to the reduced score value.
    The new connector spans and new connector junctions are omitted from the render order during this phase, so no connector layer can appear before the claim has entered.
    The structural add snapshot is layout-valid on its own.
-   When the same command later emits `scaleOfSources`, the renderer can preview that later engine-derived scale geometry during the add phases so the entering claim and existing siblings already use the settled scaled layout.
-   That preview is limited to the later scale-derived render geometry. It does not pull later score propagation, later confidence display values, or later connector confidence fills forward into the structural add phase.
+   If the same command later emits `scaleOfSources`, that scale change appears only during the later `scaleOfSources` phase.
    The video renderer does not invent layout floors, synthetic scales, or expanded graph bounds to compensate for planner state.
 
 2. Empty pipe phase
@@ -102,6 +106,33 @@ The video layer keeps those operations in order, but expands the structural add 
    The pipe remains fully visible.
    The connector fluid reveals from source claim to target and stays anchored to the pipe's bottom boundary as it grows.
    After this phase, the graph is at the reduced structural state and later operation phases can propagate score effects.
+
+For a relevance add, the structural add group expands into five visual phases:
+
+1. Layout and claim phase
+   The new relevance source claim enters at the source scale carried by the `ScoreAdded` operation.
+   Existing score occurrences interpolate only to the reduced structural snapshot.
+   The new relevance connector and any new target-confidence junction are omitted from the render order.
+
+2. Relevance pipe and temporary junction phase
+   The relevance pipe reveals from source claim to the target confidence connector.
+   The target confidence connector uses a temporary line junction that matches the current target confidence connector thickness, angle, and junction center.
+   The relevance connector endpoint is calculated from the same temporary junction visual that renders the junction box.
+   The target-side confidence delivery span remains at its current geometry.
+
+3. Relevance fluid phase
+   The relevance pipe remains fully visible.
+   The relevance fluid reveals from source claim to the same temporary junction endpoint.
+
+4. Junction shape phase
+   The target confidence connector junction changes from the temporary line junction to the reduced structural junction shape.
+   The relevance connector endpoint is recalculated from the active junction visual during the same frame, so the relevance connector angle and junction shape cannot drift into different phases.
+   Destination-span width does not animate during this phase.
+
+5. Confidence delivery phase
+   The target confidence connector delivery span animates from the junction toward the target claim when the reduced structural snapshot changes delivery geometry.
+   The target-side connector pivot and relevance endpoint follow the active junction visual during this phase.
+   Junction shape changes do not animate during this phase.
 
 Connector reveal uses path-relative percentages, so it follows the routed layout geometry rather than a straight screen-space tween.
 Those add phases are expressed through path-geometry extremity instructions, not through SVG clipping or renderer-owned visibility windows.
@@ -120,7 +151,7 @@ For every snapshot, `GraphView` stores:
 
 Those snapshots stay engine-derived.
 Animation state can change presentation values such as opacity, insert scale, and connector reveal progress, but it does not invent alternate layout sizes, graph bounds, or connector widths outside the engine-produced snapshots.
-When the renderer previews a later scale result from the same command, that preview is restricted to scale-derived geometry only.
+Every transition starts from the snapshot left by the prior operation group and ends at the snapshot produced by applying the current operation group.
 
 During a transition:
 
@@ -128,10 +159,28 @@ During a transition:
 - entering score occurrences start with opacity `0`, insert scale `0`, and confidence `0`
 - exiting score occurrences fade and shrink to opacity `0`, insert scale `0`, and confidence `0`
 - shared connector spans can interpolate routed geometry when the semantic connector value is unchanged
-- connector value changes such as confidence or potential updates sweep the new geometry from one end of the path to the other by composing path-geometry transition instructions instead of animating width across the whole connector at once
+- connector value changes such as confidence or potential updates sweep the new geometry from one end of the path to the other by composing path-geometry transition instructions instead of animating width across the whole connector at once, unless a later rule below explicitly requires whole-span interpolation
 - entering connector spans reveal from source to target
 - exiting connector spans hide from source to target or target to source according to the directive
 - relevance connectors also update the target confidence connector so split spans and connector junctions animate together
+
+When an existing confidence connector already has a junction and a later `ScoreUpdated` operation changes that connector, `GraphView` uses two ordered phases.
+
+1. Source and junction phase
+   Shared graph layout, source-span geometry, and the junction box all interpolate toward the reduced target snapshot together.
+   The confidence delivery span keeps its previous geometry and widths for this whole phase.
+   Any relevance connector targeting that junction derives its centerline from the active junction visual on every frame of this phase.
+   The source span must interpolate width and movement together across the whole span during this phase. `GraphView` must not use a path-relative width sweep or moving transition front inside this phase.
+
+2. Junction-to-target delivery phase
+   The junction box stays at the state reached in phase 1.
+   The confidence delivery span then animates from the junction toward the target claim.
+   Any targeting relevance connector still derives its centerline from the active junction visual on every frame of this phase, so the relevance endpoint remains locked to the rendered junction box while the delivery span catches up.
+   The delivery span must interpolate width and movement together across the whole span during this phase. `GraphView` must not use a path-relative width sweep or moving transition front inside this phase.
+
+This two-phase rule applies to later `ScoreUpdated` transitions on an already-present junctioned confidence connector.
+`scaleOfSources` does not use this split path: source span, delivery span, junction box, and targeting relevance endpoints all update together during the single whole-graph source-scale phase.
+It is separate from the five-phase structural relevance-add animation described above.
 
 Connector reveal and removal use path-geometry extremity instructions measured along the routed path.
 Pipe reveal uses open extremities at the moving end so potential confidence never tapers into the centerline.

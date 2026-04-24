@@ -25,7 +25,8 @@ Example: `Software/videos` for `@reasontracker/video`.
 - [Periodic Review Status](./Periodic%20Review%20Status.md)
 - [Coding Guidelines](./Coding%20Guidelines.md)
 - [Renderer Algorithm Rationale](./Renderer%20Algorithm%20Rationale.md)
-- [V3 Proposal](./V3%20Proposal.md)
-- [V3 Suggestions And Open Questions](./V3%20Suggestions%20And%20Open%20Questions.md)
+- [V3 Proposal](./v3/V3%20Proposal.md)
+- [V3 Suggestions And Open Questions](./v3/V3%20Suggestions%20And%20Open%20Questions.md)
 - [Ideas for Future Technical Goals](./Ideas%20for%20Future%20Technical%20Goals.md)
+- [V3](./v3/📌README.md)
 <!-- autonav:end -->

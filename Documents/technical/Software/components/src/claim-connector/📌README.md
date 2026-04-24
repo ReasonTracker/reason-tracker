@@ -34,4 +34,5 @@ This folder is the planned home for the shared claim-connector component and nea
 ---
 
 <!-- autonav:start -->
+- [Reason Tracker](./Proposal.md)
 <!-- autonav:end -->

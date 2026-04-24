@@ -545,6 +545,8 @@ function createInitialLeafScore(args: {
     const defaultConfidence = args.claim.defaultConfidence ?? DEFAULT_SCORE_VALUE;
     const claimConfidence = clamp(defaultConfidence, 0, MAX_SCORE_VALUE);
     const reversibleClaimConfidence = clamp(defaultConfidence, MIN_REVERSIBLE_SCORE_VALUE, MAX_SCORE_VALUE);
+    const relevance = Math.max(0, args.claim.defaultRelevance ?? DEFAULT_SCORE_VALUE);
+    const scaleOfSources = calculateInitialLeafScaleOfSources(args);
     const targetSide = getTargetSideForNewSourceScore(args.targetScore, args.connector);
     const sourceSide = deriveSourceSideFromTargetSide(targetSide, args.connector.targetRelationship);
 
@@ -562,12 +564,40 @@ function createInitialLeafScore(args: {
         reversibleClaimConfidence,
         connectorConfidence: claimConfidence,
         reversibleConnectorConfidence: reversibleClaimConfidence,
-        relevance: Math.max(0, args.claim.defaultRelevance ?? DEFAULT_SCORE_VALUE),
-        scaleOfSources: DEFAULT_SCORE_VALUE,
-        deliveryScaleOfSources: DEFAULT_SCORE_VALUE,
+        relevance,
+        scaleOfSources,
+        deliveryScaleOfSources: args.connector.type === "confidence"
+            ? scaleOfSources * relevance
+            : scaleOfSources,
         claimSide: sourceSide,
         connectorSide: sourceSide,
     };
+}
+
+function calculateInitialLeafScaleOfSources(args: {
+    connector: Connector;
+    targetScore: Score;
+    debate: Debate;
+}): number {
+    if (args.connector.type === "relevance") {
+        return args.targetScore.scaleOfSources;
+    }
+
+    let confidenceChildCount = 1;
+    for (const incomingScoreId of args.targetScore.incomingScoreIds) {
+        const incomingScore = getRequiredScore(args.debate, incomingScoreId);
+        if (!incomingScore.connectorId) {
+            throw new Error(`Incoming score ${incomingScoreId} did not have a connector while calculating initial source scale.`);
+        }
+
+        const connector = getRequiredConnector(args.debate, incomingScore.connectorId);
+        if (connector.type === "confidence") {
+            confidenceChildCount += 1;
+        }
+    }
+
+    return args.targetScore.scaleOfSources
+        * (DEFAULT_SCORE_VALUE / Math.max(DEFAULT_SCORE_VALUE, confidenceChildCount));
 }
 
 function createConnectorForTarget(args: {
@@ -1853,5 +1883,3 @@ function toBase62(num: number): string {
 
     return result;
 }
-
-

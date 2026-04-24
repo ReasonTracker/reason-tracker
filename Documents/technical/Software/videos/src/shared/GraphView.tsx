@@ -21,21 +21,25 @@ import {
 import {
     BASE_NODE_HEIGHT_PX,
     BASE_NODE_WIDTH_PX,
-    layoutDebate,
     Planner,
     Reducer,
     type ClaimId,
     type ConnectorId,
     type Debate,
-    type DebateLayout,
-    type DebateLayoutConnectorJunction,
-    type DebateLayoutConnectorSpan,
-    type DebateLayoutNode,
     type EngineCommand,
     type Operation,
     type Score,
     type ScoreId,
 } from "../../../engine/src/index.ts";
+import {
+    buildGraphSnapshot,
+    type GraphConnectorJunctionVisual,
+    type GraphConnectorSpanVisual,
+    type GraphNodeVisual,
+    type GraphRenderState,
+    type GraphSnapshot,
+    type GraphTransitionDirection,
+} from "./graphSnapshots";
 import { getZoomMotionState } from "./zoomMotion";
 
 // AGENT NOTE: Keep graph animation tunables grouped here so motion and sizing can be tuned in one pass.
@@ -49,8 +53,6 @@ const DEFAULT_ZOOM_DURATION_FRAMES = 78;
 const DEFAULT_ZOOM_PADDING = 120;
 /** Padding retained when the camera resets to the whole graph. */
 const DEFAULT_VIEWPORT_PADDING = 100;
-/** World-space padding around layout bounds before camera transforms are applied. */
-const GRAPH_PADDING_PX = 96;
 /** Outline width shared by connector walls and connector junction frames. */
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 /** Multiplier applied to connector width when deriving the span of a path-geometry transition front. */
@@ -61,11 +63,11 @@ const CLAIM_CONFIDENCE_VALUE_FONT_SIZE_PX = 32;
 const CLAIM_CONFIDENCE_CAPTION_FONT_SIZE_PX = 11;
 /** Vertical gap between the numeric confidence value and its caption. */
 const CLAIM_CONFIDENCE_CAPTION_GAP_PX = 2;
+/** Smallest rendered numeric difference worth spending timeline frames on. */
+const VISUAL_DELTA_EPSILON = 0.001;
 
 const planner = new Planner();
 const reducer = new Reducer();
-
-type GraphTransitionDirection = "sourceToTarget" | "targetToSource";
 
 type GraphTransitionDirective =
     | {
@@ -80,7 +82,8 @@ type GraphTransitionDirective =
         effect: "fluidGrow" | "pipeGrow" | "shrink" | "update";
         direction?: GraphTransitionDirection;
         junctionEffect?: "hide" | "none" | "reveal" | "update";
-        spanTypes?: readonly DebateLayoutConnectorSpan["spanType"][];
+        spanTypes?: readonly GraphConnectorSpanVisual["spanType"][];
+        widthAnimation?: "interpolate" | "sweep";
     };
 
 type GraphConnectorTransitionDirective = Extract<GraphTransitionDirective, { kind: "connector" }>;
@@ -134,72 +137,6 @@ type ResolvedGraphEvent = {
     name: string;
 };
 
-type GraphNodeVisual = {
-    scoreId: ScoreId;
-    claimId: ClaimId;
-    content: string;
-    side: Score["claimSide"];
-    confidence: number;
-    relevance: number;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    opacity: number;
-    insertScale: number;
-};
-
-type GraphConnectorSpanVisual = {
-    visualId: string;
-    connectorId: ConnectorId;
-    spanType: DebateLayoutConnectorSpan["spanType"];
-    centerlinePoints: Waypoint[];
-    fluidWidth: number;
-    pipeWidth: number;
-    side: Score["connectorSide"];
-    opacity: number;
-    fluidProgress: number;
-    pipeProgress: number;
-    direction: GraphTransitionDirection;
-    updateTransition?: {
-        fromFluidWidth: number;
-        fromPipeWidth: number;
-        toFluidWidth: number;
-        toPipeWidth: number;
-        progress: number;
-        direction: GraphTransitionDirection;
-    };
-};
-
-type GraphConnectorJunctionVisual = {
-    visualId: string;
-    targetConfidenceConnectorId: ConnectorId;
-    centerX: number;
-    centerY: number;
-    leftHeight: number;
-    rightHeight: number;
-    side: Score["connectorSide"];
-    width: number;
-    opacity: number;
-};
-
-type GraphRenderState = {
-    width: number;
-    height: number;
-    nodeRenderOrder: ScoreId[];
-    connectorSpanRenderOrder: string[];
-    connectorJunctionRenderOrder: string[];
-    nodeByScoreId: Record<ScoreId, GraphNodeVisual>;
-    connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual>;
-    connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual>;
-};
-
-type GraphSnapshot = {
-    debate: Debate;
-    layout: DebateLayout;
-    renderState: GraphRenderState;
-};
-
 type GraphTransitionSegment = {
     timelineFrom: number;
     name: string;
@@ -243,12 +180,6 @@ type TransitionSegmentInput = {
     name: string;
     operations: readonly Operation[];
     timelineFrom: number;
-    toSnapshotOverride?: GraphSnapshot;
-};
-
-type OperationGroupPlan = {
-    group: OperationGroup;
-    toSnapshot: GraphSnapshot;
 };
 
 type GraphViewProps = {
@@ -290,24 +221,32 @@ export function countGraphEventTransitionSegments(args: {
             args.debate,
             args.actions.map((action) => action.command),
         );
+        const transitionPlan = buildOperationGroupTransitionPlan(
+            buildGraphSnapshot(args.debate),
+            buildOperationGroups(operations),
+        );
 
         return {
-            nextDebate: applyOperations(args.debate, operations),
-            transitionSegmentCount: countTransitionSegmentsForOperations(args.debate, operations),
+            nextDebate: transitionPlan.finalSnapshot.debate,
+            transitionSegmentCount: transitionPlan.segments.length,
         };
     }
 
-    let workingDebate = args.debate;
+    let workingSnapshot = buildGraphSnapshot(args.debate);
     let transitionSegmentCount = 0;
 
     for (const action of args.actions) {
-        const operations = planOperations(workingDebate, [action.command]);
-        transitionSegmentCount += countTransitionSegmentsForOperations(workingDebate, operations);
-        workingDebate = applyOperations(workingDebate, operations);
+        const operations = planOperations(workingSnapshot.debate, [action.command]);
+        const transitionPlan = buildOperationGroupTransitionPlan(
+            workingSnapshot,
+            buildOperationGroups(operations),
+        );
+        transitionSegmentCount += transitionPlan.segments.length;
+        workingSnapshot = transitionPlan.finalSnapshot;
     }
 
     return {
-        nextDebate: workingDebate,
+        nextDebate: workingSnapshot.debate,
         transitionSegmentCount,
     };
 }
@@ -491,84 +430,89 @@ function buildGraphEventSegments(
             return [];
         }
 
-        const operationGroups = buildOperationGroups(operations);
-        const groupPlans = buildOperationGroupPlans(startSnapshot, operationGroups);
-        const groupDurations = distributeFrames(graphEvent.durationInFrames, operationGroups.length);
-        const segments: GraphTransitionSegment[] = [];
-        let currentSnapshot = startSnapshot;
-        let cursorFrames = 0;
-
-        for (let groupIndex = 0; groupIndex < operationGroups.length; groupIndex += 1) {
-            const groupPlan = groupPlans[groupIndex];
-            const operationGroup = groupPlan?.group ?? operationGroups[groupIndex];
-            const nextSegments = buildTransitionSegments({
-                durationInFrames: groupDurations[groupIndex] ?? 1,
-                fromSnapshot: currentSnapshot,
-                name: `${graphEvent.name} / ${operationGroup.name}`,
-                operations: operationGroup.operations,
-                timelineFrom: graphEvent.from + cursorFrames,
-                toSnapshotOverride: groupPlan?.toSnapshot,
-            });
-            segments.push(...nextSegments);
-
-            const finalSegment = nextSegments[nextSegments.length - 1];
-            if (finalSegment) {
-                currentSnapshot = finalSegment.toSnapshot;
-            }
-            cursorFrames += groupDurations[groupIndex] ?? 1;
-        }
-
-        return segments;
+        return retimeTransitionSegments(
+            buildOperationGroupTransitionPlan(
+                startSnapshot,
+                buildOperationGroups(operations),
+                graphEvent.name,
+            ).segments,
+            graphEvent.from,
+            graphEvent.durationInFrames,
+        );
     }
 
-    const actionDurations = distributeFrames(graphEvent.durationInFrames, graphEvent.actions.length);
     const segments: GraphTransitionSegment[] = [];
-    let currentDebate = startDebate;
     let currentSnapshot = startSnapshot;
-    let eventCursor = 0;
 
     for (let actionIndex = 0; actionIndex < graphEvent.actions.length; actionIndex += 1) {
         const action = graphEvent.actions[actionIndex];
-        const actionDuration = actionDurations[actionIndex] ?? 1;
-        const operations = planOperations(currentDebate, [action.command]);
-        const operationGroups = buildOperationGroups(operations);
-        const groupPlans = buildOperationGroupPlans(currentSnapshot, operationGroups);
-        const groupDurations = distributeFrames(actionDuration, operationGroups.length);
-        let actionCursor = 0;
-
-        for (let groupIndex = 0; groupIndex < operationGroups.length; groupIndex += 1) {
-            const groupPlan = groupPlans[groupIndex];
-            const operationGroup = groupPlan?.group ?? operationGroups[groupIndex];
-            const durationInFrames = groupDurations[groupIndex] ?? actionDuration;
-            const nextSegments = buildTransitionSegments({
-                durationInFrames,
-                fromSnapshot: currentSnapshot,
-                name: `${graphEvent.name} / ${action.id} / ${operationGroup.name}`,
-                operations: operationGroup.operations,
-                timelineFrom: graphEvent.from + eventCursor + actionCursor,
-                toSnapshotOverride: groupPlan?.toSnapshot,
-            });
-
-            segments.push(...nextSegments);
-            const finalSegment = nextSegments[nextSegments.length - 1];
-            if (finalSegment) {
-                currentDebate = finalSegment.toSnapshot.debate;
-                currentSnapshot = finalSegment.toSnapshot;
-            }
-            actionCursor += durationInFrames;
-        }
-
-        eventCursor += actionDuration;
+        const transitionPlan = buildOperationGroupTransitionPlan(
+            currentSnapshot,
+            buildOperationGroups(planOperations(currentSnapshot.debate, [action.command])),
+            `${graphEvent.name} / ${action.id}`,
+        );
+        segments.push(...transitionPlan.segments);
+        currentSnapshot = transitionPlan.finalSnapshot;
     }
 
-    return segments;
+    return retimeTransitionSegments(segments, graphEvent.from, graphEvent.durationInFrames);
+}
+
+function buildOperationGroupTransitionPlan(
+    startSnapshot: GraphSnapshot,
+    operationGroups: readonly OperationGroup[],
+    namePrefix = "Graph transition",
+): { segments: GraphTransitionSegment[]; finalSnapshot: GraphSnapshot } {
+    const segments: GraphTransitionSegment[] = [];
+    let currentSnapshot = startSnapshot;
+
+    for (const operationGroup of operationGroups) {
+        const nextSegments = buildTransitionSegments({
+            durationInFrames: 1,
+            fromSnapshot: currentSnapshot,
+            name: `${namePrefix} / ${operationGroup.name}`,
+            operations: operationGroup.operations,
+            timelineFrom: 0,
+        });
+
+        segments.push(...nextSegments.filter(isMeaningfulTransitionSegment));
+        currentSnapshot = nextSegments[nextSegments.length - 1]?.toSnapshot ?? currentSnapshot;
+    }
+
+    return {
+        segments,
+        finalSnapshot: currentSnapshot,
+    };
+}
+
+function retimeTransitionSegments(
+    segments: readonly GraphTransitionSegment[],
+    timelineFrom: number,
+    durationInFrames: number,
+): GraphTransitionSegment[] {
+    if (segments.length < 1) {
+        return [];
+    }
+
+    const segmentDurations = distributeFrames(durationInFrames, segments.length);
+    let timelineCursor = timelineFrom;
+
+    return segments.map((segment, index) => {
+        const retimedSegment = {
+            ...segment,
+            durationInFrames: segmentDurations[index] ?? 1,
+            timelineFrom: timelineCursor,
+        };
+        timelineCursor += retimedSegment.durationInFrames;
+        return retimedSegment;
+    });
 }
 
 function buildTransitionSegments(args: TransitionSegmentInput): GraphTransitionSegment[] {
     assertAnimationOperationScope(args.operations);
 
     const nextDebate = applyOperations(args.fromSnapshot.debate, args.operations);
-    const toSnapshot = args.toSnapshotOverride ?? buildGraphSnapshot(nextDebate);
+    const toSnapshot = buildGraphSnapshot(nextDebate);
 
     if (shouldUseAddRelevanceVisualPhases(args.operations)) {
         return buildAddRelevanceTransitionSegments(args, toSnapshot);
@@ -715,64 +659,80 @@ function buildAddRelevanceTransitionSegments(
             targetConfidenceConnectorIds,
         ),
         args.fromSnapshot,
-        finalSnapshot,
         targetConfidenceConnectorIds,
     );
     const layoutSnapshot = withAddRelevanceTargetLineJunctionGeometry(
-        withAddRelevanceTargetConfidenceWidths(
-            withoutAddedConnectorVisuals(
+        withHeldSequencedConnectorDeliverySpans(
+            withAddRelevanceTargetConfidenceWidths(
+                withoutAddedConnectorVisuals(
+                    finalSnapshot,
+                    addedRelevanceConnectorIds,
+                    newJunctionVisualIds,
+                ),
+                args.fromSnapshot,
                 finalSnapshot,
-                addedRelevanceConnectorIds,
-                newJunctionVisualIds,
+                targetConfidenceConnectorIds,
             ),
             args.fromSnapshot,
-            finalSnapshot,
             targetConfidenceConnectorIds,
         ),
         args.fromSnapshot,
-        finalSnapshot,
         targetConfidenceConnectorIds,
     );
     const pipeSnapshot = withAddRelevanceTargetLineJunctionGeometry(
-        withAddRelevanceTargetConfidenceWidths(
-            withConnectorPhaseVisibility(
+        withHeldSequencedConnectorDeliverySpans(
+            withAddRelevanceTargetConfidenceWidths(
+                withConnectorPhaseVisibility(
+                    finalSnapshot,
+                    addedRelevanceConnectorIds,
+                    newJunctionVisualIds,
+                    1,
+                    0,
+                    1,
+                ),
+                args.fromSnapshot,
                 finalSnapshot,
-                addedRelevanceConnectorIds,
-                newJunctionVisualIds,
-                1,
-                0,
-                1,
+                targetConfidenceConnectorIds,
             ),
             args.fromSnapshot,
-            finalSnapshot,
             targetConfidenceConnectorIds,
         ),
         args.fromSnapshot,
-        finalSnapshot,
         targetConfidenceConnectorIds,
     );
     const relevanceFluidSnapshot = withAddRelevanceTargetLineJunctionGeometry(
-        withAddRelevanceTargetConfidenceWidths(
-            withConnectorPhaseVisibility(
+        withHeldSequencedConnectorDeliverySpans(
+            withAddRelevanceTargetConfidenceWidths(
+                withConnectorPhaseVisibility(
+                    finalSnapshot,
+                    addedRelevanceConnectorIds,
+                    newJunctionVisualIds,
+                    1,
+                    1,
+                    1,
+                ),
+                args.fromSnapshot,
                 finalSnapshot,
-                addedRelevanceConnectorIds,
-                newJunctionVisualIds,
-                1,
-                1,
-                1,
+                targetConfidenceConnectorIds,
             ),
             args.fromSnapshot,
-            finalSnapshot,
             targetConfidenceConnectorIds,
         ),
         args.fromSnapshot,
-        finalSnapshot,
         targetConfidenceConnectorIds,
     );
-    const junctionShapeSnapshot = withAddRelevanceTargetConfidenceWidths(
-        finalSnapshot,
+    const junctionShapeSnapshot = withHeldTargetConfidenceJunctionCenters(
+        withHeldSequencedConnectorDeliverySpans(
+            withAddRelevanceTargetConfidenceWidths(
+                finalSnapshot,
+                args.fromSnapshot,
+                finalSnapshot,
+                targetConfidenceConnectorIds,
+            ),
+            args.fromSnapshot,
+            targetConfidenceConnectorIds,
+        ),
         args.fromSnapshot,
-        finalSnapshot,
         targetConfidenceConnectorIds,
     );
     let timelineFrom = args.timelineFrom;
@@ -840,14 +800,16 @@ function buildAddRelevanceTransitionSegments(
             timelineFrom,
         },
         junctionShapeSnapshot,
-        [...targetConfidenceConnectorIds].map((connectorId) => ({
-            kind: "connector",
-            connectorId,
-            effect: "update",
-            direction: "sourceToTarget",
-            junctionEffect: "update",
-            spanTypes: [] as const,
-        } satisfies GraphTransitionDirective)),
+        [
+            ...[...targetConfidenceConnectorIds].map((connectorId) => ({
+                kind: "connector",
+                connectorId,
+                effect: "update",
+                direction: "sourceToTarget",
+                junctionEffect: "update",
+                spanTypes: [] as const,
+            } satisfies GraphTransitionDirective)),
+        ],
     ));
 
     timelineFrom += phaseDurations[3] ?? 1;
@@ -860,14 +822,17 @@ function buildAddRelevanceTransitionSegments(
             timelineFrom,
         },
         finalSnapshot,
-        [...targetConfidenceConnectorIds].map((connectorId) => ({
-            kind: "connector",
-            connectorId,
-            effect: "update",
-            direction: "sourceToTarget",
-            junctionEffect: "none",
-            spanTypes: ["confidenceDelivery"] as const,
-        } satisfies GraphTransitionDirective)),
+        [
+            ...[...targetConfidenceConnectorIds].map((connectorId) => ({
+                kind: "connector",
+                connectorId,
+                effect: "update",
+                direction: "sourceToTarget",
+                junctionEffect: "none",
+                spanTypes: ["confidenceDelivery"] as const,
+                widthAnimation: "interpolate",
+            } satisfies GraphTransitionDirective)),
+        ],
     ));
 
     return segments;
@@ -878,6 +843,10 @@ function buildSequencedConnectorUpdateSegments(
     nextDebate: Debate,
     finalSnapshot: GraphSnapshot,
 ): GraphTransitionSegment[] | undefined {
+    if (args.operations.some((operation) => operation.type === "scaleOfSources")) {
+        return undefined;
+    }
+
     const baseDirectives = buildTransitionDirectives(
         args.fromSnapshot.debate,
         nextDebate,
@@ -885,12 +854,12 @@ function buildSequencedConnectorUpdateSegments(
     );
     const sequencedConnectorDirectives = baseDirectives.filter((directive): directive is GraphConnectorUpdateDirective => (
         directive.kind === "connector"
-            && directive.effect === "update"
-            && shouldSequenceConnectorUpdate(
-                args.fromSnapshot.renderState,
-                finalSnapshot.renderState,
-                directive.connectorId,
-            )
+        && directive.effect === "update"
+        && shouldSequenceConnectorUpdate(
+            args.fromSnapshot.renderState,
+            finalSnapshot.renderState,
+            directive.connectorId,
+        )
     ));
 
     if (sequencedConnectorDirectives.length < 1) {
@@ -901,30 +870,30 @@ function buildSequencedConnectorUpdateSegments(
         sequencedConnectorDirectives.map((directive) => directive.connectorId),
     );
     const phaseDurations = distributeFrames(args.durationInFrames, 2);
-    const intermediateSnapshot = withHeldSequencedConnectorDeliveryGeometry(
+    const sourceAndJunctionSnapshot = withHeldSequencedConnectorDeliverySpans(
         finalSnapshot,
         args.fromSnapshot,
         sequencedConnectorIds,
     );
-    const sourcePhaseDirectives = baseDirectives.flatMap((directive) => {
+    const sourceAndJunctionDirectives = baseDirectives.map((directive) => {
         if (
             directive.kind !== "connector"
             || directive.effect !== "update"
             || !sequencedConnectorIds.has(directive.connectorId)
         ) {
-            return [directive];
+            return directive;
         }
 
-        return [{
+        return {
             ...directive,
-            junctionEffect: "none",
-            spanTypes: ["confidenceSource"],
-        } satisfies GraphTransitionDirective];
+            widthAnimation: "interpolate",
+        } satisfies GraphTransitionDirective;
     });
     const deliveryPhaseDirectives = sequencedConnectorDirectives.map((directive) => ({
         ...directive,
-        junctionEffect: "update",
-        spanTypes: ["confidenceDelivery"],
+        junctionEffect: "none",
+        spanTypes: ["confidenceDelivery"] as const,
+        widthAnimation: "interpolate",
     } satisfies GraphTransitionDirective));
 
     return [
@@ -932,16 +901,16 @@ function buildSequencedConnectorUpdateSegments(
             {
                 ...args,
                 durationInFrames: phaseDurations[0] ?? 1,
-                name: `${args.name} / source to junction`,
+                name: `${args.name} / source and junction`,
             },
-            intermediateSnapshot,
-            sourcePhaseDirectives,
+            sourceAndJunctionSnapshot,
+            sourceAndJunctionDirectives,
         ),
         buildTransitionSegment(
             {
                 ...args,
                 durationInFrames: phaseDurations[1] ?? 1,
-                fromSnapshot: intermediateSnapshot,
+                fromSnapshot: sourceAndJunctionSnapshot,
                 name: `${args.name} / junction to target`,
                 timelineFrom: args.timelineFrom + (phaseDurations[0] ?? 1),
             },
@@ -1090,7 +1059,7 @@ function withConnectorPhaseVisibility(
     };
 }
 
-function withHeldSequencedConnectorDeliveryGeometry(
+function withHeldSequencedConnectorDeliverySpans(
     targetSnapshot: GraphSnapshot,
     fromSnapshot: GraphSnapshot,
     connectorIds: ReadonlySet<ConnectorId>,
@@ -1100,7 +1069,6 @@ function withHeldSequencedConnectorDeliveryGeometry(
     }
 
     const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
-    const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
 
     for (const [visualId, span] of Object.entries(targetSnapshot.renderState.connectorSpanByVisualId)) {
         const fromSpan = fromSnapshot.renderState.connectorSpanByVisualId[visualId];
@@ -1111,18 +1079,9 @@ function withHeldSequencedConnectorDeliveryGeometry(
             : span;
     }
 
-    for (const [visualId, junction] of Object.entries(targetSnapshot.renderState.connectorJunctionByVisualId)) {
-        const fromJunction = fromSnapshot.renderState.connectorJunctionByVisualId[visualId];
-        connectorJunctionByVisualId[visualId] = connectorIds.has(junction.targetConfidenceConnectorId)
-            && fromJunction
-            ? fromJunction
-            : junction;
-    }
-
     return withRenderState(targetSnapshot, {
         ...targetSnapshot.renderState,
         connectorSpanByVisualId,
-        connectorJunctionByVisualId,
     });
 }
 
@@ -1180,7 +1139,6 @@ function withAddRelevanceTargetConfidenceWidths(
 function withAddRelevanceTargetLineJunctionGeometry(
     snapshot: GraphSnapshot,
     fromSnapshot: GraphSnapshot,
-    finalSnapshot: GraphSnapshot,
     targetConfidenceConnectorIds: ReadonlySet<ConnectorId>,
 ): GraphSnapshot {
     if (targetConfidenceConnectorIds.size < 1) {
@@ -1188,7 +1146,6 @@ function withAddRelevanceTargetLineJunctionGeometry(
     }
 
     const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
-    const lineJunctionByTargetConnectorId = new Map<ConnectorId, GraphConnectorJunctionVisual>();
 
     for (const [visualId, junction] of Object.entries(snapshot.renderState.connectorJunctionByVisualId)) {
         if (!targetConfidenceConnectorIds.has(junction.targetConfidenceConnectorId)) {
@@ -1196,23 +1153,95 @@ function withAddRelevanceTargetLineJunctionGeometry(
             continue;
         }
 
-        const lineJunction = buildAddRelevanceLineJunctionVisual(junction, fromSnapshot, finalSnapshot);
+        const lineJunction = buildAddRelevanceLineJunctionVisual(junction, fromSnapshot);
         connectorJunctionByVisualId[visualId] = lineJunction;
-        lineJunctionByTargetConnectorId.set(junction.targetConfidenceConnectorId, lineJunction);
+    }
+
+    return withRelevanceConnectorCenterlinesFromJunctions(withRenderState(snapshot, {
+        ...snapshot.renderState,
+        connectorJunctionByVisualId,
+    }), targetConfidenceConnectorIds);
+}
+
+function buildAddRelevanceLineJunctionVisual(
+    junction: GraphConnectorJunctionVisual,
+    fromSnapshot: GraphSnapshot,
+): GraphConnectorJunctionVisual {
+    const fromJunction = fromSnapshot.renderState.connectorJunctionByVisualId[junction.visualId];
+    const fromDeliverySpan = findConnectorSpanVisual(
+        fromSnapshot.renderState,
+        junction.targetConfidenceConnectorId,
+        "confidenceDelivery",
+    );
+    const lineHeight = fromDeliverySpan?.pipeWidth ?? junction.leftHeight;
+
+    return {
+        ...junction,
+        centerX: fromJunction?.centerX ?? junction.centerX,
+        centerY: fromJunction?.centerY ?? junction.centerY,
+        leftHeight: lineHeight,
+        opacity: 1,
+        rightHeight: lineHeight,
+        width: Math.max(junction.width, lineHeight),
+    };
+}
+
+function withHeldTargetConfidenceJunctionCenters(
+    snapshot: GraphSnapshot,
+    fromSnapshot: GraphSnapshot,
+    targetConfidenceConnectorIds: ReadonlySet<ConnectorId>,
+): GraphSnapshot {
+    if (targetConfidenceConnectorIds.size < 1) {
+        return snapshot;
+    }
+
+    const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
+
+    for (const [visualId, junction] of Object.entries(snapshot.renderState.connectorJunctionByVisualId)) {
+        const fromJunction = fromSnapshot.renderState.connectorJunctionByVisualId[visualId];
+        connectorJunctionByVisualId[visualId] = targetConfidenceConnectorIds.has(junction.targetConfidenceConnectorId)
+            && fromJunction
+            ? {
+                ...junction,
+                centerX: fromJunction.centerX,
+                centerY: fromJunction.centerY,
+            }
+            : junction;
+    }
+
+    return withRelevanceConnectorCenterlinesFromJunctions(withRenderState(snapshot, {
+        ...snapshot.renderState,
+        connectorJunctionByVisualId,
+    }), targetConfidenceConnectorIds);
+}
+
+function withRelevanceConnectorCenterlinesFromJunctions(
+    snapshot: GraphSnapshot,
+    targetConfidenceConnectorIds: ReadonlySet<ConnectorId>,
+): GraphSnapshot {
+    if (targetConfidenceConnectorIds.size < 1) {
+        return snapshot;
     }
 
     const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
+    const junctionByTargetConnectorId = new Map<ConnectorId, GraphConnectorJunctionVisual>();
+
+    for (const junction of Object.values(snapshot.renderState.connectorJunctionByVisualId)) {
+        if (targetConfidenceConnectorIds.has(junction.targetConfidenceConnectorId)) {
+            junctionByTargetConnectorId.set(junction.targetConfidenceConnectorId, junction);
+        }
+    }
 
     for (const [visualId, span] of Object.entries(snapshot.renderState.connectorSpanByVisualId)) {
         const connector = snapshot.debate.connectors[span.connectorId];
-        const lineJunction = connector?.type === "relevance"
-            ? lineJunctionByTargetConnectorId.get(connector.targetConfidenceConnectorId)
+        const junction = connector?.type === "relevance"
+            ? junctionByTargetConnectorId.get(connector.targetConfidenceConnectorId)
             : undefined;
 
-        connectorSpanByVisualId[visualId] = lineJunction
+        connectorSpanByVisualId[visualId] = junction
             ? {
                 ...span,
-                centerlinePoints: buildRelevanceCenterlineToLineJunction(span, lineJunction),
+                centerlinePoints: buildRelevanceCenterlineToJunction(span, junction),
             }
             : span;
     }
@@ -1220,37 +1249,10 @@ function withAddRelevanceTargetLineJunctionGeometry(
     return withRenderState(snapshot, {
         ...snapshot.renderState,
         connectorSpanByVisualId,
-        connectorJunctionByVisualId,
     });
 }
 
-function buildAddRelevanceLineJunctionVisual(
-    junction: GraphConnectorJunctionVisual,
-    fromSnapshot: GraphSnapshot,
-    finalSnapshot: GraphSnapshot,
-): GraphConnectorJunctionVisual {
-    const fromDeliverySpan = findConnectorSpanVisual(
-        fromSnapshot.renderState,
-        junction.targetConfidenceConnectorId,
-        "confidenceDelivery",
-    );
-    const finalSourceSpan = findConnectorSpanVisual(
-        finalSnapshot.renderState,
-        junction.targetConfidenceConnectorId,
-        "confidenceSource",
-    );
-    const lineHeight = fromDeliverySpan?.pipeWidth ?? junction.leftHeight;
-
-    return {
-        ...junction,
-        leftHeight: lineHeight,
-        opacity: 1,
-        rightHeight: finalSourceSpan?.pipeWidth ?? lineHeight,
-        width: Math.max(junction.width, lineHeight),
-    };
-}
-
-function buildRelevanceCenterlineToLineJunction(
+function buildRelevanceCenterlineToJunction(
     span: GraphConnectorSpanVisual,
     junction: GraphConnectorJunctionVisual,
 ): Waypoint[] {
@@ -1327,7 +1329,7 @@ function getConnectorJunctionRightBottomY(junction: GraphConnectorJunctionVisual
 function findConnectorSpanVisual(
     state: GraphRenderState,
     connectorId: ConnectorId,
-    spanType: DebateLayoutConnectorSpan["spanType"],
+    spanType: GraphConnectorSpanVisual["spanType"],
 ): GraphConnectorSpanVisual | undefined {
     return Object.values(state.connectorSpanByVisualId).find((span) => (
         span.connectorId === connectorId && span.spanType === spanType
@@ -1349,50 +1351,122 @@ function buildTransitionSegment(
     };
 }
 
-function buildOperationGroupPlans(
-    startSnapshot: GraphSnapshot,
-    operationGroups: readonly OperationGroup[],
-): OperationGroupPlan[] {
-    const plans: OperationGroupPlan[] = [];
-    let workingSnapshot = startSnapshot;
+function isMeaningfulTransitionSegment(segment: GraphTransitionSegment): boolean {
+    return hasMeaningfulRenderStateDelta(
+        segment.fromSnapshot.renderState,
+        segment.toSnapshot.renderState,
+    );
+}
 
-    for (const group of operationGroups) {
-        const nextDebate = applyOperations(workingSnapshot.debate, group.operations);
-        const toSnapshot = buildGraphSnapshot(nextDebate);
-        plans.push({
-            group,
-            toSnapshot,
-        });
-        workingSnapshot = toSnapshot;
+function hasMeaningfulRenderStateDelta(
+    fromState: GraphRenderState,
+    toState: GraphRenderState,
+): boolean {
+    if (
+        !sameNumber(fromState.width, toState.width)
+        || !sameNumber(fromState.height, toState.height)
+        || !sameArray(fromState.nodeRenderOrder, toState.nodeRenderOrder)
+        || !sameArray(fromState.connectorSpanRenderOrder, toState.connectorSpanRenderOrder)
+        || !sameArray(fromState.connectorJunctionRenderOrder, toState.connectorJunctionRenderOrder)
+    ) {
+        return true;
     }
 
-    const structuralAddGroupIndex = plans.findIndex((plan) => shouldUseAddClaimVisualPhases(plan.group.operations));
-    const scaleGroupIndex = plans.findIndex((plan, index) => (
-        index > structuralAddGroupIndex
-        && plan.group.operations.some((operation) => operation.type === "scaleOfSources")
-    ));
-    if (structuralAddGroupIndex < 0 || scaleGroupIndex < 0) {
-        return plans;
+    return hasRecordDelta(fromState.nodeByScoreId, toState.nodeByScoreId, hasMeaningfulNodeDelta)
+        || hasRecordDelta(
+            fromState.connectorSpanByVisualId,
+            toState.connectorSpanByVisualId,
+            hasMeaningfulConnectorSpanDelta,
+        )
+        || hasRecordDelta(
+            fromState.connectorJunctionByVisualId,
+            toState.connectorJunctionByVisualId,
+            hasMeaningfulConnectorJunctionDelta,
+        );
+}
+
+function hasRecordDelta<T>(
+    fromRecord: Readonly<Record<string, T>>,
+    toRecord: Readonly<Record<string, T>>,
+    hasValueDelta: (fromValue: T, toValue: T) => boolean,
+): boolean {
+    const keys = new Set([...Object.keys(fromRecord), ...Object.keys(toRecord)]);
+
+    for (const key of keys) {
+        const fromValue = fromRecord[key];
+        const toValue = toRecord[key];
+
+        if (!fromValue || !toValue || hasValueDelta(fromValue, toValue)) {
+            return true;
+        }
     }
 
-    const scaleOperations = plans[scaleGroupIndex]?.group.operations.filter(
-        (operation): operation is Extract<Operation, { type: "scaleOfSources" }> => operation.type === "scaleOfSources",
-    ) ?? [];
-    if (scaleOperations.length < 1) {
-        return plans;
+    return false;
+}
+
+function hasMeaningfulNodeDelta(fromNode: GraphNodeVisual, toNode: GraphNodeVisual): boolean {
+    return fromNode.claimId !== toNode.claimId
+        || fromNode.content !== toNode.content
+        || fromNode.side !== toNode.side
+        || !sameNumber(fromNode.confidence, toNode.confidence)
+        || !sameNumber(fromNode.x, toNode.x)
+        || !sameNumber(fromNode.y, toNode.y)
+        || !sameNumber(fromNode.width, toNode.width)
+        || !sameNumber(fromNode.height, toNode.height)
+        || !sameNumber(fromNode.opacity, toNode.opacity)
+        || !sameNumber(fromNode.insertScale, toNode.insertScale);
+}
+
+function hasMeaningfulConnectorSpanDelta(
+    fromSpan: GraphConnectorSpanVisual,
+    toSpan: GraphConnectorSpanVisual,
+): boolean {
+    return fromSpan.connectorId !== toSpan.connectorId
+        || fromSpan.spanType !== toSpan.spanType
+        || fromSpan.side !== toSpan.side
+        || !sameWaypoints(fromSpan.centerlinePoints, toSpan.centerlinePoints)
+        || !sameNumber(fromSpan.fluidWidth, toSpan.fluidWidth)
+        || !sameNumber(fromSpan.pipeWidth, toSpan.pipeWidth)
+        || !sameNumber(fromSpan.opacity, toSpan.opacity)
+        || !sameNumber(fromSpan.fluidProgress, toSpan.fluidProgress)
+        || !sameNumber(fromSpan.pipeProgress, toSpan.pipeProgress);
+}
+
+function hasMeaningfulConnectorJunctionDelta(
+    fromJunction: GraphConnectorJunctionVisual,
+    toJunction: GraphConnectorJunctionVisual,
+): boolean {
+    return fromJunction.targetConfidenceConnectorId !== toJunction.targetConfidenceConnectorId
+        || fromJunction.side !== toJunction.side
+        || !sameNumber(fromJunction.centerX, toJunction.centerX)
+        || !sameNumber(fromJunction.centerY, toJunction.centerY)
+        || !sameNumber(fromJunction.leftHeight, toJunction.leftHeight)
+        || !sameNumber(fromJunction.rightHeight, toJunction.rightHeight)
+        || !sameNumber(fromJunction.width, toJunction.width)
+        || !sameNumber(fromJunction.opacity, toJunction.opacity);
+}
+
+function sameWaypoints(fromPoints: readonly Waypoint[], toPoints: readonly Waypoint[]): boolean {
+    if (fromPoints.length !== toPoints.length) {
+        return false;
     }
 
-    return plans.map((plan, index) => (
-        index >= structuralAddGroupIndex && index < scaleGroupIndex
-            ? {
-                ...plan,
-                toSnapshot: withRenderState(
-                    plan.toSnapshot,
-                    buildGraphSnapshot(applyOperations(plan.toSnapshot.debate, scaleOperations)).renderState,
-                ),
-            }
-            : plan
-    ));
+    return fromPoints.every((fromPoint, index) => {
+        const toPoint = toPoints[index];
+        return !!toPoint
+            && sameNumber(fromPoint.x, toPoint.x)
+            && sameNumber(fromPoint.y, toPoint.y)
+            && sameNumber(fromPoint.radius ?? 0, toPoint.radius ?? 0);
+    });
+}
+
+function sameArray<T>(fromValues: readonly T[], toValues: readonly T[]): boolean {
+    return fromValues.length === toValues.length
+        && fromValues.every((fromValue, index) => fromValue === toValues[index]);
+}
+
+function sameNumber(fromValue: number, toValue: number): boolean {
+    return Math.abs(fromValue - toValue) <= VISUAL_DELTA_EPSILON;
 }
 
 function withRenderState(snapshot: GraphSnapshot, renderState: GraphRenderState): GraphSnapshot {
@@ -1457,34 +1531,6 @@ function buildOperationGroups(operations: readonly Operation[]): OperationGroup[
     }
 
     return groups;
-}
-
-function countTransitionSegmentsForOperations(startDebate: Debate, operations: readonly Operation[]): number {
-    const operationGroups = buildOperationGroups(operations);
-    if (operationGroups.length < 1) {
-        return 1;
-    }
-
-    const groupPlans = buildOperationGroupPlans(buildGraphSnapshot(startDebate), operationGroups);
-    let currentSnapshot = buildGraphSnapshot(startDebate);
-    let transitionSegmentCount = 0;
-
-    for (let groupIndex = 0; groupIndex < operationGroups.length; groupIndex += 1) {
-        const groupPlan = groupPlans[groupIndex];
-        const nextSegments = buildTransitionSegments({
-            durationInFrames: 1,
-            fromSnapshot: currentSnapshot,
-            name: operationGroups[groupIndex]?.name ?? "Graph transition",
-            operations: operationGroups[groupIndex]?.operations ?? [],
-            timelineFrom: 0,
-            toSnapshotOverride: groupPlan?.toSnapshot,
-        });
-
-        transitionSegmentCount += Math.max(1, nextSegments.length);
-        currentSnapshot = nextSegments[nextSegments.length - 1]?.toSnapshot ?? currentSnapshot;
-    }
-
-    return Math.max(1, transitionSegmentCount);
 }
 
 function assertAnimationOperationScope(operations: readonly Operation[]): void {
@@ -1567,113 +1613,6 @@ function distributeFrames(totalFrames: number, slotCount: number): number[] {
         .map((slot) => slot.durationInFrames);
 }
 
-function buildGraphSnapshot(debate: Debate): GraphSnapshot {
-    const layout = layoutDebate(debate);
-
-    return {
-        debate,
-        layout,
-        renderState: buildRenderState(debate, layout),
-    };
-}
-
-function buildRenderState(debate: Debate, layout: DebateLayout): GraphRenderState {
-    const graphWidth = Math.max(1, Math.ceil(layout.bounds.width + GRAPH_PADDING_PX * 2));
-    const graphHeight = Math.max(1, Math.ceil(layout.bounds.height + GRAPH_PADDING_PX * 2));
-    const nodeByScoreId = {} as Record<ScoreId, GraphNodeVisual>;
-    const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
-    const connectorJunctionByVisualId: Record<string, GraphConnectorJunctionVisual> = {};
-
-    for (const node of layout.nodesInOrder) {
-        nodeByScoreId[node.scoreId] = buildNodeVisual(debate, layout, node);
-    }
-
-    for (const span of layout.connectorSpansInOrder) {
-        connectorSpanByVisualId[span.visualId] = buildConnectorSpanVisual(layout, span);
-    }
-
-    for (const junction of layout.connectorJunctionsInOrder) {
-        connectorJunctionByVisualId[junction.visualId] = buildConnectorJunctionVisual(layout, junction);
-    }
-
-    return {
-        width: graphWidth,
-        height: graphHeight,
-        nodeRenderOrder: layout.nodesInOrder.map((node) => node.scoreId),
-        connectorSpanRenderOrder: layout.connectorSpansInOrder.map((span) => span.visualId),
-        connectorJunctionRenderOrder: layout.connectorJunctionsInOrder.map((junction) => junction.visualId),
-        nodeByScoreId,
-        connectorSpanByVisualId,
-        connectorJunctionByVisualId,
-    };
-}
-
-function buildNodeVisual(
-    debate: Debate,
-    layout: DebateLayout,
-    node: DebateLayoutNode,
-): GraphNodeVisual {
-    const score = debate.scores[node.scoreId];
-    if (!score) {
-        throw new Error(`Score ${node.scoreId} was not found while building graph render state.`);
-    }
-
-    return {
-        scoreId: node.scoreId,
-        claimId: node.claimId,
-        content: node.claimContent,
-        side: score.claimSide,
-        confidence: score.claimConfidence,
-        relevance: score.relevance,
-        x: mapLayoutX(layout, node.x),
-        y: mapLayoutY(layout, node.y),
-        width: node.width,
-        height: node.height,
-        opacity: 1,
-        insertScale: 1,
-    };
-}
-
-function buildConnectorSpanVisual(
-    layout: DebateLayout,
-    span: DebateLayoutConnectorSpan,
-): GraphConnectorSpanVisual {
-    return {
-        visualId: span.visualId,
-        connectorId: span.connectorId,
-        spanType: span.spanType,
-        centerlinePoints: span.centerlinePoints.map((point) => ({
-            ...point,
-            x: mapLayoutX(layout, point.x),
-            y: mapLayoutY(layout, point.y),
-        })),
-        fluidWidth: span.fluidWidth,
-        pipeWidth: span.pipeWidth,
-        side: span.side,
-        opacity: 1,
-        fluidProgress: 1,
-        pipeProgress: 1,
-        direction: "sourceToTarget",
-    };
-}
-
-function buildConnectorJunctionVisual(
-    layout: DebateLayout,
-    junction: DebateLayoutConnectorJunction,
-): GraphConnectorJunctionVisual {
-    return {
-        visualId: junction.visualId,
-        targetConfidenceConnectorId: junction.targetConfidenceConnectorId,
-        centerX: mapLayoutX(layout, junction.centerX),
-        centerY: mapLayoutY(layout, junction.centerY),
-        leftHeight: junction.leftHeight,
-        rightHeight: junction.rightHeight,
-        side: junction.side,
-        width: junction.width,
-        opacity: junction.width > 0.0001 ? 1 : 0,
-    };
-}
-
 function resolveActiveGraph(
     prepared: PreparedGraphView,
     frame: number,
@@ -1748,7 +1687,11 @@ function resolveDirectiveTransition(
         applyConnectorDirective(state, fromSnapshot, toSnapshot, directive, clamped);
     }
 
-    return state;
+    return resolveRelevanceConnectorCenterlinesFromActiveJunctions(
+        state,
+        fromSnapshot.debate,
+        toSnapshot.debate,
+    );
 }
 
 function buildDirectiveBaseState(
@@ -2110,6 +2053,7 @@ function applyConnectorDirective(
                 fromSpan,
                 toSpan,
                 directive.direction ?? "sourceToTarget",
+                directive.widthAnimation ?? "sweep",
                 progress,
             );
         }
@@ -2202,6 +2146,45 @@ function resolveJunctionEffect(
     }
 }
 
+function resolveRelevanceConnectorCenterlinesFromActiveJunctions(
+    state: GraphRenderState,
+    fromDebate: Debate,
+    toDebate: Debate,
+): GraphRenderState {
+    const junctionByTargetConnectorId = new Map<ConnectorId, GraphConnectorJunctionVisual>();
+    let changed = false;
+
+    for (const junction of Object.values(state.connectorJunctionByVisualId)) {
+        junctionByTargetConnectorId.set(junction.targetConfidenceConnectorId, junction);
+    }
+
+    const connectorSpanByVisualId: Record<string, GraphConnectorSpanVisual> = {};
+
+    for (const [visualId, span] of Object.entries(state.connectorSpanByVisualId)) {
+        const connector = toDebate.connectors[span.connectorId] ?? fromDebate.connectors[span.connectorId];
+        const activeJunction = connector?.type === "relevance"
+            ? junctionByTargetConnectorId.get(connector.targetConfidenceConnectorId)
+            : undefined;
+
+        connectorSpanByVisualId[visualId] = activeJunction
+            ? {
+                ...span,
+                centerlinePoints: buildRelevanceCenterlineToJunction(span, activeJunction),
+            }
+            : span;
+        changed = changed || !!activeJunction;
+    }
+
+    if (!changed) {
+        return state;
+    }
+
+    return {
+        ...state,
+        connectorSpanByVisualId,
+    };
+}
+
 function applyConnectorUpdateDirective(
     state: GraphRenderState,
     visualId: string,
@@ -2209,6 +2192,7 @@ function applyConnectorUpdateDirective(
     fromSpan: GraphConnectorSpanVisual | undefined,
     toSpan: GraphConnectorSpanVisual | undefined,
     direction: GraphTransitionDirection,
+    widthAnimation: "interpolate" | "sweep",
     progress: number,
 ): void {
     if (fromSpan && toSpan) {
@@ -2221,7 +2205,7 @@ function applyConnectorUpdateDirective(
             pipeProgress: 1,
             opacity: 1,
             direction,
-            updateTransition: widthChanged
+            updateTransition: widthChanged && widthAnimation === "sweep"
                 ? {
                     fromFluidWidth: fromSpan.fluidWidth,
                     fromPipeWidth: fromSpan.pipeWidth,
@@ -2418,12 +2402,12 @@ function addDirective(
 ): void {
     const directiveKey = directive.kind === "claim"
         ? `${directive.kind}:${directive.scoreId}:${directive.effect}`
-        : `${directive.kind}:${directive.connectorId}:${directive.effect}:${directive.direction ?? "none"}:${directive.junctionEffect ?? "default"}:${directive.spanTypes?.join(",") ?? "all"}`;
+        : `${directive.kind}:${directive.connectorId}:${directive.effect}:${directive.direction ?? "none"}:${directive.junctionEffect ?? "default"}:${directive.spanTypes?.join(",") ?? "all"}:${directive.widthAnimation ?? "default"}`;
 
     if (directives.some((existingDirective) => {
         const existingDirectiveKey = existingDirective.kind === "claim"
             ? `${existingDirective.kind}:${existingDirective.scoreId}:${existingDirective.effect}`
-            : `${existingDirective.kind}:${existingDirective.connectorId}:${existingDirective.effect}:${existingDirective.direction ?? "none"}:${existingDirective.junctionEffect ?? "default"}:${existingDirective.spanTypes?.join(",") ?? "all"}`;
+            : `${existingDirective.kind}:${existingDirective.connectorId}:${existingDirective.effect}:${existingDirective.direction ?? "none"}:${existingDirective.junctionEffect ?? "default"}:${existingDirective.spanTypes?.join(",") ?? "all"}:${existingDirective.widthAnimation ?? "default"}`;
         return existingDirectiveKey === directiveKey;
     })) {
         return;
@@ -3053,14 +3037,6 @@ function resolveGraphEvents(children: ReactNode): ResolvedGraphEvent[] {
 
 function logPreparedGraphViewTimeline(prepared: PreparedGraphView): void {
     void prepared;
-}
-
-function mapLayoutX(layout: DebateLayout, x: number): number {
-    return Math.round(x - layout.bounds.left + GRAPH_PADDING_PX);
-}
-
-function mapLayoutY(layout: DebateLayout, y: number): number {
-    return Math.round(y - layout.bounds.top + GRAPH_PADDING_PX);
 }
 
 function buildUnionOrder<T extends string>(preferred: readonly T[], fallback: readonly T[]): T[] {
