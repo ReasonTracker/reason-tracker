@@ -27,11 +27,13 @@ export interface Score extends claimScores, connectorScores {
 	incomingScoreIds: ScoreId[]
 	relevance: number
 	scaleOfSources: number
+	deliveryScaleOfSources: number
 };
 
-export type ScorePatch = PatchWithRequiredId<Omit<Score, "incomingScoreIds" | "scaleOfSources"> & {
+export type ScorePatch = PatchWithRequiredId<Omit<Score, "incomingScoreIds" | "scaleOfSources" | "deliveryScaleOfSources"> & {
 	incomingScoreIds?: never
 	scaleOfSources?: never
+	deliveryScaleOfSources?: never
 }>;
 
 export interface ScoreIncomingPatch {
@@ -42,6 +44,7 @@ export interface ScoreIncomingPatch {
 export interface ScoreScalePatch {
 	id: ScoreId
 	scaleOfSources: number
+	deliveryScaleOfSources: number
 }
 
 export type ScoreId = string & { readonly __brand: "ScoreId" };

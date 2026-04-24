@@ -529,6 +529,7 @@ function createInitialRootScore(claim: Claim, requestedScoreId?: ScoreId): Score
         reversibleConnectorConfidence: reversibleClaimConfidence,
         relevance: Math.max(0, claim.defaultRelevance ?? DEFAULT_SCORE_VALUE),
         scaleOfSources: DEFAULT_SCORE_VALUE,
+        deliveryScaleOfSources: DEFAULT_SCORE_VALUE,
         claimSide: "proMain",
         connectorSide: "proMain",
     };
@@ -563,6 +564,7 @@ function createInitialLeafScore(args: {
         reversibleConnectorConfidence: reversibleClaimConfidence,
         relevance: Math.max(0, args.claim.defaultRelevance ?? DEFAULT_SCORE_VALUE),
         scaleOfSources: DEFAULT_SCALE_OF_SOURCES,
+        deliveryScaleOfSources: DEFAULT_SCALE_OF_SOURCES,
         claimSide: sourceSide,
         connectorSide: sourceSide,
     };
@@ -1205,13 +1207,17 @@ function buildScoreIncomingPatch(beforeScore: Score, afterScore: Score): ScoreIn
 }
 
 function buildScoreScalePatch(beforeScore: Score, afterScore: Score): ScoreScalePatch | undefined {
-    if (beforeScore.scaleOfSources === afterScore.scaleOfSources) {
+    if (
+        beforeScore.scaleOfSources === afterScore.scaleOfSources
+        && beforeScore.deliveryScaleOfSources === afterScore.deliveryScaleOfSources
+    ) {
         return undefined;
     }
 
     return {
         id: afterScore.id,
         scaleOfSources: afterScore.scaleOfSources,
+        deliveryScaleOfSources: afterScore.deliveryScaleOfSources,
     };
 }
 
@@ -1479,18 +1485,18 @@ function invertSide(side: Side): Side {
 function propagateScoreScaleOfSources(debate: Debate): ScorePropagationResult {
     const rootScore = getRequiredMainClaimRootScore(debate);
     const confidenceGroupScaleByTargetScoreId = buildConfidenceGroupScaleByTargetScoreId(debate);
-    const confidenceCascadeScaleByScoreId = {} as Record<ScoreId, number>;
     const scaleOfSourcesByScoreId = {} as Record<ScoreId, number>;
+    const deliveryScaleOfSourcesByScoreId = {} as Record<ScoreId, number>;
     let workingDebate = debate;
     const allPatches: ScoreScalePatch[] = [];
     let pendingTargetScoreIds: ScoreId[] = [rootScore.id];
     const traversedTargetScoreIds = new Set<ScoreId>();
 
     for (const scoreId of Object.keys(debate.scores) as ScoreId[]) {
-        confidenceCascadeScaleByScoreId[scoreId] = DEFAULT_SCORE_VALUE;
         scaleOfSourcesByScoreId[scoreId] = scoreId === rootScore.id
             ? DEFAULT_SCORE_VALUE
             : DEFAULT_SCALE_OF_SOURCES;
+        deliveryScaleOfSourcesByScoreId[scoreId] = scaleOfSourcesByScoreId[scoreId];
     }
 
     const rootPatch = applyScaleOfSourcesWave([rootScore.id]);
@@ -1518,20 +1524,9 @@ function propagateScoreScaleOfSources(debate: Debate): ScorePropagationResult {
                 continue;
             }
 
-            const targetFinalScale = scaleOfSourcesByScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE;
-            const cascadedConfidenceScaleFromTarget =
-                targetFinalScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE);
-            const maxIncomingRelevance = Math.max(
-                DEFAULT_SCORE_VALUE,
-                ...targetScore.incomingScoreIds.map((incomingScoreId) => {
-                    const incomingScore = workingDebate.scores[incomingScoreId];
-                    if (!incomingScore) {
-                        throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
-                    }
-
-                    return Math.max(0, incomingScore.relevance);
-                }),
-            );
+            const targetSourceScale = scaleOfSourcesByScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE;
+            const confidenceSourceScaleFromTarget =
+                targetSourceScale * (confidenceGroupScaleByTargetScoreId[targetScoreId] ?? DEFAULT_SCORE_VALUE);
 
             for (const incomingScoreId of targetScore.incomingScoreIds) {
                 const incomingScore = workingDebate.scores[incomingScoreId];
@@ -1539,17 +1534,18 @@ function propagateScoreScaleOfSources(debate: Debate): ScorePropagationResult {
                     throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
                 }
 
-                const nextConfidenceCascadeScale = Math.min(
-                    confidenceCascadeScaleByScoreId[incomingScoreId] ?? DEFAULT_SCORE_VALUE,
-                    cascadedConfidenceScaleFromTarget,
-                );
-                confidenceCascadeScaleByScoreId[incomingScoreId] = nextConfidenceCascadeScale;
+                if (!incomingScore.connectorId) {
+                    throw new Error(`Incoming score ${incomingScoreId} did not have a connector while propagating scale.`);
+                }
 
-                const relevanceNormalizedScale = Math.min(
-                    DEFAULT_SCORE_VALUE,
-                    Math.max(0, incomingScore.relevance) / maxIncomingRelevance,
-                );
-                scaleOfSourcesByScoreId[incomingScoreId] = nextConfidenceCascadeScale * relevanceNormalizedScale;
+                const connector = getRequiredConnector(workingDebate, incomingScore.connectorId);
+                const nextScaleOfSources = connector.type === "confidence"
+                    ? confidenceSourceScaleFromTarget
+                    : targetSourceScale;
+                scaleOfSourcesByScoreId[incomingScoreId] = nextScaleOfSources;
+                deliveryScaleOfSourcesByScoreId[incomingScoreId] = connector.type === "confidence"
+                    ? nextScaleOfSources * getDeliveryRelevanceMultiplier(incomingScore)
+                    : nextScaleOfSources;
                 nextSourceScoreIds.push(incomingScoreId);
             }
         }
@@ -1590,13 +1586,19 @@ function propagateScoreScaleOfSources(debate: Debate): ScorePropagationResult {
             }
 
             const nextScaleOfSources = scaleOfSourcesByScoreId[scoreId] ?? score.scaleOfSources;
-            if (score.scaleOfSources === nextScaleOfSources) {
+            const nextDeliveryScaleOfSources =
+                deliveryScaleOfSourcesByScoreId[scoreId] ?? score.deliveryScaleOfSources;
+            if (
+                score.scaleOfSources === nextScaleOfSources
+                && score.deliveryScaleOfSources === nextDeliveryScaleOfSources
+            ) {
                 continue;
             }
 
             const nextScore: Score = {
                 ...score,
                 scaleOfSources: nextScaleOfSources,
+                deliveryScaleOfSources: nextDeliveryScaleOfSources,
             };
             nextScores = {
                 ...nextScores,
@@ -1636,6 +1638,15 @@ function buildConfidenceGroupScaleByTargetScoreId(debate: Debate): Record<ScoreI
                 throw new Error(`Incoming score ${incomingScoreId} was not found in the debate.`);
             }
 
+            if (!incomingScore.connectorId) {
+                throw new Error(`Incoming score ${incomingScoreId} did not have a connector while calculating group scale.`);
+            }
+
+            const connector = getRequiredConnector(debate, incomingScore.connectorId);
+            if (connector.type !== "confidence") {
+                continue;
+            }
+
             if (incomingScore.connectorConfidence > 0) {
                 totalPositiveConfidenceMass += incomingScore.connectorConfidence;
             }
@@ -1646,6 +1657,10 @@ function buildConfidenceGroupScaleByTargetScoreId(debate: Debate): Record<ScoreI
     }
 
     return confidenceGroupScaleByTargetScoreId;
+}
+
+function getDeliveryRelevanceMultiplier(score: Score): number {
+    return Math.max(0, score.relevance);
 }
 
 function collectScoreIdsInLayoutOrder(debate: Debate, rootScoreId: ScoreId): ScoreId[] {

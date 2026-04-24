@@ -88,8 +88,12 @@ export type {
 
 export type {
 	DebateLayout,
+	DebateLayoutConnectorJunction,
+	DebateLayoutConnectorSpan,
+	DebateLayoutConnectorSpanType,
 	DebateLayoutNode,
 	DebateLayoutOptions,
+	DebateLayoutWaypoint,
 	LayoutBounds,
 } from "./05-Layout.ts";
 

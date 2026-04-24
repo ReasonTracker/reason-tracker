@@ -17,6 +17,8 @@ Do not change these contracts without explicit approval.
 
 `Score` is a projection of the claim and connector entities.
 It is expected to be the primary graph-consumption shape through much of the project, except where data remains on claims or connectors and is not represented on `Score`, such as `content`.
+`Score.scaleOfSources` is the source span scale for the claim occurrence and the source side of its confidence connector.
+`Score.deliveryScaleOfSources` is the delivery span scale for the target side of its confidence connector after relevance is applied.
 
 ## Connector Model
 

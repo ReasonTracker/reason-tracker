@@ -72,14 +72,19 @@ Traversal terminology:
 3. Emit at most one `incomingScoresChanged` operation after the structural changes, carrying every `ScoreIncomingPatch` whose `incomingScoreIds` membership changed because a source score was added or removed.
 4. Traverse the projected score graph from the affected score occurrences rather than calculating all changes first and ordering them later.
 5. Emit one `ScoreUpdated` operation for each upward confidence or relevance step.
-6. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `incomingScoreIds` or `scaleOfSources`.
+6. `ScoreUpdated` carries `ScorePatch[]`, and those patches do not include `incomingScoreIds`, `scaleOfSources`, or `deliveryScaleOfSources`.
 7. After the upward steps finish for the current command, recompute canonical incoming score ordering from the settled impacts.
 8. Emit at most one `incomingScoresSorted` operation for that reordering, carrying every changed `ScoreIncomingPatch`.
 9. Canonical incoming score order is `proTarget` before `conTarget`, then descending `abs(connectorConfidence) * relevance`, with ties keeping the current order.
-10. After sorting finishes for the current command, recompute `scaleOfSources` for the whole projected score graph.
+10. After sorting finishes for the current command, recompute source and delivery scales for the whole projected score graph.
 11. Emit at most one `scaleOfSources` operation for that recomputation, containing every changed `ScoreScalePatch` in the graph.
-12. `scaleOfSources` carries `ScoreScalePatch[]`, which only update `scaleOfSources`.
-13. `incomingScoresChanged`, `ScoreUpdated`, and `incomingScoresSorted` remain ordered as separate animation phases within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
+12. `scaleOfSources` carries `ScoreScalePatch[]`, which only update `scaleOfSources` and `deliveryScaleOfSources`.
+13. `scaleOfSources` treats each confidence connector as two independently scaled spans:
+    - the source span uses `scaleOfSources`
+    - the delivery span uses `deliveryScaleOfSources`
+14. Relevance contributes to the delivery span only. A full pro relevance doubles the delivery span scale, and a full con relevance halves the delivery span scale.
+15. A score's claim occurrence and source span do not resize when that score's relevance changes.
+16. `incomingScoresChanged`, `ScoreUpdated`, and `incomingScoresSorted` remain ordered as separate animation phases within the wave, while `scaleOfSources` is a whole-graph recomputation step rather than one operation per downward step.
 
 ## Related Docs
 

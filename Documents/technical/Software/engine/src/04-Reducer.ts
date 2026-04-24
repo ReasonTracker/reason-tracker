@@ -250,8 +250,8 @@ function applyScorePatches(debate: Debate, patches: readonly ScorePatch[]): Deba
 			throw new Error(`ScoreUpdated patch for ${patch.id} cannot include incomingScoreIds.`)
 		}
 
-		if (hasOwn(patch, "scaleOfSources")) {
-			throw new Error(`ScoreUpdated patch for ${patch.id} cannot include scaleOfSources.`)
+		if (hasOwn(patch, "scaleOfSources") || hasOwn(patch, "deliveryScaleOfSources")) {
+			throw new Error(`ScoreUpdated patch for ${patch.id} cannot include source scale fields.`)
 		}
 
 		const currentScore = nextScores[patch.id]
@@ -382,7 +382,10 @@ function applyScaleOfSourcesPatches(debate: Debate, patches: readonly ScoreScale
 			throw new Error(`Score ${patch.id} was not found in the debate.`)
 		}
 
-		if (currentScore.scaleOfSources === patch.scaleOfSources) {
+		if (
+			currentScore.scaleOfSources === patch.scaleOfSources
+			&& currentScore.deliveryScaleOfSources === patch.deliveryScaleOfSources
+		) {
 			continue
 		}
 
@@ -391,6 +394,7 @@ function applyScaleOfSourcesPatches(debate: Debate, patches: readonly ScoreScale
 			[patch.id]: {
 				...currentScore,
 				scaleOfSources: patch.scaleOfSources,
+				deliveryScaleOfSources: patch.deliveryScaleOfSources,
 			},
 		}
 	}

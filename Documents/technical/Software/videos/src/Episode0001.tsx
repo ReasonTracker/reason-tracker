@@ -72,6 +72,7 @@ const episode0001Debate: Debate = {
             reversibleConnectorConfidence: 1,
             relevance: 1,
             scaleOfSources: 1,
+            deliveryScaleOfSources: 1,
             claimSide: "proMain",
             connectorSide: "proMain",
         },
