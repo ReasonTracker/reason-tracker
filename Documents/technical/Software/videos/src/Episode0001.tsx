@@ -12,15 +12,24 @@ import { EpisodeBrandSequence } from "./shared/EpisodeBrandSequence";
 import { EpisodeTemplate } from "./shared/EpisodeTemplate";
 import { Fade } from "./shared/Fade";
 import {
+    CameraMove,
     countGraphEventTransitionSegments,
+    getGraphViewportTarget,
     GraphEvents,
     GraphView,
     type GraphActionEntry,
 } from "./shared/GraphView";
 import { buildTimelineTimes, wait, type TimelineEntry } from "./shared/timeline";
 
+// AGENT NOTE: Keep Episode 1 timing tunables grouped here so graph pacing and camera pacing stay aligned.
 export const EPISODE0001_FPS = 30;
 export const EPISODE0001_SECONDS_PER_OPERATION = 2;
+export const EPISODE0001_CAMERA_MOVE_SECONDS = 0.6;
+
+const EPISODE0001_BACKGROUND_FADE_SECONDS = 0.7;
+const EPISODE0001_OPENING_HOLD_SECONDS = 1.2;
+const EPISODE0001_BRAND_SECONDS = 3.3;
+const EPISODE0001_END_HOLD_SECONDS = 2;
 
 const MAIN_CLAIM_ID = "claim-main" as ClaimId;
 const MAIN_SCORE_ID = "score-main" as ScoreId;
@@ -67,8 +76,11 @@ type Episode0001ActionTimelineId =
     | "addFootTrafficDining"
     | "addFootTrafficDeliveries";
 
+type Episode0001CameraTimelineId = `camera-${Episode0001ActionTimelineId}`;
+
 type Episode0001TimelineId =
     | Episode0001ActionTimelineId
+    | Episode0001CameraTimelineId
     | "BackgroundFadeIn"
     | "brand"
     | "BackgroundFadeout";
@@ -78,6 +90,22 @@ interface Episode0001StoryboardAction {
     scriptBeat: string;
     command: AddClaimCommand;
     waitAfterSeconds: number;
+}
+
+interface Episode0001CameraMovePlan {
+    id: Episode0001CameraTimelineId;
+    name: string;
+    target: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+}
+
+interface Episode0001Plan {
+    cameraMoves: readonly Episode0001CameraMovePlan[];
+    timelineEntries: TimelineEntry<Episode0001TimelineId>[];
 }
 
 const episode0001Debate: Debate = {
@@ -284,7 +312,8 @@ const episode0001StoryboardActions: readonly Episode0001StoryboardAction[] = [
     },
 ] as const;
 
-const episode0001Timeline = buildTimelineTimes(buildEpisode0001TimelineEntries(), EPISODE0001_FPS);
+const episode0001Plan = buildEpisode0001Plan();
+const episode0001Timeline = buildTimelineTimes(episode0001Plan.timelineEntries, EPISODE0001_FPS);
 
 export const EPISODE0001_DURATION_IN_FRAMES = episode0001Timeline.totalDurationInFrames;
 
@@ -305,6 +334,14 @@ export const Episode0001 = () => {
                 name="Graph Fade"
             >
                 <GraphView debate={episode0001Debate}>
+                    {episode0001Plan.cameraMoves.map((cameraMove) => (
+                        <CameraMove
+                            key={cameraMove.id}
+                            {...graphEventTimes[cameraMove.id]}
+                            name={cameraMove.name}
+                            target={cameraMove.target}
+                        />
+                    ))}
                     {episode0001StoryboardActions.map((action) => (
                         <GraphEvents
                             key={action.id}
@@ -329,42 +366,67 @@ function buildGraphActions(action: Episode0001StoryboardAction): GraphActionEntr
     ];
 }
 
-function buildEpisode0001TimelineEntries(): TimelineEntry<Episode0001TimelineId>[] {
-    const entries: TimelineEntry<Episode0001TimelineId>[] = [
-        ["BackgroundFadeIn", 0.7],
-        [wait, 1.2],
+function buildEpisode0001Plan(): Episode0001Plan {
+    const cameraMoves: Episode0001CameraMovePlan[] = [];
+    const timelineEntries: TimelineEntry<Episode0001TimelineId>[] = [
+        ["BackgroundFadeIn", EPISODE0001_BACKGROUND_FADE_SECONDS],
     ];
+    const openingHoldSeconds = Math.max(0, EPISODE0001_OPENING_HOLD_SECONDS - EPISODE0001_CAMERA_MOVE_SECONDS);
+
+    if (openingHoldSeconds > 0) {
+        timelineEntries.push([wait, openingHoldSeconds]);
+    }
+
     let workingDebate = episode0001Debate;
     let brandScheduled = false;
 
-    for (const action of episode0001StoryboardActions) {
+    for (const [actionIndex, action] of episode0001StoryboardActions.entries()) {
         const graphActions = buildGraphActions(action);
         const { nextDebate, transitionSegmentCount } = countGraphEventTransitionSegments({
             debate: workingDebate,
             actions: graphActions,
         });
+        const cameraMoveId = getEpisode0001CameraTimelineId(action.id);
 
-        entries.push([
+        cameraMoves.push({
+            id: cameraMoveId,
+            name: `Camera ${action.id}`,
+            target: getGraphViewportTarget(nextDebate),
+        });
+        timelineEntries.push([cameraMoveId, EPISODE0001_CAMERA_MOVE_SECONDS]);
+        timelineEntries.push([
             action.id,
             transitionSegmentCount * EPISODE0001_SECONDS_PER_OPERATION,
         ]);
 
         if (!brandScheduled) {
-            entries.push(["brand", 3.3]);
+            timelineEntries.push(["brand", EPISODE0001_BRAND_SECONDS]);
             brandScheduled = true;
         }
 
-        if (action.waitAfterSeconds > 0) {
-            entries.push([wait, action.waitAfterSeconds]);
+        const hasNextAction = actionIndex < episode0001StoryboardActions.length - 1;
+        const waitAfterSeconds = hasNextAction
+            ? Math.max(0, action.waitAfterSeconds - EPISODE0001_CAMERA_MOVE_SECONDS)
+            : action.waitAfterSeconds;
+
+        if (waitAfterSeconds > 0) {
+            timelineEntries.push([wait, waitAfterSeconds]);
         }
 
         workingDebate = nextDebate;
     }
 
-    entries.push(
-        [wait, 2],
-        ["BackgroundFadeout", 0.7],
+    timelineEntries.push(
+        [wait, EPISODE0001_END_HOLD_SECONDS],
+        ["BackgroundFadeout", EPISODE0001_BACKGROUND_FADE_SECONDS],
     );
 
-    return entries;
+    return {
+        cameraMoves,
+        timelineEntries,
+    };
+}
+
+function getEpisode0001CameraTimelineId(actionId: Episode0001ActionTimelineId): Episode0001CameraTimelineId {
+    return `camera-${actionId}` as Episode0001CameraTimelineId;
 }

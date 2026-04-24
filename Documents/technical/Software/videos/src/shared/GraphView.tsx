@@ -257,6 +257,15 @@ type GraphViewProps = {
 export const CameraMove = (_props: CameraMoveProps) => null;
 export const GraphEvents = (_props: GraphEventsProps) => null;
 
+export function getGraphViewportTarget(debate: Debate): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+} {
+    return getWholeGraphTarget(buildGraphSnapshot(debate).renderState);
+}
+
 export function countGraphEventTransitionSegments(args: {
     debate: Debate;
     actions: readonly GraphActionEntry[];
@@ -361,7 +370,14 @@ const GraphViewContent = ({
     const { width: frameWidth, height: frameHeight } = useVideoConfig();
     const activeGraphFrame = resolveActiveGraph(prepared, frame);
     const activeGraph = activeGraphFrame.renderState;
-    const cameraState = resolveCameraState(frame, activeGraph, cameraMoves, frameWidth, frameHeight);
+    const cameraState = resolveCameraState(
+        frame,
+        prepared.initialSnapshot.renderState,
+        activeGraph,
+        cameraMoves,
+        frameWidth,
+        frameHeight,
+    );
 
     return (
         <AbsoluteFill style={graphRootStyle} aria-label="Reason Tracker graph">
@@ -2101,18 +2117,14 @@ function getConnectorGeometryTransitionLengthPx(width: number): number {
 
 function resolveCameraState(
     frame: number,
+    initialGraph: GraphRenderState,
     graph: GraphRenderState,
     cameraMoves: ResolvedCameraMove[],
     frameWidth: number,
     frameHeight: number,
 ): CameraState {
     const baseState = getCameraStateForTarget(
-        {
-            x: graph.width / 2,
-            y: graph.height / 2,
-            width: graph.width,
-            height: graph.height,
-        },
+        getWholeGraphTarget(initialGraph),
         frameWidth,
         frameHeight,
         DEFAULT_VIEWPORT_PADDING,
@@ -2208,6 +2220,20 @@ function resolveZoomScale(
     const availableWidth = Math.max(1, frameWidth - padding * 2);
     const availableHeight = Math.max(1, frameHeight - padding * 2);
     return Math.min(availableWidth / zoomTargetData.width, availableHeight / zoomTargetData.height);
+}
+
+function getWholeGraphTarget(graph: GraphRenderState): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+} {
+    return {
+        x: graph.width / 2,
+        y: graph.height / 2,
+        width: graph.width,
+        height: graph.height,
+    };
 }
 
 function getClaimBoundsForTarget(
