@@ -1,4 +1,4 @@
-import type { PathGeometryCommand } from "../path-geometry";
+import type { PathGeometryCommand } from ".";
 
 export function pathGeometryCommandsToSvgPathData(
     commands: PathGeometryCommand[],
