@@ -1,16 +1,16 @@
-import {
-	buildPathGeometry,
-	type PathGeometryInstruction,
-	type PathGeometryInput,
-} from "../../../../components/src/index";
 import { createElement } from "react";
 import { AbsoluteFill } from "remotion";
 import { z } from "zod";
 
 import {
+	buildPathGeometry,
+	type PathGeometryInput,
+	type PathGeometryInstruction,
+} from "@reasontracker/components/src/path-geometry/buildPathGeometry";
+import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
-} from "./pathGeometryCommandsToSvgPathData";
+} from "@reasontracker/components/src/path-geometry/pathGeometrySvg";
 
 // AGENT NOTE: Keep tunable numeric preview constants grouped here.
 /** Width of the Remotion preview canvas in pixels. */

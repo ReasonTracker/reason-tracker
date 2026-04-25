@@ -14,7 +14,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 
 - `buildPathGeometry`
 - shared type contracts that describe path-geometry inputs and outputs
-- future path-geometry-adjacent helpers that stay specific to this rendering slice
+- SVG path-data helpers for path-geometry command output
 
 ## Human Review Status
 
@@ -85,7 +85,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - layout or routing
   - collision avoidance
   - multi-line coordination
-- rendering concerns such as SVG, canvas, or host-specific drawing APIs
+- general-purpose SVG, canvas, or host-specific drawing APIs outside path-geometry command conversion
 
 ## Boundaries
 

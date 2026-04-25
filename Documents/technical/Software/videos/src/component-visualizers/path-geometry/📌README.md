@@ -5,7 +5,7 @@ This folder owns the Remotion preview composition for the shared path-geometry b
 ## Owns
 
 - a concrete SVG scenario for visually inspecting `buildPathGeometry`
-- local helpers that exist only to turn path-geometry output into a Remotion/SVG preview
+- Remotion-specific preview wiring around shared path-geometry helpers
 
 ## Boundaries
 

@@ -1,5 +1,6 @@
 packages:
   - 00-command-center
+  - app
   - components
   - website
   - contracts

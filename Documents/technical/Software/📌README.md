@@ -12,6 +12,7 @@ New assets should be created as direct children of this folder (for example, `vi
 | Asset | Purpose | Main entrypoints | Status |
 | --- | --- | --- | --- |
 | `00-command-center` | Local launcher and command-discovery surface for software workflows. | `00-command-center/index.html`, `00-command-center/src/main.ts`, `00-command-center/server/core.ts` | `active` |
+| `app` | Application-level TypeScript library for orchestration code that does not belong to lower-level package boundaries. | `app/src/app.ts` | `scaffold` |
 | `components` | Shared components and nearby rendering helpers intended for reuse across Remotion and web surfaces. | `components/src/index.ts` | `scaffold` |
 | `engine` | Core TypeScript engine package, protected domain model contracts, protected command contract, and temporary home for small engine-dependent code. | `engine/src/index.ts`, `engine/src/00-commands.ts`, `engine/src/00-entities/📌README.md` | `scaffold` package with `authoritative` command and entity contracts |
 | `videos` | Remotion-based video compositions and shared video assets. | `videos/src/index.ts` | `active` |
@@ -53,6 +54,7 @@ The setup script is intended to be idempotent: rerun it whenever you want the lo
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [Components](./components/📌README.md)
+- [App](./app/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
 - [Engine](./engine/📌README.md)

@@ -4,6 +4,7 @@
   "private": true,
   "workspaces": [
     "00-command-center",
+    "app",
     "components",
     "engine",
     "website",

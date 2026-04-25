@@ -17,12 +17,7 @@ These are implementation guidelines for repository code structure and file organ
 
 ## Barrel Files (`index.ts`)
 
-- Do not create folder-level `index.ts` files unless they provide clear value.
-- A folder-level `index.ts` is justified only when at least one of these is true:
-  - It curates a stable public API from multiple implementation files.
-  - It intentionally hides internal file layout from consumers.
-  - It provides a compatibility layer during refactors or deprecations.
-- If a folder contains only one implementation file, import that file directly and avoid an extra `index.ts`.
+- Do not create folder-level `index.ts` files; import directly.
 
 ## Folder Creation Threshold
 
