@@ -39,6 +39,7 @@ This file is additive to the root `AGENTS.md` and applies within `Documents/tech
 
 ## Summaries
 
+- When giving sequential suggestions or review findings, reassess the current context after each user response. Do not keep a fixed backlog of suggestions unless the user explicitly asks for one.
 - Do not repeatedly summarize completed work when the information was already agreed to earlier in the conversation.
 - Summaries should focus on new information, changed status, new risks, or anything the user likely has not already absorbed.
 - If nothing materially changed beyond executing the agreed step, keep the close-out minimal.
