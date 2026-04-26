@@ -10,14 +10,7 @@ New assets should be created as direct children of this folder (for example, `vi
 ## System Map
 
 | Asset | Purpose | Main entrypoints | Status |
-| --- | --- | --- | --- |
-| `00-command-center` | Local launcher and command-discovery surface for software workflows. | `00-command-center/index.html`, `00-command-center/src/main.ts`, `00-command-center/server/core.ts` | `active` |
-| `app` | Application-level TypeScript library for orchestration code that does not belong to lower-level package boundaries. | `app/src/app.ts` | `scaffold` |
-| `components` | Shared components and nearby rendering helpers intended for reuse across Remotion and web surfaces. | `components/src/index.ts` | `scaffold` |
-| `engine` | Core TypeScript engine package, protected domain model contracts, protected command contract, and temporary home for small engine-dependent code. | `engine/src/index.ts`, `engine/src/00-commands.ts`, `engine/src/00-entities/📌README.md` | `scaffold` package with `authoritative` command and entity contracts |
-| `videos` | Remotion-based video compositions and shared video assets. | `videos/src/index.ts` | `active` |
-| `website` | Repository website builder and static publishing workflow. | `website/scripts/publish-website.mts`, `website/site/site-config.json`, `website/📌README.md` | `active` |
-| `scripts` | Shared repo-level technical maintenance scripts. | `scripts/maintain-markdown.mjs`, `scripts/setup-machine.ps1` | `active` |
+| ----- | ------- | ---------------- | ------ |
 
 Use this table for fast routing. Read the linked package `📌README.md` files when the change needs local ownership or deeper workflow detail.
 
@@ -51,6 +44,7 @@ These tools are for local development ergonomics and are not a CI requirement.
 The setup script is intended to be idempotent: rerun it whenever you want the local machine tools, workspace dependencies, and recommended VS Code extensions brought back to the expected state.
 
 <!-- autonav:start -->
+
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [Components](./components/📌README.md)
