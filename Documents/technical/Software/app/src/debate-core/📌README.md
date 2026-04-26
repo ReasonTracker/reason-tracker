@@ -6,7 +6,7 @@ This folder holds the app package's debate domain contracts and command payloads
 
 ## Owns
 
-- claim, connector, score, and debate types
+- claim, connector, and debate types
 - semantic command payload contracts for debate mutations
 - branded identifier types for debate-core data
 
@@ -16,7 +16,6 @@ This folder holds the app package's debate domain contracts and command payloads
 - `Claim.ts`
 - `Connector.ts`
 - `Debate.ts`
-- `Score.ts`
 
 ## Change Here When
 
@@ -39,4 +38,3 @@ Active prototype domain contracts. Ask before changing exported command or entit
 - [Src](../📌README.md)
 - [App](../../📌README.md)
 - [Software](../../../📌README.md)
-

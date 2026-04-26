@@ -3,7 +3,6 @@
 
 import type { Claim, ClaimId } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
-import type { Score, ScoreId } from "./Score.ts";
 import type { PatchWithRequiredId } from "../utils.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
@@ -18,7 +17,6 @@ export type DebateCore = {
 export type DebateDetails = {
 	claims: Record<ClaimId, Claim>
 	connectors: Record<ConnectorId, Connector>
-	scores: Record<ScoreId, Score>
 }
 
 export type Debate = DebateCore & DebateDetails

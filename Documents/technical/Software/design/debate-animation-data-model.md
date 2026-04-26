@@ -2,7 +2,7 @@
 
 ## Overview
 
-Defines the data models and orchestration for debate graph animation, supporting stepwise score propagation and visual transitions.
+Defines the data models and orchestration for debate graph animation, supporting stepwise confidence propagation and visual transitions.
 
 ## Flow
 
@@ -22,7 +22,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 **Snapshot**
 
-- Each snapshot (from `graph-render-state.ts`) contains all node/edge positions, scores, and properties needed for rendering and animation.
+- Each snapshot (from `graph-render-state.ts`) contains all node/edge positions, confidence values, and properties needed for rendering and animation.
 
 **Planner config**
 
@@ -31,4 +31,4 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Animation**
 
 - Animation is driven by comparing consecutive snapshots.
-- Score propagation and other transitions are animated stepwise by updating snapshots.
+- Confidence propagation and other transitions are animated stepwise by updating snapshots.

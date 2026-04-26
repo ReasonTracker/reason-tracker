@@ -8,14 +8,12 @@ import type {
 	TargetRelation,
 } from "./Connector.ts";
 import type { DebateCore } from "./Debate.ts";
-import type { ScoreId } from "./Score.ts";
 
 type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
 export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateCore, "id" | "name" | "description">>;
 
 type ConnectionInputBase<TConnectorId extends ConfidenceConnectorId | RelevanceConnectorId> = {
 	id?: TConnectorId
-	scoreId?: ScoreId
 	targetRelationship: TargetRelation
 };
 
@@ -33,7 +31,6 @@ export type ClaimConnectionInput =
 
 type ConnectClaimCommandBase<TConnection extends ClaimConnectionInput> = {
 	sourceClaimId: ClaimId
-	targetScoreId: ScoreId
 	connection: TConnection
 };
 
@@ -61,7 +58,6 @@ export type DebateCommand =
 export interface AddClaimCommand {
 	type: "claim/add"
 	claim: ClaimCreate
-	targetScoreId: ScoreId
 	connection: ClaimConnectionInput
 }
 
@@ -101,7 +97,6 @@ export interface CreateDebateCommand {
 	type: "debate/create"
 	debate: CreateDebateInput
 	mainClaim: ClaimCreate
-	mainScoreId?: ScoreId
 }
 
 export interface UpdateDebateCommand {

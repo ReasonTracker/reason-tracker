@@ -39,9 +39,9 @@ Vertical spaces on the graph for different types of components.
 - Command
 - Operation
 - Step
-- Planner
+- Planner - the component that takes the current state and a command and produces series of snapshots representing the steps to animate from the current state to the new state after applying the command.
   - Planner Config
-- Snapshot
+- Snapshot - a data structure representing the state of the display graph between two unknown points in time. most values well be Tweenable.
 
 ## Steps
 
