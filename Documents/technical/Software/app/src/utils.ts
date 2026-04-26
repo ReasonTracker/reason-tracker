@@ -1,3 +1,9 @@
+export type TweenBoolean = boolean | {
+    type: "tween";
+    from: boolean;
+    to: boolean;
+};
+
 export type Tween = number | {
     type: "tween";
     from: number;
