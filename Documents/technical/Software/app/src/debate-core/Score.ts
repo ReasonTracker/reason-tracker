@@ -3,7 +3,7 @@
 
 import type { ClaimId } from "./Claim.ts";
 import type { ConnectorId } from "./Connector.ts";
-import type { PatchWithRequiredId } from "./01-Commands.ts";
+import type { PatchWithRequiredId } from "../utils.ts";
 
 
 export interface claimScores {

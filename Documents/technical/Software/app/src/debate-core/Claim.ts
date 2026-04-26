@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { PatchWithRequiredId } from "./01-Commands.ts";
+import type { PatchWithRequiredId } from "../utils.ts";
 
 type CreateWithOptionalId<T extends { id: unknown }> = Omit<T, "id"> & { id?: T["id"] };
 

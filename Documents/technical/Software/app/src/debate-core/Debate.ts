@@ -4,7 +4,7 @@
 import type { Claim, ClaimId } from "./Claim.ts";
 import type { Connector, ConnectorId } from "./Connector.ts";
 import type { Score, ScoreId } from "./Score.ts";
-import type { PatchWithRequiredId } from "./01-Commands.ts";
+import type { PatchWithRequiredId } from "../utils.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
 

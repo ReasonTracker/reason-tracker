@@ -1,6 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 import type { ClaimId } from "./Claim.ts";
-import type { PatchWithRequiredId } from "./01-Commands.ts";
+import type { PatchWithRequiredId } from "../utils.ts";
 
 interface BaseConnector<TConnectorId extends ConnectorId> {
 	id: TConnectorId

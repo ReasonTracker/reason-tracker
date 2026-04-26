@@ -1,5 +1,6 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
+import { PatchWithRequiredId } from "../utils.ts";
 import type { ClaimCreate, ClaimPatch, ClaimId } from "./Claim.ts";
 import type {
 	ConfidenceConnectorId,
@@ -8,9 +9,6 @@ import type {
 } from "./Connector.ts";
 import type { DebateCore } from "./Debate.ts";
 import type { ScoreId } from "./Score.ts";
-
-export type PartialExceptId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id?: T["id"] };
-export type PatchWithRequiredId<T extends { id: unknown }> = Partial<Omit<T, "id">> & { id: T["id"] };
 
 type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
 export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateCore, "id" | "name" | "description">>;
