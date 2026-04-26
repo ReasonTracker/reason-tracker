@@ -101,7 +101,7 @@ If a folder does not answer those questions locally or through one obvious paren
 
 Good examples:
 
-- a package for the engine
+- a package for application domain code
 - a package for the website
 - a package for generated video workflows
 
@@ -164,7 +164,7 @@ Give concrete edit-routing examples.
 
 Examples:
 
-- add a new engine entity
+- add a new debate-core entity
 - change website publish flow
 - update command center startup behavior
 

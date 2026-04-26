@@ -85,7 +85,7 @@ Deterministic traversal and ordering are required for:
 
 Non-deterministic layouts make quality and correctness harder to validate.
 
-The engine keeps incoming-score reordering explicit for the same reason.
+The domain model keeps incoming-score reordering explicit for the same reason.
 Structural attachment and detachment are emitted separately from the later canonical resort so animation can distinguish those phases without hiding ordering logic inside score-value updates.
 
 ## Why Scores Are Referenced, Not Recomputed
@@ -94,9 +94,9 @@ Unrolled appearances reuse the score of the underlying claim.
 
 Reason:
 
-- renderer is a presentation layer, not a scoring engine
-- recomputation in renderer would create divergence risk with engine semantics
-- keeps accountability clear: engine computes, renderer presents
+- renderer is a presentation layer, not a scoring layer
+- recomputation in renderer would create divergence risk with domain semantics
+- keeps accountability clear: domain code computes, renderer presents
 
 ## Why Layout Logic And Web Output Are Separated Internally
 

@@ -4,7 +4,7 @@ This folder owns the Remotion root, episode definitions, and Remotion-only share
 
 ## Boundaries
 
-- Use engine commands, reducer output, and layout as the source of truth for animated graph state.
+- Use app debate-core commands, reducer output, and layout as the source of truth for animated graph state.
 - Keep episode-specific fixture data, story beats, and timing in episode files until a broader episode catalog exists.
 - Keep shared Remotion helpers in [Shared](./shared/📌README.md).
 - Keep reusable non-Remotion render primitives in `@reasontracker/components`.

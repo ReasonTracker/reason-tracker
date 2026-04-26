@@ -48,7 +48,7 @@ export type DisconnectConnectionCommand =
 	| DisconnectRelevanceCommand;
 
 // #region Command union
-export type EngineCommand =
+export type DebateCommand =
 	| CreateDebateCommand
 	| AddClaimCommand
 	| UpdateClaimCommand

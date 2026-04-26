@@ -25,7 +25,7 @@ This package is the home for shared components and nearby rendering helpers that
 
 - Remotion composition wiring or Studio-only preview setup
 - website publishing behavior
-- engine domain contracts or command behavior
+- app debate-core contracts or command behavior
 
 ## Related Docs
 

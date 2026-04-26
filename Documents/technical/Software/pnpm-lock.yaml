@@ -29,9 +29,6 @@ importers:
 
   components:
     dependencies:
-      '@reasontracker/engine':
-        specifier: workspace:*
-        version: link:../engine
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -45,15 +42,6 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.2
         version: 19.2.3(@types/react@19.2.14)
-      vite-plus:
-        specifier: ^0.1.16
-        version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
-
-  engine:
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
       vite-plus:
         specifier: ^0.1.16
         version: 0.1.16(@types/node@25.6.0)(terser@5.46.1)(tsx@4.21.0)(typescript@6.0.2)(vite@6.4.2(@types/node@25.6.0)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0))
@@ -2756,7 +2744,7 @@ snapshots:
       react-refresh: 0.18.0
       remotion: 4.0.448(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.105.0(esbuild@0.25.0))
+      style-loader: 4.0.0(webpack@5.105.0)
       webpack: 5.105.0(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -3944,7 +3932,7 @@ snapshots:
 
   strip-final-newline@2.0.0: {}
 
-  style-loader@4.0.0(webpack@5.105.0(esbuild@0.25.0)):
+  style-loader@4.0.0(webpack@5.105.0):
     dependencies:
       webpack: 5.105.0(esbuild@0.25.0)
 

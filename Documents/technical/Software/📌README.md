@@ -51,5 +51,4 @@ The setup script is intended to be idempotent: rerun it whenever you want the lo
 - [App](./app/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
-- [Engine](./engine/📌README.md)
 <!-- autonav:end -->
