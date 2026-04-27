@@ -1,95 +1,90 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
-import type { Tween, TweenBoolean } from "../utils.ts";
+import type { TweenNumber, TweenBoolean, TweenPoint } from "../utils.ts";
 import type { ClaimId } from "../debate-core/Claim.ts";
 import type { ConfidenceConnectorId, RelevanceConnectorId } from "../debate-core/Connector.ts";
 
 
 export interface ClaimViz {
+    type: "claim"
     id: ClaimVizId
     claimId: ClaimId
+    position: TweenPoint
+    scale: TweenNumber
+    score: TweenNumber
     side: Side
-    x: Tween
-    y: Tween
-    scale: Tween
-    confidence: Tween
 }
 
 export interface ClaimAggregatorViz {
+    type: "claimAggregator"
     id: ClaimAggregatorVizId
+    animationType: AnimationType,
     claimId: ClaimId
-    confidence: Tween
-    scale: Tween
-    x: Tween
-    y: Tween
     deliveryConnectorVizIds: DeliveryConnectorVizId[]
+    position: TweenPoint
+    scale: TweenNumber
+    score: TweenNumber
 }
 
 // Always present in the snapshot. visible controls whether it is shown.
 export interface JunctionViz {
+    type: "junction"
     id: JunctionVizId
+    animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
-    visible: TweenBoolean
-    x: Tween
-    y: Tween
-    scale: Tween
     junctionAggregatorVizId: JunctionAggregatorVizId
+    position: TweenPoint
+    scale: TweenNumber
+    visible: TweenBoolean
 }
 
 // Always present in the snapshot. visible controls whether it is shown.
 export interface JunctionAggregatorViz {
+    type: "junctionAggregator"
     id: JunctionAggregatorVizId
+    animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
-    visible: TweenBoolean
-    confidence: Tween
-    scale: Tween
-    x: Tween
-    y: Tween
+    position: TweenPoint
     relevanceConnectorVizIds: RelevanceConnectorVizId[]
+    scale: TweenNumber
+    score: TweenNumber
+    visible: TweenBoolean
 }
+
+interface ConnectorVizBase {
+    type: "confidenceConnector" | "deliveryConnector" | "relevanceConnector"
+    scale: TweenNumber
+    score: TweenNumber
+    side: Side
+    source: TweenPoint
+    target: TweenPoint
+};
 
 // Always present in the snapshot. visible controls whether it is shown.
-export interface ConfidenceConnectorViz {
+export interface ConfidenceConnectorViz extends ConnectorVizBase {
+    type: "confidenceConnector"
     id: ConfidenceConnectorVizId
+    animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
-    visible: TweenBoolean
-    side: Side
     sourceClaimVizId: ClaimVizId
     targetJunctionVizId: JunctionVizId
-    sourceX: Tween
-    sourceY: Tween
-    targetX: Tween
-    targetY: Tween
-    scale: Tween
-    confidence: Tween
+    visible: TweenBoolean
 }
 
-export interface DeliveryConnectorViz {
+export interface DeliveryConnectorViz extends ConnectorVizBase {
+    type: "deliveryConnector"
     id: DeliveryConnectorVizId
     confidenceConnectorId: ConfidenceConnectorId
-    side: Side
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
-    sourceX: Tween
-    sourceY: Tween
-    targetX: Tween
-    targetY: Tween
-    scale: Tween
-    confidence: Tween
 }
 
-export interface RelevanceConnectorViz {
+export interface RelevanceConnectorViz extends ConnectorVizBase {
+    type: "relevanceConnector"
     id: RelevanceConnectorVizId
     relevanceConnectorId: RelevanceConnectorId
-    side: Side
     sourceClaimVizId: ClaimVizId
     targetJunctionAggregatorVizId: JunctionAggregatorVizId
-    sourceX: Tween
-    sourceY: Tween
-    targetX: Tween
-    targetY: Tween
-    scale: Tween
-    confidence: Tween
 }
 
 export type Snapshot = {
@@ -111,3 +106,4 @@ export type DeliveryConnectorVizId = string & { readonly __brand: "DeliveryConne
 export type RelevanceConnectorVizId = string & { readonly __brand: "RelevanceConnectorVizId" };
 
 export type Side = "proMain" | "conMain";
+export type AnimationType = "uniform" | "progressive"

@@ -1,14 +1,18 @@
 export type TweenBoolean = boolean | {
-    type: "tween";
+    type: "tween/boolean";
     from: boolean;
     to: boolean;
 };
 
-export type Tween = number | {
-    type: "tween";
+export type TweenNumber = number | {
+    type: "tween/number";
     from: number;
     to: number;
-    kind: "Progressive" | "Uniform"
+};
+
+export interface TweenPoint {
+    x: TweenNumber
+    y: TweenNumber
 };
 
 export type PartialExceptId<T extends { id: unknown; }> = Partial<Omit<T, "id">> & { id?: T["id"]; };
