@@ -1,4 +1,8 @@
 import type { ClaimViz } from "../../../app/src/app.js";
+import {
+    getPlannerClaimHeight,
+    getPlannerClaimWidth,
+} from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import { boundsFromCenteredRect } from "./bounds";
 import {
@@ -24,10 +28,14 @@ import { htmlElement, textNode } from "./renderTree";
 
 export type ClaimRenderModel = {
     claimId: string;
+    centerX: number;
+    centerY: number;
     bounds: Bounds;
     content: string;
     height: number;
+    id: string;
     opacity: number;
+    scale: number;
     score: number;
     scoreNodeId?: string;
     side: ClaimViz["side"];
@@ -39,8 +47,8 @@ export type ClaimRenderModel = {
 export function buildClaimRenderModel(visual: ClaimViz, percent: number): ClaimRenderModel | undefined {
     const center = resolveTweenPoint(visual.position, percent);
     const scale = Math.max(0, resolveTweenNumber(visual.scale, percent));
-    const width = BASE_NODE_WIDTH_PX * scale;
-    const height = BASE_NODE_HEIGHT_PX * scale;
+    const width = getPlannerClaimWidth(scale);
+    const height = getPlannerClaimHeight(scale);
     const opacity = resolvePresenceOpacity(visual.scale, percent);
 
     if (width <= 0 || height <= 0 || opacity <= 0) {
@@ -49,10 +57,14 @@ export function buildClaimRenderModel(visual: ClaimViz, percent: number): ClaimR
 
     return {
         claimId: String(visual.claimId),
+        centerX: center.x,
+        centerY: center.y,
         bounds: boundsFromCenteredRect(center.x, center.y, width, height),
         content: visual.claim?.content ?? String(visual.claimId),
         height,
+        id: String(visual.id),
         opacity,
+        scale,
         score: resolveTweenNumber(visual.score, percent),
         scoreNodeId: visual.scoreNodeId ? String(visual.scoreNodeId) : undefined,
         side: visual.side,

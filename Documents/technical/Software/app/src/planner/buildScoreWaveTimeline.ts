@@ -1,7 +1,8 @@
-import type { TweenNumber } from "../utils.ts";
+import type { TweenBoolean, TweenNumber, TweenPoint } from "../utils.ts";
 import type { ScorePropagationStep } from "../math/calculateScoreChanges.ts";
 import type { ScoreNodeId } from "../math/scoreTypes.ts";
 import { buildScoreNodeSnapshotBindings } from "./buildScoreNodeSnapshotBindings.ts";
+import { settleSnapshot } from "./settleSnapshot.ts";
 import type {
     ClaimAggregatorVizId,
     ClaimVizId,
@@ -10,6 +11,7 @@ import type {
     JunctionAggregatorVizId,
     JunctionVizId,
     RelevanceConnectorVizId,
+    SnapshotWaypoint,
     Snapshot,
 } from "./Snapshot.ts";
 
@@ -109,12 +111,14 @@ export function buildScoreWaveTimeline(args: {
     includeFallbackPhase?: boolean;
     phaseMode?: ScoreWavePhaseMode;
     specialCase?: ScoreWaveSpecialCase;
+    scaleTargetSnapshot?: Snapshot;
 }): ScoreWaveTimeline {
     const bindingsByScoreNodeId = mergeBindingsByScoreNodeId(
         buildScoreNodeSnapshotBindings(args.snapshot),
         args.bindingsByScoreNodeId,
     );
-    let currentSnapshot = cloneSnapshot(args.snapshot);
+    const initialSnapshot = settleSnapshot(args.snapshot);
+    let currentSnapshot = initialSnapshot;
     const frames: ScoreWaveFrame[] = [];
     const propagationGroups = groupPropagationSteps(args.propagation);
 
@@ -129,10 +133,10 @@ export function buildScoreWaveTimeline(args: {
             );
 
         for (const phase of phases) {
-            currentSnapshot = phase.apply(currentSnapshot, propagationGroup.steps);
+            const frameSnapshot = phase.apply(currentSnapshot, propagationGroup.steps);
             frames.push({
                 stepType: phase.stepType,
-                snapshot: currentSnapshot,
+                snapshot: frameSnapshot,
                 scoreNodeIds: propagationGroup.steps.map((step) => step.scoreNodeId),
                 propagationGroupId: propagationGroup.propagationGroupId,
                 propagationGroupType: propagationGroup.propagationGroupType,
@@ -140,18 +144,26 @@ export function buildScoreWaveTimeline(args: {
                 impactMode: propagationGroup.steps[0]?.impactMode,
                 specialCase: args.specialCase,
             });
+            currentSnapshot = settleSnapshot(frameSnapshot);
         }
     }
 
     if (args.includeScaleAndOrderFrames ?? true) {
-        currentSnapshot = resetSnapshotAnimationTypes(currentSnapshot);
+        const scaleSnapshot = args.scaleTargetSnapshot
+            ? buildScaleTransitionSnapshot({
+                beforeSnapshot: currentSnapshot,
+                afterSnapshot: args.scaleTargetSnapshot,
+            })
+            : settleSnapshot(resetSnapshotAnimationTypes(currentSnapshot));
+
         frames.push({
             stepType: "scale",
-            snapshot: currentSnapshot,
+            snapshot: scaleSnapshot,
             scoreNodeIds: [],
         });
+        currentSnapshot = settleSnapshot(scaleSnapshot);
 
-        currentSnapshot = resetSnapshotAnimationTypes(currentSnapshot);
+        currentSnapshot = settleSnapshot(resetSnapshotAnimationTypes(currentSnapshot));
         frames.push({
             stepType: "order",
             snapshot: currentSnapshot,
@@ -160,7 +172,7 @@ export function buildScoreWaveTimeline(args: {
     }
 
     return {
-        initialSnapshot: cloneSnapshot(args.snapshot),
+        initialSnapshot: cloneSnapshot(initialSnapshot),
         frames,
         finalSnapshot: currentSnapshot,
     };
@@ -204,7 +216,7 @@ function buildScoreWavePhases(
         phases.push({
             stepType: "relevanceConnectorAdjust",
             apply: (snapshot, currentSteps) =>
-                applyScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "relevanceConnectorVizIds"),
+                applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "relevanceConnectorVizIds"),
         });
     }
 
@@ -236,7 +248,7 @@ function buildScoreWavePhases(
         phases.push({
             stepType: "deliveryConnectorAdjust",
             apply: (snapshot, currentSteps) =>
-                applyScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "deliveryConnectorVizIds"),
+                applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "deliveryConnectorVizIds"),
         });
     }
 
@@ -418,7 +430,12 @@ function applyAnimatedScoreUpdates(
     snapshot: Snapshot,
     steps: readonly ScorePropagationStep[],
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
-    bindingKey: "claimAggregatorVizIds" | "junctionAggregatorVizIds" | "confidenceConnectorVizIds",
+    bindingKey:
+        | "claimAggregatorVizIds"
+        | "junctionAggregatorVizIds"
+        | "confidenceConnectorVizIds"
+        | "deliveryConnectorVizIds"
+        | "relevanceConnectorVizIds",
 ): Snapshot {
     const nextSnapshot = applyScoreUpdates(snapshot, steps, bindingsByScoreNodeId, bindingKey);
 
@@ -432,7 +449,15 @@ function applyAnimatedScoreUpdates(
         }
 
         case "confidenceConnectorVizIds": {
-            return markConfidenceConnectorsProgressive(nextSnapshot, steps, bindingsByScoreNodeId);
+            return markConnectorsProgressive(nextSnapshot, steps, bindingsByScoreNodeId, bindingKey);
+        }
+
+        case "deliveryConnectorVizIds": {
+            return markConnectorsProgressive(nextSnapshot, steps, bindingsByScoreNodeId, bindingKey);
+        }
+
+        case "relevanceConnectorVizIds": {
+            return markConnectorsProgressive(nextSnapshot, steps, bindingsByScoreNodeId, bindingKey);
         }
     }
 }
@@ -509,25 +534,56 @@ function markJunctionAggregatorsProgressive(
     return nextSnapshot;
 }
 
-function markConfidenceConnectorsProgressive(
+function markConnectorsProgressive(
     snapshot: Snapshot,
     steps: readonly ScorePropagationStep[],
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
+    bindingKey:
+        | "confidenceConnectorVizIds"
+        | "deliveryConnectorVizIds"
+        | "relevanceConnectorVizIds",
 ): Snapshot {
     const nextSnapshot = cloneSnapshot(snapshot);
-    const confidenceConnectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, "confidenceConnectorVizIds");
+    const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
 
-    for (const confidenceConnectorVizId of confidenceConnectorVizIds) {
-        const confidenceConnector = nextSnapshot.confidenceConnectors[confidenceConnectorVizId];
+    for (const connectorVizId of connectorVizIds) {
+        switch (bindingKey) {
+            case "confidenceConnectorVizIds": {
+                const connector = nextSnapshot.confidenceConnectors[connectorVizId];
 
-        if (!confidenceConnector) {
-            continue;
+                if (connector) {
+                    nextSnapshot.confidenceConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                    };
+                }
+                break;
+            }
+
+            case "deliveryConnectorVizIds": {
+                const connector = nextSnapshot.deliveryConnectors[connectorVizId];
+
+                if (connector) {
+                    nextSnapshot.deliveryConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                    };
+                }
+                break;
+            }
+
+            case "relevanceConnectorVizIds": {
+                const connector = nextSnapshot.relevanceConnectors[connectorVizId];
+
+                if (connector) {
+                    nextSnapshot.relevanceConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                    };
+                }
+                break;
+            }
         }
-
-        nextSnapshot.confidenceConnectors[confidenceConnectorVizId] = {
-            ...confidenceConnector,
-            animationType: "progressive",
-        };
     }
 
     return nextSnapshot;
@@ -556,13 +612,39 @@ function collectBoundIds(
 function collectBoundIds(
     steps: readonly ScorePropagationStep[],
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
+    bindingKey: "deliveryConnectorVizIds",
+): Set<DeliveryConnectorVizId>;
+function collectBoundIds(
+    steps: readonly ScorePropagationStep[],
+    bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
+    bindingKey: "relevanceConnectorVizIds",
+): Set<RelevanceConnectorVizId>;
+function collectBoundIds(
+    steps: readonly ScorePropagationStep[],
+    bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
     bindingKey:
         | "junctionVizIds"
         | "claimAggregatorVizIds"
         | "junctionAggregatorVizIds"
-        | "confidenceConnectorVizIds",
-): Set<JunctionVizId | ClaimAggregatorVizId | JunctionAggregatorVizId | ConfidenceConnectorVizId> {
-    const ids = new Set<JunctionVizId | ClaimAggregatorVizId | JunctionAggregatorVizId | ConfidenceConnectorVizId>();
+        | "confidenceConnectorVizIds"
+        | "deliveryConnectorVizIds"
+        | "relevanceConnectorVizIds",
+): Set<
+    JunctionVizId
+    | ClaimAggregatorVizId
+    | JunctionAggregatorVizId
+    | ConfidenceConnectorVizId
+    | DeliveryConnectorVizId
+    | RelevanceConnectorVizId
+> {
+    const ids = new Set<
+        JunctionVizId
+        | ClaimAggregatorVizId
+        | JunctionAggregatorVizId
+        | ConfidenceConnectorVizId
+        | DeliveryConnectorVizId
+        | RelevanceConnectorVizId
+    >();
 
     for (const step of steps) {
         const bindings = bindingsByScoreNodeId[step.scoreNodeId];
@@ -595,6 +677,20 @@ function collectBoundIds(
 
             case "confidenceConnectorVizIds": {
                 for (const id of bindings.confidenceConnectorVizIds ?? []) {
+                    ids.add(id);
+                }
+                break;
+            }
+
+            case "deliveryConnectorVizIds": {
+                for (const id of bindings.deliveryConnectorVizIds ?? []) {
+                    ids.add(id);
+                }
+                break;
+            }
+
+            case "relevanceConnectorVizIds": {
+                for (const id of bindings.relevanceConnectorVizIds ?? []) {
                     ids.add(id);
                 }
                 break;
@@ -636,7 +732,299 @@ function resetSnapshotAnimationTypes(snapshot: Snapshot): Snapshot {
         };
     }
 
+    for (const deliveryConnectorId of Object.keys(nextSnapshot.deliveryConnectors) as DeliveryConnectorVizId[]) {
+        nextSnapshot.deliveryConnectors[deliveryConnectorId] = {
+            ...nextSnapshot.deliveryConnectors[deliveryConnectorId],
+            animationType: "uniform",
+        };
+    }
+
+    for (const relevanceConnectorId of Object.keys(nextSnapshot.relevanceConnectors) as RelevanceConnectorVizId[]) {
+        nextSnapshot.relevanceConnectors[relevanceConnectorId] = {
+            ...nextSnapshot.relevanceConnectors[relevanceConnectorId],
+            animationType: "uniform",
+        };
+    }
+
     return nextSnapshot;
+}
+
+function buildScaleTransitionSnapshot(args: {
+    beforeSnapshot: Snapshot;
+    afterSnapshot: Snapshot;
+}): Snapshot {
+    return {
+        claims: buildScaleClaimMap(args.beforeSnapshot.claims, args.afterSnapshot.claims),
+        claimAggregators: buildScaleClaimAggregatorMap(args.beforeSnapshot.claimAggregators, args.afterSnapshot.claimAggregators),
+        junctions: buildScaleJunctionMap(args.beforeSnapshot.junctions, args.afterSnapshot.junctions),
+        junctionAggregators: buildScaleJunctionAggregatorMap(args.beforeSnapshot.junctionAggregators, args.afterSnapshot.junctionAggregators),
+        confidenceConnectors: buildScaleConfidenceConnectorMap(args.beforeSnapshot.confidenceConnectors, args.afterSnapshot.confidenceConnectors),
+        deliveryConnectors: buildScaleConnectorMap(args.beforeSnapshot.deliveryConnectors, args.afterSnapshot.deliveryConnectors),
+        relevanceConnectors: buildScaleConnectorMap(args.beforeSnapshot.relevanceConnectors, args.afterSnapshot.relevanceConnectors),
+    };
+}
+
+function buildScaleClaimMap<TId extends string, TEntity extends { position: TweenPoint; score: TweenNumber; scale: TweenNumber }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                position: tweenPoint(before.position, after.position),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                score: before.score,
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = after;
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildScaleClaimAggregatorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; position: TweenPoint; score: TweenNumber; scale: TweenNumber }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+                position: tweenPoint(before.position, after.position),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                score: before.score,
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                animationType: "uniform",
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildScaleJunctionMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; leftHeight: TweenNumber; position: TweenPoint; rightHeight: TweenNumber; scale: TweenNumber; visible: TweenBoolean; width: TweenNumber }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+                leftHeight: tweenNumber(readTweenNumber(before.leftHeight), readTweenNumber(after.leftHeight)),
+                position: tweenPoint(before.position, after.position),
+                rightHeight: tweenNumber(readTweenNumber(before.rightHeight), readTweenNumber(after.rightHeight)),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
+                width: tweenNumber(readTweenNumber(before.width), readTweenNumber(after.width)),
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                animationType: "uniform",
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+                visible: tweenBoolean(readTweenBoolean(before.visible), false),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildScaleJunctionAggregatorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; position: TweenPoint; score: TweenNumber; scale: TweenNumber; visible: TweenBoolean }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+                position: tweenPoint(before.position, after.position),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                score: before.score,
+                visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                animationType: "uniform",
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+                visible: tweenBoolean(readTweenBoolean(before.visible), false),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildScaleConfidenceConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; centerlinePoints: SnapshotWaypoint[]; scale: TweenNumber; score: TweenNumber; source: TweenPoint; target: TweenPoint; visible: TweenBoolean }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                score: before.score,
+                source: tweenPoint(before.source, after.source),
+                target: tweenPoint(before.target, after.target),
+                visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                animationType: "uniform",
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+                visible: tweenBoolean(readTweenBoolean(before.visible), false),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildScaleConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; centerlinePoints: SnapshotWaypoint[]; scale: TweenNumber; score: TweenNumber; source: TweenPoint; target: TweenPoint }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById = {} as Record<TId, TEntity>;
+
+    for (const id of collectMapIds(beforeById, afterById)) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (before && after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
+                scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
+                score: before.score,
+                source: tweenPoint(before.source, after.source),
+                target: tweenPoint(before.target, after.target),
+            };
+            continue;
+        }
+
+        if (after) {
+            nextById[id] = {
+                ...after,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before) {
+            nextById[id] = {
+                ...before,
+                animationType: "uniform",
+                scale: tweenNumber(readTweenNumber(before.scale), 0),
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function collectMapIds<TId extends string>(
+    beforeById: Record<TId, unknown>,
+    afterById: Record<TId, unknown>,
+): TId[] {
+    return [...new Set<TId>([
+        ...(Object.keys(beforeById) as TId[]),
+        ...(Object.keys(afterById) as TId[]),
+    ])];
 }
 
 function resolveStepScore(step: ScorePropagationStep): number {
@@ -667,6 +1055,84 @@ function tweenToScore(current: TweenNumber, next: number): TweenNumber {
         from,
         to: next,
     };
+}
+
+function tweenNumber(from: number, to: number): TweenNumber {
+    if (from === to) {
+        return to;
+    }
+
+    return {
+        type: "tween/number",
+        from,
+        to,
+    };
+}
+
+function tweenBoolean(from: boolean, to: boolean): TweenBoolean {
+    if (from === to) {
+        return to;
+    }
+
+    return {
+        type: "tween/boolean",
+        from,
+        to,
+    };
+}
+
+function tweenPoint(from: TweenPoint, to: TweenPoint): TweenPoint {
+    return {
+        x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
+        y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
+    };
+}
+
+function tweenWaypointList(
+    from: readonly SnapshotWaypoint[],
+    to: readonly SnapshotWaypoint[],
+): SnapshotWaypoint[] {
+    if (from.length !== to.length) {
+        throw new Error(
+            `Cannot tween connector centerline points with different waypoint counts during scale transition: ${from.length} vs ${to.length}.`,
+        );
+    }
+
+    return from.map((fromWaypoint, index) => tweenWaypoint(fromWaypoint, to[index]!));
+}
+
+function tweenWaypoint(from: SnapshotWaypoint, to: SnapshotWaypoint): SnapshotWaypoint {
+    const radius = tweenOptionalNumber(from.radius, to.radius);
+
+    return radius === undefined
+        ? {
+            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
+            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
+        }
+        : {
+            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
+            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
+            radius,
+        };
+}
+
+function tweenOptionalNumber(
+    from: TweenNumber | undefined,
+    to: TweenNumber | undefined,
+): TweenNumber | undefined {
+    if (from === undefined && to === undefined) {
+        return undefined;
+    }
+
+    return tweenNumber(readOptionalTweenNumber(from), readOptionalTweenNumber(to));
+}
+
+function readTweenBoolean(value: TweenBoolean): boolean {
+    return typeof value === "boolean" ? value : value.to;
+}
+
+function readOptionalTweenNumber(value: TweenNumber | undefined): number {
+    return value === undefined ? 0 : readTweenNumber(value);
 }
 
 function readTweenNumber(value: TweenNumber): number {

@@ -21,71 +21,59 @@ import { buildClaimRenderModel, renderClaim } from "./renderClaim";
 import { buildConnectorRenderModel, renderConnector } from "./renderConnector";
 import { buildJunctionRenderModel, renderJunction } from "./renderJunction";
 import type {
+    Bounds,
     PlannerSnapshotRenderMode,
     PlannerSnapshotRenderResult,
     SnapshotRenderInput,
 } from "./renderTypes";
 import { htmlElement, svgElement } from "./renderTree";
 
-export function renderPlannerSnapshotScene(args: {
+type PlannerSnapshotSceneArgs = {
     snapshot: Snapshot;
     percent: number;
     mode: PlannerSnapshotRenderMode;
-}): PlannerSnapshotRenderResult {
-    const connectorModels = [
-        ...Object.values(args.snapshot.relevanceConnectors),
-        ...Object.values(args.snapshot.confidenceConnectors),
-        ...Object.values(args.snapshot.deliveryConnectors),
-    ]
-        .map((visual) => buildConnectorRenderModel({
-            visual,
-            percent: args.percent,
-            mode: args.mode,
-        }))
-        .filter((model): model is NonNullable<typeof model> => !!model)
-        .sort((left, right) => {
-            const leftMidY = midpointY(left.centerlinePoints);
-            const rightMidY = midpointY(right.centerlinePoints);
-            return leftMidY - rightMidY || left.id.localeCompare(right.id);
-        });
-    const claimModels = Object.values(args.snapshot.claims)
-        .map((visual) => buildClaimRenderModel(visual, args.percent))
-        .filter((model): model is NonNullable<typeof model> => !!model);
-    const claimAggregatorModels = Object.values(args.snapshot.claimAggregators)
-        .map((visual) => buildClaimAggregatorRenderModel(visual, args.percent));
-    const junctionAggregatorModels = Object.values(args.snapshot.junctionAggregators)
-        .map((visual) => buildJunctionAggregatorRenderModel(visual, args.percent));
-    const junctionModels = Object.values(args.snapshot.junctions)
-        .map((visual) => buildJunctionRenderModel({
-            visual,
-            percent: args.percent,
-            side: resolveJunctionSide(args.snapshot, visual),
-        }))
-        .filter((model): model is NonNullable<typeof model> => !!model);
+    viewportBounds?: Bounds;
+};
 
-    let bounds = undefined;
+type PlannerSnapshotSceneLayout = {
+    bounds: Bounds | undefined;
+    claimAggregatorModels: ReturnType<typeof buildClaimAggregatorRenderModel>[];
+    claimModels: NonNullable<ReturnType<typeof buildClaimRenderModel>>[];
+    connectorModels: NonNullable<ReturnType<typeof buildConnectorRenderModel>>[];
+    junctionAggregatorModels: ReturnType<typeof buildJunctionAggregatorRenderModel>[];
+    junctionModels: NonNullable<ReturnType<typeof buildJunctionRenderModel>>[];
+};
 
-    for (const connectorModel of connectorModels) {
-        bounds = mergeBounds(bounds, connectorModel.bounds);
-    }
+export function getPlannerSnapshotSceneBounds(args: PlannerSnapshotSceneArgs): Bounds {
+    return buildPlannerSnapshotSceneLayout(args).bounds ?? {
+        minX: 0,
+        minY: 0,
+        maxX: 1,
+        maxY: 1,
+    };
+}
 
-    for (const claimModel of claimModels) {
-        bounds = mergeBounds(bounds, claimModel.bounds);
-    }
+export function getPlannerSnapshotViewportTarget(args: PlannerSnapshotSceneArgs): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+} {
+    const bounds = getPlannerSnapshotSceneBounds(args);
+    const width = bounds.maxX - bounds.minX;
+    const height = bounds.maxY - bounds.minY;
 
-    for (const aggregatorModel of claimAggregatorModels) {
-        bounds = mergeBounds(bounds, aggregatorModel.bounds);
-    }
+    return {
+        x: bounds.minX + width / 2,
+        y: bounds.minY + height / 2,
+        width,
+        height,
+    };
+}
 
-    for (const aggregatorModel of junctionAggregatorModels) {
-        bounds = mergeBounds(bounds, aggregatorModel.bounds);
-    }
-
-    for (const junctionModel of junctionModels) {
-        bounds = mergeBounds(bounds, junctionModel.bounds);
-    }
-
-    const resolvedBounds = bounds ?? {
+export function renderPlannerSnapshotScene(args: PlannerSnapshotSceneArgs): PlannerSnapshotRenderResult {
+    const layout = buildPlannerSnapshotSceneLayout(args);
+    const resolvedBounds = args.viewportBounds ?? layout.bounds ?? {
         minX: 0,
         minY: 0,
         maxX: 1,
@@ -113,8 +101,8 @@ export function renderPlannerSnapshotScene(args: {
             children: [
                 htmlElement("div", {
                     styles: {
-                        height,
                         position: "relative",
+                        height,
                         width,
                     },
                     children: [
@@ -127,17 +115,92 @@ export function renderPlannerSnapshotScene(args: {
                             },
                             styles: CONNECTOR_LAYER_STYLES,
                             children: [
-                                ...connectorModels.flatMap((model) => renderConnector(model, offset)),
-                                ...junctionModels.map((model) => renderJunction(model, offset)),
+                                ...layout.connectorModels.flatMap((model) => renderConnector(model, offset)),
+                                ...layout.junctionModels.map((model) => renderJunction(model, offset)),
                             ],
                         }),
-                        ...claimModels.map((model) => renderClaim(model, offset)),
-                        ...claimAggregatorModels.map((model) => renderAggregator(model, offset)),
-                        ...junctionAggregatorModels.map((model) => renderAggregator(model, offset)),
+                        ...layout.claimModels.map((model) => renderClaim(model, offset)),
+                        ...layout.claimAggregatorModels.map((model) => renderAggregator(model, offset)),
+                        ...layout.junctionAggregatorModels.map((model) => renderAggregator(model, offset)),
                     ],
                 }),
             ],
         }),
+    };
+}
+
+function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): PlannerSnapshotSceneLayout {
+    const claimModels = Object.values(args.snapshot.claims)
+        .map((visual) => buildClaimRenderModel(visual, args.percent))
+        .filter((model): model is NonNullable<typeof model> => !!model);
+
+    const junctionModels = Object.values(args.snapshot.junctions)
+        .map((visual) => buildJunctionRenderModel({
+            visual,
+            percent: args.percent,
+            side: resolveJunctionSide(args.snapshot, visual),
+        }))
+        .filter((model): model is NonNullable<typeof model> => !!model);
+    const connectorModels = [
+        ...Object.values(args.snapshot.relevanceConnectors),
+        ...Object.values(args.snapshot.confidenceConnectors),
+        ...Object.values(args.snapshot.deliveryConnectors),
+    ]
+        .map((visual) => buildConnectorRenderModel({
+            visual,
+            percent: args.percent,
+            mode: args.mode,
+        }))
+        .filter((model): model is NonNullable<typeof model> => !!model)
+        .sort((left, right) => {
+            const leftMidY = midpointY(left.centerlinePoints);
+            const rightMidY = midpointY(right.centerlinePoints);
+            return leftMidY - rightMidY || left.id.localeCompare(right.id);
+        });
+    const claimAggregatorModels = Object.values(args.snapshot.claimAggregators)
+        .map((visual) => buildClaimAggregatorRenderModel({
+            visual,
+            percent: args.percent,
+            claimModel: visual.scoreNodeId ? claimModels.find((model) => model.scoreNodeId === String(visual.scoreNodeId)) : undefined,
+        }));
+    const junctionAggregatorModels = Object.values(args.snapshot.junctionAggregators)
+        .map((visual) => buildJunctionAggregatorRenderModel({
+            visual,
+            percent: args.percent,
+            junctionModel: visual.scoreNodeId
+                ? junctionModels.find((model) => model.scoreNodeId === String(visual.scoreNodeId))
+                : undefined,
+        }));
+
+    let bounds = undefined;
+
+    for (const connectorModel of connectorModels) {
+        bounds = mergeBounds(bounds, connectorModel.bounds);
+    }
+
+    for (const claimModel of claimModels) {
+        bounds = mergeBounds(bounds, claimModel.bounds);
+    }
+
+    for (const aggregatorModel of claimAggregatorModels) {
+        bounds = mergeBounds(bounds, aggregatorModel.bounds);
+    }
+
+    for (const aggregatorModel of junctionAggregatorModels) {
+        bounds = mergeBounds(bounds, aggregatorModel.bounds);
+    }
+
+    for (const junctionModel of junctionModels) {
+        bounds = mergeBounds(bounds, junctionModel.bounds);
+    }
+
+    return {
+        bounds,
+        claimAggregatorModels,
+        claimModels,
+        connectorModels,
+        junctionAggregatorModels,
+        junctionModels,
     };
 }
 
@@ -146,6 +209,7 @@ export function renderVoilaSnapshot(input: SnapshotRenderInput): PlannerSnapshot
         snapshot: input.snapshot,
         percent: input.percent,
         mode: "voila",
+        viewportBounds: input.viewportBounds,
     });
 }
 
@@ -154,6 +218,7 @@ export function renderSproutSnapshot(input: SnapshotRenderInput): PlannerSnapsho
         snapshot: input.snapshot,
         percent: input.percent,
         mode: "sprout",
+        viewportBounds: input.viewportBounds,
     });
 }
 
@@ -162,6 +227,7 @@ export function renderFirstFillSnapshot(input: SnapshotRenderInput): PlannerSnap
         snapshot: input.snapshot,
         percent: input.percent,
         mode: "firstFill",
+        viewportBounds: input.viewportBounds,
     });
 }
 
@@ -170,6 +236,7 @@ export function renderScaleSnapshot(input: SnapshotRenderInput): PlannerSnapshot
         snapshot: input.snapshot,
         percent: input.percent,
         mode: "scale",
+        viewportBounds: input.viewportBounds,
     });
 }
 
@@ -178,6 +245,7 @@ export function renderOrderSnapshot(input: SnapshotRenderInput): PlannerSnapshot
         snapshot: input.snapshot,
         percent: input.percent,
         mode: "order",
+        viewportBounds: input.viewportBounds,
     });
 }
 

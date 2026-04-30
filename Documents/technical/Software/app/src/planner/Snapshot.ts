@@ -78,6 +78,7 @@ export type ConnectorVizDirection = "sourceToTarget" | "targetToSource"
 
 interface ConnectorVizBase {
     type: "confidenceConnector" | "deliveryConnector" | "relevanceConnector"
+    animationType: AnimationType
     scale: TweenNumber
     score: TweenNumber
     side: Side
@@ -91,7 +92,6 @@ interface ConnectorVizBase {
 export interface ConfidenceConnectorViz extends ConnectorVizBase {
     type: "confidenceConnector"
     id: ConfidenceConnectorVizId
-    animationType: AnimationType,
     confidenceConnectorId?: ConfidenceConnectorId
     confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
@@ -106,6 +106,7 @@ export interface DeliveryConnectorViz extends ConnectorVizBase {
     confidenceConnectorId?: ConfidenceConnectorId
     confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
+    sourceClaimVizId?: ClaimVizId
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
 }

@@ -1,9 +1,12 @@
 import type { ClaimAggregatorViz, JunctionAggregatorViz } from "../../../app/src/app.js";
+import { getPlannerClaimAggregatorOffsetX } from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import { boundsFromCenteredRect } from "./bounds";
 import { renderPlannerSnapshotScene } from "./renderPlannerSnapshotScene";
 import { AGGREGATOR_BASE_SIZE_PX } from "./sceneConstants";
 import { resolveTweenPoint } from "./resolveTween";
+import type { ClaimRenderModel } from "./renderClaim";
+import type { JunctionRenderModel } from "./renderJunction";
 import type {
     Bounds,
     PlannerSnapshotRenderResult,
@@ -22,17 +25,41 @@ export type AggregatorRenderModel = {
 };
 
 export function buildClaimAggregatorRenderModel(
-    visual: ClaimAggregatorViz,
-    percent: number,
+    args: {
+        visual: ClaimAggregatorViz;
+        percent: number;
+        claimModel?: ClaimRenderModel;
+    },
 ): AggregatorRenderModel {
-    return buildAggregatorRenderModel("claimAggregator", visual.id, visual.position, percent);
+    if (args.claimModel) {
+        return buildCenteredAggregatorRenderModel(
+            "claimAggregator",
+            args.visual.id,
+            args.claimModel.centerX - getPlannerClaimAggregatorOffsetX(args.claimModel.scale),
+            args.claimModel.centerY,
+        );
+    }
+
+    return buildPositionedAggregatorRenderModel("claimAggregator", args.visual.id, args.visual.position, args.percent);
 }
 
 export function buildJunctionAggregatorRenderModel(
-    visual: JunctionAggregatorViz,
-    percent: number,
+    args: {
+        visual: JunctionAggregatorViz;
+        percent: number;
+        junctionModel?: JunctionRenderModel;
+    },
 ): AggregatorRenderModel {
-    return buildAggregatorRenderModel("junctionAggregator", visual.id, visual.position, percent);
+    if (args.junctionModel) {
+        return buildCenteredAggregatorRenderModel(
+            "junctionAggregator",
+            args.visual.id,
+            args.junctionModel.centerX,
+            args.junctionModel.centerY,
+        );
+    }
+
+    return buildPositionedAggregatorRenderModel("junctionAggregator", args.visual.id, args.visual.position, args.percent);
 }
 
 export function renderAggregator(
@@ -74,7 +101,7 @@ export function renderJunctionAggregatorAdjustSnapshot(input: SnapshotRenderInpu
     });
 }
 
-function buildAggregatorRenderModel(
+function buildPositionedAggregatorRenderModel(
     kind: AggregatorRenderModel["kind"],
     id: string,
     position: ClaimAggregatorViz["position"],
@@ -82,12 +109,21 @@ function buildAggregatorRenderModel(
 ): AggregatorRenderModel {
     const center = resolveTweenPoint(position, percent);
 
+    return buildCenteredAggregatorRenderModel(kind, id, center.x, center.y);
+}
+
+function buildCenteredAggregatorRenderModel(
+    kind: AggregatorRenderModel["kind"],
+    id: string,
+    x: number,
+    y: number,
+): AggregatorRenderModel {
     return {
-        bounds: boundsFromCenteredRect(center.x, center.y, AGGREGATOR_BASE_SIZE_PX, AGGREGATOR_BASE_SIZE_PX),
+        bounds: boundsFromCenteredRect(x, y, AGGREGATOR_BASE_SIZE_PX, AGGREGATOR_BASE_SIZE_PX),
         id,
         kind,
         size: AGGREGATOR_BASE_SIZE_PX,
-        x: center.x,
-        y: center.y,
+        x,
+        y,
     };
 }

@@ -34,11 +34,13 @@ export type Bounds = {
 export type SnapshotRenderInput = {
     snapshot: Snapshot;
     percent: number;
+    viewportBounds?: Bounds;
 };
 
 export type ScoreWaveFrameRenderInput = {
     frame: ScoreWaveFrame;
     percent: number;
+    viewportBounds?: Bounds;
 };
 
 export type PlannerSnapshotRenderMode = ScoreWaveStepType | ScoreWaveSpecialCase;

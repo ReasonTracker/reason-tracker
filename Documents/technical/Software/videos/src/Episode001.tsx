@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import type {
     ApplyCommandResult,
@@ -11,6 +11,7 @@ import type {
     ScoreChangeWaveTimelineRun,
     ScoreGraph,
     ScoreNodeId,
+    Snapshot,
     ScoreWaveFrame,
     TargetRelation,
 } from "../../app/src/app.ts";
@@ -18,14 +19,18 @@ import {
     buildProjectedCommandScoreWaveTimelines,
     calculateScoreChanges,
 } from "../../app/src/app.ts";
-
-import { EpisodeBrandSequence } from "./shared/EpisodeBrandSequence";
-import { Fade } from "./shared/Fade";
 import {
-    PlannerScoreWaveFrameSurface,
-    PlannerSnapshotSurface,
-} from "./shared/PlannerRenderSurface";
-import { buildTimelineTimes, wait, type TimelineEntry } from "./shared/timeline";
+    GRAPH_PADDING_PX,
+    getPlannerSnapshotSceneBounds,
+    getPlannerSnapshotViewportTarget,
+    renderPlannerSnapshotScene,
+    type Bounds,
+    type PlannerSnapshotRenderMode,
+} from "@reasontracker/components";
+
+import { Fade } from "./shared/Fade";
+import { PlannerRenderSurface } from "./shared/PlannerRenderSurface";
+import { buildTimelineTimes, type TimelineEntry } from "./shared/timeline";
 import { getZoomMotionState } from "./shared/zoomMotion";
 
 const EPISODE001_FPS = 30;
@@ -35,27 +40,13 @@ const EPISODE001_FPS = 30;
 const EPISODE001_BACKGROUND_FADE_SECONDS = 0.7;
 /** Seconds to hold on the initial graph before the first command animation. */
 const EPISODE001_OPENING_HOLD_SECONDS = 1.2;
-/** Seconds for the brand overlay sequence. */
-const EPISODE001_BRAND_SECONDS = 3.3;
 /** Seconds to hold on the final graph before fading out. */
 const EPISODE001_END_HOLD_SECONDS = 2;
 
-// AGENT NOTE: Keep Episode001 camera framing constants together so the motion
-// can be tuned without hunting through composition control flow.
-/** Scene-space x coordinate used as the camera target anchor. */
-const EPISODE001_CAMERA_TARGET_X = 960;
-/** Scene-space y coordinate used as the camera target anchor. */
-const EPISODE001_CAMERA_TARGET_Y = 540;
-/** Opening camera pose centered on the main claim. */
-const EPISODE001_CAMERA_OPENING = { scale: 1.08, screenX: 960, screenY: 560 };
-/** Early camera pose that leans toward the first supporting branch. */
-const EPISODE001_CAMERA_EARLY = { scale: 1.14, screenX: 860, screenY: 520 };
-/** Midway camera pose that widens back out for the growing debate. */
-const EPISODE001_CAMERA_MID = { scale: 1, screenX: 960, screenY: 540 };
-/** Late camera pose that drifts toward the lower-right additions. */
-const EPISODE001_CAMERA_LATE = { scale: 1.06, screenX: 1030, screenY: 510 };
-/** Final camera pose that settles back to a neutral centered framing. */
-const EPISODE001_CAMERA_SETTLE = { scale: 1, screenX: 960, screenY: 540 };
+/** Seconds spent moving the camera toward the next action target. */
+const EPISODE001_CAMERA_MOVE_SECONDS = 0.6;
+/** Padding retained between the focused graph target and the video frame. */
+const EPISODE001_CAMERA_VIEWPORT_PADDING_PX = 100;
 
 const MAIN_CLAIM_ID = "claim-main" as ClaimId;
 const MAIN_SCORE_NODE_ID = "score-main" as ScoreNodeId;
@@ -128,17 +119,35 @@ type Episode001StoryboardAction = {
     waitAfterSeconds: number;
 };
 
-type Episode001FramePlan = {
+type Episode001ViewportTarget = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+type Episode001CameraMovePlan = {
     id: string;
-    frame: ScoreWaveFrame;
     name: string;
+    target: Episode001ViewportTarget;
+};
+
+type Episode001GraphClip = {
+    id: string;
+    animated: boolean;
+    mode: PlannerSnapshotRenderMode;
+    name: string;
+    snapshot: Snapshot;
 };
 
 type Episode001Plan = {
-    framePlans: Episode001FramePlan[];
+    cameraMoves: Episode001CameraMovePlan[];
+    graphClips: Episode001GraphClip[];
     finalSnapshot: ScoreChangeWaveTimelineRun<Episode001Command>["finalSnapshot"];
+    initialViewportTarget: Episode001ViewportTarget;
     initialSnapshot: ScoreChangeWaveTimelineRun<Episode001Command>["initialSnapshot"];
     timelineEntries: TimelineEntry<string>[];
+    viewportBounds: Bounds;
 };
 
 type Episode001ProjectionData = {
@@ -146,12 +155,6 @@ type Episode001ProjectionData = {
     confidenceConnectorById: Partial<Record<ConfidenceConnectorId, ConfidenceConnector>>;
     initialGraph: ScoreGraph;
     relevanceConnectorById: Partial<Record<RelevanceConnectorId, RelevanceConnector>>;
-};
-
-type Episode001CameraKeyframe = {
-    scale: number;
-    screenX: number;
-    screenY: number;
 };
 
 type Episode001GraphEventTimes = Record<string, { from: number; durationInFrames: number }>;
@@ -342,18 +345,27 @@ const episode001WaveTimelineRun = buildProjectedCommandScoreWaveTimelines({
     includeScaleAndOrderFrames: true,
 });
 const episode001Plan = buildEpisode001Plan(episode001WaveTimelineRun);
+// --- SNAPSHOT LOGGING FOR DEBUG ---
+if (typeof window !== "undefined" && (window as any).console) {
+    // Log all snapshots in the plan for inspection
+    for (const clip of episode001Plan.graphClips) {
+        // Print a summary header and the snapshot object
+        console.log(
+            `[Episode001] Snapshot: ${clip.id} | ${clip.name}`,
+            clip.snapshot
+        );
+    }
+}
 const episode001Timeline = buildTimelineTimes(episode001Plan.timelineEntries, EPISODE001_FPS);
 
 export const EPISODE001_DURATION_IN_FRAMES = episode001Timeline.totalDurationInFrames;
 
 export const Episode001 = () => {
-    const currentFrame = useCurrentFrame();
     const graphEventTimes = episode001Timeline.times;
     const graphFadeFrom = graphEventTimes.BackgroundFadeIn.from;
     const graphFadeDurationInFrames = graphEventTimes.BackgroundFadeout.from
         + graphEventTimes.BackgroundFadeout.durationInFrames
         - graphFadeFrom;
-    const graphCameraStyle = buildEpisode001GraphCameraStyle(currentFrame, graphEventTimes);
 
     return (
         <AbsoluteFill style={{ background: "#000000" }}>
@@ -364,55 +376,28 @@ export const Episode001 = () => {
                 fadeOutFrames={graphEventTimes.BackgroundFadeout.durationInFrames}
                 name="Graph Fade"
             >
-                <Sequence
-                    from={graphEventTimes.initialHold.from}
-                    durationInFrames={graphEventTimes.initialHold.durationInFrames}
-                    name="Initial Hold"
-                    layout="none"
-                >
-                    <PlannerSnapshotSurface
-                        snapshot={episode001Plan.initialSnapshot}
-                        mode="order"
-                        percent={1}
-                        style={graphCameraStyle}
-                    />
-                </Sequence>
-
-                {episode001Plan.framePlans.map((framePlan) => (
-                    <Sequence
-                        key={framePlan.id}
-                        from={graphEventTimes[framePlan.id].from}
-                        durationInFrames={graphEventTimes[framePlan.id].durationInFrames}
-                        name={framePlan.name}
-                        layout="none"
-                    >
-                        <PlannerScoreWaveFrameSurface
-                            frame={framePlan.frame}
-                            durationInFrames={graphEventTimes[framePlan.id].durationInFrames}
-                            style={graphCameraStyle}
-                        />
-                    </Sequence>
-                ))}
-
-                <Sequence
-                    from={graphEventTimes.finalHold.from}
-                    durationInFrames={graphEventTimes.finalHold.durationInFrames}
-                    name="Final Hold"
-                    layout="none"
-                >
-                    <PlannerSnapshotSurface
-                        snapshot={episode001Plan.finalSnapshot}
-                        mode="order"
-                        percent={1}
-                        style={graphCameraStyle}
-                    />
-                </Sequence>
+                <Episode001GraphSurface
+                    cameraMoves={episode001Plan.cameraMoves}
+                    finalSnapshot={episode001Plan.finalSnapshot}
+                    graphClips={episode001Plan.graphClips}
+                    graphEventTimes={graphEventTimes}
+                    initialSnapshot={episode001Plan.initialSnapshot}
+                    initialViewportTarget={episode001Plan.initialViewportTarget}
+                    viewportBounds={episode001Plan.viewportBounds}
+                />
             </Fade>
 
-            <EpisodeBrandSequence
-                from={graphEventTimes.brand.from}
-                durationInFrames={graphEventTimes.brand.durationInFrames}
-            />
+            {episode001Plan.graphClips.map((clip) => (
+                <Sequence
+                    key={clip.id}
+                    from={graphEventTimes[clip.id].from}
+                    durationInFrames={graphEventTimes[clip.id].durationInFrames}
+                    name={clip.name}
+                    layout="none"
+                >
+                    <span style={{ display: "none" }} />
+                </Sequence>
+            ))}
         </AbsoluteFill>
     );
 };
@@ -518,52 +503,126 @@ function applyEpisode001CommandToScoreGraph(
 function buildEpisode001Plan(
     waveTimelineRun: ScoreChangeWaveTimelineRun<Episode001Command>,
 ): Episode001Plan {
-    const framePlans: Episode001FramePlan[] = [];
+    const cameraMoves: Episode001CameraMovePlan[] = [];
+    const graphClips: Episode001GraphClip[] = [];
     const timelineEntries: TimelineEntry<string>[] = [
         ["BackgroundFadeIn", EPISODE001_BACKGROUND_FADE_SECONDS],
-        ["initialHold", EPISODE001_OPENING_HOLD_SECONDS],
     ];
+    const initialHoldSeconds = Math.max(0, EPISODE001_OPENING_HOLD_SECONDS - EPISODE001_CAMERA_MOVE_SECONDS);
+
+    if (initialHoldSeconds > 0) {
+        graphClips.push({
+            id: "initialHold",
+            animated: false,
+            mode: "order",
+            name: "Initial Hold",
+            snapshot: waveTimelineRun.initialSnapshot,
+        });
+        timelineEntries.push(["initialHold", initialHoldSeconds]);
+    }
+
+    let currentSnapshot = waveTimelineRun.initialSnapshot;
 
     for (const [commandIndex, commandTimeline] of waveTimelineRun.commandTimelines.entries()) {
         const command = episode001StoryboardActions[commandIndex]?.command;
+        const action = episode001StoryboardActions[commandIndex];
 
-        if (!command) {
+        if (!action || !command) {
             throw new Error(`Episode001 storyboard action is missing for command index ${commandIndex}`);
         }
 
+        const cameraMoveId = getEpisode001CameraMoveId(action.id);
+        cameraMoves.push({
+            id: cameraMoveId,
+            name: `Camera ${action.id}`,
+            target: getEpisode001ViewportTarget(commandTimeline.timeline.finalSnapshot),
+        });
+        graphClips.push({
+            id: cameraMoveId,
+            animated: false,
+            mode: "order",
+            name: `Camera: ${command.claim.content}`,
+            snapshot: currentSnapshot,
+        });
+        timelineEntries.push([cameraMoveId, EPISODE001_CAMERA_MOVE_SECONDS]);
         for (const [frameIndex, frame] of commandTimeline.timeline.frames.entries()) {
             const id = getEpisode001FrameId(commandIndex, frameIndex);
-            framePlans.push({
+            graphClips.push({
                 id,
-                frame,
+                animated: true,
+                mode: getEpisode001FrameRenderMode(frame),
                 name: describeEpisode001FrameName(frame, command),
+                snapshot: frame.snapshot,
             });
             timelineEntries.push([id, getScoreWaveFrameDurationSeconds(frame)]);
         }
 
-        const waitAfterSeconds = episode001StoryboardActions[commandIndex]?.waitAfterSeconds ?? 0;
+        const hasNextAction = commandIndex < episode001StoryboardActions.length - 1;
+        const waitAfterSeconds = hasNextAction
+            ? Math.max(0, action.waitAfterSeconds - EPISODE001_CAMERA_MOVE_SECONDS)
+            : action.waitAfterSeconds;
 
         if (waitAfterSeconds > 0) {
-            timelineEntries.push([wait, waitAfterSeconds]);
+            const holdId = getEpisode001HoldId(action.id);
+            graphClips.push({
+                id: holdId,
+                animated: false,
+                mode: "order",
+                name: `Hold: ${command.claim.content}`,
+                snapshot: commandTimeline.timeline.finalSnapshot,
+            });
+            timelineEntries.push([holdId, waitAfterSeconds]);
         }
+
+        currentSnapshot = commandTimeline.timeline.finalSnapshot;
     }
+
+    graphClips.push({
+        id: "finalHold",
+        animated: false,
+        mode: "order",
+        name: "Final Hold",
+        snapshot: waveTimelineRun.finalSnapshot,
+    });
 
     timelineEntries.push(
         ["finalHold", EPISODE001_END_HOLD_SECONDS],
         ["BackgroundFadeout", EPISODE001_BACKGROUND_FADE_SECONDS],
-        ["brand", EPISODE001_BRAND_SECONDS],
     );
 
+    const viewportBounds = buildEpisode001ViewportBounds(graphClips, waveTimelineRun.initialSnapshot, waveTimelineRun.finalSnapshot);
+
     return {
-        framePlans,
+        cameraMoves: cameraMoves.map((move) => ({
+            ...move,
+            target: offsetEpisode001ViewportTarget(move.target, viewportBounds),
+        })),
         finalSnapshot: waveTimelineRun.finalSnapshot,
+        graphClips,
+        initialViewportTarget: offsetEpisode001ViewportTarget(
+            getPlannerSnapshotViewportTarget({
+                snapshot: waveTimelineRun.initialSnapshot,
+                percent: 1,
+                mode: "order",
+            }),
+            viewportBounds,
+        ),
         initialSnapshot: waveTimelineRun.initialSnapshot,
         timelineEntries,
+        viewportBounds,
     };
 }
 
 function getEpisode001FrameId(commandIndex: number, frameIndex: number): string {
     return `command-${commandIndex + 1}-frame-${frameIndex + 1}`;
+}
+
+function getEpisode001CameraMoveId(actionId: Episode001ActionId): string {
+    return `camera-${actionId}`;
+}
+
+function getEpisode001HoldId(actionId: Episode001ActionId): string {
+    return `hold-${actionId}`;
 }
 
 function getScoreWaveFrameDurationSeconds(frame: ScoreWaveFrame): number {
@@ -632,105 +691,267 @@ function describeEpisode001FrameName(frame: ScoreWaveFrame, command: Episode001C
     return `${baseLabel}: ${command.claim.content}`;
 }
 
-function buildEpisode001GraphCameraStyle(
+function getEpisode001FrameRenderMode(frame: ScoreWaveFrame): PlannerSnapshotRenderMode {
+    return frame.specialCase ?? frame.stepType;
+}
+
+function getEpisode001ViewportTarget(snapshot: Snapshot): Episode001ViewportTarget {
+    return getPlannerSnapshotViewportTarget({
+        snapshot,
+        percent: 1,
+        mode: "order",
+    });
+}
+
+function buildEpisode001ViewportBounds(
+    graphClips: readonly Episode001GraphClip[],
+    initialSnapshot: Snapshot,
+    finalSnapshot: Snapshot,
+): Bounds {
+    let bounds = mergeEpisode001Bounds(
+        undefined,
+        getPlannerSnapshotSceneBounds({
+            snapshot: initialSnapshot,
+            percent: 1,
+            mode: "order",
+        }),
+    );
+
+    for (const clip of graphClips) {
+        bounds = mergeEpisode001Bounds(
+            bounds,
+            getPlannerSnapshotSceneBounds({
+                snapshot: clip.snapshot,
+                percent: 1,
+                mode: clip.mode,
+            }),
+        );
+    }
+
+    bounds = mergeEpisode001Bounds(
+        bounds,
+        getPlannerSnapshotSceneBounds({
+            snapshot: finalSnapshot,
+            percent: 1,
+            mode: "order",
+        }),
+    );
+
+    return bounds ?? {
+        minX: 0,
+        minY: 0,
+        maxX: 1,
+        maxY: 1,
+    };
+}
+
+function mergeEpisode001Bounds(current: Bounds | undefined, next: Bounds): Bounds {
+    if (!current) {
+        return next;
+    }
+
+    return {
+        minX: Math.min(current.minX, next.minX),
+        minY: Math.min(current.minY, next.minY),
+        maxX: Math.max(current.maxX, next.maxX),
+        maxY: Math.max(current.maxY, next.maxY),
+    };
+}
+
+
+function offsetEpisode001ViewportTarget(
+    target: Episode001ViewportTarget,
+    viewportBounds: Bounds,
+): Episode001ViewportTarget {
+    return {
+        ...target,
+        x: target.x + GRAPH_PADDING_PX - viewportBounds.minX,
+        y: target.y + GRAPH_PADDING_PX - viewportBounds.minY,
+    };
+}
+
+const Episode001GraphSurface = ({
+    cameraMoves,
+    finalSnapshot,
+    graphClips,
+    graphEventTimes,
+    initialSnapshot,
+    initialViewportTarget,
+    viewportBounds,
+}: {
+    cameraMoves: readonly Episode001CameraMovePlan[];
+    finalSnapshot: Snapshot;
+    graphClips: readonly Episode001GraphClip[];
+    graphEventTimes: Episode001GraphEventTimes;
+    initialSnapshot: Snapshot;
+    initialViewportTarget: Episode001ViewportTarget;
+    viewportBounds: Bounds;
+}) => {
+    const currentFrame = useCurrentFrame();
+    const { width: frameWidth, height: frameHeight } = useVideoConfig();
+    const activeClip = resolveEpisode001ActiveClip(currentFrame, graphClips, graphEventTimes);
+    const activeSegment = activeClip ? graphEventTimes[activeClip.id] : undefined;
+    const percent = !activeClip || !activeClip.animated || !activeSegment
+        ? 1
+        : interpolate(
+            currentFrame,
+            [activeSegment.from, activeSegment.from + Math.max(1, activeSegment.durationInFrames - 1)],
+            [0, 1],
+            {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+            },
+        );
+    const snapshot = activeClip?.snapshot ?? (currentFrame < getEpisode001FirstClipStart(graphClips, graphEventTimes)
+        ? initialSnapshot
+        : finalSnapshot);
+    const mode = activeClip?.mode ?? "order";
+    const result = renderPlannerSnapshotScene({
+        snapshot,
+        percent,
+        mode,
+        viewportBounds,
+    });
+
+    return (
+        <PlannerRenderSurface
+            result={result}
+            fitToFrame={false}
+            sceneStyle={buildEpisode001GraphCameraStyle({
+                cameraMoves,
+                frame: currentFrame,
+                frameHeight,
+                frameWidth,
+                graphEventTimes,
+                initialViewportTarget,
+            })}
+        />
+    );
+};
+
+function resolveEpisode001ActiveClip(
     frame: number,
+    graphClips: readonly Episode001GraphClip[],
     graphEventTimes: Episode001GraphEventTimes,
 ) {
-    const camera = getEpisode001GraphCameraState(frame, graphEventTimes);
+    for (const clip of graphClips) {
+        const segment = graphEventTimes[clip.id];
+
+        if (!segment) {
+            continue;
+        }
+
+        if (frame >= segment.from && frame < segment.from + segment.durationInFrames) {
+            return clip;
+        }
+    }
+
+    return undefined;
+}
+
+function getEpisode001FirstClipStart(
+    graphClips: readonly Episode001GraphClip[],
+    graphEventTimes: Episode001GraphEventTimes,
+): number {
+    let firstClipStart = Number.POSITIVE_INFINITY;
+
+    for (const clip of graphClips) {
+        const segment = graphEventTimes[clip.id];
+
+        if (!segment) {
+            continue;
+        }
+
+        firstClipStart = Math.min(firstClipStart, segment.from);
+    }
+
+    return Number.isFinite(firstClipStart) ? firstClipStart : 0;
+}
+
+function buildEpisode001GraphCameraStyle(args: {
+    cameraMoves: readonly Episode001CameraMovePlan[];
+    frame: number;
+    frameHeight: number;
+    frameWidth: number;
+    graphEventTimes: Episode001GraphEventTimes;
+    initialViewportTarget: Episode001ViewportTarget;
+}) {
+    const camera = resolveEpisode001CameraState(args);
 
     return {
         transform: `translate(${camera.translateX}px, ${camera.translateY}px) scale(${camera.scale})`,
-        transformOrigin: "0 0",
+        transformOrigin: "top left",
     };
 }
 
-function getEpisode001GraphCameraState(
-    frame: number,
-    graphEventTimes: Episode001GraphEventTimes,
-) {
-    const openingStart = graphEventTimes.initialHold.from;
-    const earlyStart = readEpisode001EventStart(graphEventTimes, "command-2-frame-1", openingStart + 1);
-    const midStart = readEpisode001EventStart(graphEventTimes, "command-5-frame-1", earlyStart + 1);
-    const lateStart = readEpisode001EventStart(graphEventTimes, "command-8-frame-1", midStart + 1);
-    const settleEnd = graphEventTimes.BackgroundFadeout.from + graphEventTimes.BackgroundFadeout.durationInFrames;
-
-    if (frame <= openingStart) {
-        return toEpisode001CameraState(EPISODE001_CAMERA_OPENING);
-    }
-
-    if (frame < earlyStart) {
-        return interpolateEpisode001CameraState({
-            frame,
-            startFrame: openingStart,
-            endFrame: earlyStart,
-            start: EPISODE001_CAMERA_OPENING,
-            end: EPISODE001_CAMERA_EARLY,
-        });
-    }
-
-    if (frame < midStart) {
-        return interpolateEpisode001CameraState({
-            frame,
-            startFrame: earlyStart,
-            endFrame: midStart,
-            start: EPISODE001_CAMERA_EARLY,
-            end: EPISODE001_CAMERA_MID,
-        });
-    }
-
-    if (frame < lateStart) {
-        return interpolateEpisode001CameraState({
-            frame,
-            startFrame: midStart,
-            endFrame: lateStart,
-            start: EPISODE001_CAMERA_MID,
-            end: EPISODE001_CAMERA_LATE,
-        });
-    }
-
-    return interpolateEpisode001CameraState({
-        frame,
-        startFrame: lateStart,
-        endFrame: settleEnd,
-        start: EPISODE001_CAMERA_LATE,
-        end: EPISODE001_CAMERA_SETTLE,
-    });
-}
-
-function interpolateEpisode001CameraState(args: {
+function resolveEpisode001CameraState(args: {
+    cameraMoves: readonly Episode001CameraMovePlan[];
     frame: number;
-    startFrame: number;
-    endFrame: number;
-    start: Episode001CameraKeyframe;
-    end: Episode001CameraKeyframe;
+    frameHeight: number;
+    frameWidth: number;
+    graphEventTimes: Episode001GraphEventTimes;
+    initialViewportTarget: Episode001ViewportTarget;
 }) {
-    return getZoomMotionState({
-        frame: args.frame,
-        startFrame: args.startFrame,
-        durationInFrames: Math.max(1, args.endFrame - args.startFrame),
-        startScale: args.start.scale,
-        endScale: args.end.scale,
-        targetX: EPISODE001_CAMERA_TARGET_X,
-        targetY: EPISODE001_CAMERA_TARGET_Y,
-        startScreenX: args.start.screenX,
-        endScreenX: args.end.screenX,
-        startScreenY: args.start.screenY,
-        endScreenY: args.end.screenY,
-    });
+    let currentState = getEpisode001CameraFocusState(
+        args.initialViewportTarget,
+        args.frameWidth,
+        args.frameHeight,
+    );
+
+    for (const move of args.cameraMoves) {
+        const segment = args.graphEventTimes[move.id];
+
+        if (!segment) {
+            continue;
+        }
+
+        const nextState = getEpisode001CameraFocusState(move.target, args.frameWidth, args.frameHeight);
+
+        if (args.frame < segment.from) {
+            return currentState;
+        }
+
+        const endFrame = segment.from + segment.durationInFrames;
+
+        if (args.frame >= endFrame) {
+            currentState = nextState;
+            continue;
+        }
+
+        return getZoomMotionState({
+            frame: args.frame,
+            startFrame: segment.from,
+            durationInFrames: segment.durationInFrames,
+            startScale: currentState.scale,
+            endScale: nextState.scale,
+            targetX: nextState.targetX,
+            targetY: nextState.targetY,
+            startScreenX: currentState.translateX + nextState.targetX * currentState.scale,
+            endScreenX: nextState.targetScreenX,
+            startScreenY: currentState.translateY + nextState.targetY * currentState.scale,
+            endScreenY: nextState.targetScreenY,
+        });
+    }
+
+    return currentState;
 }
 
-function toEpisode001CameraState(keyframe: Episode001CameraKeyframe) {
+function getEpisode001CameraFocusState(
+    target: Episode001ViewportTarget,
+    frameWidth: number,
+    frameHeight: number,
+) {
+    const availableWidth = Math.max(1, frameWidth - EPISODE001_CAMERA_VIEWPORT_PADDING_PX * 2);
+    const availableHeight = Math.max(1, frameHeight - EPISODE001_CAMERA_VIEWPORT_PADDING_PX * 2);
+    const scale = Math.min(availableWidth / target.width, availableHeight / target.height);
+
     return {
-        scale: keyframe.scale,
-        translateX: keyframe.screenX - EPISODE001_CAMERA_TARGET_X * keyframe.scale,
-        translateY: keyframe.screenY - EPISODE001_CAMERA_TARGET_Y * keyframe.scale,
+        targetScreenX: frameWidth / 2,
+        targetScreenY: frameHeight / 2,
+        targetX: target.x,
+        targetY: target.y,
+        scale,
+        translateX: frameWidth / 2 - target.x * scale,
+        translateY: frameHeight / 2 - target.y * scale,
     };
-}
-
-function readEpisode001EventStart(
-    graphEventTimes: Episode001GraphEventTimes,
-    eventId: string,
-    fallback: number,
-): number {
-    return graphEventTimes[eventId]?.from ?? fallback;
 }

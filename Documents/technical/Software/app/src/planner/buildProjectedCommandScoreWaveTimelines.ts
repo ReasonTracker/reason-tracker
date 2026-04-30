@@ -3,6 +3,8 @@ import type {
     ScoreChangeRun,
     ScorePropagationStep,
 } from "../math/calculateScoreChanges.ts";
+import { withChildrenByParentId } from "../math/calculateScores.ts";
+import type { ScoreGraph, ScoreNodeId } from "../math/scoreTypes.ts";
 import type { TweenBoolean, TweenNumber, TweenPoint } from "../utils.ts";
 import type { Snapshot, SnapshotWaypoint } from "./Snapshot.ts";
 import {
@@ -14,6 +16,7 @@ import {
     type ScoreProjectionSnapshotOptions,
 } from "./buildScoreProjectionSnapshot.ts";
 import { buildScoreWaveTimeline, type ScoreWaveFrame } from "./buildScoreWaveTimeline.ts";
+import { settleSnapshot } from "./settleSnapshot.ts";
 
 /**
  * Builds per-command score-wave timelines directly from the score-change run
@@ -39,23 +42,38 @@ export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
             scores: commandRun.scoresAfter,
             options: args.projectionOptions,
         });
+        const preScaleAfterSnapshot = buildScoreProjectionSnapshot({
+            graph: commandRun.graphAfter,
+            scores: commandRun.scoresAfter,
+            options: {
+                ...args.projectionOptions,
+                scaleState: {
+                    ...args.projectionOptions?.scaleState,
+                    sourceScaleByScoreNodeId: buildPreScaleSourceScaleByScoreNodeId({
+                        beforeSnapshot: currentSnapshot,
+                        afterGraph: commandRun.graphAfter,
+                    }),
+                },
+            },
+        });
         const preparedSnapshot = prepareWaveSnapshot({
             beforeSnapshot: currentSnapshot,
-            afterSnapshot: projectedAfterSnapshot,
+            afterSnapshot: preScaleAfterSnapshot,
         });
         const preWaveFrames = buildPreWaveFrames({
             commandRun,
             beforeSnapshot: currentSnapshot,
             preparedSnapshot,
-            afterSnapshot: projectedAfterSnapshot,
+            afterSnapshot: preScaleAfterSnapshot,
         });
-        const waveInitialSnapshot = preWaveFrames.at(-1)?.snapshot ?? preparedSnapshot;
+        const waveInitialSnapshot = settleSnapshot(preWaveFrames.at(-1)?.snapshot ?? preparedSnapshot);
         const timeline = buildScoreWaveTimeline({
             snapshot: waveInitialSnapshot,
             propagation: commandRun.propagation.filter(
                 (step) => !isDirectAddedScorePropagationStep(step),
             ),
             includeScaleAndOrderFrames: args.includeScaleAndOrderFrames,
+            scaleTargetSnapshot: projectedAfterSnapshot,
         });
         const commandTimeline: CommandScoreWaveTimeline<TCommand> = {
             command: commandRun.command,
@@ -69,7 +87,7 @@ export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
             },
         };
 
-        currentSnapshot = projectedAfterSnapshot;
+        currentSnapshot = timeline.finalSnapshot;
         return commandTimeline;
     });
 
@@ -266,6 +284,82 @@ function hasClaimPositionsChanged(beforeSnapshot: Snapshot, afterSnapshot: Snaps
     return false;
 }
 
+function buildPreScaleSourceScaleByScoreNodeId(args: {
+    beforeSnapshot: Snapshot;
+    afterGraph: ScoreGraph;
+}): Partial<Record<ScoreNodeId, number>> {
+    const afterGraph = withChildrenByParentId(args.afterGraph);
+    const previousScaleByScoreNodeId = readClaimScaleByScoreNodeId(args.beforeSnapshot);
+    const sourceScaleByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+
+    for (const scoreNodeId of Object.keys(afterGraph.nodes) as ScoreNodeId[]) {
+        sourceScaleByScoreNodeId[scoreNodeId] = resolveSourceScale(scoreNodeId);
+    }
+
+    return sourceScaleByScoreNodeId;
+
+    function resolveSourceScale(scoreNodeId: ScoreNodeId): number {
+        const cachedScale = sourceScaleByScoreNodeId[scoreNodeId];
+
+        if (cachedScale !== undefined) {
+            return cachedScale;
+        }
+
+        const previousScale = previousScaleByScoreNodeId[scoreNodeId];
+
+        if (previousScale !== undefined) {
+            sourceScaleByScoreNodeId[scoreNodeId] = previousScale;
+            return previousScale;
+        }
+
+        const scoreNode = afterGraph.nodes[scoreNodeId];
+
+        if (!scoreNode?.parentId) {
+            sourceScaleByScoreNodeId[scoreNodeId] = 1;
+            return 1;
+        }
+
+        const inheritedScale = scoreNode.affects === "Score"
+            ? resolveConfidenceChildScale(scoreNode.parentId)
+            : resolveSourceScale(scoreNode.parentId);
+
+        sourceScaleByScoreNodeId[scoreNodeId] = inheritedScale;
+        return inheritedScale;
+    }
+
+    function resolveConfidenceChildScale(parentScoreNodeId: ScoreNodeId): number {
+        for (const childScoreNodeId of afterGraph.childrenByParentId?.[parentScoreNodeId] ?? []) {
+            const childScoreNode = afterGraph.nodes[childScoreNodeId];
+
+            if (!childScoreNode || childScoreNode.affects !== "Score") {
+                continue;
+            }
+
+            const previousScale = previousScaleByScoreNodeId[childScoreNodeId];
+
+            if (previousScale !== undefined) {
+                return previousScale;
+            }
+        }
+
+        return resolveSourceScale(parentScoreNodeId);
+    }
+}
+
+function readClaimScaleByScoreNodeId(snapshot: Snapshot): Partial<Record<ScoreNodeId, number>> {
+    const scaleByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+
+    for (const claim of Object.values(snapshot.claims)) {
+        if (!claim.scoreNodeId) {
+            continue;
+        }
+
+        scaleByScoreNodeId[claim.scoreNodeId] = readTweenNumber(claim.scale);
+    }
+
+    return scaleByScoreNodeId;
+}
+
 function mergeClaimMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -285,6 +379,33 @@ function mergeClaimMap<TId extends string, TEntity extends { score: TweenNumber;
             }
             : {
                 ...after,
+                score: 0,
+            };
+    }
+
+    return merged;
+}
+
+function mergeConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const merged: Record<TId, TEntity> = { ...beforeById };
+
+    for (const id of Object.keys(afterById) as TId[]) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        merged[id] = before
+            ? {
+                ...after,
+                animationType: "uniform",
+                score: before.score,
+                scale: before.scale,
+            }
+            : {
+                ...after,
+                animationType: "uniform",
                 score: 0,
                 scale: 0,
             };
@@ -620,10 +741,10 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
                 source: tweenPoint(before.source, after.source),
                 target: tweenPoint(before.target, after.target),
                 centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
+                animationType: "uniform",
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
                 visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
-                animationType: "progressive",
             };
             continue;
         }
@@ -656,14 +777,14 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
     return nextById;
 }
 
-function mergeDeliveryConnectorMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber }>(
+function mergeDeliveryConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
-    return mergeClaimMap(beforeById, afterById);
+    return mergeConnectorMap(beforeById, afterById);
 }
 
-function buildSproutConnectorMap<TId extends string, TEntity extends { source: TweenPoint; target: TweenPoint; centerlinePoints: SnapshotWaypoint[]; score: TweenNumber; scale: TweenNumber }>(
+function buildSproutConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; source: TweenPoint; target: TweenPoint; centerlinePoints: SnapshotWaypoint[]; score: TweenNumber; scale: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     preparedById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -682,6 +803,7 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { source: T
         if (before && after) {
             nextById[id] = {
                 ...prepared,
+                animationType: "uniform",
                 source: tweenPoint(before.source, after.source),
                 target: tweenPoint(before.target, after.target),
                 centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
@@ -694,6 +816,7 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { source: T
         if (!before && after) {
             nextById[id] = {
                 ...prepared,
+                animationType: "progressive",
                 score: 0,
                 scale: tweenNumber(0, readTweenNumber(after.scale)),
             };
@@ -703,6 +826,7 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { source: T
         if (before && !after) {
             nextById[id] = {
                 ...prepared,
+                animationType: "progressive",
                 source: before.source,
                 target: before.target,
                 centerlinePoints: before.centerlinePoints,
@@ -813,9 +937,9 @@ function cloneSnapshot(snapshot: Snapshot): Snapshot {
     };
 }
 
-function mergeRelevanceConnectorMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber }>(
+function mergeRelevanceConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
-    return mergeClaimMap(beforeById, afterById);
+    return mergeConnectorMap(beforeById, afterById);
 }

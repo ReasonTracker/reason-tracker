@@ -1,17 +1,15 @@
-import type { JunctionViz, Side } from "../../../app/src/app.js";
+import type {
+    JunctionViz,
+    Side,
+} from "../../../app/src/app.js";
 
 import { boundsFromCenteredRect } from "./bounds";
 import {
     CONNECTOR_OUTLINE_WIDTH_PX,
-    JUNCTION_BASE_HEIGHT_PX,
-    JUNCTION_BASE_WIDTH_PX,
-    JUNCTION_WIDE_SIDE_RATIO,
     resolveSideStroke,
 } from "./sceneConstants";
 import { renderPlannerSnapshotScene } from "./renderPlannerSnapshotScene";
 import {
-    getTweenNumberEndpoints,
-    getTweenPointEndpoints,
     resolvePresenceOpacity,
     resolveTweenBooleanOpacity,
     resolveTweenNumber,
@@ -30,9 +28,11 @@ export type JunctionRenderModel = {
     centerX: number;
     centerY: number;
     id: string;
+    junctionAggregatorVizId: string;
     leftHeight: number;
     opacity: number;
     rightHeight: number;
+    scoreNodeId?: string;
     side: Side;
     width: number;
 };
@@ -51,35 +51,22 @@ export function buildJunctionRenderModel(args: {
     }
 
     const center = resolveTweenPoint(args.visual.position, args.percent);
-    const scaleEndpoints = getTweenNumberEndpoints(args.visual.scale);
-    const pointEndpoints = getTweenPointEndpoints(args.visual.position);
-    const widthEndpoints = getTweenNumberEndpoints(args.visual.width);
-    const leftHeightEndpoints = getTweenNumberEndpoints(args.visual.leftHeight);
-    const rightHeightEndpoints = getTweenNumberEndpoints(args.visual.rightHeight);
-    const maxScale = Math.max(scaleEndpoints.from, scaleEndpoints.to);
+    const centerX = center.x;
+    const centerY = center.y;
     const width = Math.max(0, resolveTweenNumber(args.visual.width, args.percent));
     const leftHeight = Math.max(0, resolveTweenNumber(args.visual.leftHeight, args.percent));
     const rightHeight = Math.max(0, resolveTweenNumber(args.visual.rightHeight, args.percent));
 
     return {
-        bounds: boundsFromCenteredRect(
-            (pointEndpoints.from.x + pointEndpoints.to.x) / 2,
-            (pointEndpoints.from.y + pointEndpoints.to.y) / 2,
-            Math.max(widthEndpoints.from, widthEndpoints.to, JUNCTION_BASE_WIDTH_PX * maxScale),
-            Math.max(
-                leftHeightEndpoints.from,
-                leftHeightEndpoints.to,
-                rightHeightEndpoints.from,
-                rightHeightEndpoints.to,
-                JUNCTION_BASE_HEIGHT_PX * maxScale * JUNCTION_WIDE_SIDE_RATIO,
-            ),
-        ),
-        centerX: center.x,
-        centerY: center.y,
+        bounds: boundsFromCenteredRect(centerX, centerY, width, Math.max(leftHeight, rightHeight)),
+        centerX,
+        centerY,
         id: args.visual.id,
+        junctionAggregatorVizId: String(args.visual.junctionAggregatorVizId),
         leftHeight,
         opacity,
         rightHeight,
+        scoreNodeId: args.visual.scoreNodeId ? String(args.visual.scoreNodeId) : undefined,
         side: args.side,
         width,
     };

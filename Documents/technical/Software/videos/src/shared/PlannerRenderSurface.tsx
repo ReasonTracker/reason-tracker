@@ -13,6 +13,8 @@ import {
 type PlannerRenderSurfaceProps = {
     result: PlannerSnapshotRenderResult;
     background?: string;
+    fitToFrame?: boolean;
+    sceneStyle?: CSSProperties;
     style?: CSSProperties;
 };
 
@@ -34,13 +36,41 @@ type PlannerSnapshotSurfaceProps = {
 export const PlannerRenderSurface = ({
     result,
     background = "#000000",
+    fitToFrame = true,
+    sceneStyle,
     style,
 }: PlannerRenderSurfaceProps) => {
     const { width: videoWidth, height: videoHeight } = useVideoConfig();
     const sceneWidth = readDimensionPx(result.root.styles?.width, videoWidth);
     const sceneHeight = readDimensionPx(result.root.styles?.height, videoHeight);
-    const scale = Math.min(videoWidth / sceneWidth, videoHeight / sceneHeight);
     const html = renderNodeToHtml(result.root);
+
+    if (!fitToFrame) {
+        return (
+            <AbsoluteFill
+                style={{
+                    background,
+                    overflow: "hidden",
+                    ...style,
+                }}
+            >
+                <div
+                    dangerouslySetInnerHTML={{ __html: html }}
+                    style={{
+                        height: sceneHeight,
+                        left: 0,
+                        position: "absolute",
+                        top: 0,
+                        transformOrigin: "top left",
+                        width: sceneWidth,
+                        ...sceneStyle,
+                    }}
+                />
+            </AbsoluteFill>
+        );
+    }
+
+    const scale = Math.min(videoWidth / sceneWidth, videoHeight / sceneHeight);
 
     return (
         <AbsoluteFill
@@ -59,6 +89,7 @@ export const PlannerRenderSurface = ({
                     transform: `scale(${scale})`,
                     transformOrigin: "center center",
                     width: sceneWidth,
+                    ...sceneStyle,
                 }}
             />
         </AbsoluteFill>

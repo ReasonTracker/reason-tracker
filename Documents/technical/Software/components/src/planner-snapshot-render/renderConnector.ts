@@ -4,6 +4,7 @@ import type {
     RelevanceConnectorViz,
     Side,
 } from "../../../app/src/app.js";
+import { getPlannerPipeWidth } from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import {
     buildPathGeometry,
@@ -70,12 +71,11 @@ export function buildConnectorRenderModel(args: {
     percent: number;
     mode: PlannerSnapshotRenderMode;
 }): ConnectorRenderModel | undefined {
-    const currentCenterlinePoints = resolveConnectorWaypointList(args.visual.centerlinePoints, args.percent);
-    const centerlineEndpoints = getConnectorWaypointListEndpoints(args.visual.centerlinePoints);
     const scaleEndpoints = getTweenNumberEndpoints(args.visual.scale);
     const scoreEndpoints = getTweenNumberEndpoints(args.visual.score);
     const currentScale = Math.max(0, resolveTweenNumber(args.visual.scale, args.percent));
     const currentScore = resolveTweenNumber(args.visual.score, args.percent);
+    const currentCenterlinePoints = resolveConnectorWaypointList(args.visual.centerlinePoints, args.percent);
     const currentPipeWidth = scaleToPipeWidth(currentScale);
     const currentFluidWidth = pipeWidthToFluidWidth(currentPipeWidth, currentScore);
     const fromPipeWidth = scaleToPipeWidth(scaleEndpoints.from);
@@ -93,18 +93,14 @@ export function buildConnectorRenderModel(args: {
 
     const animationMode = resolveConnectorAnimationMode({
         argsMode: args.mode,
-        fromCenterlinePoints: centerlineEndpoints.from,
+        animationType: args.visual.animationType,
         fromFluidWidth,
         fromPipeWidth,
-        toCenterlinePoints: centerlineEndpoints.to,
         toFluidWidth,
         toPipeWidth,
     });
     const extentBounds = boundsFromPoints(
-        [
-            ...centerlineEndpoints.from,
-            ...centerlineEndpoints.to,
-        ],
+        currentCenterlinePoints,
         Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth) / 2 + CONNECTOR_OUTLINE_WIDTH_PX,
     );
 
@@ -400,18 +396,16 @@ function buildBandGeometry(
 
 function resolveConnectorAnimationMode(args: {
     argsMode: PlannerSnapshotRenderMode;
-    fromCenterlinePoints: Waypoint[];
+    animationType: SnapshotConnectorViz["animationType"];
     fromFluidWidth: number;
     fromPipeWidth: number;
-    toCenterlinePoints: Waypoint[];
     toFluidWidth: number;
     toPipeWidth: number;
 }): ConnectorAnimationMode {
     const widthChanged = Math.abs(args.fromPipeWidth - args.toPipeWidth) > 1e-6
         || Math.abs(args.fromFluidWidth - args.toFluidWidth) > 1e-6;
-    const positionChanged = haveWaypointListsChanged(args.fromCenterlinePoints, args.toCenterlinePoints);
 
-    if (args.argsMode === "sprout" && (widthChanged || positionChanged)) {
+    if (args.argsMode === "sprout" && args.animationType === "progressive") {
         return "sprout";
     }
 
@@ -423,6 +417,7 @@ function resolveConnectorAnimationMode(args: {
         (args.argsMode === "relevanceConnectorAdjust"
             || args.argsMode === "confidenceConnectorAdjust"
             || args.argsMode === "deliveryConnectorAdjust")
+        && args.animationType === "progressive"
         && widthChanged
     ) {
         return "updateSweep";
@@ -432,7 +427,7 @@ function resolveConnectorAnimationMode(args: {
 }
 
 function scaleToPipeWidth(scale: number): number {
-    return BASE_NODE_HEIGHT_PX * Math.max(0, scale);
+    return getPlannerPipeWidth(scale);
 }
 
 function pipeWidthToFluidWidth(pipeWidth: number, score: number): number {
@@ -645,37 +640,3 @@ function resolveConnectorWaypointList(
     }));
 }
 
-function getConnectorWaypointListEndpoints(
-    waypoints: SnapshotConnectorViz["centerlinePoints"],
-): { from: Waypoint[]; to: Waypoint[] } {
-    return {
-        from: waypoints.map((waypoint) => ({
-            x: getTweenNumberEndpoints(waypoint.x).from,
-            y: getTweenNumberEndpoints(waypoint.y).from,
-            radius: waypoint.radius === undefined ? undefined : getTweenNumberEndpoints(waypoint.radius).from,
-        })),
-        to: waypoints.map((waypoint) => ({
-            x: getTweenNumberEndpoints(waypoint.x).to,
-            y: getTweenNumberEndpoints(waypoint.y).to,
-            radius: waypoint.radius === undefined ? undefined : getTweenNumberEndpoints(waypoint.radius).to,
-        })),
-    };
-}
-
-function haveWaypointListsChanged(
-    from: ReadonlyArray<Waypoint>,
-    to: ReadonlyArray<Waypoint>,
-): boolean {
-    if (from.length !== to.length) {
-        return true;
-    }
-
-    return from.some((fromWaypoint, index) => {
-        const toWaypoint = to[index];
-
-        return !toWaypoint
-            || Math.abs(fromWaypoint.x - toWaypoint.x) > 1e-6
-            || Math.abs(fromWaypoint.y - toWaypoint.y) > 1e-6
-            || Math.abs((fromWaypoint.radius ?? 0) - (toWaypoint.radius ?? 0)) > 1e-6;
-    });
-}

@@ -1,11 +1,15 @@
 import type { Side } from "../../../app/src/app.js";
+import {
+    PLANNER_BASE_CLAIM_HEIGHT_PX,
+    PLANNER_BASE_CLAIM_WIDTH_PX,
+} from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 // AGENT NOTE: Keep renderer sizing and visual constants grouped here so the
 // ported HTML and SVG shape can be tuned without spreading magic numbers.
 /** Base claim card width used by the existing shared renderer. */
-export const BASE_NODE_WIDTH_PX = 360;
+export const BASE_NODE_WIDTH_PX = PLANNER_BASE_CLAIM_WIDTH_PX;
 /** Base claim card height used by the existing shared renderer. */
-export const BASE_NODE_HEIGHT_PX = 176;
+export const BASE_NODE_HEIGHT_PX = PLANNER_BASE_CLAIM_HEIGHT_PX;
 /** Padding retained around the rendered scene bounds. */
 export const GRAPH_PADDING_PX = 96;
 /** Outline width shared by connector walls and junction frames. */

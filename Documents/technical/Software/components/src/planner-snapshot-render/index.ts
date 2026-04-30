@@ -1,4 +1,6 @@
 export {
+    getPlannerSnapshotSceneBounds,
+    getPlannerSnapshotViewportTarget,
     renderPlannerSnapshotScene,
 } from "./renderPlannerSnapshotScene";
 export { renderScoreWaveFrame } from "./renderScoreWaveFrame";
@@ -23,3 +25,4 @@ export type {
     ScoreWaveFrameRenderInput,
     SnapshotRenderInput,
 } from "./renderTypes";
+export { GRAPH_PADDING_PX } from "./sceneConstants";
