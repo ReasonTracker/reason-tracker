@@ -1,14 +1,22 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import type { TweenNumber, TweenBoolean, TweenPoint } from "../utils.ts";
-import type { ClaimId } from "../debate-core/Claim.ts";
-import type { ConfidenceConnectorId, RelevanceConnectorId } from "../debate-core/Connector.ts";
+import type { Claim, ClaimId } from "../debate-core/Claim.ts";
+import type {
+    ConfidenceConnector,
+    ConfidenceConnectorId,
+    RelevanceConnector,
+    RelevanceConnectorId,
+} from "../debate-core/Connector.ts";
+import type { ScoreNodeId } from "../math/scoreTypes.ts";
 
 
 export interface ClaimViz {
     type: "claim"
     id: ClaimVizId
     claimId: ClaimId
+    claim?: Claim
+    scoreNodeId?: ScoreNodeId
     position: TweenPoint
     scale: TweenNumber
     score: TweenNumber
@@ -20,6 +28,8 @@ export interface ClaimAggregatorViz {
     id: ClaimAggregatorVizId
     animationType: AnimationType,
     claimId: ClaimId
+    claim?: Claim
+    scoreNodeId?: ScoreNodeId
     deliveryConnectorVizIds: DeliveryConnectorVizId[]
     position: TweenPoint
     scale: TweenNumber
@@ -31,11 +41,16 @@ export interface JunctionViz {
     type: "junction"
     id: JunctionVizId
     animationType: AnimationType,
-    confidenceConnectorId: ConfidenceConnectorId
+    confidenceConnectorId?: ConfidenceConnectorId
+    confidenceConnector?: ConfidenceConnector
+    scoreNodeId?: ScoreNodeId
     junctionAggregatorVizId: JunctionAggregatorVizId
     position: TweenPoint
+    leftHeight: TweenNumber
+    rightHeight: TweenNumber
     scale: TweenNumber
     visible: TweenBoolean
+    width: TweenNumber
 }
 
 // Always present in the snapshot. visible controls whether it is shown.
@@ -43,13 +58,23 @@ export interface JunctionAggregatorViz {
     type: "junctionAggregator"
     id: JunctionAggregatorVizId
     animationType: AnimationType,
-    confidenceConnectorId: ConfidenceConnectorId
+    confidenceConnectorId?: ConfidenceConnectorId
+    confidenceConnector?: ConfidenceConnector
+    scoreNodeId?: ScoreNodeId
     position: TweenPoint
     relevanceConnectorVizIds: RelevanceConnectorVizId[]
     scale: TweenNumber
     score: TweenNumber
     visible: TweenBoolean
 }
+
+export interface SnapshotWaypoint {
+    x: TweenNumber
+    y: TweenNumber
+    radius?: TweenNumber
+}
+
+export type ConnectorVizDirection = "sourceToTarget" | "targetToSource"
 
 interface ConnectorVizBase {
     type: "confidenceConnector" | "deliveryConnector" | "relevanceConnector"
@@ -58,14 +83,18 @@ interface ConnectorVizBase {
     side: Side
     source: TweenPoint
     target: TweenPoint
-};
+    centerlinePoints: SnapshotWaypoint[]
+    direction: ConnectorVizDirection
+}
 
 // Always present in the snapshot. visible controls whether it is shown.
 export interface ConfidenceConnectorViz extends ConnectorVizBase {
     type: "confidenceConnector"
     id: ConfidenceConnectorVizId
     animationType: AnimationType,
-    confidenceConnectorId: ConfidenceConnectorId
+    confidenceConnectorId?: ConfidenceConnectorId
+    confidenceConnector?: ConfidenceConnector
+    scoreNodeId?: ScoreNodeId
     sourceClaimVizId: ClaimVizId
     targetJunctionVizId: JunctionVizId
     visible: TweenBoolean
@@ -74,7 +103,9 @@ export interface ConfidenceConnectorViz extends ConnectorVizBase {
 export interface DeliveryConnectorViz extends ConnectorVizBase {
     type: "deliveryConnector"
     id: DeliveryConnectorVizId
-    confidenceConnectorId: ConfidenceConnectorId
+    confidenceConnectorId?: ConfidenceConnectorId
+    confidenceConnector?: ConfidenceConnector
+    scoreNodeId?: ScoreNodeId
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
 }
@@ -82,7 +113,9 @@ export interface DeliveryConnectorViz extends ConnectorVizBase {
 export interface RelevanceConnectorViz extends ConnectorVizBase {
     type: "relevanceConnector"
     id: RelevanceConnectorVizId
-    relevanceConnectorId: RelevanceConnectorId
+    relevanceConnectorId?: RelevanceConnectorId
+    relevanceConnector?: RelevanceConnector
+    scoreNodeId?: ScoreNodeId
     sourceClaimVizId: ClaimVizId
     targetJunctionAggregatorVizId: JunctionAggregatorVizId
 }

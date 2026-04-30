@@ -83,3 +83,8 @@ The debate core state is the underlying data structure representing the claims a
 - Claim
 - Core Confidence Connector - a connector from one claim directly to another claim.
 - Core Relevance Connector - a connector from a claim to a Core Confidence Connector.
+
+## Proposed Terms
+
+- Render Tree - a framework-free HTML and SVG tree produced by the shared renderer before any host-specific layer turns it into visible output.
+- Frame Render Surface - the video-layer host wrapper that places one rendered tree onto a single Remotion frame while fitting it into the video viewport.

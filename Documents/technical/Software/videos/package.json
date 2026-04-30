@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
+    "@reasontracker/app": "workspace:*",
     "@reasontracker/components": "workspace:*",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

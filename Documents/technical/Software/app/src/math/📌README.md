@@ -19,10 +19,11 @@ New information changes the score only when it is added as a claim and connected
 ## Suggested Reading path
 
 1. `scoringAxioms.ts`
-2. `calculateScores.ts` - full scoring pass
-3. `calculateChildImpact.ts` - one child claim's effect on its parent
-4. `calculateClaimScore.ts` - one parent score from child impacts
-5. `calculateScoreValue.ts` - weighted value kernel
-6. `calculateRelevance.ts` - relevance multiplier
-7. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
-8. `sortClaimsLeavesToRoot.ts` - evaluation order
+2. `calculateScoreRun.ts` - cycle-aware scoring entrypoint with audit and limits
+3. `calculateScores.ts` - acyclic scoring kernel
+4. `calculateChildImpact.ts` - one child claim's effect on its parent
+5. `calculateClaimScore.ts` - one parent score from child impacts
+6. `calculateScoreValue.ts` - weighted value kernel
+7. `calculateRelevance.ts` - relevance multiplier
+8. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
+9. `sortClaimsLeavesToRoot.ts` - evaluation order

@@ -3,17 +3,27 @@ import "../../website/site/css/brand-sequence.css";
 import type { ComponentType } from "react";
 import { Composition } from "remotion";
 
+import { Episode001, EPISODE001_DURATION_IN_FRAMES } from "./Episode001";
 import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
 
+const episode001Composition = Episode001 as ComponentType<Record<string, unknown>>;
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
 
 export const RemotionRoot = () => {
 	return (
 		<>
+			<Composition
+				id="Episode001"
+				component={episode001Composition}
+				durationInFrames={EPISODE001_DURATION_IN_FRAMES}
+				fps={30}
+				height={1080}
+				width={1920}
+			/>
 			<Composition
 				id="ComponentVisualizerPathGeometry"
 				component={pathGeometryVisualizerComposition}

@@ -1,5 +1,5 @@
-import type { Impact, Score, ScoreGraph, ScoreNodeId } from "./scoreTypes.js";
-import { calculateScoreValue } from "./calculateScoreValue.js";
+import type { Impact, Score, ScoreGraph, ScoreNodeId } from "./scoreTypes.ts";
+import { calculateScoreValue } from "./calculateScoreValue.ts";
 
 /**
  * Calculates one ScoreNode's score from its direct score impacts.

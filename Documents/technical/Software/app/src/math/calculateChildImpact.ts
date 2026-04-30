@@ -1,5 +1,5 @@
-import type { Impact, Score, ScoreNode } from "./scoreTypes.js";
-import { CON_PARENT_SIGN, PRO_PARENT_SIGN } from "./scoringAxioms.js";
+import type { Impact, Score, ScoreNode } from "./scoreTypes.ts";
+import { CON_PARENT_SIGN, PRO_PARENT_SIGN } from "./scoringAxioms.ts";
 
 /**
  * Converts one scored child into the value it contributes to its parent.

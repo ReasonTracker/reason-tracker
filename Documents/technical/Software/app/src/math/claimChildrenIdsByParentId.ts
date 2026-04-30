@@ -1,4 +1,4 @@
-import type { ScoreGraph, ScoreNodeId } from "./scoreTypes.js";
+import type { ScoreGraph, ScoreNodeId } from "./scoreTypes.ts";
 
 /**
  * Builds the parent-to-children lookup used by the scoring pass.
