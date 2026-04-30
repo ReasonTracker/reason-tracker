@@ -4,6 +4,7 @@ import type {
     RelevanceConnectorViz,
     Side,
 } from "../../../app/src/app.js";
+import type { ResolvedSnapshotConnectorGeometry } from "../../../app/src/planner/resolveSnapshotConnectorGeometry.ts";
 import { getPlannerPipeWidth } from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import {
@@ -67,6 +68,7 @@ export type ConnectorRenderModel = {
 };
 
 export function buildConnectorRenderModel(args: {
+    geometry: ResolvedSnapshotConnectorGeometry | undefined;
     visual: SnapshotConnectorViz;
     percent: number;
     mode: PlannerSnapshotRenderMode;
@@ -75,7 +77,7 @@ export function buildConnectorRenderModel(args: {
     const scoreEndpoints = getTweenNumberEndpoints(args.visual.score);
     const currentScale = Math.max(0, resolveTweenNumber(args.visual.scale, args.percent));
     const currentScore = resolveTweenNumber(args.visual.score, args.percent);
-    const currentCenterlinePoints = resolveConnectorWaypointList(args.visual.centerlinePoints, args.percent);
+    const currentCenterlinePoints = args.geometry?.centerlinePoints ?? [];
     const currentPipeWidth = scaleToPipeWidth(currentScale);
     const currentFluidWidth = pipeWidthToFluidWidth(currentPipeWidth, currentScore);
     const fromPipeWidth = scaleToPipeWidth(scaleEndpoints.from);
@@ -87,7 +89,7 @@ export function buildConnectorRenderModel(args: {
         : 1;
     const progress = clamp01(args.percent);
 
-    if (Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth) <= 0 || visibilityOpacity <= 0) {
+    if (Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth) <= 0 || visibilityOpacity <= 0 || currentCenterlinePoints.length < 2) {
         return undefined;
     }
 
@@ -627,16 +629,5 @@ function estimateCenterlinePathLength(points: Waypoint[]): number {
 
 function getConnectorGeometryTransitionLengthPx(width: number): number {
     return Math.max(1, Math.round(Math.max(0, width) * CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER));
-}
-
-function resolveConnectorWaypointList(
-    waypoints: SnapshotConnectorViz["centerlinePoints"],
-    percent: number,
-): Waypoint[] {
-    return waypoints.map((waypoint) => ({
-        x: resolveTweenNumber(waypoint.x, percent),
-        y: resolveTweenNumber(waypoint.y, percent),
-        radius: waypoint.radius === undefined ? undefined : resolveTweenNumber(waypoint.radius, percent),
-    }));
 }
 

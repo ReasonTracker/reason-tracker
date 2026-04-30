@@ -35,7 +35,7 @@ export function buildCommandScoreWaveTimelines<TCommand>(args: {
     scoreChangeRun: ScoreChangeRun<TCommand>;
     initialSnapshot: Snapshot;
     bindingsByScoreNodeId?: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>;
-    includeScaleAndOrderFrames?: boolean;
+    includeScaleAndOrderSteps?: boolean;
 }): ScoreChangeWaveTimelineRun<TCommand> {
     let currentSnapshot = cloneSnapshot(args.initialSnapshot);
     const commandTimelines = args.scoreChangeRun.commandRuns.map((commandRun) => {
@@ -43,7 +43,7 @@ export function buildCommandScoreWaveTimelines<TCommand>(args: {
             commandRun,
             snapshot: currentSnapshot,
             bindingsByScoreNodeId: args.bindingsByScoreNodeId,
-            includeScaleAndOrderFrames: args.includeScaleAndOrderFrames,
+            includeScaleAndOrderSteps: args.includeScaleAndOrderSteps,
         });
 
         currentSnapshot = timeline.timeline.finalSnapshot;
@@ -61,7 +61,7 @@ function buildTimelineForCommand<TCommand>(args: {
     commandRun: CommandScoreChange<TCommand>;
     snapshot: Snapshot;
     bindingsByScoreNodeId?: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>;
-    includeScaleAndOrderFrames?: boolean;
+    includeScaleAndOrderSteps?: boolean;
 }): CommandScoreWaveTimeline<TCommand> {
     return {
         command: args.commandRun.command,
@@ -72,7 +72,7 @@ function buildTimelineForCommand<TCommand>(args: {
             snapshot: args.snapshot,
             propagation: args.commandRun.propagation,
             bindingsByScoreNodeId: args.bindingsByScoreNodeId,
-            includeScaleAndOrderFrames: args.includeScaleAndOrderFrames,
+            includeScaleAndOrderSteps: args.includeScaleAndOrderSteps,
         }),
     };
 }

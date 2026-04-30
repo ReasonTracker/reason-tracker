@@ -74,9 +74,14 @@ export {
     buildScoreProjectionSnapshot,
     type ScoreProjectionSnapshotOptions,
 } from "./planner/buildScoreProjectionSnapshot.ts";
+export {
+    buildResolvedSnapshotConnectorGeometryById,
+    type ResolvedConnectorPoint,
+    type ResolvedConnectorWaypoint,
+    type ResolvedSnapshotConnectorGeometry,
+} from "./planner/resolveSnapshotConnectorGeometry.ts";
 export type {
-    ScoreWaveFrame,
-    ScoreWaveSpecialCase,
+    ScoreWaveStep,
     ScoreWaveStepType,
     ScoreWaveTimeline,
 } from "./planner/buildScoreWaveTimeline.ts";

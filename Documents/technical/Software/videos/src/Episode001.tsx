@@ -12,7 +12,7 @@ import type {
     ScoreGraph,
     ScoreNodeId,
     Snapshot,
-    ScoreWaveFrame,
+    ScoreWaveStep,
     TargetRelation,
 } from "../../app/src/app.ts";
 import {
@@ -342,7 +342,7 @@ const episode001WaveTimelineRun = buildProjectedCommandScoreWaveTimelines({
         confidenceConnectorById: episode001ProjectionData.confidenceConnectorById,
         relevanceConnectorById: episode001ProjectionData.relevanceConnectorById,
     },
-    includeScaleAndOrderFrames: true,
+    includeScaleAndOrderSteps: true,
 });
 const episode001Plan = buildEpisode001Plan(episode001WaveTimelineRun);
 // --- SNAPSHOT LOGGING FOR DEBUG ---
@@ -545,16 +545,16 @@ function buildEpisode001Plan(
             snapshot: currentSnapshot,
         });
         timelineEntries.push([cameraMoveId, EPISODE001_CAMERA_MOVE_SECONDS]);
-        for (const [frameIndex, frame] of commandTimeline.timeline.frames.entries()) {
-            const id = getEpisode001FrameId(commandIndex, frameIndex);
+        for (const [stepIndex, step] of commandTimeline.timeline.steps.entries()) {
+            const id = getEpisode001StepId(commandIndex, stepIndex);
             graphClips.push({
                 id,
                 animated: true,
-                mode: getEpisode001FrameRenderMode(frame),
-                name: describeEpisode001FrameName(frame, command),
-                snapshot: frame.snapshot,
+                mode: getEpisode001StepRenderMode(step),
+                name: describeEpisode001StepName(step, command),
+                snapshot: step.snapshot,
             });
-            timelineEntries.push([id, getScoreWaveFrameDurationSeconds(frame)]);
+            timelineEntries.push([id, getScoreWaveStepDurationSeconds(step)]);
         }
 
         const hasNextAction = commandIndex < episode001StoryboardActions.length - 1;
@@ -613,8 +613,8 @@ function buildEpisode001Plan(
     };
 }
 
-function getEpisode001FrameId(commandIndex: number, frameIndex: number): string {
-    return `command-${commandIndex + 1}-frame-${frameIndex + 1}`;
+function getEpisode001StepId(commandIndex: number, stepIndex: number): string {
+    return `command-${commandIndex + 1}-step-${stepIndex + 1}`;
 }
 
 function getEpisode001CameraMoveId(actionId: Episode001ActionId): string {
@@ -625,12 +625,10 @@ function getEpisode001HoldId(actionId: Episode001ActionId): string {
     return `hold-${actionId}`;
 }
 
-function getScoreWaveFrameDurationSeconds(frame: ScoreWaveFrame): number {
-    if (frame.specialCase === "firstFill") {
-        return 0.65;
-    }
-
-    switch (frame.stepType) {
+function getScoreWaveStepDurationSeconds(step: ScoreWaveStep): number {
+    switch (step.type) {
+        case "firstFill":
+            return 0.65;
         case "voila":
             return 0.7;
         case "sprout":
@@ -649,15 +647,13 @@ function getScoreWaveFrameDurationSeconds(frame: ScoreWaveFrame): number {
             return 0.75;
     }
 
-    throw new Error(`Unsupported Episode001 score wave step type: ${String(frame.stepType)}`);
+    throw new Error(`Unsupported Episode001 score wave step type: ${String(step.type)}`);
 }
 
-function describeScoreWaveFrame(frame: ScoreWaveFrame): string {
-    if (frame.specialCase === "firstFill") {
-        return "First Fill";
-    }
-
-    switch (frame.stepType) {
+function describeScoreWaveStep(step: ScoreWaveStep): string {
+    switch (step.type) {
+        case "firstFill":
+            return "First Fill";
         case "voila":
             return "Voila";
         case "sprout":
@@ -682,17 +678,17 @@ function describeScoreWaveFrame(frame: ScoreWaveFrame): string {
             return "Order";
     }
 
-    throw new Error(`Unsupported Episode001 score wave frame label: ${String(frame.stepType)}`);
+    throw new Error(`Unsupported Episode001 score wave step label: ${String(step.type)}`);
 }
 
-function describeEpisode001FrameName(frame: ScoreWaveFrame, command: Episode001Command): string {
-    const baseLabel = describeScoreWaveFrame(frame);
+function describeEpisode001StepName(step: ScoreWaveStep, command: Episode001Command): string {
+    const baseLabel = describeScoreWaveStep(step);
 
     return `${baseLabel}: ${command.claim.content}`;
 }
 
-function getEpisode001FrameRenderMode(frame: ScoreWaveFrame): PlannerSnapshotRenderMode {
-    return frame.specialCase ?? frame.stepType;
+function getEpisode001StepRenderMode(step: ScoreWaveStep): PlannerSnapshotRenderMode {
+    return step.type;
 }
 
 function getEpisode001ViewportTarget(snapshot: Snapshot): Episode001ViewportTarget {

@@ -6,7 +6,7 @@ import type {
 import { withChildrenByParentId } from "../math/calculateScores.ts";
 import type { ScoreGraph, ScoreNodeId } from "../math/scoreTypes.ts";
 import type { TweenBoolean, TweenNumber, TweenPoint } from "../utils.ts";
-import type { Snapshot, SnapshotWaypoint } from "./Snapshot.ts";
+import type { Snapshot } from "./Snapshot.ts";
 import {
     type CommandScoreWaveTimeline,
     type ScoreChangeWaveTimelineRun,
@@ -15,7 +15,7 @@ import {
     buildScoreProjectionSnapshot,
     type ScoreProjectionSnapshotOptions,
 } from "./buildScoreProjectionSnapshot.ts";
-import { buildScoreWaveTimeline, type ScoreWaveFrame } from "./buildScoreWaveTimeline.ts";
+import { buildScoreWaveTimeline, type ScoreWaveStep } from "./buildScoreWaveTimeline.ts";
 import { settleSnapshot } from "./settleSnapshot.ts";
 
 /**
@@ -25,7 +25,7 @@ import { settleSnapshot } from "./settleSnapshot.ts";
 export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
     scoreChangeRun: ScoreChangeRun<TCommand>;
     projectionOptions?: ScoreProjectionSnapshotOptions;
-    includeScaleAndOrderFrames?: boolean;
+    includeScaleAndOrderSteps?: boolean;
 }): ScoreChangeWaveTimelineRun<TCommand> {
     const initialGraph = args.scoreChangeRun.commandRuns[0]?.graphBefore ?? args.scoreChangeRun.finalGraph;
     const initialScores = args.scoreChangeRun.commandRuns[0]?.scoresBefore ?? args.scoreChangeRun.finalScores;
@@ -60,19 +60,19 @@ export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
             beforeSnapshot: currentSnapshot,
             afterSnapshot: preScaleAfterSnapshot,
         });
-        const preWaveFrames = buildPreWaveFrames({
+        const preWaveSteps = buildPreWaveSteps({
             commandRun,
             beforeSnapshot: currentSnapshot,
             preparedSnapshot,
             afterSnapshot: preScaleAfterSnapshot,
         });
-        const waveInitialSnapshot = settleSnapshot(preWaveFrames.at(-1)?.snapshot ?? preparedSnapshot);
+        const waveInitialSnapshot = settleSnapshot(preWaveSteps.at(-1)?.snapshot ?? preparedSnapshot);
         const timeline = buildScoreWaveTimeline({
             snapshot: waveInitialSnapshot,
             propagation: commandRun.propagation.filter(
                 (step) => !isDirectAddedScorePropagationStep(step),
             ),
-            includeScaleAndOrderFrames: args.includeScaleAndOrderFrames,
+            includeScaleAndOrderSteps: args.includeScaleAndOrderSteps,
             scaleTargetSnapshot: projectedAfterSnapshot,
         });
         const commandTimeline: CommandScoreWaveTimeline<TCommand> = {
@@ -82,7 +82,7 @@ export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
             scoreAuditAfter: commandRun.scoreAuditAfter,
             timeline: {
                 initialSnapshot: cloneSnapshot(currentSnapshot),
-                frames: [...preWaveFrames, ...timeline.frames],
+                steps: [...preWaveSteps, ...timeline.steps],
                 finalSnapshot: timeline.finalSnapshot,
             },
         };
@@ -98,55 +98,53 @@ export function buildProjectedCommandScoreWaveTimelines<TCommand>(args: {
     };
 }
 
-function buildPreWaveFrames<TCommand>(args: {
+function buildPreWaveSteps<TCommand>(args: {
     commandRun: CommandScoreChange<TCommand>;
     beforeSnapshot: Snapshot;
     preparedSnapshot: Snapshot;
     afterSnapshot: Snapshot;
-}): ScoreWaveFrame[] {
-    const frames: ScoreWaveFrame[] = [];
+}): ScoreWaveStep[] {
+    const steps: ScoreWaveStep[] = [];
     const directAddedPropagation = args.commandRun.propagation.filter(isDirectAddedScorePropagationStep);
 
     if (hasVoilaChanges(args.beforeSnapshot, args.afterSnapshot)) {
-        frames.push({
-            stepType: "voila",
+        steps.push({
+            type: "voila",
             snapshot: buildVoilaSnapshot({
                 beforeSnapshot: args.beforeSnapshot,
                 preparedSnapshot: args.preparedSnapshot,
                 afterSnapshot: args.afterSnapshot,
             }),
             scoreNodeIds: [...args.commandRun.changedScoreNodeIds],
-            changeSource: "command",
         });
     }
 
     if (hasSproutChanges(args.beforeSnapshot, args.afterSnapshot)) {
-        frames.push({
-            stepType: "sprout",
+        steps.push({
+            type: "sprout",
             snapshot: buildSproutSnapshot({
                 beforeSnapshot: args.beforeSnapshot,
                 preparedSnapshot: args.preparedSnapshot,
                 afterSnapshot: args.afterSnapshot,
             }),
             scoreNodeIds: [...args.commandRun.changedScoreNodeIds],
-            changeSource: "command",
         });
     }
 
     if (directAddedPropagation.length > 0) {
         const firstFillTimeline = buildScoreWaveTimeline({
-            snapshot: frames.at(-1)?.snapshot ?? args.preparedSnapshot,
+            snapshot: steps.at(-1)?.snapshot ?? args.preparedSnapshot,
             propagation: directAddedPropagation,
-            includeScaleAndOrderFrames: false,
-            includeFallbackPhase: false,
-            phaseMode: "scoreOnly",
-            specialCase: "firstFill",
+            includeScaleAndOrderSteps: false,
+            includeFallbackStep: false,
+            stepMode: "scoreOnly",
+            forcedStepType: "firstFill",
         });
 
-        frames.push(...firstFillTimeline.frames);
+        steps.push(...firstFillTimeline.steps);
     }
 
-    return frames;
+    return steps;
 }
 
 function prepareWaveSnapshot(args: {
@@ -192,6 +190,16 @@ function buildVoilaSnapshot(args: {
             args.preparedSnapshot.claimAggregators,
             args.afterSnapshot.claimAggregators,
         ),
+        junctions: buildVoilaJunctionMap(
+            args.beforeSnapshot.junctions,
+            args.preparedSnapshot.junctions,
+            args.afterSnapshot.junctions,
+        ),
+        junctionAggregators: buildVoilaJunctionAggregatorMap(
+            args.beforeSnapshot.junctionAggregators,
+            args.preparedSnapshot.junctionAggregators,
+            args.afterSnapshot.junctionAggregators,
+        ),
     };
 }
 
@@ -234,7 +242,12 @@ function hasVoilaChanges(beforeSnapshot: Snapshot, afterSnapshot: Snapshot): boo
     return (
         hasMapKeyChanges(beforeSnapshot.claims, afterSnapshot.claims) ||
         hasMapKeyChanges(beforeSnapshot.claimAggregators, afterSnapshot.claimAggregators) ||
-        hasClaimPositionsChanged(beforeSnapshot, afterSnapshot)
+        hasMapKeyChanges(beforeSnapshot.junctions, afterSnapshot.junctions) ||
+        hasMapKeyChanges(beforeSnapshot.junctionAggregators, afterSnapshot.junctionAggregators) ||
+        hasPositionChanges(beforeSnapshot.claims, afterSnapshot.claims) ||
+        hasPositionChanges(beforeSnapshot.claimAggregators, afterSnapshot.claimAggregators) ||
+        hasJunctionLayoutChanges(beforeSnapshot.junctions, afterSnapshot.junctions) ||
+        hasPositionChanges(beforeSnapshot.junctionAggregators, afterSnapshot.junctionAggregators)
     );
 }
 
@@ -264,10 +277,13 @@ function hasMapKeyChanges<TId extends string, TEntity>(
     return afterIds.some((id) => !beforeSet.has(id));
 }
 
-function hasClaimPositionsChanged(beforeSnapshot: Snapshot, afterSnapshot: Snapshot): boolean {
-    for (const claimVizId of Object.keys(afterSnapshot.claims) as Array<keyof Snapshot["claims"]>) {
-        const before = beforeSnapshot.claims[claimVizId];
-        const after = afterSnapshot.claims[claimVizId];
+function hasPositionChanges<TId extends string, TEntity extends { position: TweenPoint }>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): boolean {
+    for (const id of Object.keys(afterById) as TId[]) {
+        const before = beforeById[id];
+        const after = afterById[id];
 
         if (!before || !after) {
             continue;
@@ -276,6 +292,37 @@ function hasClaimPositionsChanged(beforeSnapshot: Snapshot, afterSnapshot: Snaps
         if (
             readPointX(before.position) !== readPointX(after.position) ||
             readPointY(before.position) !== readPointY(after.position)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function hasJunctionLayoutChanges<TId extends string, TEntity extends {
+    leftHeight: TweenNumber;
+    position: TweenPoint;
+    rightHeight: TweenNumber;
+    width: TweenNumber;
+}>(
+    beforeById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): boolean {
+    for (const id of Object.keys(afterById) as TId[]) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        if (!before || !after) {
+            continue;
+        }
+
+        if (
+            readPointX(before.position) !== readPointX(after.position)
+            || readPointY(before.position) !== readPointY(after.position)
+            || readTweenNumber(before.leftHeight) !== readTweenNumber(after.leftHeight)
+            || readTweenNumber(before.rightHeight) !== readTweenNumber(after.rightHeight)
+            || readTweenNumber(before.width) !== readTweenNumber(after.width)
         ) {
             return true;
         }
@@ -540,6 +587,116 @@ function buildVoilaClaimAggregatorMap<TId extends string, TEntity extends { posi
     return nextById;
 }
 
+function buildVoilaJunctionMap<TId extends string, TEntity extends {
+    position: TweenPoint;
+    leftHeight: TweenNumber;
+    rightHeight: TweenNumber;
+    scale: TweenNumber;
+    visible: TweenBoolean;
+    width: TweenNumber;
+    animationType: "uniform" | "progressive";
+}>(
+    beforeById: Record<TId, TEntity>,
+    preparedById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById: Record<TId, TEntity> = { ...preparedById };
+
+    for (const id of Object.keys(preparedById) as TId[]) {
+        const before = beforeById[id];
+        const prepared = preparedById[id];
+        const after = afterById[id];
+
+        if (!prepared) {
+            continue;
+        }
+
+        if (before && after) {
+            nextById[id] = {
+                ...prepared,
+                position: tweenPoint(before.position, after.position),
+                leftHeight: tweenNumber(readTweenNumber(before.leftHeight), readTweenNumber(after.leftHeight)),
+                rightHeight: tweenNumber(readTweenNumber(before.rightHeight), readTweenNumber(after.rightHeight)),
+                width: tweenNumber(readTweenNumber(before.width), readTweenNumber(after.width)),
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (!before && after) {
+            nextById[id] = {
+                ...prepared,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before && !after) {
+            nextById[id] = {
+                ...prepared,
+                position: before.position,
+                leftHeight: before.leftHeight,
+                rightHeight: before.rightHeight,
+                width: before.width,
+                animationType: "uniform",
+            };
+        }
+    }
+
+    return nextById;
+}
+
+function buildVoilaJunctionAggregatorMap<TId extends string, TEntity extends {
+    position: TweenPoint;
+    score: TweenNumber;
+    scale: TweenNumber;
+    visible: TweenBoolean;
+    animationType: "uniform" | "progressive";
+}>(
+    beforeById: Record<TId, TEntity>,
+    preparedById: Record<TId, TEntity>,
+    afterById: Record<TId, TEntity>,
+): Record<TId, TEntity> {
+    const nextById: Record<TId, TEntity> = { ...preparedById };
+
+    for (const id of Object.keys(preparedById) as TId[]) {
+        const before = beforeById[id];
+        const prepared = preparedById[id];
+        const after = afterById[id];
+
+        if (!prepared) {
+            continue;
+        }
+
+        if (before && after) {
+            nextById[id] = {
+                ...prepared,
+                position: tweenPoint(before.position, after.position),
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (!before && after) {
+            nextById[id] = {
+                ...prepared,
+                animationType: "uniform",
+            };
+            continue;
+        }
+
+        if (before && !after) {
+            nextById[id] = {
+                ...prepared,
+                position: before.position,
+                animationType: "uniform",
+            };
+        }
+    }
+
+    return nextById;
+}
+
 function mergeJunctionMap<TId extends string, TEntity extends { scale: TweenNumber; visible: boolean | { type: "tween/boolean"; from: boolean; to: boolean; }; animationType: "uniform" | "progressive" }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -587,12 +744,8 @@ function buildSproutJunctionMap<TId extends string, TEntity extends { position: 
         if (before && after) {
             nextById[id] = {
                 ...prepared,
-                leftHeight: tweenNumber(readTweenNumber(before.leftHeight), readTweenNumber(after.leftHeight)),
-                position: tweenPoint(before.position, after.position),
-                rightHeight: tweenNumber(readTweenNumber(before.rightHeight), readTweenNumber(after.rightHeight)),
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
                 visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
-                width: tweenNumber(readTweenNumber(before.width), readTweenNumber(after.width)),
                 animationType: "progressive",
             };
             continue;
@@ -601,11 +754,8 @@ function buildSproutJunctionMap<TId extends string, TEntity extends { position: 
         if (!before && after) {
             nextById[id] = {
                 ...prepared,
-                leftHeight: tweenNumber(0, readTweenNumber(after.leftHeight)),
-                rightHeight: tweenNumber(0, readTweenNumber(after.rightHeight)),
                 scale: tweenNumber(0, readTweenNumber(after.scale)),
                 visible: tweenBoolean(false, readTweenBoolean(after.visible)),
-                width: tweenNumber(0, readTweenNumber(after.width)),
                 animationType: "progressive",
             };
             continue;
@@ -614,12 +764,8 @@ function buildSproutJunctionMap<TId extends string, TEntity extends { position: 
         if (before && !after) {
             nextById[id] = {
                 ...prepared,
-                leftHeight: before.leftHeight,
-                position: before.position,
-                rightHeight: before.rightHeight,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
                 visible: tweenBoolean(readTweenBoolean(before.visible), false),
-                width: before.width,
                 animationType: "progressive",
             };
         }
@@ -677,7 +823,6 @@ function buildSproutJunctionAggregatorMap<TId extends string, TEntity extends { 
         if (before && after) {
             nextById[id] = {
                 ...prepared,
-                position: tweenPoint(before.position, after.position),
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
                 visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
@@ -700,7 +845,6 @@ function buildSproutJunctionAggregatorMap<TId extends string, TEntity extends { 
         if (before && !after) {
             nextById[id] = {
                 ...prepared,
-                position: before.position,
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
                 visible: tweenBoolean(readTweenBoolean(before.visible), false),
@@ -719,7 +863,7 @@ function mergeConfidenceConnectorMap<TId extends string, TEntity extends { score
     return mergeJunctionAggregatorMap(beforeById, afterById);
 }
 
-function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends { source: TweenPoint; target: TweenPoint; centerlinePoints: SnapshotWaypoint[]; score: TweenNumber; scale: TweenNumber; visible: TweenBoolean; animationType: "uniform" | "progressive" }>(
+function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber; visible: TweenBoolean; animationType: "uniform" | "progressive" }>(
     beforeById: Record<TId, TEntity>,
     preparedById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -738,9 +882,6 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
         if (before && after) {
             nextById[id] = {
                 ...prepared,
-                source: tweenPoint(before.source, after.source),
-                target: tweenPoint(before.target, after.target),
-                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
                 animationType: "uniform",
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
@@ -763,9 +904,6 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
         if (before && !after) {
             nextById[id] = {
                 ...prepared,
-                source: before.source,
-                target: before.target,
-                centerlinePoints: before.centerlinePoints,
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
                 visible: tweenBoolean(readTweenBoolean(before.visible), false),
@@ -784,7 +922,7 @@ function mergeDeliveryConnectorMap<TId extends string, TEntity extends { animati
     return mergeConnectorMap(beforeById, afterById);
 }
 
-function buildSproutConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; source: TweenPoint; target: TweenPoint; centerlinePoints: SnapshotWaypoint[]; score: TweenNumber; scale: TweenNumber }>(
+function buildSproutConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     preparedById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -804,9 +942,6 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { animation
             nextById[id] = {
                 ...prepared,
                 animationType: "uniform",
-                source: tweenPoint(before.source, after.source),
-                target: tweenPoint(before.target, after.target),
-                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
             };
@@ -827,9 +962,6 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { animation
             nextById[id] = {
                 ...prepared,
                 animationType: "progressive",
-                source: before.source,
-                target: before.target,
-                centerlinePoints: before.centerlinePoints,
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
             };
@@ -866,45 +998,6 @@ function tweenPoint(from: TweenPoint, to: TweenPoint): TweenPoint {
     };
 }
 
-function tweenWaypointList(
-    from: readonly SnapshotWaypoint[],
-    to: readonly SnapshotWaypoint[],
-): SnapshotWaypoint[] {
-    if (from.length !== to.length) {
-        throw new Error(
-            `Cannot tween connector centerline points with different waypoint counts: ${from.length} vs ${to.length}.`,
-        );
-    }
-
-    return from.map((fromWaypoint, index) => tweenWaypoint(fromWaypoint, to[index]!));
-}
-
-function tweenWaypoint(from: SnapshotWaypoint, to: SnapshotWaypoint): SnapshotWaypoint {
-    const radius = tweenOptionalNumber(from.radius, to.radius);
-
-    return radius === undefined
-        ? {
-            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
-            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
-        }
-        : {
-            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
-            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
-            radius,
-        };
-}
-
-function tweenOptionalNumber(
-    from: TweenNumber | undefined,
-    to: TweenNumber | undefined,
-): TweenNumber | undefined {
-    if (from === undefined && to === undefined) {
-        return undefined;
-    }
-
-    return tweenNumber(readOptionalTweenNumber(from), readOptionalTweenNumber(to));
-}
-
 function readPointX(point: TweenPoint): number {
     return readTweenNumber(point.x);
 }
@@ -915,10 +1008,6 @@ function readPointY(point: TweenPoint): number {
 
 function readTweenBoolean(value: TweenBoolean): boolean {
     return typeof value === "boolean" ? value : value.to;
-}
-
-function readOptionalTweenNumber(value: TweenNumber | undefined): number {
-    return value === undefined ? 0 : readTweenNumber(value);
 }
 
 function readTweenNumber(value: TweenNumber): number {

@@ -3,7 +3,7 @@ export {
     getPlannerSnapshotViewportTarget,
     renderPlannerSnapshotScene,
 } from "./renderPlannerSnapshotScene";
-export { renderScoreWaveFrame } from "./renderScoreWaveFrame";
+export { renderScoreWaveStep } from "./renderScoreWaveStep";
 export { renderNodeToHtml } from "./renderTree";
 export {
     buildClaimAggregatorRenderModel,
@@ -22,7 +22,7 @@ export type {
     RenderNode,
     RenderStyleValue,
     RenderTextNode,
-    ScoreWaveFrameRenderInput,
+    ScoreWaveStepRenderInput,
     SnapshotRenderInput,
 } from "./renderTypes";
 export { GRAPH_PADDING_PX } from "./sceneConstants";

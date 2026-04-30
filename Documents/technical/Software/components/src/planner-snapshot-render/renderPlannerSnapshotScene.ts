@@ -1,3 +1,4 @@
+import { buildResolvedSnapshotConnectorGeometryById } from "../../../app/src/planner/resolveSnapshotConnectorGeometry.ts";
 import type {
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
@@ -130,6 +131,10 @@ export function renderPlannerSnapshotScene(args: PlannerSnapshotSceneArgs): Plan
 }
 
 function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): PlannerSnapshotSceneLayout {
+    const connectorGeometryById = buildResolvedSnapshotConnectorGeometryById({
+        snapshot: args.snapshot,
+        percent: args.percent,
+    });
     const claimModels = Object.values(args.snapshot.claims)
         .map((visual) => buildClaimRenderModel(visual, args.percent))
         .filter((model): model is NonNullable<typeof model> => !!model);
@@ -147,6 +152,7 @@ function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): Planne
         ...Object.values(args.snapshot.deliveryConnectors),
     ]
         .map((visual) => buildConnectorRenderModel({
+            geometry: connectorGeometryById.get(String(visual.id)),
             visual,
             percent: args.percent,
             mode: args.mode,

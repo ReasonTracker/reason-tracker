@@ -1,11 +1,11 @@
 import type { CSSProperties } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-import type { ScoreWaveFrame, Snapshot } from "../../../app/src/app.ts";
+import type { ScoreWaveStep, Snapshot } from "../../../app/src/app.ts";
 import {
     renderNodeToHtml,
     renderPlannerSnapshotScene,
-    renderScoreWaveFrame,
+    renderScoreWaveStep,
     type PlannerSnapshotRenderMode,
     type PlannerSnapshotRenderResult,
 } from "@reasontracker/components";
@@ -18,8 +18,8 @@ type PlannerRenderSurfaceProps = {
     style?: CSSProperties;
 };
 
-type PlannerScoreWaveFrameSurfaceProps = {
-    frame: ScoreWaveFrame;
+type PlannerScoreWaveStepSurfaceProps = {
+    step: ScoreWaveStep;
     durationInFrames: number;
     background?: string;
     style?: CSSProperties;
@@ -96,12 +96,12 @@ export const PlannerRenderSurface = ({
     );
 };
 
-export const PlannerScoreWaveFrameSurface = ({
-    frame,
+export const PlannerScoreWaveStepSurface = ({
+    step,
     durationInFrames,
     background,
     style,
-}: PlannerScoreWaveFrameSurfaceProps) => {
+}: PlannerScoreWaveStepSurfaceProps) => {
     const currentFrame = useCurrentFrame();
     const percent = durationInFrames <= 1
         ? 1
@@ -109,8 +109,8 @@ export const PlannerScoreWaveFrameSurface = ({
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
         });
-    const result = renderScoreWaveFrame({
-        frame,
+    const result = renderScoreWaveStep({
+        step,
         percent,
     });
 

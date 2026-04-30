@@ -11,11 +11,11 @@ import type {
     JunctionAggregatorVizId,
     JunctionVizId,
     RelevanceConnectorVizId,
-    SnapshotWaypoint,
     Snapshot,
 } from "./Snapshot.ts";
 
 export type ScoreWaveStepType =
+    | "firstFill"
     | "voila"
     | "sprout"
     | "relevanceConnectorAdjust"
@@ -28,8 +28,6 @@ export type ScoreWaveStepType =
     | "scale"
     | "order";
 
-export type ScoreWaveSpecialCase = "firstFill";
-
 export type ScoreNodeSnapshotBindings = {
     claimVizIds?: readonly ClaimVizId[];
     relevanceConnectorVizIds?: readonly RelevanceConnectorVizId[];
@@ -40,20 +38,15 @@ export type ScoreNodeSnapshotBindings = {
     claimAggregatorVizIds?: readonly ClaimAggregatorVizId[];
 };
 
-export type ScoreWaveFrame = {
-    stepType: ScoreWaveStepType;
+export type ScoreWaveStep = {
+    type: ScoreWaveStepType;
     snapshot: Snapshot;
     scoreNodeIds: ScoreNodeId[];
-    propagationGroupId?: string;
-    propagationGroupType?: "node" | "cycle";
-    changeSource?: "command" | "propagation" | "mixed";
-    impactMode?: "direct" | "variant-average";
-    specialCase?: ScoreWaveSpecialCase;
 };
 
 export type ScoreWaveTimeline = {
     initialSnapshot: Snapshot;
-    frames: ScoreWaveFrame[];
+    steps: ScoreWaveStep[];
     finalSnapshot: Snapshot;
 };
 
@@ -63,18 +56,18 @@ type PropagationGroup = {
     steps: ScorePropagationStep[];
 };
 
-type ScoreWavePhase = {
-    stepType: Exclude<ScoreWaveStepType, "scale" | "order">;
+type ScoreWaveStepBuilder = {
+    type: Exclude<ScoreWaveStepType, "scale" | "order">;
     apply: (snapshot: Snapshot, steps: readonly ScorePropagationStep[]) => Snapshot;
 };
 
-type ScoreWavePhaseMode = "all" | "scoreOnly";
+type ScoreWaveStepMode = "all" | "scoreOnly";
 
-function buildFirstFillPhases(
+function buildFirstFillStepBuilders(
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
-): ScoreWavePhase[] {
+): ScoreWaveStepBuilder[] {
     return [{
-        stepType: "claimAdjust",
+        type: "firstFill",
         apply: (snapshot, currentSteps) => applyFirstFillUpdates(snapshot, currentSteps, bindingsByScoreNodeId),
     }];
 }
@@ -107,10 +100,10 @@ export function buildScoreWaveTimeline(args: {
     snapshot: Snapshot;
     propagation: readonly ScorePropagationStep[];
     bindingsByScoreNodeId?: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>;
-    includeScaleAndOrderFrames?: boolean;
-    includeFallbackPhase?: boolean;
-    phaseMode?: ScoreWavePhaseMode;
-    specialCase?: ScoreWaveSpecialCase;
+    includeScaleAndOrderSteps?: boolean;
+    includeFallbackStep?: boolean;
+    stepMode?: ScoreWaveStepMode;
+    forcedStepType?: Extract<ScoreWaveStepType, "firstFill">;
     scaleTargetSnapshot?: Snapshot;
 }): ScoreWaveTimeline {
     const bindingsByScoreNodeId = mergeBindingsByScoreNodeId(
@@ -119,36 +112,31 @@ export function buildScoreWaveTimeline(args: {
     );
     const initialSnapshot = settleSnapshot(args.snapshot);
     let currentSnapshot = initialSnapshot;
-    const frames: ScoreWaveFrame[] = [];
+    const steps: ScoreWaveStep[] = [];
     const propagationGroups = groupPropagationSteps(args.propagation);
 
     for (const propagationGroup of propagationGroups) {
-        const phases = args.specialCase === "firstFill"
-            ? buildFirstFillPhases(bindingsByScoreNodeId)
-            : buildScoreWavePhases(
+        const stepBuilders = args.forcedStepType === "firstFill"
+            ? buildFirstFillStepBuilders(bindingsByScoreNodeId)
+            : buildScoreWaveStepBuilders(
                 propagationGroup.steps,
                 bindingsByScoreNodeId,
-                args.phaseMode ?? "all",
-                args.includeFallbackPhase ?? true,
+                args.stepMode ?? "all",
+                args.includeFallbackStep ?? true,
             );
 
-        for (const phase of phases) {
-            const frameSnapshot = phase.apply(currentSnapshot, propagationGroup.steps);
-            frames.push({
-                stepType: phase.stepType,
-                snapshot: frameSnapshot,
-                scoreNodeIds: propagationGroup.steps.map((step) => step.scoreNodeId),
-                propagationGroupId: propagationGroup.propagationGroupId,
-                propagationGroupType: propagationGroup.propagationGroupType,
-                changeSource: summarizeChangeSource(propagationGroup.steps),
-                impactMode: propagationGroup.steps[0]?.impactMode,
-                specialCase: args.specialCase,
+        for (const stepBuilder of stepBuilders) {
+            const stepSnapshot = stepBuilder.apply(currentSnapshot, propagationGroup.steps);
+            steps.push({
+                type: stepBuilder.type,
+                snapshot: stepSnapshot,
+                scoreNodeIds: [...new Set(propagationGroup.steps.map((step) => step.scoreNodeId))],
             });
-            currentSnapshot = settleSnapshot(frameSnapshot);
+            currentSnapshot = settleSnapshot(stepSnapshot);
         }
     }
 
-    if (args.includeScaleAndOrderFrames ?? true) {
+    if (args.includeScaleAndOrderSteps ?? true) {
         const scaleSnapshot = args.scaleTargetSnapshot
             ? buildScaleTransitionSnapshot({
                 beforeSnapshot: currentSnapshot,
@@ -156,16 +144,16 @@ export function buildScoreWaveTimeline(args: {
             })
             : settleSnapshot(resetSnapshotAnimationTypes(currentSnapshot));
 
-        frames.push({
-            stepType: "scale",
+        steps.push({
+            type: "scale",
             snapshot: scaleSnapshot,
             scoreNodeIds: [],
         });
         currentSnapshot = settleSnapshot(scaleSnapshot);
 
         currentSnapshot = settleSnapshot(resetSnapshotAnimationTypes(currentSnapshot));
-        frames.push({
-            stepType: "order",
+        steps.push({
+            type: "order",
             snapshot: currentSnapshot,
             scoreNodeIds: [],
         });
@@ -173,7 +161,7 @@ export function buildScoreWaveTimeline(args: {
 
     return {
         initialSnapshot: cloneSnapshot(initialSnapshot),
-        frames,
+        steps,
         finalSnapshot: currentSnapshot,
     };
 }
@@ -203,95 +191,79 @@ function groupPropagationSteps(
     return groups;
 }
 
-function buildScoreWavePhases(
+function buildScoreWaveStepBuilders(
     steps: readonly ScorePropagationStep[],
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
-    phaseMode: ScoreWavePhaseMode,
-    includeFallbackPhase: boolean,
-): ScoreWavePhase[] {
+    stepMode: ScoreWaveStepMode,
+    includeFallbackStep: boolean,
+): ScoreWaveStepBuilder[] {
     const bindings = steps.map((step) => bindingsByScoreNodeId[step.scoreNodeId] ?? {});
-    const phases: ScoreWavePhase[] = [];
+    const stepBuilders: ScoreWaveStepBuilder[] = [];
 
     if (bindings.some((binding) => (binding.relevanceConnectorVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "relevanceConnectorAdjust",
+        stepBuilders.push({
+            type: "relevanceConnectorAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "relevanceConnectorVizIds"),
         });
     }
 
     if (bindings.some((binding) => (binding.junctionAggregatorVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "junctionAggregatorAdjust",
+        stepBuilders.push({
+            type: "junctionAggregatorAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "junctionAggregatorVizIds"),
         });
     }
 
     if (bindings.some((binding) => (binding.confidenceConnectorVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "confidenceConnectorAdjust",
+        stepBuilders.push({
+            type: "confidenceConnectorAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "confidenceConnectorVizIds"),
         });
     }
 
-    if (phaseMode === "all" && bindings.some((binding) => (binding.junctionVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "junctionAdjust",
+    if (stepMode === "all" && bindings.some((binding) => (binding.junctionVizIds?.length ?? 0) > 0)) {
+        stepBuilders.push({
+            type: "junctionAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedJunctionUpdates(snapshot, currentSteps, bindingsByScoreNodeId),
         });
     }
 
     if (bindings.some((binding) => (binding.deliveryConnectorVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "deliveryConnectorAdjust",
+        stepBuilders.push({
+            type: "deliveryConnectorAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "deliveryConnectorVizIds"),
         });
     }
 
     if (bindings.some((binding) => (binding.claimAggregatorVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "claimAggregatorAdjust",
+        stepBuilders.push({
+            type: "claimAggregatorAdjust",
             apply: (snapshot, currentSteps) =>
                 applyAnimatedScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "claimAggregatorVizIds"),
         });
     }
 
     if (bindings.some((binding) => (binding.claimVizIds?.length ?? 0) > 0)) {
-        phases.push({
-            stepType: "claimAdjust",
+        stepBuilders.push({
+            type: "claimAdjust",
             apply: (snapshot, currentSteps) =>
                 applyScoreUpdates(snapshot, currentSteps, bindingsByScoreNodeId, "claimVizIds"),
         });
     }
 
-    if (phases.length === 0 && includeFallbackPhase) {
-        phases.push({
-            stepType: "claimAdjust",
+    if (stepBuilders.length === 0 && includeFallbackStep) {
+        stepBuilders.push({
+            type: "claimAdjust",
             apply: (snapshot) => cloneSnapshot(snapshot),
         });
     }
 
-    return phases;
-}
-
-function summarizeChangeSource(
-    steps: readonly ScorePropagationStep[],
-): ScoreWaveFrame["changeSource"] {
-    const sources = new Set(steps.map((step) => step.changeSource));
-
-    if (sources.size === 0) {
-        return undefined;
-    }
-
-    if (sources.size === 1) {
-        return steps[0]?.changeSource;
-    }
-
-    return "mixed";
+    return stepBuilders;
 }
 
 function applyScoreUpdates(
@@ -929,7 +901,7 @@ function buildScaleJunctionAggregatorMap<TId extends string, TEntity extends { a
     return nextById;
 }
 
-function buildScaleConfidenceConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; centerlinePoints: SnapshotWaypoint[]; scale: TweenNumber; score: TweenNumber; source: TweenPoint; target: TweenPoint; visible: TweenBoolean }>(
+function buildScaleConfidenceConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; scale: TweenNumber; score: TweenNumber; visible: TweenBoolean }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
@@ -943,11 +915,8 @@ function buildScaleConfidenceConnectorMap<TId extends string, TEntity extends { 
             nextById[id] = {
                 ...after,
                 animationType: "uniform",
-                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
                 score: before.score,
-                source: tweenPoint(before.source, after.source),
-                target: tweenPoint(before.target, after.target),
                 visible: tweenBoolean(readTweenBoolean(before.visible), readTweenBoolean(after.visible)),
             };
             continue;
@@ -974,7 +943,7 @@ function buildScaleConfidenceConnectorMap<TId extends string, TEntity extends { 
     return nextById;
 }
 
-function buildScaleConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; centerlinePoints: SnapshotWaypoint[]; scale: TweenNumber; score: TweenNumber; source: TweenPoint; target: TweenPoint }>(
+function buildScaleConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; scale: TweenNumber; score: TweenNumber }>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
@@ -988,11 +957,8 @@ function buildScaleConnectorMap<TId extends string, TEntity extends { animationT
             nextById[id] = {
                 ...after,
                 animationType: "uniform",
-                centerlinePoints: tweenWaypointList(before.centerlinePoints, after.centerlinePoints),
                 scale: tweenNumber(readTweenNumber(before.scale), readTweenNumber(after.scale)),
                 score: before.score,
-                source: tweenPoint(before.source, after.source),
-                target: tweenPoint(before.target, after.target),
             };
             continue;
         }
@@ -1088,51 +1054,8 @@ function tweenPoint(from: TweenPoint, to: TweenPoint): TweenPoint {
     };
 }
 
-function tweenWaypointList(
-    from: readonly SnapshotWaypoint[],
-    to: readonly SnapshotWaypoint[],
-): SnapshotWaypoint[] {
-    if (from.length !== to.length) {
-        throw new Error(
-            `Cannot tween connector centerline points with different waypoint counts during scale transition: ${from.length} vs ${to.length}.`,
-        );
-    }
-
-    return from.map((fromWaypoint, index) => tweenWaypoint(fromWaypoint, to[index]!));
-}
-
-function tweenWaypoint(from: SnapshotWaypoint, to: SnapshotWaypoint): SnapshotWaypoint {
-    const radius = tweenOptionalNumber(from.radius, to.radius);
-
-    return radius === undefined
-        ? {
-            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
-            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
-        }
-        : {
-            x: tweenNumber(readTweenNumber(from.x), readTweenNumber(to.x)),
-            y: tweenNumber(readTweenNumber(from.y), readTweenNumber(to.y)),
-            radius,
-        };
-}
-
-function tweenOptionalNumber(
-    from: TweenNumber | undefined,
-    to: TweenNumber | undefined,
-): TweenNumber | undefined {
-    if (from === undefined && to === undefined) {
-        return undefined;
-    }
-
-    return tweenNumber(readOptionalTweenNumber(from), readOptionalTweenNumber(to));
-}
-
 function readTweenBoolean(value: TweenBoolean): boolean {
     return typeof value === "boolean" ? value : value.to;
-}
-
-function readOptionalTweenNumber(value: TweenNumber | undefined): number {
-    return value === undefined ? 0 : readTweenNumber(value);
 }
 
 function readTweenNumber(value: TweenNumber): number {

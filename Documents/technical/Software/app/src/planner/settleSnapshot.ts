@@ -8,7 +8,6 @@ import type {
     JunctionViz,
     RelevanceConnectorViz,
     Snapshot,
-    SnapshotWaypoint,
 } from "./Snapshot.ts";
 
 export function settleSnapshot(snapshot: Snapshot): Snapshot {
@@ -81,9 +80,6 @@ function settleConfidenceConnectorViz(visual: ConfidenceConnectorViz): Confidenc
         ...visual,
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
-        source: settleTweenPoint(visual.source),
-        target: settleTweenPoint(visual.target),
-        centerlinePoints: visual.centerlinePoints.map(settleSnapshotWaypoint),
         visible: settleTweenBoolean(visual.visible),
     };
 }
@@ -93,9 +89,6 @@ function settleDeliveryConnectorViz(visual: DeliveryConnectorViz): DeliveryConne
         ...visual,
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
-        source: settleTweenPoint(visual.source),
-        target: settleTweenPoint(visual.target),
-        centerlinePoints: visual.centerlinePoints.map(settleSnapshotWaypoint),
     };
 }
 
@@ -104,25 +97,7 @@ function settleRelevanceConnectorViz(visual: RelevanceConnectorViz): RelevanceCo
         ...visual,
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
-        source: settleTweenPoint(visual.source),
-        target: settleTweenPoint(visual.target),
-        centerlinePoints: visual.centerlinePoints.map(settleSnapshotWaypoint),
     };
-}
-
-function settleSnapshotWaypoint(waypoint: SnapshotWaypoint): SnapshotWaypoint {
-    const radius = waypoint.radius === undefined ? undefined : settleTweenNumber(waypoint.radius);
-
-    return radius === undefined
-        ? {
-            x: settleTweenNumber(waypoint.x),
-            y: settleTweenNumber(waypoint.y),
-        }
-        : {
-            x: settleTweenNumber(waypoint.x),
-            y: settleTweenNumber(waypoint.y),
-            radius,
-        };
 }
 
 function settleTweenPoint(point: TweenPoint): TweenPoint {

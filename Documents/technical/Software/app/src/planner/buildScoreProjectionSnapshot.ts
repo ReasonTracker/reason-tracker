@@ -23,7 +23,6 @@ import type {
     JunctionVizId,
     RelevanceConnectorViz,
     RelevanceConnectorVizId,
-    SnapshotWaypoint,
     Side,
     Snapshot,
 } from "./Snapshot.ts";
@@ -37,16 +36,11 @@ import {
     getPlannerVerticalGap,
 } from "./plannerVisualGeometry.ts";
 import {
-    type ConnectorTurnGuide,
     type ProjectedJunctionGeometry,
     PROJECTED_CONNECTOR_JUNCTION_PATH_PROGRESS,
-    buildAngularConnectorCenterlinePoints,
     buildConfidenceCenterlinePoints,
     buildProjectedConnectorJunction,
-    buildRelevanceConnectorCenterlinePoints,
     getPointAtWaypointProgress,
-    getAngularConnectorTurnGuide,
-    getProjectedJunctionRelevanceTargetPoint,
 } from "./projectedConnectorGeometry.ts";
 
 // AGENT NOTE: Keep the first-pass projection geometry constants together so
@@ -58,16 +52,29 @@ type ProjectedConfidencePlan = {
     childScale: number;
     confidenceConnector?: ConfidenceConnector;
     confidenceConnectorId?: ConfidenceConnectorId;
-    deliveryPipeWidth: number;
     hasTargetingRelevance: boolean;
     junction: ProjectedJunctionGeometry;
     scoreNodeId: ScoreNodeId;
     side: Side;
     sourcePipeWidth: number;
     sourcePoint: TweenPoint;
-    targetPoint: TweenPoint;
     targetScoreNodeId: ScoreNodeId;
     visible: boolean;
+};
+
+type ClaimLaneMemberPlan = {
+    childFamilies: ClaimLaneFamilyPlan[];
+    scoreNodeId: ScoreNodeId;
+};
+
+type ClaimLaneFamilyPlan = {
+    depth: number;
+    members: ClaimLaneMemberPlan[];
+};
+
+type ClaimLanePlan = {
+    claimLaneDepthByScoreNodeId: Partial<Record<ScoreNodeId, number>>;
+    rootFamilies: ClaimLaneFamilyPlan[];
 };
 
 export type ScoreProjectionSnapshotOptions = {
@@ -96,19 +103,18 @@ export function buildScoreProjectionSnapshot(args: {
 }): Snapshot {
     const graph = withChildrenByParentId(args.graph);
     const rootScoreNodeIds = findRootScoreNodeIds(graph);
-    const visualDepthByScoreNodeId = buildVisualDepthByScoreNodeId(graph, rootScoreNodeIds);
+    const claimLanePlan = buildClaimLanePlan(graph, rootScoreNodeIds);
     const sourceScaleByScoreNodeId = resolveScoreProjectionScaleByScoreNodeId(
         buildScoreScaleByScoreNodeId(graph, rootScoreNodeIds),
         args.options?.scaleState?.sourceScaleByScoreNodeId,
     );
     const columnLeftByDepth = buildColumnLeftByDepth(
-        visualDepthByScoreNodeId,
+        claimLanePlan.claimLaneDepthByScoreNodeId,
         graph,
         sourceScaleByScoreNodeId,
     );
     const centerYByScoreNodeId = buildCenterYByScoreNodeId(
-        graph,
-        rootScoreNodeIds,
+        claimLanePlan,
         sourceScaleByScoreNodeId,
     );
     const sideByScoreNodeId = buildSideByScoreNodeId(graph, rootScoreNodeIds);
@@ -135,7 +141,6 @@ export function buildScoreProjectionSnapshot(args: {
     const junctionAggregatorPositionByScoreNodeId = new Map<ScoreNodeId, TweenPoint>();
     const deliveryConnectorIdsByParentScoreNodeId = new Map<ScoreNodeId, DeliveryConnectorVizId[]>();
     const confidencePlans: ProjectedConfidencePlan[] = [];
-    const junctionGeometryByScoreNodeId = new Map<ScoreNodeId, ProjectedJunctionGeometry>();
     const relevanceConnectorIdsByTargetScoreNodeId = new Map<ScoreNodeId, RelevanceConnectorVizId[]>();
 
     for (const scoreNodeId of orderScoreNodeIds(graph, rootScoreNodeIds)) {
@@ -146,7 +151,7 @@ export function buildScoreProjectionSnapshot(args: {
         }
 
         const scoreScale = sourceScaleByScoreNodeId[scoreNodeId] ?? 1;
-        const claimLeftX = columnLeftByDepth[visualDepthByScoreNodeId[scoreNodeId] ?? 0] ?? 0;
+        const claimLeftX = columnLeftByDepth[claimLanePlan.claimLaneDepthByScoreNodeId[scoreNodeId] ?? 0] ?? 0;
 
         const claimPosition = createPoint({
             x: claimLeftX + readClaimSpan(scoreScale) / 2,
@@ -239,20 +244,16 @@ export function buildScoreProjectionSnapshot(args: {
 
         junctionPositionByScoreNodeId.set(scoreNodeId, junctionPosition);
         junctionAggregatorPositionByScoreNodeId.set(scoreNodeId, junctionAggregatorPosition);
-        junctionGeometryByScoreNodeId.set(scoreNodeId, junctionGeometry);
-
         confidencePlans.push({
             childScale,
             confidenceConnectorId,
             confidenceConnector,
-            deliveryPipeWidth,
             hasTargetingRelevance: visible,
             junction: junctionGeometry,
             scoreNodeId,
             side: sideByScoreNodeId[scoreNodeId] ?? "proMain",
             sourcePipeWidth,
             sourcePoint,
-            targetPoint,
             targetScoreNodeId: scoreNode.parentId,
             visible,
         });
@@ -282,39 +283,11 @@ export function buildScoreProjectionSnapshot(args: {
         });
     }
 
-    const turnGuideByTargetScoreNodeId = buildTurnGuideByTargetScoreNodeId(confidencePlans);
-
     for (const plan of confidencePlans) {
-        const sourceSegmentEndPoint = createPoint({
-            x: plan.junction.centerX + (plan.junction.width / 2),
-            y: plan.junction.centerY,
-        });
-        const deliverySource = plan.hasTargetingRelevance
-            ? createPoint({
-                x: plan.junction.centerX - (plan.junction.width / 2),
-                y: plan.junction.centerY,
-            })
-            : plan.sourcePoint;
-        const deliveryCenterlinePoints = plan.hasTargetingRelevance
-            ? buildAngularConnectorCenterlinePoints(deliverySource, plan.targetPoint, plan.deliveryPipeWidth)
-            : buildConfidenceCenterlinePoints(
-                plan.sourcePoint,
-                plan.targetPoint,
-                plan.deliveryPipeWidth,
-                turnGuideByTargetScoreNodeId.get(plan.targetScoreNodeId),
-            );
-
         snapshot.confidenceConnectors[toConfidenceConnectorVizId(plan.scoreNodeId)] = buildConfidenceConnectorViz({
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
             confidenceConnector: plan.confidenceConnector,
-            source: plan.sourcePoint,
-            target: sourceSegmentEndPoint,
-            centerlinePoints: buildConfidenceCenterlinePoints(
-                plan.sourcePoint,
-                sourceSegmentEndPoint,
-                plan.sourcePipeWidth,
-            ),
             side: plan.side,
             scale: plan.childScale,
             score: readScoreValue(args.scores, plan.scoreNodeId),
@@ -327,9 +300,6 @@ export function buildScoreProjectionSnapshot(args: {
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
             confidenceConnector: plan.confidenceConnector,
-            source: deliverySource,
-            target: plan.targetPoint,
-            centerlinePoints: deliveryCenterlinePoints,
             side: plan.side,
             scale: plan.childScale,
             score: readScoreValue(args.scores, plan.scoreNodeId),
@@ -351,37 +321,16 @@ export function buildScoreProjectionSnapshot(args: {
             continue;
         }
 
-        const claimPosition = requirePoint(claimPositionByScoreNodeId.get(scoreNodeId), scoreNodeId, "claim");
-        const source = createPoint({
-            x: readPointX(claimPosition) - readClaimSpan(sourceScaleByScoreNodeId[scoreNodeId] ?? 1) / 2,
-            y: readPointY(claimPosition),
-        });
         const scoreScale = sourceScaleByScoreNodeId[scoreNodeId] ?? 1;
         const relevanceConnectorId = args.options?.relevanceConnectorIdByScoreNodeId?.[scoreNodeId];
         const relevanceConnector = relevanceConnectorId
             ? args.options?.relevanceConnectorById?.[relevanceConnectorId]
             : undefined;
-        const junctionGeometry = junctionGeometryByScoreNodeId.get(scoreNode.parentId);
-
-        if (!junctionGeometry) {
-            continue;
-        }
-
-        const target = createPoint(
-            getProjectedJunctionRelevanceTargetPoint(
-                junctionGeometry,
-                readPointY(source) < junctionGeometry.centerY,
-            ),
-        );
-        const relevanceCenterlinePoints = buildRelevanceConnectorCenterlinePoints(source, target, junctionGeometry, readPipeWidth(scoreScale));
 
         snapshot.relevanceConnectors[toRelevanceConnectorVizId(scoreNodeId)] = buildRelevanceConnectorViz({
             scoreNodeId,
             relevanceConnectorId,
             relevanceConnector,
-            source,
-            target,
-            centerlinePoints: relevanceCenterlinePoints,
             side: sideByScoreNodeId[scoreNodeId] ?? "proMain",
             scale: scoreScale,
             score: readScoreValue(args.scores, scoreNodeId),
@@ -471,40 +420,71 @@ function resolveScoreProjectionScaleByScoreNodeId(
     return scaleByScoreNodeId;
 }
 
-function buildVisualDepthByScoreNodeId(
+function buildClaimLanePlan(
     graph: ScoreGraph,
     rootScoreNodeIds: readonly ScoreNodeId[],
-): Partial<Record<ScoreNodeId, number>> {
-    const visualDepthByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+): ClaimLanePlan {
+    const claimLaneDepthByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+    const rootFamilies = rootScoreNodeIds.map((rootScoreNodeId) => buildClaimLaneFamily(rootScoreNodeId, 0));
 
-    for (const rootScoreNodeId of rootScoreNodeIds) {
-        visit(rootScoreNodeId, 0);
+    return {
+        claimLaneDepthByScoreNodeId,
+        rootFamilies,
+    };
+
+    function buildClaimLaneFamily(scoreNodeId: ScoreNodeId, depth: number): ClaimLaneFamilyPlan {
+        const members: ClaimLaneMemberPlan[] = [];
+        collectClaimLaneMembers(scoreNodeId, depth, members);
+        return {
+            depth,
+            members,
+        };
     }
 
-    return visualDepthByScoreNodeId;
+    function collectClaimLaneMembers(
+        scoreNodeId: ScoreNodeId,
+        depth: number,
+        members: ClaimLaneMemberPlan[],
+    ): void {
+        claimLaneDepthByScoreNodeId[scoreNodeId] = depth;
 
-    function visit(scoreNodeId: ScoreNodeId, depth: number): void {
-        visualDepthByScoreNodeId[scoreNodeId] = depth;
+        const member: ClaimLaneMemberPlan = {
+            childFamilies: [],
+            scoreNodeId,
+        };
+
+        members.push(member);
 
         for (const childScoreNodeId of getOrderedChildScoreNodeIds(graph, scoreNodeId)) {
-            visit(childScoreNodeId, depth + 1);
+            const childScoreNode = graph.nodes[childScoreNodeId];
+
+            if (!childScoreNode) {
+                continue;
+            }
+
+            if (childScoreNode.affects === "Score") {
+                member.childFamilies.push(buildClaimLaneFamily(childScoreNodeId, depth + 1));
+                continue;
+            }
+
+            collectClaimLaneMembers(childScoreNodeId, depth, members);
         }
     }
 }
 
 function buildColumnLeftByDepth(
-    visualDepthByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
+    claimLaneDepthByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
     graph: ScoreGraph,
     scoreScaleByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
 ): Record<number, number> {
     const maxDepth = Math.max(
         0,
-        ...Object.values(visualDepthByScoreNodeId).filter((depth): depth is number => depth !== undefined),
+        ...Object.values(claimLaneDepthByScoreNodeId).filter((depth): depth is number => depth !== undefined),
     );
     const scoreNodeIdsByDepth = new Map<number, ScoreNodeId[]>();
 
     for (const scoreNodeId of Object.keys(graph.nodes) as ScoreNodeId[]) {
-        const depth = visualDepthByScoreNodeId[scoreNodeId] ?? 0;
+        const depth = claimLaneDepthByScoreNodeId[scoreNodeId] ?? 0;
         const scoreNodeIds = scoreNodeIdsByDepth.get(depth) ?? [];
         scoreNodeIds.push(scoreNodeId);
         scoreNodeIdsByDepth.set(depth, scoreNodeIds);
@@ -547,85 +527,119 @@ function hasConfidenceConnectorInDepth(
 }
 
 function buildCenterYByScoreNodeId(
-    graph: ScoreGraph,
-    rootScoreNodeIds: readonly ScoreNodeId[],
+    claimLanePlan: ClaimLanePlan,
     scoreScaleByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
 ): Partial<Record<ScoreNodeId, number>> {
-    const subtreeSpanByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
     const centerYByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+    const familySpanByRootScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
+    const memberSpanByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
 
-    for (const rootScoreNodeId of rootScoreNodeIds) {
-        measure(rootScoreNodeId);
+    for (const rootFamily of claimLanePlan.rootFamilies) {
+        measureFamily(rootFamily);
     }
 
     let nextRootTop = 0;
-    let previousRootScoreNodeId: ScoreNodeId | undefined;
+    let previousRootFamily: ClaimLaneFamilyPlan | undefined;
 
-    for (const rootScoreNodeId of rootScoreNodeIds) {
-        if (previousRootScoreNodeId) {
-            nextRootTop += getPlannerVerticalGap(scoreScaleByScoreNodeId[previousRootScoreNodeId] ?? 1);
+    for (const rootFamily of claimLanePlan.rootFamilies) {
+        const rootScoreNodeId = getClaimLaneFamilyRootScoreNodeId(rootFamily);
+
+        if (previousRootFamily) {
+            nextRootTop += getPlannerVerticalGap(
+                scoreScaleByScoreNodeId[getClaimLaneFamilyRootScoreNodeId(previousRootFamily)] ?? 1,
+            );
         }
 
-        assign(rootScoreNodeId, nextRootTop);
-        nextRootTop += subtreeSpanByScoreNodeId[rootScoreNodeId]
+        assignFamily(rootFamily, nextRootTop);
+        nextRootTop += familySpanByRootScoreNodeId[rootScoreNodeId]
             ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[rootScoreNodeId] ?? 1);
-        previousRootScoreNodeId = rootScoreNodeId;
+        previousRootFamily = rootFamily;
     }
 
     return centerYByScoreNodeId;
 
-    function measure(scoreNodeId: ScoreNodeId): number {
-        const layoutScale = scoreScaleByScoreNodeId[scoreNodeId] ?? 1;
+    function measureFamily(family: ClaimLaneFamilyPlan): number {
+        const familyGap = readClaimLaneFamilyGap(family);
+        const familySpan = family.members.reduce((totalSpan, member, memberIndex) => {
+            const memberSpan = measureMember(member);
+            return totalSpan + memberSpan + (memberIndex > 0 ? familyGap : 0);
+        }, 0);
+
+        familySpanByRootScoreNodeId[getClaimLaneFamilyRootScoreNodeId(family)] = familySpan;
+        return familySpan;
+    }
+
+    function measureMember(member: ClaimLaneMemberPlan): number {
+        const layoutScale = scoreScaleByScoreNodeId[member.scoreNodeId] ?? 1;
         const ownSpan = getPlannerClaimHeight(layoutScale);
-        const childScoreNodeIds = getOrderedChildScoreNodeIds(graph, scoreNodeId);
         const childGap = getPlannerVerticalGap(layoutScale);
+        const childStackSpan = member.childFamilies.reduce((totalSpan, childFamily, childIndex) => {
+            const childFamilySpan = measureFamily(childFamily);
+            return totalSpan + childFamilySpan + (childIndex > 0 ? childGap : 0);
+        }, 0);
+        const memberSpan = Math.max(ownSpan, childStackSpan);
 
-        if (childScoreNodeIds.length === 0) {
-            subtreeSpanByScoreNodeId[scoreNodeId] = ownSpan;
-            return ownSpan;
-        }
+        memberSpanByScoreNodeId[member.scoreNodeId] = memberSpan;
+        return memberSpan;
+    }
 
-        const childStackSpan = readChildrenBlockSpan(childScoreNodeIds, childGap);
+    function assignFamily(family: ClaimLaneFamilyPlan, topY: number): void {
+        const familyGap = readClaimLaneFamilyGap(family);
+        let nextMemberTop = topY;
 
-        const subtreeSpan = Math.max(ownSpan, childStackSpan);
-        subtreeSpanByScoreNodeId[scoreNodeId] = subtreeSpan;
-        return subtreeSpan;
-
-        function readChildrenBlockSpan(childIds: readonly ScoreNodeId[], gap: number): number {
-            return childIds.reduce((totalSpan, childScoreNodeId, childIndex) => {
-                const childSpan = measure(childScoreNodeId);
-
-                return totalSpan + childSpan + (childIndex > 0 ? gap : 0);
-            }, 0);
+        for (const member of family.members) {
+            assignMember(member, nextMemberTop);
+            nextMemberTop += memberSpanByScoreNodeId[member.scoreNodeId]
+                ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[member.scoreNodeId] ?? 1);
+            nextMemberTop += familyGap;
         }
     }
 
-    function assign(scoreNodeId: ScoreNodeId, topY: number): void {
-        const subtreeSpan = subtreeSpanByScoreNodeId[scoreNodeId]
-            ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[scoreNodeId] ?? 1);
-        const childScoreNodeIds = getOrderedChildScoreNodeIds(graph, scoreNodeId);
-        centerYByScoreNodeId[scoreNodeId] = topY + subtreeSpan / 2;
+    function assignMember(member: ClaimLaneMemberPlan, topY: number): void {
+        const memberSpan = memberSpanByScoreNodeId[member.scoreNodeId]
+            ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[member.scoreNodeId] ?? 1);
+        centerYByScoreNodeId[member.scoreNodeId] = topY + memberSpan / 2;
 
-        if (childScoreNodeIds.length === 0) {
+        if (member.childFamilies.length === 0) {
             return;
         }
 
-        const childGap = getPlannerVerticalGap(scoreScaleByScoreNodeId[scoreNodeId] ?? 1);
-        const childStackSpan = childScoreNodeIds.reduce((totalSpan, childScoreNodeId, childIndex) => (
+        const childGap = getPlannerVerticalGap(scoreScaleByScoreNodeId[member.scoreNodeId] ?? 1);
+        const childStackSpan = member.childFamilies.reduce((totalSpan, childFamily, childIndex) => (
             totalSpan
-            + (subtreeSpanByScoreNodeId[childScoreNodeId]
-                ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[childScoreNodeId] ?? 1))
+            + (familySpanByRootScoreNodeId[getClaimLaneFamilyRootScoreNodeId(childFamily)]
+                ?? getPlannerClaimHeight(
+                    scoreScaleByScoreNodeId[getClaimLaneFamilyRootScoreNodeId(childFamily)] ?? 1,
+                ))
             + (childIndex > 0 ? childGap : 0)
         ), 0);
-        let childTop = topY + (subtreeSpan - childStackSpan) / 2;
+        let childTop = topY + (memberSpan - childStackSpan) / 2;
 
-        for (const childScoreNodeId of childScoreNodeIds) {
-            assign(childScoreNodeId, childTop);
-            childTop += subtreeSpanByScoreNodeId[childScoreNodeId]
-                ?? getPlannerClaimHeight(scoreScaleByScoreNodeId[childScoreNodeId] ?? 1);
+        for (const childFamily of member.childFamilies) {
+            assignFamily(childFamily, childTop);
+            childTop += familySpanByRootScoreNodeId[getClaimLaneFamilyRootScoreNodeId(childFamily)]
+                ?? getPlannerClaimHeight(
+                    scoreScaleByScoreNodeId[getClaimLaneFamilyRootScoreNodeId(childFamily)] ?? 1,
+                );
             childTop += childGap;
         }
     }
+
+    function readClaimLaneFamilyGap(family: ClaimLaneFamilyPlan): number {
+        return getPlannerVerticalGap(
+            scoreScaleByScoreNodeId[getClaimLaneFamilyRootScoreNodeId(family)] ?? 1,
+        );
+    }
+}
+
+function getClaimLaneFamilyRootScoreNodeId(family: ClaimLaneFamilyPlan): ScoreNodeId {
+    const rootScoreNodeId = family.members[0]?.scoreNodeId;
+
+    if (!rootScoreNodeId) {
+        throw new Error("Claim lane family is missing its root member.");
+    }
+
+    return rootScoreNodeId;
 }
 
 function buildJunctionLaneYByScoreNodeId(
@@ -814,9 +828,6 @@ function buildConfidenceConnectorViz(args: {
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
     confidenceConnector?: ConfidenceConnector;
-    source: TweenPoint;
-    target: TweenPoint;
-    centerlinePoints: SnapshotWaypoint[];
     side: Side;
     scale: number;
     score: number;
@@ -837,9 +848,6 @@ function buildConfidenceConnectorViz(args: {
         scale: args.scale,
         score: args.score,
         side: args.side,
-        source: args.source,
-        target: args.target,
-        centerlinePoints: args.centerlinePoints,
         direction: "sourceToTarget",
     };
 }
@@ -848,9 +856,6 @@ function buildDeliveryConnectorViz(args: {
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
     confidenceConnector?: ConfidenceConnector;
-    source: TweenPoint;
-    target: TweenPoint;
-    centerlinePoints: SnapshotWaypoint[];
     side: Side;
     scale: number;
     score: number;
@@ -871,9 +876,6 @@ function buildDeliveryConnectorViz(args: {
         scale: args.scale,
         score: args.score,
         side: args.side,
-        source: args.source,
-        target: args.target,
-        centerlinePoints: args.centerlinePoints,
         direction: "sourceToTarget",
     };
 }
@@ -882,9 +884,6 @@ function buildRelevanceConnectorViz(args: {
     scoreNodeId: ScoreNodeId;
     relevanceConnectorId?: RelevanceConnectorId;
     relevanceConnector?: RelevanceConnector;
-    source: TweenPoint;
-    target: TweenPoint;
-    centerlinePoints: SnapshotWaypoint[];
     side: Side;
     scale: number;
     score: number;
@@ -903,9 +902,6 @@ function buildRelevanceConnectorViz(args: {
         scale: args.scale,
         score: args.score,
         side: args.side,
-        source: args.source,
-        target: args.target,
-        centerlinePoints: args.centerlinePoints,
         direction: "sourceToTarget",
     };
 }
@@ -924,47 +920,6 @@ function readScoreValue(scores: Scores, scoreNodeId: ScoreNodeId): number {
 
 function createPoint(args: { x: number; y: number }): TweenPoint {
     return { x: args.x, y: args.y };
-}
-
-function buildTurnGuideByTargetScoreNodeId(
-    plans: readonly ProjectedConfidencePlan[],
-): ReadonlyMap<ScoreNodeId, ConnectorTurnGuide> {
-    const turnGuideByTargetScoreNodeId = new Map<ScoreNodeId, ConnectorTurnGuide>();
-
-    for (const plan of plans) {
-        const secondSegmentTurnGuide = getAngularConnectorTurnGuide(
-            {
-                x: plan.junction.centerX - (plan.junction.width / 2),
-                y: plan.junction.centerY,
-            },
-            {
-                x: readPointX(plan.targetPoint),
-                y: readPointY(plan.targetPoint),
-            },
-            plan.deliveryPipeWidth,
-        );
-
-        if (!secondSegmentTurnGuide) {
-            continue;
-        }
-
-        const currentTurnGuide = turnGuideByTargetScoreNodeId.get(plan.targetScoreNodeId);
-        const nextTurnGuide = !currentTurnGuide
-            || secondSegmentTurnGuide.turnStartX < currentTurnGuide.turnStartX
-            ? secondSegmentTurnGuide
-            : currentTurnGuide;
-
-        turnGuideByTargetScoreNodeId.set(plan.targetScoreNodeId, {
-            preferredBendRadius: Math.max(
-                currentTurnGuide?.preferredBendRadius ?? 0,
-                secondSegmentTurnGuide.preferredBendRadius,
-            ),
-            returnTurnX: nextTurnGuide.returnTurnX,
-            turnStartX: nextTurnGuide.turnStartX,
-        });
-    }
-
-    return turnGuideByTargetScoreNodeId;
 }
 
 function readPointX(point: TweenPoint): number {

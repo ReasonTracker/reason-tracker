@@ -82,9 +82,6 @@ interface ConnectorVizBase {
     scale: TweenNumber
     score: TweenNumber
     side: Side
-    source: TweenPoint
-    target: TweenPoint
-    centerlinePoints: SnapshotWaypoint[]
     direction: ConnectorVizDirection
 }
 

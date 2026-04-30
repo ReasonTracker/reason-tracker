@@ -1,6 +1,5 @@
 import type {
-    ScoreWaveFrame,
-    ScoreWaveSpecialCase,
+    ScoreWaveStep,
     ScoreWaveStepType,
     Snapshot,
 } from "../../../app/src/app.js";
@@ -37,13 +36,13 @@ export type SnapshotRenderInput = {
     viewportBounds?: Bounds;
 };
 
-export type ScoreWaveFrameRenderInput = {
-    frame: ScoreWaveFrame;
+export type ScoreWaveStepRenderInput = {
+    step: ScoreWaveStep;
     percent: number;
     viewportBounds?: Bounds;
 };
 
-export type PlannerSnapshotRenderMode = ScoreWaveStepType | ScoreWaveSpecialCase;
+export type PlannerSnapshotRenderMode = ScoreWaveStepType;
 
 export type PlannerSnapshotRenderResult = {
     root: RenderElementNode;
