@@ -158,6 +158,8 @@ type CenterlinePart =
 interface PathProfileSegment {
 	startDistance: number;
 	endDistance: number;
+	nominalStartDistance: number;
+	nominalEndDistance: number;
 	fromSection: OffsetSection;
 	toSection: OffsetSection;
 	transitionKind?: PathGeometryTransitionKind;
@@ -211,11 +213,13 @@ export function buildPathGeometry(input: PathGeometryInput): PathGeometry {
 	);
 
 	if (profileSegments.length === 0) {
-		issues.push({
-			code: "missing-offsets",
-			message: "No drawable offsets profile could be built from the instruction sequence.",
-			severity: "error",
-		});
+		if (input.instructions.length === 0) {
+			issues.push({
+				code: "missing-offsets",
+				message: "No drawable offsets profile could be built from the instruction sequence.",
+				severity: "error",
+			});
+		}
 		return { boundaryAPathCommands: [], boundaryBPathCommands: [], issues };
 	}
 
@@ -568,28 +572,37 @@ function buildProfileSegments(
 	}
 
 	const segments: PathProfileSegment[] = [];
-	let cursor = clampStartPositionPercent(
-		firstInstruction.startPositionPercent,
-		totalLength,
-		issues,
-		0,
-	);
+	let cursor = firstInstruction.kind === "open"
+		? clampStartPositionPercent(firstInstruction.startPositionPercent, totalLength, issues, 0)
+		: clampNumber(resolvePathDistance(firstInstruction.startPositionPercent, totalLength), 0, totalLength);
 	let instructionIndex = 1;
 	let activeSection = extractOffsetSection(instructions[1]);
 
 	if (firstInstruction.kind !== "open") {
+		const nominalLeadingStart = resolvePathDistance(firstInstruction.startPositionPercent, totalLength);
 		const leadingLength = clampLengthPx(
 			firstInstruction.lengthPx,
-			Math.max(0, totalLength - cursor),
+			totalLength,
 			issues,
 			0,
 		);
-		const leadingEnd = clampNumber(cursor + leadingLength, cursor, totalLength);
+		const nominalLeadingEnd = nominalLeadingStart + leadingLength;
+		const leadingStart = clampNumber(nominalLeadingStart, 0, totalLength);
+		const leadingEnd = clampNumber(nominalLeadingEnd, 0, totalLength);
 		const collapsedSection = {
 			offsetA: firstInstruction.collapseOffset,
 			offsetB: firstInstruction.collapseOffset,
 		};
-		pushProfileSegment(segments, cursor, leadingEnd, collapsedSection, activeSection, firstInstruction.kind);
+		pushProfileSegment(
+			segments,
+			leadingStart,
+			leadingEnd,
+			collapsedSection,
+			activeSection,
+			firstInstruction.kind,
+			nominalLeadingStart,
+			nominalLeadingEnd,
+		);
 		cursor = leadingEnd;
 	}
 
@@ -673,12 +686,15 @@ function buildProfileSegments(
 	}
 
 	const trailingExtremity = lastInstruction;
-	let trailingStart = clampStartPositionPercent(
-		trailingExtremity.startPositionPercent,
-		totalLength,
-		issues,
-		instructions.length - 1,
-	);
+	let nominalTrailingStart = trailingExtremity.kind === "open"
+		? clampStartPositionPercent(
+			trailingExtremity.startPositionPercent,
+			totalLength,
+			issues,
+			instructions.length - 1,
+		)
+		: resolvePathDistance(trailingExtremity.startPositionPercent, totalLength);
+	let trailingStart = clampNumber(nominalTrailingStart, 0, totalLength);
 
 	if (trailingStart < cursor) {
 		issues.push({
@@ -688,18 +704,21 @@ function buildProfileSegments(
 			instructionIndex: instructions.length - 1,
 		});
 		trailingStart = cursor;
+		nominalTrailingStart = cursor;
 	}
 
+	let nominalTrailingEnd = nominalTrailingStart;
 	let trailingEnd = trailingStart;
 
 	if (trailingExtremity.kind !== "open") {
 		const trailingLength = clampLengthPx(
 			trailingExtremity.lengthPx,
-			Math.max(0, totalLength - trailingStart),
+			totalLength,
 			issues,
 			instructions.length - 1,
 		);
-		trailingEnd = clampNumber(trailingStart + trailingLength, trailingStart, totalLength);
+		nominalTrailingEnd = nominalTrailingStart + trailingLength;
+		trailingEnd = clampNumber(nominalTrailingEnd, trailingStart, totalLength);
 	}
 
 	pushProfileSegment(segments, cursor, trailingStart, activeSection, activeSection);
@@ -709,7 +728,16 @@ function buildProfileSegments(
 			offsetA: trailingExtremity.collapseOffset,
 			offsetB: trailingExtremity.collapseOffset,
 		};
-		pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection, trailingExtremity.kind);
+		pushProfileSegment(
+			segments,
+			trailingStart,
+			trailingEnd,
+			activeSection,
+			collapsedSection,
+			trailingExtremity.kind,
+			nominalTrailingStart,
+			nominalTrailingEnd,
+		);
 	}
 
 	return segments;
@@ -848,8 +876,10 @@ function evaluateBoundaryPoint(
 ): Point {
 	const centerline = evaluateCenterlinePart(part, distance);
 	const left = leftNormal(centerline.tangent);
-	const span = profileSegment.endDistance - profileSegment.startDistance;
-	const interpolation = span <= GEOMETRY_EPSILON ? 0 : (distance - profileSegment.startDistance) / span;
+	const span = profileSegment.nominalEndDistance - profileSegment.nominalStartDistance;
+	const interpolation = span <= GEOMETRY_EPSILON
+		? 0
+		: (distance - profileSegment.nominalStartDistance) / span;
 	const fromOffset = selectOffset(profileSegment.fromSection);
 	const toOffset = selectOffset(profileSegment.toSection);
 	const offset = interpolateNumber(
@@ -1027,12 +1057,26 @@ function pushProfileSegment(
 	fromSection: OffsetSection,
 	toSection: OffsetSection,
 	transitionKind?: PathGeometryTransitionKind,
+	nominalStartDistance: number = startDistance,
+	nominalEndDistance: number = endDistance,
 ): void {
 	if (endDistance - startDistance <= GEOMETRY_EPSILON) {
 		return;
 	}
 
-	segments.push({ startDistance, endDistance, fromSection, toSection, transitionKind });
+	segments.push({
+		startDistance,
+		endDistance,
+		nominalStartDistance,
+		nominalEndDistance,
+		fromSection,
+		toSection,
+		transitionKind,
+	});
+}
+
+function resolvePathDistance(startPositionPercent: number, totalLength: number): number {
+	return (totalLength * startPositionPercent) / 100;
 }
 
 function extractOffsetSection(instruction: PathOffsetsInstruction): OffsetSection {

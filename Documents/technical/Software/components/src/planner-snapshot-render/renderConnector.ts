@@ -506,7 +506,7 @@ function buildConnectorRevealInstructions(
         {
             type: "extremity",
             kind: "curved",
-            startPositionPercent: Math.max(0, progressPercent - transitionPercent),
+            startPositionPercent: progressPercent - transitionPercent,
             lengthPx: transitionLengthPx,
             collapseOffset,
         },

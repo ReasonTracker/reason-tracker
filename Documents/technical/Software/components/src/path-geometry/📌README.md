@@ -64,6 +64,9 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - A trailing `open` ends visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - `startPositionPercent` is measured as a percentage of total path length, and `lengthPx` is measured in pixels along the routed centerline.
 - A linear or curved extremity uses `collapseOffset` to define the edge shape across its span.
+- A linear or curved extremity may have a nominal span that crosses before `0%` or after `100%` when only a clipped tip should remain visible near a path boundary.
+- Visible geometry is always clipped to the routed path bounds, but a clipped extremity keeps the interpolation it would have had across its full nominal span instead of compressing the full cap into the clipped remainder.
+- This means `0` reveal should emit no geometry, `1` reveal should emit full geometry, and a near-boundary clipped cap should show only the visible tip that remains inside the `0%` to `100%` path window.
 - A curved transition is approximated by sampled intermediate boundary points along the routed path at a density that preserves the bow shape.
 
 ## Validation Rules
@@ -77,7 +80,8 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - A leading `extremity` may begin after 0% and may consume a `lengthPx` span after its `startPositionPercent` before the first stable offsets state becomes fully active.
 - A trailing `extremity` may begin before 100% and defines where visible geometry ends.
 - `open` does not have a `lengthPx` because it cannot have a span.
-- Out-of-range `startPositionPercent` values and negative or oversized `lengthPx` values are clamped into the routed path length and reported as warnings.
+- Out-of-range `startPositionPercent` values for `open` extremities and transitions, and negative or oversized `lengthPx` values, are clamped into the routed path length and reported as warnings.
+- Linear and curved extremities may extend nominally beyond the routed bounds; their visible output is clipped to the path instead of compressing the full extremity into the remaining in-bounds distance.
 - Terminal behavior should be expressed through an `extremity` instruction.
 
 ## Out Of Scope
