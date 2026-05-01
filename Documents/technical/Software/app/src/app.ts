@@ -47,6 +47,7 @@ export type {
     ClaimAggregatorVizId,
     ClaimViz,
     ClaimVizId,
+    ConnectorBandPlacement,
     ConnectorVizDirection,
     ConfidenceConnectorViz,
     ConfidenceConnectorVizId,
@@ -72,6 +73,7 @@ export {
 } from "./planner/buildProjectedCommandScoreWaveTimelines.ts";
 export {
     buildScoreProjectionSnapshot,
+    type ScoreProjectionConnectorBandPolicy,
     type ScoreProjectionSnapshotOptions,
 } from "./planner/buildScoreProjectionSnapshot.ts";
 export {

@@ -516,11 +516,12 @@ function markConnectorsProgressive(
         | "relevanceConnectorVizIds",
 ): Snapshot {
     const nextSnapshot = cloneSnapshot(snapshot);
-    const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
 
-    for (const connectorVizId of connectorVizIds) {
-        switch (bindingKey) {
-            case "confidenceConnectorVizIds": {
+    switch (bindingKey) {
+        case "confidenceConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
                 const connector = nextSnapshot.confidenceConnectors[connectorVizId];
 
                 if (connector) {
@@ -529,10 +530,14 @@ function markConnectorsProgressive(
                         animationType: "progressive",
                     };
                 }
-                break;
             }
+            break;
+        }
 
-            case "deliveryConnectorVizIds": {
+        case "deliveryConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
                 const connector = nextSnapshot.deliveryConnectors[connectorVizId];
 
                 if (connector) {
@@ -541,10 +546,14 @@ function markConnectorsProgressive(
                         animationType: "progressive",
                     };
                 }
-                break;
             }
+            break;
+        }
 
-            case "relevanceConnectorVizIds": {
+        case "relevanceConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
                 const connector = nextSnapshot.relevanceConnectors[connectorVizId];
 
                 if (connector) {
@@ -553,8 +562,8 @@ function markConnectorsProgressive(
                         animationType: "progressive",
                     };
                 }
-                break;
             }
+            break;
         }
     }
 
@@ -591,6 +600,14 @@ function collectBoundIds(
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
     bindingKey: "relevanceConnectorVizIds",
 ): Set<RelevanceConnectorVizId>;
+function collectBoundIds(
+    steps: readonly ScorePropagationStep[],
+    bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
+    bindingKey:
+        | "confidenceConnectorVizIds"
+        | "deliveryConnectorVizIds"
+        | "relevanceConnectorVizIds",
+): Set<ConfidenceConnectorVizId | DeliveryConnectorVizId | RelevanceConnectorVizId>;
 function collectBoundIds(
     steps: readonly ScorePropagationStep[],
     bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,

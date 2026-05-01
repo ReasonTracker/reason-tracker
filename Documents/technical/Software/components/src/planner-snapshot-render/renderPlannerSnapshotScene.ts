@@ -1,4 +1,5 @@
 import { buildResolvedSnapshotConnectorGeometryById } from "../../../app/src/planner/resolveSnapshotConnectorGeometry.ts";
+import { buildResolvedSnapshotScoreFlowLayout } from "../../../app/src/planner/resolveSnapshotScoreFlowLayout.ts";
 import type {
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
@@ -40,9 +41,9 @@ type PlannerSnapshotSceneLayout = {
     bounds: Bounds | undefined;
     claimAggregatorModels: ReturnType<typeof buildClaimAggregatorRenderModel>[];
     claimModels: NonNullable<ReturnType<typeof buildClaimRenderModel>>[];
-    connectorModels: NonNullable<ReturnType<typeof buildConnectorRenderModel>>[];
+    connectorModels: ReturnType<typeof buildConnectorRenderModel>[];
     junctionAggregatorModels: ReturnType<typeof buildJunctionAggregatorRenderModel>[];
-    junctionModels: NonNullable<ReturnType<typeof buildJunctionRenderModel>>[];
+    junctionModels: ReturnType<typeof buildJunctionRenderModel>[];
 };
 
 export function getPlannerSnapshotSceneBounds(args: PlannerSnapshotSceneArgs): Bounds {
@@ -131,9 +132,14 @@ export function renderPlannerSnapshotScene(args: PlannerSnapshotSceneArgs): Plan
 }
 
 function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): PlannerSnapshotSceneLayout {
+    const resolvedScoreFlowLayout = buildResolvedSnapshotScoreFlowLayout({
+        snapshot: args.snapshot,
+        percent: args.percent,
+    });
     const connectorGeometryById = buildResolvedSnapshotConnectorGeometryById({
         snapshot: args.snapshot,
         percent: args.percent,
+        resolvedScoreFlowLayout,
     });
     const claimModels = Object.values(args.snapshot.claims)
         .map((visual) => buildClaimRenderModel(visual, args.percent))
@@ -141,23 +147,23 @@ function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): Planne
 
     const junctionModels = Object.values(args.snapshot.junctions)
         .map((visual) => buildJunctionRenderModel({
+            layout: resolvedScoreFlowLayout.junctionLayoutById.get(String(visual.id)),
             visual,
             percent: args.percent,
             side: resolveJunctionSide(args.snapshot, visual),
-        }))
-        .filter((model): model is NonNullable<typeof model> => !!model);
+        }));
     const connectorModels = [
         ...Object.values(args.snapshot.relevanceConnectors),
         ...Object.values(args.snapshot.confidenceConnectors),
         ...Object.values(args.snapshot.deliveryConnectors),
     ]
         .map((visual) => buildConnectorRenderModel({
+            bandPlacement: resolvedScoreFlowLayout.connectorBandPlacementByConnectorVizId.get(String(visual.id)),
             geometry: connectorGeometryById.get(String(visual.id)),
             visual,
             percent: args.percent,
             mode: args.mode,
         }))
-        .filter((model): model is NonNullable<typeof model> => !!model)
         .sort((left, right) => {
             const leftMidY = midpointY(left.centerlinePoints);
             const rightMidY = midpointY(right.centerlinePoints);

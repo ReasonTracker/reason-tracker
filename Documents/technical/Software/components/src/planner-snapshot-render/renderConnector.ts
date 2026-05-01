@@ -1,10 +1,12 @@
 import type {
+    ConnectorBandPlacement,
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
     RelevanceConnectorViz,
     Side,
 } from "../../../app/src/app.js";
 import type { ResolvedSnapshotConnectorGeometry } from "../../../app/src/planner/resolveSnapshotConnectorGeometry.ts";
+import { resolveConnectorBandEnvelope } from "../../../app/src/planner/connectorBandGeometry.ts";
 import { getPlannerPipeWidth } from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import {
@@ -47,6 +49,7 @@ type ConnectorSweepDirection = SnapshotConnectorViz["direction"];
 type ConnectorAnimationMode = "firstFill" | "sprout" | "static" | "updateSweep";
 
 export type ConnectorRenderModel = {
+    bandPlacement: ConnectorBandPlacement;
     bounds: Bounds | undefined;
     centerlinePoints: Waypoint[];
     direction: ConnectorSweepDirection;
@@ -68,11 +71,12 @@ export type ConnectorRenderModel = {
 };
 
 export function buildConnectorRenderModel(args: {
+    bandPlacement?: ConnectorBandPlacement;
     geometry: ResolvedSnapshotConnectorGeometry | undefined;
     visual: SnapshotConnectorViz;
     percent: number;
     mode: PlannerSnapshotRenderMode;
-}): ConnectorRenderModel | undefined {
+}): ConnectorRenderModel {
     const scaleEndpoints = getTweenNumberEndpoints(args.visual.scale);
     const scoreEndpoints = getTweenNumberEndpoints(args.visual.score);
     const currentScale = Math.max(0, resolveTweenNumber(args.visual.scale, args.percent));
@@ -84,14 +88,12 @@ export function buildConnectorRenderModel(args: {
     const toPipeWidth = scaleToPipeWidth(scaleEndpoints.to);
     const fromFluidWidth = pipeWidthToFluidWidth(fromPipeWidth, scoreEndpoints.from);
     const toFluidWidth = pipeWidthToFluidWidth(toPipeWidth, scoreEndpoints.to);
+    const bandPlacement = args.bandPlacement ?? args.visual.bandPlacement ?? "lowerSide";
     const visibilityOpacity = args.visual.type === "confidenceConnector"
         ? resolveTweenBooleanOpacity(args.visual.visible, args.percent)
         : 1;
     const progress = clamp01(args.percent);
-
-    if (Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth) <= 0 || visibilityOpacity <= 0 || currentCenterlinePoints.length < 2) {
-        return undefined;
-    }
+    const maxRenderableWidth = Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth);
 
     const animationMode = resolveConnectorAnimationMode({
         argsMode: args.mode,
@@ -101,14 +103,17 @@ export function buildConnectorRenderModel(args: {
         toFluidWidth,
         toPipeWidth,
     });
-    const extentBounds = boundsFromPoints(
-        currentCenterlinePoints,
-        Math.max(currentPipeWidth, fromPipeWidth, toPipeWidth) / 2 + CONNECTOR_OUTLINE_WIDTH_PX,
-    );
+    const extentBounds = currentCenterlinePoints.length >= 2 && maxRenderableWidth > 0
+        ? boundsFromPoints(
+            currentCenterlinePoints,
+            maxRenderableWidth / 2 + CONNECTOR_OUTLINE_WIDTH_PX,
+        )
+        : undefined;
 
     switch (animationMode) {
         case "sprout":
             return {
+                bandPlacement,
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
@@ -123,6 +128,7 @@ export function buildConnectorRenderModel(args: {
 
         case "firstFill":
             return {
+                bandPlacement,
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
@@ -137,6 +143,7 @@ export function buildConnectorRenderModel(args: {
 
         case "updateSweep":
             return {
+                bandPlacement,
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
@@ -159,6 +166,7 @@ export function buildConnectorRenderModel(args: {
 
         default:
             return {
+                bandPlacement,
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
@@ -174,8 +182,13 @@ export function buildConnectorRenderModel(args: {
 }
 
 export function renderConnector(model: ConnectorRenderModel, offset: { x: number; y: number }): RenderElementNode[] {
-    return (["pipeWalls", "pipeInterior", "fluid"] satisfies DebateConnectorLayer[])
-        .flatMap((layer) => renderConnectorSpan(model, layer, offset));
+    return [svgElement("g", {
+        attributes: {
+            "data-connector-id": model.id,
+        },
+        children: (["pipeWalls", "pipeInterior", "fluid"] satisfies DebateConnectorLayer[])
+            .map((layer) => renderConnectorSpan(model, layer, offset)),
+    })];
 }
 
 export function renderRelevanceConnectorAdjustSnapshot(input: SnapshotRenderInput): PlannerSnapshotRenderResult {
@@ -206,7 +219,7 @@ function renderConnectorSpan(
     model: ConnectorRenderModel,
     layer: DebateConnectorLayer,
     offset: { x: number; y: number },
-): RenderElementNode[] {
+): RenderElementNode {
     if (model.updateTransition) {
         return renderConnectorUpdateTransition(model, layer, offset);
     }
@@ -214,36 +227,34 @@ function renderConnectorSpan(
     const layerProgress = layer === "fluid" ? model.fluidProgress : model.pipeProgress;
     const activeWidth = layer === "fluid" ? model.fluidWidth : model.pipeWidth;
 
-    if (model.opacity <= 0 || layerProgress <= 0 || activeWidth <= 0.5) {
-        return [];
-    }
-
     const geometryInstructions = buildConnectorRevealInstructions(model, layer, layerProgress);
     const children = renderConnectorLayerNodes(model, layer, offset, geometryInstructions);
 
-    return children.length > 0
-        ? [
-            svgElement("g", {
-                attributes: {
-                    "data-connector-id": model.id,
-                    "data-connector-layer": layer,
-                    opacity: model.opacity,
-                },
-                children,
-            }),
-        ]
-        : [];
+    return svgElement("g", {
+        attributes: {
+            "data-connector-layer": layer,
+            opacity: model.opacity,
+            "data-layer-progress": layerProgress,
+            "data-active-width": activeWidth,
+        },
+        children,
+    });
 }
 
 function renderConnectorUpdateTransition(
     model: ConnectorRenderModel,
     layer: DebateConnectorLayer,
     offset: { x: number; y: number },
-): RenderElementNode[] {
+): RenderElementNode {
     const updateTransition = model.updateTransition;
 
-    if (!updateTransition || model.opacity <= 0) {
-        return [];
+    if (!updateTransition) {
+        return svgElement("g", {
+            attributes: {
+                "data-connector-layer": layer,
+                opacity: model.opacity,
+            },
+        });
     }
 
     const clampedProgress = clamp01(updateTransition.progress);
@@ -276,18 +287,13 @@ function renderConnectorUpdateTransition(
         geometryInstructions,
     );
 
-    return children.length > 0
-        ? [
-            svgElement("g", {
-                attributes: {
-                    "data-connector-id": model.id,
-                    "data-connector-layer": layer,
-                    opacity: model.opacity,
-                },
-                children,
-            }),
-        ]
-        : [];
+    return svgElement("g", {
+        attributes: {
+            "data-connector-layer": layer,
+            opacity: model.opacity,
+        },
+        children,
+    });
 }
 
 function renderConnectorLayerNodes(
@@ -296,18 +302,26 @@ function renderConnectorLayerNodes(
     offset: { x: number; y: number },
     geometryInstructions?: PathGeometryInstruction[],
 ): RenderElementNode[] {
+    if (model.centerlinePoints.length < 2) {
+        return [];
+    }
+
     const translatedCenterlinePoints = model.centerlinePoints.map((point) => ({
         ...point,
         x: point.x + offset.x,
         y: point.y + offset.y,
     }));
 
+    if (layer !== "fluid" && model.pipeWidth <= 0.5) {
+        return [];
+    }
+
     if (layer === "fluid" && !geometryInstructions && model.fluidWidth <= 0.5) {
         return [];
     }
 
     const bandInstructions = geometryInstructions ?? (layer === "fluid"
-        ? buildDefaultFluidBandInstructions(model.pipeWidth, model.fluidWidth)
+        ? buildDefaultFluidBandInstructions(model.pipeWidth, model.fluidWidth, model.bandPlacement)
         : buildDefaultCenteredBandInstructions(model.pipeWidth));
 
     if (layer === "fluid") {
@@ -451,10 +465,14 @@ function buildConnectorRevealInstructions(
         return undefined;
     }
 
-    const fluidSection = buildFluidOffsetsInstruction(connector.pipeWidth, connector.fluidWidth);
+    const fluidBandProfile = buildFluidBandProfile(
+        connector.pipeWidth,
+        connector.fluidWidth,
+        connector.bandPlacement,
+    );
     const transitionLengthPx = getConnectorGeometryTransitionLengthPx(activeWidth);
     const transitionPercent = lengthPxToApproximatePathPercent(connector.centerlinePoints, transitionLengthPx);
-    const collapseOffset = getFluidBottomOffset(connector.pipeWidth);
+    const collapseOffset = fluidBandProfile.collapseOffset;
     const progressPercent = clamp01(progress) * 100;
 
     if (connector.direction === "targetToSource") {
@@ -466,14 +484,14 @@ function buildConnectorRevealInstructions(
                 lengthPx: transitionLengthPx,
                 collapseOffset,
             },
-            fluidSection,
+            fluidBandProfile.section,
             { type: "extremity", kind: "open", startPositionPercent: 100 },
         ];
     }
 
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
-        fluidSection,
+        fluidBandProfile.section,
         {
             type: "extremity",
             kind: "curved",
@@ -533,10 +551,18 @@ function buildConnectorUpdateInstructions(
     }
 
     const fromSection = layer === "fluid"
-        ? buildFluidOffsetsInstruction(updateTransition.fromPipeWidth, updateTransition.fromFluidWidth)
+        ? buildFluidBandProfile(
+            updateTransition.fromPipeWidth,
+            updateTransition.fromFluidWidth,
+            connector.bandPlacement,
+        ).section
         : buildCenteredOffsetsInstruction(updateTransition.fromPipeWidth);
     const toSection = layer === "fluid"
-        ? buildFluidOffsetsInstruction(updateTransition.toPipeWidth, updateTransition.toFluidWidth)
+        ? buildFluidBandProfile(
+            updateTransition.toPipeWidth,
+            updateTransition.toFluidWidth,
+            connector.bandPlacement,
+        ).section
         : buildCenteredOffsetsInstruction(updateTransition.toPipeWidth);
     const transitionLengthPx = getConnectorGeometryTransitionLengthPx(Math.max(fromWidth, toWidth));
     const transitionPercent = lengthPxToApproximatePathPercent(connector.centerlinePoints, transitionLengthPx);
@@ -579,10 +605,14 @@ function buildDefaultCenteredBandInstructions(width: number): PathGeometryInstru
     ];
 }
 
-function buildDefaultFluidBandInstructions(pipeWidth: number, fluidWidth: number): PathGeometryInstruction[] {
+function buildDefaultFluidBandInstructions(
+    pipeWidth: number,
+    fluidWidth: number,
+    bandPlacement: ConnectorBandPlacement,
+): PathGeometryInstruction[] {
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
-        buildFluidOffsetsInstruction(pipeWidth, fluidWidth),
+        buildFluidBandProfile(pipeWidth, fluidWidth, bandPlacement).section,
         { type: "extremity", kind: "open", startPositionPercent: 100 },
     ];
 }
@@ -591,18 +621,24 @@ function buildCenteredOffsetsInstruction(width: number): PathGeometryInstruction
     return { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 };
 }
 
-function buildFluidOffsetsInstruction(pipeWidth: number, fluidWidth: number): PathGeometryInstruction {
-    const bottomOffset = getFluidBottomOffset(pipeWidth);
+function buildFluidBandProfile(
+    pipeWidth: number,
+    fluidWidth: number,
+    bandPlacement: ConnectorBandPlacement,
+): {
+    collapseOffset: number;
+    section: PathGeometryInstruction;
+} {
+    const bandEnvelope = resolveConnectorBandEnvelope(pipeWidth, fluidWidth, bandPlacement);
 
     return {
-        type: "offsets",
-        offsetA: bottomOffset,
-        offsetB: bottomOffset + fluidWidth,
+        collapseOffset: bandEnvelope.collapseOffset,
+        section: {
+            type: "offsets",
+            offsetA: bandEnvelope.topOffset,
+            offsetB: bandEnvelope.bottomOffset,
+        },
     };
-}
-
-function getFluidBottomOffset(pipeWidth: number): number {
-    return -(pipeWidth / 2);
 }
 
 function lengthPxToApproximatePathPercent(points: Waypoint[], lengthPx: number): number {

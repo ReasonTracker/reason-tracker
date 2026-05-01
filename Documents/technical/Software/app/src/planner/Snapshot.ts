@@ -75,10 +75,12 @@ export interface SnapshotWaypoint {
 }
 
 export type ConnectorVizDirection = "sourceToTarget" | "targetToSource"
+export type ConnectorBandPlacement = "center" | "lowerSide" | "upperSide"
 
 interface ConnectorVizBase {
     type: "confidenceConnector" | "deliveryConnector" | "relevanceConnector"
     animationType: AnimationType
+    bandPlacement?: ConnectorBandPlacement
     scale: TweenNumber
     score: TweenNumber
     side: Side
@@ -97,13 +99,15 @@ export interface ConfidenceConnectorViz extends ConnectorVizBase {
     visible: TweenBoolean
 }
 
+// Always present in the snapshot. The connector may resolve to hidden output,
+// but its source claim and latent junction references remain stable.
 export interface DeliveryConnectorViz extends ConnectorVizBase {
     type: "deliveryConnector"
     id: DeliveryConnectorVizId
     confidenceConnectorId?: ConfidenceConnectorId
     confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
-    sourceClaimVizId?: ClaimVizId
+    sourceClaimVizId: ClaimVizId
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
 }

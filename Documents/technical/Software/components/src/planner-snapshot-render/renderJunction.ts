@@ -2,6 +2,7 @@ import type {
     JunctionViz,
     Side,
 } from "../../../app/src/app.js";
+import type { ResolvedJunctionLayout } from "../../../app/src/planner/resolveSnapshotScoreFlowLayout.ts";
 
 import { boundsFromCenteredRect } from "./bounds";
 import {
@@ -38,37 +39,27 @@ export type JunctionRenderModel = {
 };
 
 export function buildJunctionRenderModel(args: {
+    layout?: ResolvedJunctionLayout;
     visual: JunctionViz;
     percent: number;
     side: Side;
-}): JunctionRenderModel | undefined {
-    const scale = Math.max(0, resolveTweenNumber(args.visual.scale, args.percent));
+}): JunctionRenderModel {
     const opacity = resolvePresenceOpacity(args.visual.scale, args.percent)
         * resolveTweenBooleanOpacity(args.visual.visible, args.percent);
-
-    if (scale <= 0 || opacity <= 0) {
-        return undefined;
-    }
-
-    const center = resolveTweenPoint(args.visual.position, args.percent);
-    const centerX = center.x;
-    const centerY = center.y;
-    const width = Math.max(0, resolveTweenNumber(args.visual.width, args.percent));
-    const leftHeight = Math.max(0, resolveTweenNumber(args.visual.leftHeight, args.percent));
-    const rightHeight = Math.max(0, resolveTweenNumber(args.visual.rightHeight, args.percent));
+    const layout = args.layout ?? resolveJunctionLayoutFromVisual(args.visual, args.percent);
 
     return {
-        bounds: boundsFromCenteredRect(centerX, centerY, width, Math.max(leftHeight, rightHeight)),
-        centerX,
-        centerY,
+        bounds: boundsFromCenteredRect(layout.centerX, layout.centerY, layout.width, Math.max(layout.leftHeight, layout.rightHeight)),
+        centerX: layout.centerX,
+        centerY: layout.centerY,
         id: args.visual.id,
         junctionAggregatorVizId: String(args.visual.junctionAggregatorVizId),
-        leftHeight,
+        leftHeight: layout.leftHeight,
         opacity,
-        rightHeight,
+        rightHeight: layout.rightHeight,
         scoreNodeId: args.visual.scoreNodeId ? String(args.visual.scoreNodeId) : undefined,
         side: args.side,
-        width,
+        width: layout.width,
     };
 }
 
@@ -109,4 +100,16 @@ export function renderJunctionAdjustSnapshot(input: SnapshotRenderInput): Planne
         percent: input.percent,
         mode: "junctionAdjust",
     });
+}
+
+function resolveJunctionLayoutFromVisual(visual: JunctionViz, percent: number): ResolvedJunctionLayout {
+    const center = resolveTweenPoint(visual.position, percent);
+
+    return {
+        centerX: center.x,
+        centerY: center.y,
+        leftHeight: Math.max(0, resolveTweenNumber(visual.leftHeight, percent)),
+        rightHeight: Math.max(0, resolveTweenNumber(visual.rightHeight, percent)),
+        width: Math.max(0, resolveTweenNumber(visual.width, percent)),
+    };
 }

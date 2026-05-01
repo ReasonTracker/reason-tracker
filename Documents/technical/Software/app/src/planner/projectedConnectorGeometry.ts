@@ -8,6 +8,8 @@ import type { TweenNumber, TweenPoint } from "../utils.ts";
 const CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN = 0.2;
 /** Preferred share of the geometry-allowed bend radius for diagonal connectors. */
 const CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX = 1;
+/** Largest end-to-end vertical delta still treated as a direct connector instead of an angled route. */
+const MAX_STRAIGHT_CONNECTOR_VERTICAL_DELTA_PX = 1;
 /** Shortest horizontal run kept before a connector turns into its diagonal middle section. */
 const MIN_CONNECTOR_STRAIGHT_PX = 34;
 /** Smallest diagonal run preserved between the two connector stubs. */
@@ -16,6 +18,8 @@ const MIN_CONNECTOR_DIAGONAL_PX = 36;
 const MIN_CONNECTOR_BEND_RADIUS_PX = 12;
 /** Minimum inner bend radius as a fraction of the rendered pipe width. */
 const MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO = 0.3;
+/** Smallest visible bulge worth keeping before an angular bend falls back to sharp bend points. */
+const MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX = 0.1;
 
 /** Position of a connector junction along its confidence connector, measured from source claim to target claim. */
 export const PROJECTED_CONNECTOR_JUNCTION_PATH_PROGRESS = 0.2;
@@ -32,6 +36,19 @@ export type ProjectedJunctionGeometry = {
     leftHeight: number;
     rightHeight: number;
     width: number;
+};
+
+type AngularConnectorBendPoints = {
+    bendEnd: { x: number; y: number };
+    bendStart: { x: number; y: number };
+    endStraightLength: number;
+    startStraightLength: number;
+};
+
+type AngularConnectorBendGeometry = {
+    bendPoints: AngularConnectorBendPoints;
+    bendRadius: number;
+    diagonalTurnAngleRadians: number;
 };
 
 export function buildRelevanceConnectorCenterlinePoints(
@@ -87,37 +104,25 @@ export function buildAngularConnectorCenterlinePoints(
 ): SnapshotWaypoint[] {
     const startPoint = { x: readPointX(source), y: readPointY(source) };
     const endPoint = { x: readPointX(target), y: readPointY(target) };
-    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth, turnGuide);
 
-    if (!bendPoints) {
+    if (shouldUseStraightAngularConnector(startPoint, endPoint)) {
         return [createWaypoint(startPoint), createWaypoint(endPoint)];
     }
 
-    const diagonalDeltaX = Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x);
-    const diagonalDeltaY = Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y);
-    const diagonalLength = Math.hypot(diagonalDeltaX, diagonalDeltaY);
-    const bendRadius = resolveDiagonalConnectorBendRadius(
-        bendPoints.startStraightLength,
-        bendPoints.endStraightLength,
-        diagonalLength,
-        Math.atan2(diagonalDeltaY, diagonalDeltaX),
-        getMinimumCenterlineBendRadius(pipeWidth),
-        turnGuide?.preferredBendRadius,
-    );
+    const bendGeometry = resolveAngularConnectorBendGeometry(startPoint, endPoint, pipeWidth, turnGuide);
 
-    if (bendRadius < 8) {
-        return [
-            createWaypoint(startPoint),
-            createWaypoint(bendPoints.bendStart),
-            createWaypoint(bendPoints.bendEnd),
-            createWaypoint(endPoint),
-        ];
+    if (!bendGeometry) {
+        return [createWaypoint(startPoint), createWaypoint(endPoint)];
+    }
+
+    if (!shouldRoundAngularConnectorBends(bendGeometry)) {
+        return buildAngularConnectorSharpBendWaypoints(startPoint, bendGeometry.bendPoints, endPoint);
     }
 
     return [
         createWaypoint(startPoint),
-        createWaypoint({ ...bendPoints.bendStart, radius: bendRadius }),
-        createWaypoint({ ...bendPoints.bendEnd, radius: bendRadius }),
+        createWaypoint({ ...bendGeometry.bendPoints.bendStart, radius: bendGeometry.bendRadius }),
+        createWaypoint({ ...bendGeometry.bendPoints.bendEnd, radius: bendGeometry.bendRadius }),
         createWaypoint(endPoint),
     ];
 }
@@ -214,27 +219,82 @@ export function getAngularConnectorTurnGuide(
     endPoint: { x: number; y: number },
     pipeWidth: number,
 ): ConnectorTurnGuide | undefined {
-    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth, undefined);
+    if (shouldUseStraightAngularConnector(startPoint, endPoint)) {
+        return undefined;
+    }
 
-    return bendPoints
+    const bendGeometry = resolveAngularConnectorBendGeometry(startPoint, endPoint, pipeWidth, undefined);
+
+    return bendGeometry
         ? {
-            preferredBendRadius: resolveDiagonalConnectorBendRadius(
-                bendPoints.startStraightLength,
-                bendPoints.endStraightLength,
-                Math.hypot(
-                    bendPoints.bendStart.x - bendPoints.bendEnd.x,
-                    bendPoints.bendStart.y - bendPoints.bendEnd.y,
-                ),
-                Math.atan2(
-                    Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y),
-                    Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x),
-                ),
-                getMinimumCenterlineBendRadius(pipeWidth),
-            ),
-            returnTurnX: bendPoints.bendEnd.x,
-            turnStartX: bendPoints.bendStart.x,
+            preferredBendRadius: shouldRoundAngularConnectorBends(bendGeometry)
+                ? bendGeometry.bendRadius
+                : 0,
+            returnTurnX: bendGeometry.bendPoints.bendEnd.x,
+            turnStartX: bendGeometry.bendPoints.bendStart.x,
         }
         : undefined;
+}
+
+function buildAngularConnectorSharpBendWaypoints(
+    startPoint: { x: number; y: number },
+    bendPoints: AngularConnectorBendPoints,
+    endPoint: { x: number; y: number },
+): SnapshotWaypoint[] {
+    return [
+        createWaypoint(startPoint),
+        createWaypoint(bendPoints.bendStart),
+        createWaypoint(bendPoints.bendEnd),
+        createWaypoint(endPoint),
+    ];
+}
+
+function resolveAngularConnectorBendGeometry(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    pipeWidth: number,
+    turnGuide: ConnectorTurnGuide | undefined,
+): AngularConnectorBendGeometry | undefined {
+    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth, turnGuide);
+
+    if (!bendPoints) {
+        return undefined;
+    }
+
+    const diagonalDeltaX = Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x);
+    const diagonalDeltaY = Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y);
+    const diagonalTurnAngleRadians = Math.atan2(diagonalDeltaY, diagonalDeltaX);
+
+    return {
+        bendPoints,
+        bendRadius: resolveDiagonalConnectorBendRadius(
+            bendPoints.startStraightLength,
+            bendPoints.endStraightLength,
+            Math.hypot(diagonalDeltaX, diagonalDeltaY),
+            diagonalTurnAngleRadians,
+            getMinimumCenterlineBendRadius(pipeWidth),
+            turnGuide?.preferredBendRadius,
+        ),
+        diagonalTurnAngleRadians,
+    };
+}
+
+function shouldUseStraightAngularConnector(
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+): boolean {
+    return Math.abs(startPoint.y - endPoint.y) <= MAX_STRAIGHT_CONNECTOR_VERTICAL_DELTA_PX;
+}
+
+function shouldRoundAngularConnectorBends(
+    bendGeometry: AngularConnectorBendGeometry,
+): boolean {
+    if (!Number.isFinite(bendGeometry.bendRadius) || bendGeometry.bendRadius < 8) {
+        return false;
+    }
+
+    const sagitta = bendGeometry.bendRadius * (1 - Math.cos(bendGeometry.diagonalTurnAngleRadians / 2));
+    return sagitta >= MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX;
 }
 
 function createWaypoint(args: { x: number; y: number; radius?: number }): SnapshotWaypoint {
@@ -248,12 +308,7 @@ function resolveAngularConnectorBendPoints(
     endPoint: { x: number; y: number },
     pipeWidth: number,
     turnGuide: ConnectorTurnGuide | undefined,
-): {
-    bendEnd: { x: number; y: number };
-    bendStart: { x: number; y: number };
-    endStraightLength: number;
-    startStraightLength: number;
-} | undefined {
+): AngularConnectorBendPoints | undefined {
     if (turnGuide) {
         const guidedStartStraightLength = startPoint.x - turnGuide.turnStartX;
         const guidedEndStraightLength = turnGuide.returnTurnX - endPoint.x;
@@ -349,7 +404,7 @@ function getMaximumDiagonalCornerBendRadius(
         return 0;
     }
 
-    return Math.min(startStraightLength, endStraightLength, diagonalLength) / tangentFactor;
+    return Math.min(startStraightLength, endStraightLength, diagonalLength / 2) / tangentFactor;
 }
 
 function resolveOrthogonalConnectorBendRadius(

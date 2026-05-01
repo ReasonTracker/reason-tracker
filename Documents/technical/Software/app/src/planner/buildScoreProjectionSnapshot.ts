@@ -13,6 +13,7 @@ import type {
     ClaimAggregatorVizId,
     ClaimViz,
     ClaimVizId,
+    ConnectorBandPlacement,
     ConfidenceConnectorViz,
     ConfidenceConnectorVizId,
     DeliveryConnectorViz,
@@ -35,6 +36,7 @@ import {
     getPlannerPipeWidth,
     getPlannerVerticalGap,
 } from "./plannerVisualGeometry.ts";
+import { buildDeliveryStackLayout } from "./deliveryStackLayout.ts";
 import {
     type ProjectedJunctionGeometry,
     PROJECTED_CONNECTOR_JUNCTION_PATH_PROGRESS,
@@ -77,8 +79,13 @@ type ClaimLanePlan = {
     rootFamilies: ClaimLaneFamilyPlan[];
 };
 
+export type ScoreProjectionConnectorBandPolicy = {
+    mainBySide?: Partial<Record<Side, ConnectorBandPlacement>>;
+};
+
 export type ScoreProjectionSnapshotOptions = {
     claimById?: Partial<Record<ClaimId, Claim>>;
+    connectorBandPolicy?: ScoreProjectionConnectorBandPolicy;
     confidenceConnectorIdByScoreNodeId?: Partial<Record<ScoreNodeId, ConfidenceConnectorId>>;
     confidenceConnectorById?: Partial<Record<ConfidenceConnectorId, ConfidenceConnector>>;
     relevanceConnectorIdByScoreNodeId?: Partial<Record<ScoreNodeId, RelevanceConnectorId>>;
@@ -118,11 +125,12 @@ export function buildScoreProjectionSnapshot(args: {
         sourceScaleByScoreNodeId,
     );
     const sideByScoreNodeId = buildSideByScoreNodeId(graph, rootScoreNodeIds);
-    const junctionLaneYByScoreNodeId = buildJunctionLaneYByScoreNodeId(
+    const deliveryStackLayout = buildScoreDeliveryStackLayout(
         graph,
         rootScoreNodeIds,
         centerYByScoreNodeId,
         sourceScaleByScoreNodeId,
+        args.scores,
     );
 
     const snapshot: Snapshot = {
@@ -139,7 +147,6 @@ export function buildScoreProjectionSnapshot(args: {
     const claimAggregatorPositionByScoreNodeId = new Map<ScoreNodeId, TweenPoint>();
     const junctionPositionByScoreNodeId = new Map<ScoreNodeId, TweenPoint>();
     const junctionAggregatorPositionByScoreNodeId = new Map<ScoreNodeId, TweenPoint>();
-    const deliveryConnectorIdsByParentScoreNodeId = new Map<ScoreNodeId, DeliveryConnectorVizId[]>();
     const confidencePlans: ProjectedConfidencePlan[] = [];
     const relevanceConnectorIdsByTargetScoreNodeId = new Map<ScoreNodeId, RelevanceConnectorVizId[]>();
 
@@ -213,9 +220,11 @@ export function buildScoreProjectionSnapshot(args: {
             x: childClaimLeftX,
             y: readPointY(childPosition),
         });
+        const targetCenterY = deliveryStackLayout.centerYById.get(scoreNodeId)
+            ?? readPointY(parentPosition);
         const targetPoint = createPoint({
             x: parentClaimRightX,
-            y: junctionLaneYByScoreNodeId[scoreNodeId] ?? readPointY(parentPosition),
+            y: targetCenterY,
         });
         const sourcePipeWidth = readPipeWidth(childScale);
         const deliveryPipeWidth = readPipeWidth(childScale);
@@ -285,6 +294,7 @@ export function buildScoreProjectionSnapshot(args: {
 
     for (const plan of confidencePlans) {
         snapshot.confidenceConnectors[toConfidenceConnectorVizId(plan.scoreNodeId)] = buildConfidenceConnectorViz({
+            bandPlacement: readMainConnectorBandPlacement(plan.side, args.options?.connectorBandPolicy),
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
             confidenceConnector: plan.confidenceConnector,
@@ -297,21 +307,17 @@ export function buildScoreProjectionSnapshot(args: {
         });
 
         snapshot.deliveryConnectors[toDeliveryConnectorVizId(plan.scoreNodeId)] = buildDeliveryConnectorViz({
+            bandPlacement: readMainConnectorBandPlacement(plan.side, args.options?.connectorBandPolicy),
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
             confidenceConnector: plan.confidenceConnector,
             side: plan.side,
             scale: plan.childScale,
             score: readScoreValue(args.scores, plan.scoreNodeId),
-            sourceClaimVizId: plan.hasTargetingRelevance ? undefined : toClaimVizId(plan.scoreNodeId),
+            sourceClaimVizId: toClaimVizId(plan.scoreNodeId),
             sourceJunctionVizId: toJunctionVizId(plan.scoreNodeId),
             targetClaimVizId: toClaimVizId(plan.targetScoreNodeId),
         });
-
-        deliveryConnectorIdsByParentScoreNodeId.set(plan.targetScoreNodeId, [
-            ...(deliveryConnectorIdsByParentScoreNodeId.get(plan.targetScoreNodeId) ?? []),
-            toDeliveryConnectorVizId(plan.scoreNodeId),
-        ]);
     }
 
     for (const scoreNodeId of orderScoreNodeIds(graph, rootScoreNodeIds)) {
@@ -328,6 +334,7 @@ export function buildScoreProjectionSnapshot(args: {
             : undefined;
 
         snapshot.relevanceConnectors[toRelevanceConnectorVizId(scoreNodeId)] = buildRelevanceConnectorViz({
+            bandPlacement: readDefaultConnectorBandPlacement(),
             scoreNodeId,
             relevanceConnectorId,
             relevanceConnector,
@@ -350,7 +357,10 @@ export function buildScoreProjectionSnapshot(args: {
         if (claimAggregator) {
             snapshot.claimAggregators[toClaimAggregatorVizId(scoreNodeId)] = {
                 ...claimAggregator,
-                deliveryConnectorVizIds: sortIds(deliveryConnectorIdsByParentScoreNodeId.get(scoreNodeId) ?? []),
+                deliveryConnectorVizIds: (
+                    deliveryStackLayout.orderedIdsByTargetId.get(scoreNodeId)
+                    ?? []
+                ).map(toDeliveryConnectorVizId),
             };
         }
 
@@ -642,38 +652,36 @@ function getClaimLaneFamilyRootScoreNodeId(family: ClaimLaneFamilyPlan): ScoreNo
     return rootScoreNodeId;
 }
 
-function buildJunctionLaneYByScoreNodeId(
+function buildScoreDeliveryStackLayout(
     graph: ScoreGraph,
     rootScoreNodeIds: readonly ScoreNodeId[],
     centerYByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
     scoreScaleByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
-): Partial<Record<ScoreNodeId, number>> {
-    const junctionLaneYByScoreNodeId: Partial<Record<ScoreNodeId, number>> = {};
-
-    for (const scoreNodeId of orderScoreNodeIds(graph, rootScoreNodeIds)) {
+    scores: Scores,
+): {
+    centerYById: ReadonlyMap<ScoreNodeId, number>;
+    orderedIdsByTargetId: ReadonlyMap<ScoreNodeId, readonly ScoreNodeId[]>;
+} {
+    const members = orderScoreNodeIds(graph, rootScoreNodeIds).flatMap((scoreNodeId) => {
+        const targetCenterY = centerYByScoreNodeId[scoreNodeId] ?? 0;
         const scoreChildNodeIds = getOrderedChildScoreNodeIds(graph, scoreNodeId).filter(
             (childScoreNodeId) => graph.nodes[childScoreNodeId]?.affects === "Score",
         );
 
-        if (scoreChildNodeIds.length === 0) {
-            continue;
-        }
+        return scoreChildNodeIds.map((childScoreNodeId, index) => ({
+            id: childScoreNodeId,
+            sourceCenterY: centerYByScoreNodeId[childScoreNodeId] ?? targetCenterY,
+            stackHeight: readDeliveryStackHeight(
+                scoreScaleByScoreNodeId[childScoreNodeId] ?? 1,
+                readScoreValue(scores, childScoreNodeId),
+            ),
+            stableOrder: index,
+            targetCenterY,
+            targetId: scoreNodeId,
+        }));
+    });
 
-        const targetCenterY = centerYByScoreNodeId[scoreNodeId] ?? 0;
-        const laneHeight = readPipeWidth(scoreScaleByScoreNodeId[scoreNodeId] ?? 1);
-        const laneHeights = scoreChildNodeIds.map(() => laneHeight);
-        const totalLaneHeight = laneHeights.reduce((sum, laneHeight) => sum + laneHeight, 0);
-        let nextLaneStartY = targetCenterY - totalLaneHeight / 2;
-
-        scoreChildNodeIds.forEach((childScoreNodeId, index) => {
-            const laneHeight = laneHeights[index] ?? readPipeWidth(scoreScaleByScoreNodeId[scoreNodeId] ?? 1);
-
-            junctionLaneYByScoreNodeId[childScoreNodeId] = nextLaneStartY + laneHeight / 2;
-            nextLaneStartY += laneHeight;
-        });
-    }
-
-    return junctionLaneYByScoreNodeId;
+    return buildDeliveryStackLayout(members);
 }
 
 function buildSideByScoreNodeId(
@@ -825,6 +833,7 @@ function buildJunctionAggregatorViz(args: {
 }
 
 function buildConfidenceConnectorViz(args: {
+    bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
     confidenceConnector?: ConfidenceConnector;
@@ -845,6 +854,7 @@ function buildConfidenceConnectorViz(args: {
         sourceClaimVizId: args.sourceClaimVizId,
         targetJunctionVizId: args.targetJunctionVizId,
         visible: toTweenBoolean(args.visible),
+        bandPlacement: args.bandPlacement,
         scale: args.scale,
         score: args.score,
         side: args.side,
@@ -853,13 +863,14 @@ function buildConfidenceConnectorViz(args: {
 }
 
 function buildDeliveryConnectorViz(args: {
+    bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
     confidenceConnector?: ConfidenceConnector;
     side: Side;
     scale: number;
     score: number;
-    sourceClaimVizId?: ClaimVizId;
+    sourceClaimVizId: ClaimVizId;
     sourceJunctionVizId: JunctionVizId;
     targetClaimVizId: ClaimVizId;
 }): DeliveryConnectorViz {
@@ -873,6 +884,7 @@ function buildDeliveryConnectorViz(args: {
         sourceClaimVizId: args.sourceClaimVizId,
         sourceJunctionVizId: args.sourceJunctionVizId,
         targetClaimVizId: args.targetClaimVizId,
+        bandPlacement: args.bandPlacement,
         scale: args.scale,
         score: args.score,
         side: args.side,
@@ -881,6 +893,7 @@ function buildDeliveryConnectorViz(args: {
 }
 
 function buildRelevanceConnectorViz(args: {
+    bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     relevanceConnectorId?: RelevanceConnectorId;
     relevanceConnector?: RelevanceConnector;
@@ -899,11 +912,23 @@ function buildRelevanceConnectorViz(args: {
         scoreNodeId: args.scoreNodeId,
         sourceClaimVizId: args.sourceClaimVizId,
         targetJunctionAggregatorVizId: args.targetJunctionAggregatorVizId,
+        bandPlacement: args.bandPlacement,
         scale: args.scale,
         score: args.score,
         side: args.side,
         direction: "sourceToTarget",
     };
+}
+
+function readMainConnectorBandPlacement(
+    side: Side,
+    connectorBandPolicy: ScoreProjectionConnectorBandPolicy | undefined,
+): ConnectorBandPlacement {
+    return connectorBandPolicy?.mainBySide?.[side] ?? readDefaultConnectorBandPlacement();
+}
+
+function readDefaultConnectorBandPlacement(): ConnectorBandPlacement {
+    return "lowerSide";
 }
 
 function readClaimSpan(scale: number): number {
@@ -914,8 +939,20 @@ function readPipeWidth(scale: number): number {
     return getPlannerPipeWidth(scale);
 }
 
+function readDeliveryStackHeight(scale: number, score: number): number {
+    return readPipeWidth(scale) * clampDeliveryStackScore(score);
+}
+
 function readScoreValue(scores: Scores, scoreNodeId: ScoreNodeId): number {
     return scores[scoreNodeId]?.value ?? 0;
+}
+
+function clampDeliveryStackScore(score: number): number {
+    if (!Number.isFinite(score)) {
+        return 0;
+    }
+
+    return Math.min(1, Math.max(0, score));
 }
 
 function createPoint(args: { x: number; y: number }): TweenPoint {

@@ -7,6 +7,8 @@
 // AGENT NOTE: Keep tunable numeric geometry constants grouped here.
 /** Small tolerance for treating numeric values as effectively equal. */
 const GEOMETRY_EPSILON = 1e-6;
+/** Smallest arc bulge that is still worth rendering as an SVG arc instead of a line. */
+const MIN_RENDERABLE_ARC_SAGITTA_PX = 0.01;
 /** Maximum routed-path span represented by one sampled segment in a curved transition. */
 const CURVED_TRANSITION_SAMPLE_LENGTH_PX = 12;
 /** Minimum number of sampled segments used to approximate a curved transition. */
@@ -166,6 +168,19 @@ interface CenterlineEvaluation {
 	tangent: Point;
 }
 
+interface PreparedFilletCorner {
+	bisectorDirection: Point;
+	cornerPoint: Point;
+	incomingDirection: Point;
+	outgoingDirection: Point;
+	sharedSegmentClampReported: boolean;
+	tangentDistance: number;
+	tangentFactor: number;
+	turnAngle: number;
+	turnSign: number;
+	waypointIndex: number;
+}
+
 export function buildPathGeometry(input: PathGeometryInput): PathGeometry {
 	const issues: PathGeometryIssue[] = [];
 
@@ -231,17 +246,25 @@ function buildCenterlineParts(
 	issues: PathGeometryIssue[],
 ): { parts: CenterlinePart[]; totalLength: number } {
 	const parts: CenterlinePart[] = [];
+	const preparedFilletCorners = prepareFilletCorners(points, issues);
 	let currentPoint = points[0];
 	let distance = 0;
+	let previousStepEndedWithFillet = false;
 
 	for (let waypointIndex = 1; waypointIndex < points.length - 1; waypointIndex += 1) {
-		const previousPoint = points[waypointIndex - 1];
 		const cornerPoint = points[waypointIndex];
-		const nextPoint = points[waypointIndex + 1];
-		const fillet = buildFilletCorner(previousPoint, cornerPoint, nextPoint, waypointIndex, issues);
+		const fillet = resolvePreparedFilletCorner(preparedFilletCorners[waypointIndex]);
 
 		const lineEndPoint = fillet?.startPoint ?? cornerPoint;
-		distance = appendLinePart(parts, currentPoint, lineEndPoint, distance, waypointIndex - 1, issues);
+		distance = appendLinePart(
+			parts,
+			currentPoint,
+			lineEndPoint,
+			distance,
+			waypointIndex - 1,
+			issues,
+			previousStepEndedWithFillet || !!fillet,
+		);
 
 		if (fillet) {
 			const arcLength = Math.abs(fillet.deltaAngle) * fillet.radius;
@@ -256,10 +279,12 @@ function buildCenterlineParts(
 			});
 			distance += arcLength;
 			currentPoint = fillet.endPoint;
+			previousStepEndedWithFillet = true;
 			continue;
 		}
 
 		currentPoint = cornerPoint;
+		previousStepEndedWithFillet = false;
 	}
 
 	distance = appendLinePart(
@@ -269,27 +294,39 @@ function buildCenterlineParts(
 		distance,
 		points.length - 2,
 		issues,
+		previousStepEndedWithFillet,
 	);
 
 	return { parts, totalLength: distance };
 }
 
-function buildFilletCorner(
+function prepareFilletCorners(
+	points: Waypoint[],
+	issues: PathGeometryIssue[],
+): Array<PreparedFilletCorner | undefined> {
+	const preparedFilletCorners = new Array<PreparedFilletCorner | undefined>(points.length).fill(undefined);
+
+	for (let waypointIndex = 1; waypointIndex < points.length - 1; waypointIndex += 1) {
+		preparedFilletCorners[waypointIndex] = prepareFilletCorner(
+			points[waypointIndex - 1],
+			points[waypointIndex],
+			points[waypointIndex + 1],
+			waypointIndex,
+			issues,
+		);
+	}
+
+	clampPreparedFilletCornersToSharedSegments(points, preparedFilletCorners, issues);
+	return preparedFilletCorners;
+}
+
+function prepareFilletCorner(
 	previousPoint: Waypoint,
 	cornerPoint: Waypoint,
 	nextPoint: Waypoint,
 	waypointIndex: number,
 	issues: PathGeometryIssue[],
-):
-	| {
-		center: Point;
-		radius: number;
-		startPoint: Point;
-		endPoint: Point;
-		startAngle: number;
-		deltaAngle: number;
-	}
-	| undefined {
+): PreparedFilletCorner | undefined {
 	if (!cornerPoint.radius || cornerPoint.radius <= GEOMETRY_EPSILON) {
 		return undefined;
 	}
@@ -359,8 +396,6 @@ function buildFilletCorner(
 	}
 
 	const tangentDistance = radius * tangentFactor;
-	const startPoint = subtractPoint(cornerPoint, scalePoint(incomingDirection, tangentDistance));
-	const endPoint = addPoint(cornerPoint, scalePoint(outgoingDirection, tangentDistance));
 	const turnSign = turnCross > 0 ? 1 : -1;
 	const inwardNormalA = turnSign > 0 ? leftNormal(incomingDirection) : rightNormal(incomingDirection);
 	const inwardNormalB = turnSign > 0 ? leftNormal(outgoingDirection) : rightNormal(outgoingDirection);
@@ -376,11 +411,117 @@ function buildFilletCorner(
 		return undefined;
 	}
 
-	const centerDistance = radius / Math.cos(turnAngle / 2);
-	const center = addPoint(cornerPoint, scalePoint(bisectorDirection, centerDistance));
+	return {
+		bisectorDirection,
+		cornerPoint,
+		incomingDirection,
+		outgoingDirection,
+		sharedSegmentClampReported: false,
+		tangentDistance,
+		tangentFactor,
+		turnAngle,
+		turnSign,
+		waypointIndex,
+	};
+}
+
+function clampPreparedFilletCornersToSharedSegments(
+	points: Waypoint[],
+	preparedFilletCorners: Array<PreparedFilletCorner | undefined>,
+	issues: PathGeometryIssue[],
+): void {
+	for (let segmentIndex = 0; segmentIndex < points.length - 1; segmentIndex += 1) {
+		const segmentLength = distanceBetweenPoints(points[segmentIndex], points[segmentIndex + 1]);
+		const outgoingCorner = segmentIndex > 0 ? preparedFilletCorners[segmentIndex] : undefined;
+		const incomingCorner = segmentIndex + 1 < points.length - 1
+			? preparedFilletCorners[segmentIndex + 1]
+			: undefined;
+		const requiredLength = (outgoingCorner?.tangentDistance ?? 0) + (incomingCorner?.tangentDistance ?? 0);
+
+		if (segmentLength <= GEOMETRY_EPSILON || requiredLength <= segmentLength + GEOMETRY_EPSILON) {
+			continue;
+		}
+
+		const scale = segmentLength / requiredLength;
+		clampPreparedFilletCornerTangentDistance(
+			outgoingCorner,
+			outgoingCorner ? outgoingCorner.tangentDistance * scale : 0,
+			issues,
+		);
+		clampPreparedFilletCornerTangentDistance(
+			incomingCorner,
+			incomingCorner ? incomingCorner.tangentDistance * scale : 0,
+			issues,
+		);
+	}
+}
+
+function clampPreparedFilletCornerTangentDistance(
+	preparedFilletCorner: PreparedFilletCorner | undefined,
+	nextTangentDistance: number,
+	issues: PathGeometryIssue[],
+): void {
+	if (!preparedFilletCorner) {
+		return;
+	}
+
+	const clampedTangentDistance = clampNumber(nextTangentDistance, 0, preparedFilletCorner.tangentDistance);
+	if (preparedFilletCorner.tangentDistance - clampedTangentDistance <= GEOMETRY_EPSILON) {
+		return;
+	}
+
+	preparedFilletCorner.tangentDistance = clampedTangentDistance;
+
+	if (preparedFilletCorner.sharedSegmentClampReported) {
+		return;
+	}
+
+	preparedFilletCorner.sharedSegmentClampReported = true;
+	issues.push({
+		code: "radius-clamped",
+		message: "A corner radius was clamped so adjacent fillets fit within their shared segment.",
+		severity: "warning",
+		waypointIndex: preparedFilletCorner.waypointIndex,
+	});
+}
+
+function resolvePreparedFilletCorner(
+	preparedFilletCorner: PreparedFilletCorner | undefined,
+):
+	| {
+		center: Point;
+		radius: number;
+		startPoint: Point;
+		endPoint: Point;
+		startAngle: number;
+		deltaAngle: number;
+	}
+	| undefined {
+	if (!preparedFilletCorner || preparedFilletCorner.tangentDistance <= GEOMETRY_EPSILON) {
+		return undefined;
+	}
+
+	const radius = preparedFilletCorner.tangentDistance / preparedFilletCorner.tangentFactor;
+	if (radius <= GEOMETRY_EPSILON) {
+		return undefined;
+	}
+
+	const startPoint = subtractPoint(
+		preparedFilletCorner.cornerPoint,
+		scalePoint(preparedFilletCorner.incomingDirection, preparedFilletCorner.tangentDistance),
+	);
+	const endPoint = addPoint(
+		preparedFilletCorner.cornerPoint,
+		scalePoint(preparedFilletCorner.outgoingDirection, preparedFilletCorner.tangentDistance),
+	);
+	const centerDistance = radius / Math.cos(preparedFilletCorner.turnAngle / 2);
+	const center = addPoint(
+		preparedFilletCorner.cornerPoint,
+		scalePoint(preparedFilletCorner.bisectorDirection, centerDistance),
+	);
 	const startAngle = Math.atan2(startPoint.y - center.y, startPoint.x - center.x);
 	const endAngle = Math.atan2(endPoint.y - center.y, endPoint.x - center.x);
-	const deltaAngle = resolveArcDeltaAngle(startAngle, endAngle, turnSign);
+	const deltaAngle = resolveArcDeltaAngle(startAngle, endAngle, preparedFilletCorner.turnSign);
 
 	return { center, radius, startPoint, endPoint, startAngle, deltaAngle };
 }
@@ -682,6 +823,11 @@ function appendConstantOffsetPart(
 	const startAngle = calculateAngleAtDistance(part, startDistance);
 	const endAngle = calculateAngleAtDistance(part, endDistance);
 	const deltaAngle = resolveArcDeltaAngle(startAngle, endAngle, part.deltaAngle >= 0 ? 1 : -1);
+	if (shouldRenderArcAsLine(boundaryRadius, deltaAngle)) {
+		appendLineCommand(commands, endPoint);
+		return;
+	}
+
 	commands.push({
 		kind: "arc",
 		rx: boundaryRadius,
@@ -767,6 +913,15 @@ function calculateBoundaryArcRadius(
 	return part.deltaAngle >= 0 ? part.radius - offset : part.radius + offset;
 }
 
+function shouldRenderArcAsLine(boundaryRadius: number, deltaAngle: number): boolean {
+	if (boundaryRadius <= GEOMETRY_EPSILON) {
+		return true;
+	}
+
+	const sagitta = boundaryRadius * (1 - Math.cos(Math.abs(deltaAngle) / 2));
+	return sagitta <= MIN_RENDERABLE_ARC_SAGITTA_PX;
+}
+
 function findCenterlinePartAtDistance(
 	parts: CenterlinePart[],
 	distance: number,
@@ -836,10 +991,15 @@ function appendLinePart(
 	startDistance: number,
 	segmentIndex: number,
 	issues: PathGeometryIssue[],
+	allowCollapsed: boolean = false,
 ): number {
 	const segmentLength = distanceBetweenPoints(startPoint, endPoint);
 
 	if (segmentLength <= GEOMETRY_EPSILON) {
+		if (allowCollapsed) {
+			return startDistance;
+		}
+
 		issues.push({
 			code: "degenerate-segment",
 			message: "A degenerate centerline segment was ignored.",

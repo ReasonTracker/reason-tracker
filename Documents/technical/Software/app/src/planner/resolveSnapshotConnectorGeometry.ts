@@ -1,33 +1,34 @@
-import type { TweenNumber, TweenPoint } from "../utils.ts";
+import type { TweenNumber } from "../utils.ts";
 import type {
-    ClaimViz,
     ClaimVizId,
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
+    DeliveryConnectorVizId,
     JunctionAggregatorVizId,
-    JunctionViz,
     RelevanceConnectorViz,
     Snapshot,
     SnapshotWaypoint,
 } from "./Snapshot.ts";
 import {
-    getPlannerClaimWidth,
     getPlannerPipeWidth,
 } from "./plannerVisualGeometry.ts";
 import {
     buildAngularConnectorCenterlinePoints,
     buildConfidenceCenterlinePoints,
     buildRelevanceConnectorCenterlinePoints,
-    getAngularConnectorTurnGuide,
     getProjectedJunctionRelevanceTargetPoint,
     type ConnectorTurnGuide,
-    type ProjectedJunctionGeometry,
 } from "./projectedConnectorGeometry.ts";
+import {
+    buildResolvedSnapshotScoreFlowLayout,
+    type ResolvedClaimLayout,
+    type ResolvedConnectorPoint,
+    type ResolvedJunctionLayout,
+    type ResolvedSnapshotScoreFlowLayout,
+    usesVisibleDeliveryJunctionSource,
+} from "./resolveSnapshotScoreFlowLayout.ts";
 
-export type ResolvedConnectorPoint = {
-    x: number;
-    y: number;
-};
+export type { ResolvedConnectorPoint, ResolvedSnapshotScoreFlowLayout } from "./resolveSnapshotScoreFlowLayout.ts";
 
 export type ResolvedConnectorWaypoint = {
     x: number;
@@ -41,45 +42,21 @@ export type ResolvedSnapshotConnectorGeometry = {
     target: ResolvedConnectorPoint;
 };
 
-type ResolvedClaimLayout = {
-    centerX: number;
-    centerY: number;
-    leftX: number;
-    rightX: number;
-};
-
-type ResolvedJunctionLayout = ProjectedJunctionGeometry;
-
 export function buildResolvedSnapshotConnectorGeometryById(args: {
     snapshot: Snapshot;
     percent: number;
+    resolvedScoreFlowLayout?: ResolvedSnapshotScoreFlowLayout;
 }): ReadonlyMap<string, ResolvedSnapshotConnectorGeometry> {
-    const claimLayoutById = new Map<ClaimVizId, ResolvedClaimLayout>();
-
-    for (const visual of Object.values(args.snapshot.claims)) {
-        claimLayoutById.set(visual.id, resolveClaimLayout(visual, args.percent));
-    }
-
-    const junctionLayoutById = new Map<string, ResolvedJunctionLayout>();
-    const junctionLayoutByAggregatorVizId = new Map<JunctionAggregatorVizId, ResolvedJunctionLayout>();
-
-    for (const visual of Object.values(args.snapshot.junctions)) {
-        const layout = resolveJunctionLayout(visual, args.percent);
-        junctionLayoutById.set(String(visual.id), layout);
-        junctionLayoutByAggregatorVizId.set(visual.junctionAggregatorVizId, layout);
-    }
-
-    const deliveryTurnGuideByTargetClaimVizId = buildDeliveryTurnGuideByTargetClaimVizId({
-        claimLayoutById,
-        deliveryConnectors: args.snapshot.deliveryConnectors,
+    const resolvedScoreFlowLayout = args.resolvedScoreFlowLayout ?? buildResolvedSnapshotScoreFlowLayout({
+        snapshot: args.snapshot,
         percent: args.percent,
     });
     const geometryById = new Map<string, ResolvedSnapshotConnectorGeometry>();
 
     for (const visual of Object.values(args.snapshot.confidenceConnectors)) {
         const geometry = resolveConfidenceConnectorGeometry({
-            claimLayoutById,
-            junctionLayoutById,
+            claimLayoutById: resolvedScoreFlowLayout.claimLayoutById,
+            junctionLayoutById: resolvedScoreFlowLayout.junctionLayoutById,
             percent: args.percent,
             visual,
         });
@@ -91,9 +68,10 @@ export function buildResolvedSnapshotConnectorGeometryById(args: {
 
     for (const visual of Object.values(args.snapshot.deliveryConnectors)) {
         const geometry = resolveDeliveryConnectorGeometry({
-            claimLayoutById,
-            deliveryTurnGuideByTargetClaimVizId,
-            junctionLayoutById,
+            claimLayoutById: resolvedScoreFlowLayout.claimLayoutById,
+            deliveryTurnGuideByTargetClaimVizId: resolvedScoreFlowLayout.deliveryTurnGuideByTargetClaimVizId,
+            deliveryTargetPointByConnectorVizId: resolvedScoreFlowLayout.deliveryTargetPointByConnectorVizId,
+            junctionLayoutById: resolvedScoreFlowLayout.junctionLayoutById,
             percent: args.percent,
             visual,
         });
@@ -105,8 +83,8 @@ export function buildResolvedSnapshotConnectorGeometryById(args: {
 
     for (const visual of Object.values(args.snapshot.relevanceConnectors)) {
         const geometry = resolveRelevanceConnectorGeometry({
-            claimLayoutById,
-            junctionLayoutByAggregatorVizId,
+            claimLayoutById: resolvedScoreFlowLayout.claimLayoutById,
+            junctionLayoutByAggregatorVizId: resolvedScoreFlowLayout.junctionLayoutByAggregatorVizId,
             percent: args.percent,
             visual,
         });
@@ -117,80 +95,6 @@ export function buildResolvedSnapshotConnectorGeometryById(args: {
     }
 
     return geometryById;
-}
-
-function resolveClaimLayout(visual: ClaimViz, percent: number): ResolvedClaimLayout {
-    const center = resolveTweenPoint(visual.position, percent);
-    const width = getPlannerClaimWidth(Math.max(0, resolveTweenNumber(visual.scale, percent)));
-
-    return {
-        centerX: center.x,
-        centerY: center.y,
-        leftX: center.x - (width / 2),
-        rightX: center.x + (width / 2),
-    };
-}
-
-function resolveJunctionLayout(visual: JunctionViz, percent: number): ResolvedJunctionLayout {
-    const center = resolveTweenPoint(visual.position, percent);
-
-    return {
-        centerX: center.x,
-        centerY: center.y,
-        leftHeight: Math.max(0, resolveTweenNumber(visual.leftHeight, percent)),
-        rightHeight: Math.max(0, resolveTweenNumber(visual.rightHeight, percent)),
-        width: Math.max(0, resolveTweenNumber(visual.width, percent)),
-    };
-}
-
-function buildDeliveryTurnGuideByTargetClaimVizId(args: {
-    claimLayoutById: ReadonlyMap<ClaimVizId, ResolvedClaimLayout>;
-    deliveryConnectors: Snapshot["deliveryConnectors"];
-    percent: number;
-}): ReadonlyMap<ClaimVizId, ConnectorTurnGuide> {
-    const turnGuideByTargetClaimVizId = new Map<ClaimVizId, ConnectorTurnGuide>();
-
-    for (const visual of Object.values(args.deliveryConnectors)) {
-        if (!visual.sourceClaimVizId) {
-            continue;
-        }
-
-        const sourceClaim = args.claimLayoutById.get(visual.sourceClaimVizId);
-        const targetClaim = args.claimLayoutById.get(visual.targetClaimVizId);
-
-        if (!sourceClaim || !targetClaim) {
-            continue;
-        }
-
-        const guide = getAngularConnectorTurnGuide(
-            {
-                x: sourceClaim.leftX,
-                y: sourceClaim.centerY,
-            },
-            {
-                x: targetClaim.rightX,
-                y: targetClaim.centerY,
-            },
-            getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, args.percent))),
-        );
-
-        if (!guide) {
-            continue;
-        }
-
-        const currentGuide = turnGuideByTargetClaimVizId.get(visual.targetClaimVizId);
-        const nextGuide = !currentGuide || guide.turnStartX < currentGuide.turnStartX
-            ? guide
-            : currentGuide;
-
-        turnGuideByTargetClaimVizId.set(visual.targetClaimVizId, {
-            preferredBendRadius: Math.max(currentGuide?.preferredBendRadius ?? 0, guide.preferredBendRadius),
-            returnTurnX: nextGuide.returnTurnX,
-            turnStartX: nextGuide.turnStartX,
-        });
-    }
-
-    return turnGuideByTargetClaimVizId;
 }
 
 function resolveConfidenceConnectorGeometry(args: {
@@ -227,6 +131,7 @@ function resolveConfidenceConnectorGeometry(args: {
 function resolveDeliveryConnectorGeometry(args: {
     claimLayoutById: ReadonlyMap<ClaimVizId, ResolvedClaimLayout>;
     deliveryTurnGuideByTargetClaimVizId: ReadonlyMap<ClaimVizId, ConnectorTurnGuide>;
+    deliveryTargetPointByConnectorVizId: ReadonlyMap<DeliveryConnectorVizId, ResolvedConnectorPoint>;
     junctionLayoutById: ReadonlyMap<string, ResolvedJunctionLayout>;
     percent: number;
     visual: DeliveryConnectorViz;
@@ -238,26 +143,29 @@ function resolveDeliveryConnectorGeometry(args: {
     }
 
     const pipeWidth = getPlannerPipeWidth(resolveTweenNumber(args.visual.scale, args.percent));
-    const source = args.visual.sourceClaimVizId
-        ? resolveDeliveryClaimSource(args.claimLayoutById.get(args.visual.sourceClaimVizId))
-        : resolveDeliveryJunctionSource(args.junctionLayoutById.get(String(args.visual.sourceJunctionVizId)));
+    const sourceClaim = args.claimLayoutById.get(args.visual.sourceClaimVizId);
+    const sourceJunction = args.junctionLayoutById.get(String(args.visual.sourceJunctionVizId));
+    const useJunctionSource = usesVisibleDeliveryJunctionSource(sourceJunction);
+    const source = useJunctionSource
+        ? resolveDeliveryJunctionSource(sourceJunction)
+        : resolveDeliveryClaimSource(sourceClaim);
 
     if (!source) {
         return undefined;
     }
 
-    const target = {
+    const target = args.deliveryTargetPointByConnectorVizId.get(args.visual.id) ?? {
         x: targetClaim.rightX,
         y: targetClaim.centerY,
     };
-    const centerlinePoints = args.visual.sourceClaimVizId
-        ? buildConfidenceCenterlinePoints(
+    const centerlinePoints = useJunctionSource
+        ? buildAngularConnectorCenterlinePoints(source, target, pipeWidth)
+        : buildConfidenceCenterlinePoints(
             source,
             target,
             pipeWidth,
             args.deliveryTurnGuideByTargetClaimVizId.get(args.visual.targetClaimVizId),
-        )
-        : buildAngularConnectorCenterlinePoints(source, target, pipeWidth);
+        );
 
     return {
         centerlinePoints: toResolvedWaypointList(centerlinePoints),
@@ -331,13 +239,6 @@ function toResolvedWaypointList(waypoints: readonly SnapshotWaypoint[]): Resolve
         y: readTweenNumber(waypoint.y),
         radius: waypoint.radius === undefined ? undefined : readTweenNumber(waypoint.radius),
     }));
-}
-
-function resolveTweenPoint(point: TweenPoint, percent: number): ResolvedConnectorPoint {
-    return {
-        x: resolveTweenNumber(point.x, percent),
-        y: resolveTweenNumber(point.y, percent),
-    };
 }
 
 function resolveTweenNumber(value: TweenNumber, percent: number): number {
