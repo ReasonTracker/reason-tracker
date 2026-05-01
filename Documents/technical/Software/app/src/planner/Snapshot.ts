@@ -81,6 +81,8 @@ interface ConnectorVizBase {
     type: "confidenceConnector" | "deliveryConnector" | "relevanceConnector"
     animationType: AnimationType
     bandPlacement?: ConnectorBandPlacement
+    fluidRevealProgress: TweenNumber
+    pipeRevealProgress: TweenNumber
     scale: TweenNumber
     score: TweenNumber
     side: Side

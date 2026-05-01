@@ -433,7 +433,13 @@ function mergeClaimMap<TId extends string, TEntity extends { score: TweenNumber;
     return merged;
 }
 
-function mergeConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
+function mergeConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    score: TweenNumber;
+    scale: TweenNumber;
+}>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
@@ -453,8 +459,10 @@ function mergeConnectorMap<TId extends string, TEntity extends { animationType: 
             : {
                 ...after,
                 animationType: "uniform",
-                score: 0,
-                scale: 0,
+                fluidRevealProgress: 0,
+                pipeRevealProgress: 0,
+                score: after.score,
+                scale: after.scale,
             };
     }
 
@@ -856,14 +864,53 @@ function buildSproutJunctionAggregatorMap<TId extends string, TEntity extends { 
     return nextById;
 }
 
-function mergeConfidenceConnectorMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber; visible: boolean | { type: "tween/boolean"; from: boolean; to: boolean; }; animationType: "uniform" | "progressive" }>(
+function mergeConfidenceConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    score: TweenNumber;
+    scale: TweenNumber;
+    visible: boolean | { type: "tween/boolean"; from: boolean; to: boolean; };
+}>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
-    return mergeJunctionAggregatorMap(beforeById, afterById);
+    const merged: Record<TId, TEntity> = { ...beforeById };
+
+    for (const id of Object.keys(afterById) as TId[]) {
+        const before = beforeById[id];
+        const after = afterById[id];
+
+        merged[id] = before
+            ? {
+                ...after,
+                score: before.score,
+                scale: before.scale,
+                visible: before.visible,
+                animationType: "uniform",
+            }
+            : {
+                ...after,
+                fluidRevealProgress: 0,
+                pipeRevealProgress: 0,
+                score: after.score,
+                scale: after.scale,
+                visible: after.visible,
+                animationType: "uniform",
+            };
+    }
+
+    return merged;
 }
 
-function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends { score: TweenNumber; scale: TweenNumber; visible: TweenBoolean; animationType: "uniform" | "progressive" }>(
+function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    scale: TweenNumber;
+    score: TweenNumber;
+    visible: TweenBoolean;
+}>(
     beforeById: Record<TId, TEntity>,
     preparedById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -893,8 +940,10 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
         if (!before && after) {
             nextById[id] = {
                 ...prepared,
-                score: 0,
-                scale: tweenNumber(0, readTweenNumber(after.scale)),
+                fluidRevealProgress: 0,
+                pipeRevealProgress: tweenNumber(0, 1),
+                score: prepared.score,
+                scale: prepared.scale,
                 visible: tweenBoolean(false, readTweenBoolean(after.visible)),
                 animationType: "progressive",
             };
@@ -904,6 +953,8 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
         if (before && !after) {
             nextById[id] = {
                 ...prepared,
+                fluidRevealProgress: tweenNumber(1, 0),
+                pipeRevealProgress: tweenNumber(1, 0),
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
                 visible: tweenBoolean(readTweenBoolean(before.visible), false),
@@ -915,14 +966,26 @@ function buildSproutConfidenceConnectorMap<TId extends string, TEntity extends {
     return nextById;
 }
 
-function mergeDeliveryConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
+function mergeDeliveryConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    score: TweenNumber;
+    scale: TweenNumber;
+}>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {
     return mergeConnectorMap(beforeById, afterById);
 }
 
-function buildSproutConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
+function buildSproutConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    scale: TweenNumber;
+    score: TweenNumber;
+}>(
     beforeById: Record<TId, TEntity>,
     preparedById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
@@ -952,8 +1015,10 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { animation
             nextById[id] = {
                 ...prepared,
                 animationType: "progressive",
-                score: 0,
-                scale: tweenNumber(0, readTweenNumber(after.scale)),
+                fluidRevealProgress: 0,
+                pipeRevealProgress: tweenNumber(0, 1),
+                score: prepared.score,
+                scale: prepared.scale,
             };
             continue;
         }
@@ -962,6 +1027,8 @@ function buildSproutConnectorMap<TId extends string, TEntity extends { animation
             nextById[id] = {
                 ...prepared,
                 animationType: "progressive",
+                fluidRevealProgress: tweenNumber(1, 0),
+                pipeRevealProgress: tweenNumber(1, 0),
                 score: before.score,
                 scale: tweenNumber(readTweenNumber(before.scale), 0),
             };
@@ -1026,7 +1093,13 @@ function cloneSnapshot(snapshot: Snapshot): Snapshot {
     };
 }
 
-function mergeRelevanceConnectorMap<TId extends string, TEntity extends { animationType: "uniform" | "progressive"; score: TweenNumber; scale: TweenNumber }>(
+function mergeRelevanceConnectorMap<TId extends string, TEntity extends {
+    animationType: "uniform" | "progressive";
+    fluidRevealProgress: TweenNumber;
+    pipeRevealProgress: TweenNumber;
+    score: TweenNumber;
+    scale: TweenNumber;
+}>(
     beforeById: Record<TId, TEntity>,
     afterById: Record<TId, TEntity>,
 ): Record<TId, TEntity> {

@@ -78,6 +78,8 @@ function settleJunctionAggregatorViz(visual: JunctionAggregatorViz): JunctionAgg
 function settleConfidenceConnectorViz(visual: ConfidenceConnectorViz): ConfidenceConnectorViz {
     return {
         ...visual,
+        fluidRevealProgress: settleTweenNumber(visual.fluidRevealProgress),
+        pipeRevealProgress: settleTweenNumber(visual.pipeRevealProgress),
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
         visible: settleTweenBoolean(visual.visible),
@@ -87,6 +89,8 @@ function settleConfidenceConnectorViz(visual: ConfidenceConnectorViz): Confidenc
 function settleDeliveryConnectorViz(visual: DeliveryConnectorViz): DeliveryConnectorViz {
     return {
         ...visual,
+        fluidRevealProgress: settleTweenNumber(visual.fluidRevealProgress),
+        pipeRevealProgress: settleTweenNumber(visual.pipeRevealProgress),
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
     };
@@ -95,6 +99,8 @@ function settleDeliveryConnectorViz(visual: DeliveryConnectorViz): DeliveryConne
 function settleRelevanceConnectorViz(visual: RelevanceConnectorViz): RelevanceConnectorViz {
     return {
         ...visual,
+        fluidRevealProgress: settleTweenNumber(visual.fluidRevealProgress),
+        pipeRevealProgress: settleTweenNumber(visual.pipeRevealProgress),
         scale: settleTweenNumber(visual.scale),
         score: settleTweenNumber(visual.score),
     };

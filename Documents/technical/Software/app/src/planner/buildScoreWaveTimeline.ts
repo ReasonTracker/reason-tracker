@@ -79,11 +79,26 @@ function applyFirstFillUpdates(
 ): Snapshot {
     let nextSnapshot = cloneSnapshot(snapshot);
 
-    nextSnapshot = applyScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "relevanceConnectorVizIds");
+    nextSnapshot = applyConnectorFirstFillRevealUpdates(
+        applyScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "relevanceConnectorVizIds"),
+        steps,
+        bindingsByScoreNodeId,
+        "relevanceConnectorVizIds",
+    );
     nextSnapshot = applyAnimatedScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "junctionAggregatorVizIds");
-    nextSnapshot = applyAnimatedScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "confidenceConnectorVizIds");
+    nextSnapshot = applyConnectorFirstFillRevealUpdates(
+        applyAnimatedScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "confidenceConnectorVizIds"),
+        steps,
+        bindingsByScoreNodeId,
+        "confidenceConnectorVizIds",
+    );
     nextSnapshot = applyAnimatedJunctionUpdates(nextSnapshot, steps, bindingsByScoreNodeId);
-    nextSnapshot = applyScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "deliveryConnectorVizIds");
+    nextSnapshot = applyConnectorFirstFillRevealUpdates(
+        applyScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "deliveryConnectorVizIds"),
+        steps,
+        bindingsByScoreNodeId,
+        "deliveryConnectorVizIds",
+    );
     nextSnapshot = applyAnimatedScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "claimAggregatorVizIds");
     nextSnapshot = applyScoreUpdates(nextSnapshot, steps, bindingsByScoreNodeId, "claimVizIds");
 
@@ -560,6 +575,76 @@ function markConnectorsProgressive(
                     nextSnapshot.relevanceConnectors[connectorVizId] = {
                         ...connector,
                         animationType: "progressive",
+                    };
+                }
+            }
+            break;
+        }
+    }
+
+    return nextSnapshot;
+}
+
+function applyConnectorFirstFillRevealUpdates(
+    snapshot: Snapshot,
+    steps: readonly ScorePropagationStep[],
+    bindingsByScoreNodeId: Partial<Record<ScoreNodeId, ScoreNodeSnapshotBindings>>,
+    bindingKey:
+        | "confidenceConnectorVizIds"
+        | "deliveryConnectorVizIds"
+        | "relevanceConnectorVizIds",
+): Snapshot {
+    const nextSnapshot = cloneSnapshot(snapshot);
+
+    switch (bindingKey) {
+        case "confidenceConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
+                const connector = nextSnapshot.confidenceConnectors[connectorVizId];
+
+                if (connector) {
+                    nextSnapshot.confidenceConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                        fluidRevealProgress: tweenToScore(connector.fluidRevealProgress, 1),
+                        pipeRevealProgress: tweenToScore(connector.pipeRevealProgress, 1),
+                    };
+                }
+            }
+            break;
+        }
+
+        case "deliveryConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
+                const connector = nextSnapshot.deliveryConnectors[connectorVizId];
+
+                if (connector) {
+                    nextSnapshot.deliveryConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                        fluidRevealProgress: tweenToScore(connector.fluidRevealProgress, 1),
+                        pipeRevealProgress: tweenToScore(connector.pipeRevealProgress, 1),
+                    };
+                }
+            }
+            break;
+        }
+
+        case "relevanceConnectorVizIds": {
+            const connectorVizIds = collectBoundIds(steps, bindingsByScoreNodeId, bindingKey);
+
+            for (const connectorVizId of connectorVizIds) {
+                const connector = nextSnapshot.relevanceConnectors[connectorVizId];
+
+                if (connector) {
+                    nextSnapshot.relevanceConnectors[connectorVizId] = {
+                        ...connector,
+                        animationType: "progressive",
+                        fluidRevealProgress: tweenToScore(connector.fluidRevealProgress, 1),
+                        pipeRevealProgress: tweenToScore(connector.pipeRevealProgress, 1),
                     };
                 }
             }

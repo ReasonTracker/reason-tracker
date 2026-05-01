@@ -91,9 +91,11 @@ export function buildConnectorRenderModel(args: {
     const toPipeWidth = scaleToPipeWidth(scaleEndpoints.to);
     const fromFluidWidth = pipeWidthToFluidWidth(fromPipeWidth, scoreEndpoints.from);
     const toFluidWidth = pipeWidthToFluidWidth(toPipeWidth, scoreEndpoints.to);
+    const fluidRevealProgress = resolveRevealProgress(args.visual.fluidRevealProgress, args.percent);
     const bandPlacement = args.bandPlacement
         ?? args.visual.bandPlacement
         ?? resolveDefaultConnectorBandPlacement(args.visual.side);
+    const pipeRevealProgress = resolveRevealProgress(args.visual.pipeRevealProgress, args.percent);
     const visibilityOpacity = args.visual.type === "confidenceConnector"
         ? resolveTweenBooleanOpacity(args.visual.visible, args.percent)
         : 1;
@@ -122,12 +124,12 @@ export function buildConnectorRenderModel(args: {
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
-                fluidProgress: 0,
-                fluidWidth: toFluidWidth,
+                fluidProgress: fluidRevealProgress,
+                fluidWidth: currentFluidWidth,
                 id: args.visual.id,
                 opacity: visibilityOpacity,
-                pipeProgress: progress,
-                pipeWidth: toPipeWidth,
+                pipeProgress: pipeRevealProgress,
+                pipeWidth: currentPipeWidth,
                 side: args.visual.side,
             };
 
@@ -137,12 +139,12 @@ export function buildConnectorRenderModel(args: {
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
-                fluidProgress: progress,
-                fluidWidth: toFluidWidth,
+                fluidProgress: fluidRevealProgress,
+                fluidWidth: currentFluidWidth,
                 id: args.visual.id,
                 opacity: visibilityOpacity,
-                pipeProgress: 1,
-                pipeWidth: toPipeWidth,
+                pipeProgress: pipeRevealProgress,
+                pipeWidth: currentPipeWidth,
                 side: args.visual.side,
             };
 
@@ -152,11 +154,11 @@ export function buildConnectorRenderModel(args: {
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
-                fluidProgress: 1,
+                fluidProgress: fluidRevealProgress,
                 fluidWidth: toFluidWidth,
                 id: args.visual.id,
                 opacity: visibilityOpacity,
-                pipeProgress: 1,
+                pipeProgress: pipeRevealProgress,
                 pipeWidth: toPipeWidth,
                 side: args.visual.side,
                 updateTransition: {
@@ -175,15 +177,19 @@ export function buildConnectorRenderModel(args: {
                 bounds: extentBounds,
                 centerlinePoints: currentCenterlinePoints,
                 direction: args.visual.direction,
-                fluidProgress: 1,
+                fluidProgress: fluidRevealProgress,
                 fluidWidth: currentFluidWidth,
                 id: args.visual.id,
                 opacity: visibilityOpacity,
-                pipeProgress: 1,
+                pipeProgress: pipeRevealProgress,
                 pipeWidth: currentPipeWidth,
                 side: args.visual.side,
             };
     }
+}
+
+function resolveRevealProgress(value: number | { type: "tween/number"; from: number; to: number }, percent: number): number {
+    return clamp01(resolveTweenNumber(value, percent));
 }
 
 export function renderConnector(model: ConnectorRenderModel, offset: { x: number; y: number }): RenderElementNode[] {
