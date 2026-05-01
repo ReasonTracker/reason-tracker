@@ -1,10 +1,27 @@
-import type { ConnectorBandPlacement } from "./Snapshot.ts";
+import type { ConnectorBandPlacement, Side } from "./Snapshot.ts";
 
 export type ConnectorBandEnvelope = {
     bottomOffset: number;
     collapseOffset: number;
     topOffset: number;
 };
+
+export function resolveDefaultConnectorBandPlacement(side: Side): ConnectorBandPlacement {
+    return side === "conMain" ? "upperSide" : "lowerSide";
+}
+
+export function resolveDeliveryTargetStackEnvelope(
+    pipeWidth: number,
+    bandWidth: number,
+    bandPlacement: ConnectorBandPlacement,
+): Pick<ConnectorBandEnvelope, "bottomOffset" | "topOffset"> {
+    const bandEnvelope = resolveConnectorBandEnvelope(pipeWidth, bandWidth, bandPlacement);
+
+    return {
+        bottomOffset: -bandEnvelope.topOffset,
+        topOffset: -bandEnvelope.bottomOffset,
+    };
+}
 
 export function resolveConnectorBandEnvelope(
     pipeWidth: number,

@@ -6,7 +6,10 @@ import type {
     Side,
 } from "../../../app/src/app.js";
 import type { ResolvedSnapshotConnectorGeometry } from "../../../app/src/planner/resolveSnapshotConnectorGeometry.ts";
-import { resolveConnectorBandEnvelope } from "../../../app/src/planner/connectorBandGeometry.ts";
+import {
+    resolveConnectorBandEnvelope,
+    resolveDefaultConnectorBandPlacement,
+} from "../../../app/src/planner/connectorBandGeometry.ts";
 import { getPlannerPipeWidth } from "../../../app/src/planner/plannerVisualGeometry.ts";
 
 import {
@@ -88,7 +91,9 @@ export function buildConnectorRenderModel(args: {
     const toPipeWidth = scaleToPipeWidth(scaleEndpoints.to);
     const fromFluidWidth = pipeWidthToFluidWidth(fromPipeWidth, scoreEndpoints.from);
     const toFluidWidth = pipeWidthToFluidWidth(toPipeWidth, scoreEndpoints.to);
-    const bandPlacement = args.bandPlacement ?? args.visual.bandPlacement ?? "lowerSide";
+    const bandPlacement = args.bandPlacement
+        ?? args.visual.bandPlacement
+        ?? resolveDefaultConnectorBandPlacement(args.visual.side);
     const visibilityOpacity = args.visual.type === "confidenceConnector"
         ? resolveTweenBooleanOpacity(args.visual.visible, args.percent)
         : 1;

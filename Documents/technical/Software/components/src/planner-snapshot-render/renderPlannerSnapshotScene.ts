@@ -133,6 +133,7 @@ export function renderPlannerSnapshotScene(args: PlannerSnapshotSceneArgs): Plan
 
 function buildPlannerSnapshotSceneLayout(args: PlannerSnapshotSceneArgs): PlannerSnapshotSceneLayout {
     const resolvedScoreFlowLayout = buildResolvedSnapshotScoreFlowLayout({
+        mode: args.mode,
         snapshot: args.snapshot,
         percent: args.percent,
     });

@@ -339,12 +339,6 @@ const episode001WaveTimelineRun = buildProjectedCommandScoreWaveTimelines({
     scoreChangeRun: episode001ScoreChangeRun,
     projectionOptions: {
         claimById: episode001ProjectionData.claimById,
-        connectorBandPolicy: {
-            mainBySide: {
-                conMain: "upperSide",
-                proMain: "lowerSide",
-            },
-        },
         confidenceConnectorById: episode001ProjectionData.confidenceConnectorById,
         relevanceConnectorById: episode001ProjectionData.relevanceConnectorById,
     },

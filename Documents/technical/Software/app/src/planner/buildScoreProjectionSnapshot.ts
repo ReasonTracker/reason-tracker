@@ -38,6 +38,10 @@ import {
 } from "./plannerVisualGeometry.ts";
 import { buildDeliveryStackLayout } from "./deliveryStackLayout.ts";
 import {
+    resolveDefaultConnectorBandPlacement,
+    resolveDeliveryTargetStackEnvelope,
+} from "./connectorBandGeometry.ts";
+import {
     type ProjectedJunctionGeometry,
     PROJECTED_CONNECTOR_JUNCTION_PATH_PROGRESS,
     buildConfidenceCenterlinePoints,
@@ -126,10 +130,12 @@ export function buildScoreProjectionSnapshot(args: {
     );
     const sideByScoreNodeId = buildSideByScoreNodeId(graph, rootScoreNodeIds);
     const deliveryStackLayout = buildScoreDeliveryStackLayout(
+        args.options?.connectorBandPolicy,
         graph,
         rootScoreNodeIds,
         centerYByScoreNodeId,
         sourceScaleByScoreNodeId,
+        sideByScoreNodeId,
         args.scores,
     );
 
@@ -334,7 +340,7 @@ export function buildScoreProjectionSnapshot(args: {
             : undefined;
 
         snapshot.relevanceConnectors[toRelevanceConnectorVizId(scoreNodeId)] = buildRelevanceConnectorViz({
-            bandPlacement: readDefaultConnectorBandPlacement(),
+            bandPlacement: resolveDefaultConnectorBandPlacement(sideByScoreNodeId[scoreNodeId] ?? "proMain"),
             scoreNodeId,
             relevanceConnectorId,
             relevanceConnector,
@@ -653,10 +659,12 @@ function getClaimLaneFamilyRootScoreNodeId(family: ClaimLaneFamilyPlan): ScoreNo
 }
 
 function buildScoreDeliveryStackLayout(
+    connectorBandPolicy: ScoreProjectionConnectorBandPolicy | undefined,
     graph: ScoreGraph,
     rootScoreNodeIds: readonly ScoreNodeId[],
     centerYByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
     scoreScaleByScoreNodeId: Partial<Record<ScoreNodeId, number>>,
+    sideByScoreNodeId: Partial<Record<ScoreNodeId, Side>>,
     scores: Scores,
 ): {
     centerYById: ReadonlyMap<ScoreNodeId, number>;
@@ -671,6 +679,17 @@ function buildScoreDeliveryStackLayout(
         return scoreChildNodeIds.map((childScoreNodeId, index) => ({
             id: childScoreNodeId,
             sourceCenterY: centerYByScoreNodeId[childScoreNodeId] ?? targetCenterY,
+            ...resolveDeliveryTargetStackEnvelope(
+                readPipeWidth(scoreScaleByScoreNodeId[childScoreNodeId] ?? 1),
+                readDeliveryStackHeight(
+                    scoreScaleByScoreNodeId[childScoreNodeId] ?? 1,
+                    readScoreValue(scores, childScoreNodeId),
+                ),
+                readMainConnectorBandPlacement(
+                    sideByScoreNodeId[childScoreNodeId] ?? "proMain",
+                    connectorBandPolicy,
+                ),
+            ),
             stackHeight: readDeliveryStackHeight(
                 scoreScaleByScoreNodeId[childScoreNodeId] ?? 1,
                 readScoreValue(scores, childScoreNodeId),
@@ -924,11 +943,7 @@ function readMainConnectorBandPlacement(
     side: Side,
     connectorBandPolicy: ScoreProjectionConnectorBandPolicy | undefined,
 ): ConnectorBandPlacement {
-    return connectorBandPolicy?.mainBySide?.[side] ?? readDefaultConnectorBandPlacement();
-}
-
-function readDefaultConnectorBandPlacement(): ConnectorBandPlacement {
-    return "lowerSide";
+    return connectorBandPolicy?.mainBySide?.[side] ?? resolveDefaultConnectorBandPlacement(side);
 }
 
 function readClaimSpan(scale: number): number {

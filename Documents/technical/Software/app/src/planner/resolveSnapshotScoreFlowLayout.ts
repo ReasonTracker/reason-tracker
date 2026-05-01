@@ -11,6 +11,11 @@ import type {
     RelevanceConnectorViz,
     Snapshot,
 } from "./Snapshot.ts";
+import type { ScoreWaveStepType } from "./buildScoreWaveTimeline.ts";
+import {
+    resolveDefaultConnectorBandPlacement,
+    resolveDeliveryTargetStackEnvelope,
+} from "./connectorBandGeometry.ts";
 import { buildDeliveryStackLayout } from "./deliveryStackLayout.ts";
 import {
     buildConfidenceCenterlinePoints,
@@ -49,6 +54,7 @@ export type ResolvedSnapshotScoreFlowLayout = {
 };
 
 export function buildResolvedSnapshotScoreFlowLayout(args: {
+    mode?: ScoreWaveStepType;
     snapshot: Snapshot;
     percent: number;
 }): ResolvedSnapshotScoreFlowLayout {
@@ -63,6 +69,7 @@ export function buildResolvedSnapshotScoreFlowLayout(args: {
         claimAggregators: args.snapshot.claimAggregators,
         claimLayoutById,
         deliveryConnectors: args.snapshot.deliveryConnectors,
+        mode: args.mode,
         percent: args.percent,
     });
     const {
@@ -280,6 +287,7 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
     claimAggregators: Snapshot["claimAggregators"];
     claimLayoutById: ReadonlyMap<ClaimVizId, ResolvedClaimLayout>;
     deliveryConnectors: Snapshot["deliveryConnectors"];
+    mode?: ScoreWaveStepType;
     percent: number;
 }): ReadonlyMap<DeliveryConnectorVizId, ResolvedConnectorPoint> {
     const stableOrderByConnectorVizId = new Map<DeliveryConnectorVizId, number>();
@@ -300,12 +308,21 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
             return [];
         }
 
+        const pipeWidth = getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, args.percent)));
+        const stackBandWidth = resolveDeliveryStackBandWidth(visual, args.percent, args.mode);
+        const stackEnvelope = resolveDeliveryTargetStackEnvelope(
+            pipeWidth,
+            stackBandWidth,
+            resolveConnectorBandPlacement(visual),
+        );
+
         return [{
             id: visual.id,
             sourceCenterY: sourceClaim.centerY,
-            stackHeight: getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, args.percent)))
-                * clampConnectorScore(resolveTweenNumber(visual.score, args.percent)),
+            stackBottomOffset: stackEnvelope.bottomOffset,
+            stackHeight: stackBandWidth,
             stableOrder: stableOrderByConnectorVizId.get(visual.id) ?? index,
+            stackTopOffset: stackEnvelope.topOffset,
             targetCenterY: targetClaim.centerY,
             targetId: visual.targetClaimVizId,
         }];
@@ -358,7 +375,31 @@ function buildConnectorBandPlacementByConnectorVizId(snapshot: Snapshot): Readon
 function resolveConnectorBandPlacement(
     visual: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz,
 ): ConnectorBandPlacement {
-    return visual.bandPlacement ?? "lowerSide";
+    return visual.bandPlacement ?? resolveDefaultConnectorBandPlacement(visual.side);
+}
+
+function resolveDeliveryStackBandWidth(
+    visual: DeliveryConnectorViz,
+    percent: number,
+    mode: ScoreWaveStepType | undefined,
+): number {
+    if (mode === "sprout" || mode === "firstFill") {
+        return readResolvedFluidWidth(visual, 1);
+    }
+
+    if (mode === "deliveryConnectorAdjust" && visual.animationType === "progressive") {
+        return readResolvedFluidWidth(visual, 1);
+    }
+
+    return readResolvedFluidWidth(visual, percent);
+}
+
+function readResolvedFluidWidth(
+    visual: DeliveryConnectorViz,
+    percent: number,
+): number {
+    return getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, percent)))
+        * clampConnectorScore(resolveTweenNumber(visual.score, percent));
 }
 
 function resolveTweenPoint(point: TweenPoint, percent: number): ResolvedConnectorPoint {
