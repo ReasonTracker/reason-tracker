@@ -66,6 +66,7 @@ export function buildResolvedSnapshotScoreFlowLayout(args: {
     }
 
     const deliveryTargetPointByConnectorVizId = buildDeliveryTargetPointByConnectorVizId({
+        claims: args.snapshot.claims,
         claimAggregators: args.snapshot.claimAggregators,
         claimLayoutById,
         deliveryConnectors: args.snapshot.deliveryConnectors,
@@ -284,6 +285,7 @@ function buildDeliveryTurnGuideByTargetClaimVizId(args: {
 }
 
 function buildDeliveryTargetPointByConnectorVizId(args: {
+    claims: Snapshot["claims"];
     claimAggregators: Snapshot["claimAggregators"];
     claimLayoutById: ReadonlyMap<ClaimVizId, ResolvedClaimLayout>;
     deliveryConnectors: Snapshot["deliveryConnectors"];
@@ -300,6 +302,87 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
         });
     }
 
+    const targetPointByConnectorVizId = new Map<DeliveryConnectorVizId, ResolvedConnectorPoint>();
+    const currentOffsetByConnectorVizId = buildDeliveryTargetOffsetByConnectorVizId({
+        claimLayoutById: args.claimLayoutById,
+        deliveryConnectors: args.deliveryConnectors,
+        mode: args.mode,
+        percent: args.percent,
+        stableOrderByConnectorVizId,
+    });
+    const startOffsetByConnectorVizId = args.mode === "voila" || args.mode === "sprout"
+        ? buildDeliveryTargetOffsetByConnectorVizId({
+            claimLayoutById: buildClaimLayoutById(args.claims, 0),
+            deliveryConnectors: args.deliveryConnectors,
+            endpoint: "from",
+            mode: args.mode,
+            percent: 0,
+            stableOrderByConnectorVizId,
+        })
+        : undefined;
+    const endOffsetByConnectorVizId = args.mode === "sprout"
+        ? buildDeliveryTargetOffsetByConnectorVizId({
+            claimLayoutById: buildClaimLayoutById(args.claims, 1),
+            deliveryConnectors: args.deliveryConnectors,
+            endpoint: "to",
+            mode: args.mode,
+            percent: 1,
+            stableOrderByConnectorVizId,
+        })
+        : undefined;
+
+    for (const visual of Object.values(args.deliveryConnectors)) {
+        const targetClaim = args.claimLayoutById.get(visual.targetClaimVizId);
+
+        if (!targetClaim) {
+            continue;
+        }
+
+        const startOffset = startOffsetByConnectorVizId?.get(visual.id)
+            ?? endOffsetByConnectorVizId?.get(visual.id)
+            ?? currentOffsetByConnectorVizId.get(visual.id)
+            ?? 0;
+        const endOffset = endOffsetByConnectorVizId?.get(visual.id)
+            ?? startOffsetByConnectorVizId?.get(visual.id)
+            ?? currentOffsetByConnectorVizId.get(visual.id)
+            ?? 0;
+        const currentOffset = currentOffsetByConnectorVizId.get(visual.id) ?? 0;
+        const offsetY = args.mode === "sprout"
+            ? resolveLinearNumberTween(startOffset, endOffset, args.percent)
+            : args.mode === "voila"
+                ? startOffset
+                : currentOffset;
+
+        targetPointByConnectorVizId.set(visual.id, {
+            x: targetClaim.rightX,
+            y: targetClaim.centerY + offsetY,
+        });
+    }
+
+    return targetPointByConnectorVizId;
+}
+
+function buildClaimLayoutById(
+    claims: Snapshot["claims"],
+    percent: number,
+): ReadonlyMap<ClaimVizId, ResolvedClaimLayout> {
+    const claimLayoutById = new Map<ClaimVizId, ResolvedClaimLayout>();
+
+    for (const visual of Object.values(claims)) {
+        claimLayoutById.set(visual.id, resolveClaimLayout(visual, percent));
+    }
+
+    return claimLayoutById;
+}
+
+function buildDeliveryTargetOffsetByConnectorVizId(args: {
+    claimLayoutById: ReadonlyMap<ClaimVizId, ResolvedClaimLayout>;
+    deliveryConnectors: Snapshot["deliveryConnectors"];
+    endpoint?: "from" | "to";
+    mode?: ScoreWaveStepType;
+    percent: number;
+    stableOrderByConnectorVizId: ReadonlyMap<DeliveryConnectorVizId, number>;
+}): ReadonlyMap<DeliveryConnectorVizId, number> {
     const members = Object.values(args.deliveryConnectors).flatMap((visual, index) => {
         const sourceClaim = args.claimLayoutById.get(visual.sourceClaimVizId);
         const targetClaim = args.claimLayoutById.get(visual.targetClaimVizId);
@@ -308,8 +391,18 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
             return [];
         }
 
-        const pipeWidth = getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, args.percent)));
-        const stackBandWidth = resolveDeliveryStackBandWidth(visual, args.percent, args.mode);
+        const stackBandWidth = readDeliveryStackBandWidthForLayout(
+            visual,
+            args.mode,
+            args.percent,
+            args.endpoint,
+        );
+
+        if (args.endpoint && stackBandWidth <= 1e-6) {
+            return [];
+        }
+
+        const pipeWidth = readDeliveryPipeWidthForLayout(visual, args.percent, args.endpoint);
         const stackEnvelope = resolveDeliveryTargetStackEnvelope(
             pipeWidth,
             stackBandWidth,
@@ -321,14 +414,15 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
             sourceCenterY: sourceClaim.centerY,
             stackBottomOffset: stackEnvelope.bottomOffset,
             stackHeight: stackBandWidth,
-            stableOrder: stableOrderByConnectorVizId.get(visual.id) ?? index,
+            stableOrder: args.stableOrderByConnectorVizId.get(visual.id) ?? index,
             stackTopOffset: stackEnvelope.topOffset,
             targetCenterY: targetClaim.centerY,
             targetId: visual.targetClaimVizId,
         }];
     });
-    const stackLayout = buildDeliveryStackLayout(members);
-    const targetPointByConnectorVizId = new Map<DeliveryConnectorVizId, ResolvedConnectorPoint>();
+
+    const centerYByConnectorVizId = buildDeliveryStackLayout(members).centerYById;
+    const offsetByConnectorVizId = new Map<DeliveryConnectorVizId, number>();
 
     for (const visual of Object.values(args.deliveryConnectors)) {
         const targetClaim = args.claimLayoutById.get(visual.targetClaimVizId);
@@ -337,13 +431,16 @@ function buildDeliveryTargetPointByConnectorVizId(args: {
             continue;
         }
 
-        targetPointByConnectorVizId.set(visual.id, {
-            x: targetClaim.rightX,
-            y: stackLayout.centerYById.get(visual.id) ?? targetClaim.centerY,
-        });
+        const centerY = centerYByConnectorVizId.get(visual.id);
+
+        if (centerY === undefined) {
+            continue;
+        }
+
+        offsetByConnectorVizId.set(visual.id, centerY - targetClaim.centerY);
     }
 
-    return targetPointByConnectorVizId;
+    return offsetByConnectorVizId;
 }
 
 function clampConnectorScore(score: number): number {
@@ -396,6 +493,56 @@ function resolveDeliveryStackBandWidth(
     }
 
     return readResolvedFluidWidth(visual, percent);
+}
+
+function readDeliveryStackBandWidthForLayout(
+    visual: DeliveryConnectorViz,
+    mode: ScoreWaveStepType | undefined,
+    percent: number,
+    endpoint?: "from" | "to",
+): number {
+    if (!endpoint) {
+        return resolveDeliveryStackBandWidth(visual, percent, mode);
+    }
+
+    return readDeliveryFluidWidthAtEndpoint(visual, endpoint)
+        * (readTweenNumberEndpoint(visual.pipeRevealProgress, endpoint) > 1e-6 ? 1 : 0);
+}
+
+function readDeliveryPipeWidthForLayout(
+    visual: DeliveryConnectorViz,
+    percent: number,
+    endpoint?: "from" | "to",
+): number {
+    if (!endpoint) {
+        return getPlannerPipeWidth(Math.max(0, resolveTweenNumber(visual.scale, percent)));
+    }
+
+    return getPlannerPipeWidth(Math.max(0, readTweenNumberEndpoint(visual.scale, endpoint)));
+}
+
+function readDeliveryFluidWidthAtEndpoint(
+    visual: DeliveryConnectorViz,
+    endpoint: "from" | "to",
+): number {
+    return getPlannerPipeWidth(Math.max(0, readTweenNumberEndpoint(visual.scale, endpoint)))
+        * clampConnectorScore(readTweenNumberEndpoint(visual.score, endpoint));
+}
+
+function resolveLinearNumberTween(from: number, to: number, percent: number): number {
+    const clampedPercent = Math.min(1, Math.max(0, Number.isFinite(percent) ? percent : 0));
+    return from + ((to - from) * clampedPercent);
+}
+
+function readTweenNumberEndpoint(
+    value: TweenNumber,
+    endpoint: "from" | "to",
+): number {
+    if (typeof value === "number") {
+        return value;
+    }
+
+    return value[endpoint];
 }
 
 function readResolvedFluidWidth(
