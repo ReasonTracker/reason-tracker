@@ -383,12 +383,16 @@ function resolveDeliveryStackBandWidth(
     percent: number,
     mode: ScoreWaveStepType | undefined,
 ): number {
-    if (mode === "sprout" || mode === "firstFill") {
+    if (mode === "deliveryConnectorAdjust" && visual.animationType === "progressive") {
         return readResolvedFluidWidth(visual, 1);
     }
 
-    if (mode === "deliveryConnectorAdjust" && visual.animationType === "progressive") {
+    if (mode === "firstFill") {
         return readResolvedFluidWidth(visual, 1);
+    }
+
+    if (mode === "voila" || mode === "sprout") {
+        return readResolvedFluidWidth(visual, percent) * Math.min(1, Math.max(0, resolveTweenNumber(visual.pipeRevealProgress, percent)));
     }
 
     return readResolvedFluidWidth(visual, percent);
