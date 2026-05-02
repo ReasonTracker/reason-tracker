@@ -1,8 +1,6 @@
-import type { Claim, ClaimId } from "../debate-core/Claim.ts";
+import type { ClaimId } from "../debate-core/Claim.ts";
 import type {
-    ConfidenceConnector,
     ConfidenceConnectorId,
-    RelevanceConnector,
     RelevanceConnectorId,
 } from "../debate-core/Connector.ts";
 import { withChildrenByParentId } from "../math/calculateScores.ts";
@@ -56,7 +54,6 @@ const CONNECTOR_JUNCTION_LAYER_HORIZONTAL_GAP_MULTIPLIER = 2;
 
 type ProjectedConfidencePlan = {
     childScale: number;
-    confidenceConnector?: ConfidenceConnector;
     confidenceConnectorId?: ConfidenceConnectorId;
     hasTargetingRelevance: boolean;
     junction: ProjectedJunctionGeometry;
@@ -88,12 +85,10 @@ export type ScoreProjectionConnectorBandPolicy = {
 };
 
 export type ScoreProjectionSnapshotOptions = {
-    claimById?: Partial<Record<ClaimId, Claim>>;
+    claimContentById?: Partial<Record<ClaimId, string>>;
     connectorBandPolicy?: ScoreProjectionConnectorBandPolicy;
     confidenceConnectorIdByScoreNodeId?: Partial<Record<ScoreNodeId, ConfidenceConnectorId>>;
-    confidenceConnectorById?: Partial<Record<ConfidenceConnectorId, ConfidenceConnector>>;
     relevanceConnectorIdByScoreNodeId?: Partial<Record<ScoreNodeId, RelevanceConnectorId>>;
-    relevanceConnectorById?: Partial<Record<RelevanceConnectorId, RelevanceConnector>>;
     scaleState?: ScoreProjectionScaleState;
 };
 
@@ -181,7 +176,7 @@ export function buildScoreProjectionSnapshot(args: {
         snapshot.claims[toClaimVizId(scoreNodeId)] = buildClaimViz({
             scoreNodeId,
             claimId: scoreNode.claimId,
-            claim: args.options?.claimById?.[scoreNode.claimId],
+            content: args.options?.claimContentById?.[scoreNode.claimId],
             position: claimPosition,
             scale: scoreScale,
             score: readScoreValue(args.scores, scoreNodeId),
@@ -191,7 +186,6 @@ export function buildScoreProjectionSnapshot(args: {
         snapshot.claimAggregators[toClaimAggregatorVizId(scoreNodeId)] = buildClaimAggregatorViz({
             scoreNodeId,
             claimId: scoreNode.claimId,
-            claim: args.options?.claimById?.[scoreNode.claimId],
             position: claimAggregatorPosition,
             scale: scoreScale,
             score: readScoreValue(args.scores, scoreNodeId),
@@ -213,9 +207,6 @@ export function buildScoreProjectionSnapshot(args: {
         const childScale = sourceScaleByScoreNodeId[scoreNodeId] ?? 1;
         const parentScale = sourceScaleByScoreNodeId[scoreNode.parentId] ?? 1;
         const confidenceConnectorId = args.options?.confidenceConnectorIdByScoreNodeId?.[scoreNodeId];
-        const confidenceConnector = confidenceConnectorId
-            ? args.options?.confidenceConnectorById?.[confidenceConnectorId]
-            : undefined;
         const childClaimLeftX = childX - readClaimSpan(childScale) / 2;
         const parentClaimRightX = parentX + readClaimSpan(parentScale) / 2;
         const relevanceChildScoreNodeIds = getOrderedChildScoreNodeIds(graph, scoreNodeId).filter(
@@ -262,7 +253,6 @@ export function buildScoreProjectionSnapshot(args: {
         confidencePlans.push({
             childScale,
             confidenceConnectorId,
-            confidenceConnector,
             hasTargetingRelevance: visible,
             junction: junctionGeometry,
             scoreNodeId,
@@ -276,7 +266,6 @@ export function buildScoreProjectionSnapshot(args: {
         snapshot.junctions[toJunctionVizId(scoreNodeId)] = buildJunctionViz({
             scoreNodeId,
             confidenceConnectorId,
-            confidenceConnector,
             junctionAggregatorVizId: toJunctionAggregatorVizId(scoreNodeId),
             position: junctionPosition,
             leftHeight: junctionGeometry.leftHeight,
@@ -289,7 +278,6 @@ export function buildScoreProjectionSnapshot(args: {
         snapshot.junctionAggregators[toJunctionAggregatorVizId(scoreNodeId)] = buildJunctionAggregatorViz({
             scoreNodeId,
             confidenceConnectorId,
-            confidenceConnector,
             position: junctionAggregatorPosition,
             scale: childScale,
             score: readScoreValue(args.scores, scoreNodeId),
@@ -303,7 +291,6 @@ export function buildScoreProjectionSnapshot(args: {
             bandPlacement: readMainConnectorBandPlacement(plan.side, args.options?.connectorBandPolicy),
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
-            confidenceConnector: plan.confidenceConnector,
             side: plan.side,
             scale: plan.childScale,
             score: readScoreValue(args.scores, plan.scoreNodeId),
@@ -316,7 +303,6 @@ export function buildScoreProjectionSnapshot(args: {
             bandPlacement: readMainConnectorBandPlacement(plan.side, args.options?.connectorBandPolicy),
             scoreNodeId: plan.scoreNodeId,
             confidenceConnectorId: plan.confidenceConnectorId,
-            confidenceConnector: plan.confidenceConnector,
             side: plan.side,
             scale: plan.childScale,
             score: readScoreValue(args.scores, plan.scoreNodeId),
@@ -335,15 +321,11 @@ export function buildScoreProjectionSnapshot(args: {
 
         const scoreScale = sourceScaleByScoreNodeId[scoreNodeId] ?? 1;
         const relevanceConnectorId = args.options?.relevanceConnectorIdByScoreNodeId?.[scoreNodeId];
-        const relevanceConnector = relevanceConnectorId
-            ? args.options?.relevanceConnectorById?.[relevanceConnectorId]
-            : undefined;
 
         snapshot.relevanceConnectors[toRelevanceConnectorVizId(scoreNodeId)] = buildRelevanceConnectorViz({
             bandPlacement: resolveDefaultConnectorBandPlacement(sideByScoreNodeId[scoreNodeId] ?? "proMain"),
             scoreNodeId,
             relevanceConnectorId,
-            relevanceConnector,
             side: sideByScoreNodeId[scoreNodeId] ?? "proMain",
             scale: scoreScale,
             score: readScoreValue(args.scores, scoreNodeId),
@@ -755,7 +737,7 @@ function orderScoreNodeIds(graph: ScoreGraph, rootScoreNodeIds: readonly ScoreNo
 function buildClaimViz(args: {
     scoreNodeId: ScoreNodeId;
     claimId: ClaimViz["claimId"];
-    claim?: Claim;
+    content?: string;
     position: TweenPoint;
     scale: number;
     score: number;
@@ -765,7 +747,7 @@ function buildClaimViz(args: {
         type: "claim",
         id: toClaimVizId(args.scoreNodeId),
         claimId: args.claimId,
-        claim: args.claim,
+        content: args.content,
         scoreNodeId: args.scoreNodeId,
         position: args.position,
         scale: args.scale,
@@ -777,7 +759,6 @@ function buildClaimViz(args: {
 function buildClaimAggregatorViz(args: {
     scoreNodeId: ScoreNodeId;
     claimId: ClaimAggregatorViz["claimId"];
-    claim?: Claim;
     position: TweenPoint;
     scale: number;
     score: number;
@@ -788,7 +769,6 @@ function buildClaimAggregatorViz(args: {
         id: toClaimAggregatorVizId(args.scoreNodeId),
         animationType: "uniform",
         claimId: args.claimId,
-        claim: args.claim,
         scoreNodeId: args.scoreNodeId,
         deliveryConnectorVizIds: args.deliveryConnectorVizIds,
         position: args.position,
@@ -800,7 +780,6 @@ function buildClaimAggregatorViz(args: {
 function buildJunctionViz(args: {
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
-    confidenceConnector?: ConfidenceConnector;
     junctionAggregatorVizId: JunctionAggregatorVizId;
     leftHeight: number;
     position: TweenPoint;
@@ -814,7 +793,6 @@ function buildJunctionViz(args: {
         id: toJunctionVizId(args.scoreNodeId),
         animationType: "uniform",
         confidenceConnectorId: args.confidenceConnectorId,
-        confidenceConnector: args.confidenceConnector,
         scoreNodeId: args.scoreNodeId,
         junctionAggregatorVizId: args.junctionAggregatorVizId,
         position: args.position,
@@ -829,7 +807,6 @@ function buildJunctionViz(args: {
 function buildJunctionAggregatorViz(args: {
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
-    confidenceConnector?: ConfidenceConnector;
     position: TweenPoint;
     scale: number;
     score: number;
@@ -841,7 +818,6 @@ function buildJunctionAggregatorViz(args: {
         id: toJunctionAggregatorVizId(args.scoreNodeId),
         animationType: "uniform",
         confidenceConnectorId: args.confidenceConnectorId,
-        confidenceConnector: args.confidenceConnector,
         scoreNodeId: args.scoreNodeId,
         position: args.position,
         relevanceConnectorVizIds: args.relevanceConnectorVizIds,
@@ -855,7 +831,6 @@ function buildConfidenceConnectorViz(args: {
     bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
-    confidenceConnector?: ConfidenceConnector;
     side: Side;
     scale: number;
     score: number;
@@ -868,7 +843,6 @@ function buildConfidenceConnectorViz(args: {
         id: toConfidenceConnectorVizId(args.scoreNodeId),
         animationType: "uniform",
         confidenceConnectorId: args.confidenceConnectorId,
-        confidenceConnector: args.confidenceConnector,
         scoreNodeId: args.scoreNodeId,
         sourceClaimVizId: args.sourceClaimVizId,
         targetJunctionVizId: args.targetJunctionVizId,
@@ -887,7 +861,6 @@ function buildDeliveryConnectorViz(args: {
     bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     confidenceConnectorId?: ConfidenceConnectorId;
-    confidenceConnector?: ConfidenceConnector;
     side: Side;
     scale: number;
     score: number;
@@ -900,7 +873,6 @@ function buildDeliveryConnectorViz(args: {
         id: toDeliveryConnectorVizId(args.scoreNodeId),
         animationType: "uniform",
         confidenceConnectorId: args.confidenceConnectorId,
-        confidenceConnector: args.confidenceConnector,
         scoreNodeId: args.scoreNodeId,
         sourceClaimVizId: args.sourceClaimVizId,
         sourceJunctionVizId: args.sourceJunctionVizId,
@@ -919,7 +891,6 @@ function buildRelevanceConnectorViz(args: {
     bandPlacement: ConnectorBandPlacement;
     scoreNodeId: ScoreNodeId;
     relevanceConnectorId?: RelevanceConnectorId;
-    relevanceConnector?: RelevanceConnector;
     side: Side;
     scale: number;
     score: number;
@@ -931,7 +902,6 @@ function buildRelevanceConnectorViz(args: {
         id: toRelevanceConnectorVizId(args.scoreNodeId),
         animationType: "uniform",
         relevanceConnectorId: args.relevanceConnectorId,
-        relevanceConnector: args.relevanceConnector,
         scoreNodeId: args.scoreNodeId,
         sourceClaimVizId: args.sourceClaimVizId,
         targetJunctionAggregatorVizId: args.targetJunctionAggregatorVizId,

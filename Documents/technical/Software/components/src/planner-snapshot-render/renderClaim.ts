@@ -60,7 +60,7 @@ export function buildClaimRenderModel(visual: ClaimViz, percent: number): ClaimR
         centerX: center.x,
         centerY: center.y,
         bounds: boundsFromCenteredRect(center.x, center.y, width, height),
-        content: visual.claim?.content ?? String(visual.claimId),
+        content: visual.content ?? String(visual.claimId),
         height,
         id: String(visual.id),
         opacity,

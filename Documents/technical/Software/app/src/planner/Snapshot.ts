@@ -1,11 +1,9 @@
 // See 📌README.md in this folder for local coding standards before editing this file.
 
 import type { TweenNumber, TweenBoolean, TweenPoint } from "../utils.ts";
-import type { Claim, ClaimId } from "../debate-core/Claim.ts";
+import type { ClaimId } from "../debate-core/Claim.ts";
 import type {
-    ConfidenceConnector,
     ConfidenceConnectorId,
-    RelevanceConnector,
     RelevanceConnectorId,
 } from "../debate-core/Connector.ts";
 import type { ScoreNodeId } from "../math/scoreTypes.ts";
@@ -15,7 +13,7 @@ export interface ClaimViz {
     type: "claim"
     id: ClaimVizId
     claimId: ClaimId
-    claim?: Claim
+    content?: string
     scoreNodeId?: ScoreNodeId
     position: TweenPoint
     scale: TweenNumber
@@ -28,7 +26,6 @@ export interface ClaimAggregatorViz {
     id: ClaimAggregatorVizId
     animationType: AnimationType,
     claimId: ClaimId
-    claim?: Claim
     scoreNodeId?: ScoreNodeId
     deliveryConnectorVizIds: DeliveryConnectorVizId[]
     position: TweenPoint
@@ -42,7 +39,6 @@ export interface JunctionViz {
     id: JunctionVizId
     animationType: AnimationType,
     confidenceConnectorId?: ConfidenceConnectorId
-    confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
     junctionAggregatorVizId: JunctionAggregatorVizId
     position: TweenPoint
@@ -59,7 +55,6 @@ export interface JunctionAggregatorViz {
     id: JunctionAggregatorVizId
     animationType: AnimationType,
     confidenceConnectorId?: ConfidenceConnectorId
-    confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
     position: TweenPoint
     relevanceConnectorVizIds: RelevanceConnectorVizId[]
@@ -94,7 +89,6 @@ export interface ConfidenceConnectorViz extends ConnectorVizBase {
     type: "confidenceConnector"
     id: ConfidenceConnectorVizId
     confidenceConnectorId?: ConfidenceConnectorId
-    confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
     sourceClaimVizId: ClaimVizId
     targetJunctionVizId: JunctionVizId
@@ -107,7 +101,6 @@ export interface DeliveryConnectorViz extends ConnectorVizBase {
     type: "deliveryConnector"
     id: DeliveryConnectorVizId
     confidenceConnectorId?: ConfidenceConnectorId
-    confidenceConnector?: ConfidenceConnector
     scoreNodeId?: ScoreNodeId
     sourceClaimVizId: ClaimVizId
     sourceJunctionVizId: JunctionVizId
@@ -118,7 +111,6 @@ export interface RelevanceConnectorViz extends ConnectorVizBase {
     type: "relevanceConnector"
     id: RelevanceConnectorVizId
     relevanceConnectorId?: RelevanceConnectorId
-    relevanceConnector?: RelevanceConnector
     scoreNodeId?: ScoreNodeId
     sourceClaimVizId: ClaimVizId
     targetJunctionAggregatorVizId: JunctionAggregatorVizId

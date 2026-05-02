@@ -4,9 +4,7 @@ import type {
     ApplyCommandResult,
     Claim,
     ClaimId,
-    ConfidenceConnector,
     ConfidenceConnectorId,
-    RelevanceConnector,
     RelevanceConnectorId,
     ScoreChangeWaveTimelineRun,
     ScoreGraph,
@@ -151,10 +149,8 @@ type Episode001Plan = {
 };
 
 type Episode001ProjectionData = {
-    claimById: Record<ClaimId, Claim>;
-    confidenceConnectorById: Partial<Record<ConfidenceConnectorId, ConfidenceConnector>>;
+    claimContentById: Record<ClaimId, string>;
     initialGraph: ScoreGraph;
-    relevanceConnectorById: Partial<Record<RelevanceConnectorId, RelevanceConnector>>;
 };
 
 type Episode001GraphEventTimes = Record<string, { from: number; durationInFrames: number }>;
@@ -338,9 +334,7 @@ const episode001ScoreChangeRun = calculateScoreChanges({
 const episode001WaveTimelineRun = buildProjectedCommandScoreWaveTimelines({
     scoreChangeRun: episode001ScoreChangeRun,
     projectionOptions: {
-        claimById: episode001ProjectionData.claimById,
-        confidenceConnectorById: episode001ProjectionData.confidenceConnectorById,
-        relevanceConnectorById: episode001ProjectionData.relevanceConnectorById,
+        claimContentById: episode001ProjectionData.claimContentById,
     },
     includeScaleAndOrderSteps: true,
 });
@@ -403,11 +397,9 @@ export const Episode001 = () => {
 };
 
 function buildEpisode001ProjectionData(): Episode001ProjectionData {
-    const claimById = {
-        [episode001MainClaim.id]: episode001MainClaim,
-    } satisfies Record<ClaimId, Claim>;
-    const confidenceConnectorById: Partial<Record<ConfidenceConnectorId, ConfidenceConnector>> = {};
-    const relevanceConnectorById: Partial<Record<RelevanceConnectorId, RelevanceConnector>> = {};
+    const claimContentById = {
+        [episode001MainClaim.id]: episode001MainClaim.content,
+    } satisfies Record<ClaimId, string>;
     const claimIdByScoreNodeId: Partial<Record<ScoreNodeId, ClaimId>> = {
         [MAIN_SCORE_NODE_ID]: episode001MainClaim.id,
     };
@@ -420,17 +412,10 @@ function buildEpisode001ProjectionData(): Episode001ProjectionData {
             throw new Error(`Episode001 target score node is missing a claim mapping: ${action.command.targetScoreNodeId}`);
         }
 
-        claimById[action.command.claim.id] = action.command.claim;
+        claimContentById[action.command.claim.id] = action.command.claim.content;
         claimIdByScoreNodeId[action.command.connection.scoreNodeId] = action.command.claim.id;
 
         if (action.command.connection.type === "confidence") {
-            confidenceConnectorById[action.command.connection.id] = {
-                id: action.command.connection.id,
-                source: action.command.claim.id,
-                targetClaimId,
-                targetRelationship: action.command.connection.targetRelationship,
-                type: "confidence",
-            };
             confidenceConnectorIdByScoreNodeId[action.command.connection.scoreNodeId] = action.command.connection.id;
             continue;
         }
@@ -441,20 +426,11 @@ function buildEpisode001ProjectionData(): Episode001ProjectionData {
             throw new Error(`Episode001 relevance target is missing a confidence connector: ${action.command.targetScoreNodeId}`);
         }
 
-        relevanceConnectorById[action.command.connection.id] = {
-            id: action.command.connection.id,
-            source: action.command.claim.id,
-            targetConfidenceConnectorId,
-            targetRelationship: action.command.connection.targetRelationship,
-            type: "relevance",
-        };
     }
 
     return {
-        claimById,
-        confidenceConnectorById,
+        claimContentById,
         initialGraph: buildEpisode001InitialGraph(),
-        relevanceConnectorById,
     };
 }
 
