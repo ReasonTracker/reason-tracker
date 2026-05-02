@@ -124,6 +124,16 @@ export interface RelevanceConnectorViz extends ConnectorVizBase {
     targetJunctionAggregatorVizId: JunctionAggregatorVizId
 }
 
+/**
+ * Snapshot is the full render contract for planner visuals.
+ * Render code is interpolation-only: it may read fixed snapshot values and
+ * resolve snapshot-owned tween endpoints to the current value, but it must not
+ * compute any other value during render.
+ * If something affects what is drawn or where it is drawn, that value must
+ * already exist in the snapshot as a fixed value or tween field.
+ * If render code needs any non-interpolation calculation, expand snapshot
+ * construction instead of adding that logic to the renderer.
+ */
 export type Snapshot = {
     claims: Record<ClaimVizId, ClaimViz>
     claimAggregators: Record<ClaimAggregatorVizId, ClaimAggregatorViz>

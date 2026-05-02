@@ -54,3 +54,5 @@ This file is additive to the root `AGENTS.md` and applies within `Documents/tech
 - While coding in `Documents/technical`, read and follow `Documents/technical/Coding Guidelines.md` for shared project conventions, including code-structure conventions and Software tooling workflow.
 - On a fresh Windows machine from `Documents/technical/Software`, run `vp install`, then run `vp run developer:setup-machine` to bring shell tools, workspace dependencies, and recommended VS Code extensions to the expected local state.
 - These local shell tools are not a CI requirement.
+- For planner snapshot rendering, treat render code as interpolation-only. Render code may calculate only the current value between snapshot-owned tween endpoints and nothing else.
+- If a render path needs any other calculation, decision, or geometry value, add the required fixed value or tween field to snapshot construction instead of adding logic to the renderer.
