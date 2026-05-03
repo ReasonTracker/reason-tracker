@@ -5,7 +5,12 @@ These examples describe the visual sequence of what happens on screen and intent
 ## Add Confidence Claim to Existing Debate Example
 
 - **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
-  - Need to run the layout calculations, including the eventual size of the new claim, so we will need a way for the state to have an item take up space but not be visible and/or be a different scale than it is or have a placeholder.
+  - Planner:
+    - Adds in the new claim setting the scale to tween from zero to the scourcesScale of it's target claim.
+    - Add in the connectors, junctions and agregators for the new claim.
+      - visible is false
+      - scale is set to to the scourcesScale of it's target claim
+  - Claculate the end state with
 - **Sprout**: The pipe wall and pipe interior progressively trace out the path of the Delivery Connector from the new claim to the target aggregator while the other connectors to that target make room.
   - A new claim will not have a junction and will not have a visible Display Confidence Connector.
 - **First Fill**: The score fluid progressively fills the new pipe.

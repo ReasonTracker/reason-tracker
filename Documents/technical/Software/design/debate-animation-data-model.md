@@ -27,8 +27,3 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Planner config**
 
 - a config file that defines how commands are translated into planner logic and snapshots.
-
-**Animation**
-
-- Animation is driven by comparing consecutive snapshots.
-- Confidence propagation and other transitions are animated stepwise by updating snapshots.

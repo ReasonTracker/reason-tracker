@@ -11,6 +11,7 @@ export interface ClaimViz {
     claimId: ClaimId
     position: TweenPoint
     scale: TweenNumber
+    scourcesScale: TweenNumber
     score: TweenNumber
     side: Side
 }

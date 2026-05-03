@@ -10,9 +10,12 @@
     "src"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit -p ./tsconfig.json"
+    "typecheck": "tsc --noEmit -p ./tsconfig.json",
+    "test": "vp test run"
   },
   "devDependencies": {
+    "vite": "^6.3.5",
+    "vitest": "^4.1.2",
     "vite-plus": "^0.1.16"
   }
 }
