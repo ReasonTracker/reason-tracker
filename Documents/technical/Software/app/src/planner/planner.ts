@@ -1,7 +1,9 @@
 import type { DebateCommand } from "../debate-core/Commands.ts";
+import type { DebateCore } from "../debate-core/Debate.ts";
 import type { Snapshot } from "./Snapshot.ts";
 
 export type PlannerInput = {
+    debateCore: DebateCore
     snapshot: Snapshot
     command: DebateCommand
 };

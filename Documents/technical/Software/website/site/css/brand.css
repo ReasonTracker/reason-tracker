@@ -8,4 +8,17 @@
   --con: hsl(var(--con-h), 100%, var(--con-l));
 
   --highlight: yellow;
+
+  --bg: #0f0f10;
+  --panel: #171719;
+  --text: #ffffff;
+  --muted: #b8b8c0;
+  --border: #2a2a2f;
+  --link: #ffffff;
+  --code-bg: #222228;
+  --subdued-opacity: 0.78;
+  --max-width: 860px;
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --mono: Consolas, "Cascadia Mono", monospace;
+
 }

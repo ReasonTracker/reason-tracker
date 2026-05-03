@@ -1,6 +1,6 @@
 # Animation Example Descriptions
 
-These examples describe the visual sequence of what happens on screen and intentionally leave out how the debate core is updated or how it affects the visuals.
+These examples describe the visual sequence of what happens on screen and intentionally leave out how the DebateCore is updated or how that DebateCore update interacts with the visuals. The planner can still depend on that interaction; this document is only describing the visible sequence.
 
 ## Add Confidence Claim to Existing Debate Example
 

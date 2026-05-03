@@ -39,7 +39,7 @@ Vertical spaces on the graph for different types of components.
 - Command
 - Operation
 - Step
-- Planner - the component that takes the current state and a command and produces series of snapshots representing the steps to animate from the current state to the new state after applying the command.
+- Planner - the component that takes the current DebateCore state the current Snapshot, and a command and produces a series of snapshots representing the steps to animate from the current snapshot to the display state implied by applying the command to the DebateCore state.
   - Planner Config
 - Snapshot - a data structure representing the state of the display graph between two unknown points in time. most values well be Tweenable.
 
@@ -78,7 +78,7 @@ Vertical spaces on the graph for different types of components.
 
 ## Debate Core State
 
-The debate core state is the underlying data structure representing the claims and their relationships. It is separate from the display and may have fewer structures. In the core, connectors directly connect to other connectors or claims without the extra display structures like junctions, aggregators, or delivery connectors.
+The debate core state is the underlying data structure representing the claims and their relationships. It is the authoritative current state. It is separate from the display and may have fewer structures. That separation means the DebateCore does not depend on display-only structures. The display and planner may still depend on the DebateCore to derive visual state. In the core, connectors directly connect to other connectors or claims without the extra display structures like junctions, aggregators, or delivery connectors.
 
 - Claim
 - Core Confidence Connector - a connector from one claim directly to another claim.

@@ -10,6 +10,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - Defined in `debate-core.ts`.
 - Claims, connectors, and their relationships.
+- `DebateCore` is the authoritative current state.
 
 **Command**
 
@@ -17,12 +18,13 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 **Planner**
 
-- Receives the current state and the command.
+- Receives the current `DebateCore` state, the current snapshot, and the command.
 - Produces a sequence of `GraphRenderState` snapshots and metadata.
 
 **Snapshot**
 
 - Each snapshot (from `graph-render-state.ts`) contains all node/edge positions, confidence values, and properties needed for rendering and animation.
+- The snapshot is the current display state, not the underlying DebateCore state.
 
 **Planner config**
 

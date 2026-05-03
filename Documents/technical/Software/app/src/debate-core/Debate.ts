@@ -7,7 +7,7 @@ import type { PatchWithRequiredId } from "../utils.ts";
 
 export type DebateId = string & { readonly __brand: "DebateId" };
 
-export type DebateCore = {
+export type DebateBase = {
 	id: DebateId
 	description: string
 	name: string
@@ -19,7 +19,7 @@ export type DebateDetails = {
 	connectors: Record<ConnectorId, Connector>
 }
 
-export type Debate = DebateCore & DebateDetails
+export type DebateCore = DebateBase & DebateDetails
 
 // For patch/update, allow partial except id
-export type DebatePatch = PatchWithRequiredId<Debate>;
+export type DebatePatch = PatchWithRequiredId<DebateCore>;

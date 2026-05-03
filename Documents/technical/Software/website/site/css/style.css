@@ -1,19 +1,5 @@
 @import "./brand.css";
 
-:root {
-  --bg: #0f0f10;
-  --panel: #171719;
-  --text: #ffffff;
-  --muted: #b8b8c0;
-  --border: #2a2a2f;
-  --link: #ffffff;
-  --code-bg: #222228;
-  --subdued-opacity: 0.78;
-  --max-width: 860px;
-  --sans: "Segoe UI", system-ui, sans-serif;
-  --mono: Consolas, "Cascadia Mono", monospace;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -30,19 +16,19 @@ a {
   color: var(--link);
 }
 
-body > main.doc-shell,
-body > footer.page-footer,
+body>main.doc-shell,
+body>footer.page-footer,
 #app {
   width: min(100% - 2rem, var(--max-width));
   margin-inline: auto;
 }
 
-body > main.doc-shell,
+body>main.doc-shell,
 #app {
   margin-top: 2rem;
 }
 
-body > footer.page-footer {
+body>footer.page-footer {
   margin-bottom: 2rem;
 }
 
@@ -185,18 +171,19 @@ body > footer.page-footer {
 }
 
 @media (max-width: 720px) {
-  body > main.doc-shell,
-  body > footer.page-footer,
+
+  body>main.doc-shell,
+  body>footer.page-footer,
   #app {
     width: min(100% - 1rem, var(--max-width));
   }
 
-  body > main.doc-shell,
+  body>main.doc-shell,
   #app {
     margin-top: 1rem;
   }
 
-  body > footer.page-footer {
+  body>footer.page-footer {
     margin-bottom: 1rem;
   }
 
@@ -208,4 +195,3 @@ body > footer.page-footer {
     gap: 0.35rem;
   }
 }
-

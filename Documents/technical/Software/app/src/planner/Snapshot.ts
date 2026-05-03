@@ -88,15 +88,25 @@ export interface RelevanceConnectorViz extends ConnectorVizBase {
     targetJunctionAggregatorVizId: JunctionAggregatorVizId
 }
 
-export type Snapshot = {
-    claims: Record<ClaimVizId, ClaimViz>
-    claimAggregators: Record<ClaimAggregatorVizId, ClaimAggregatorViz>
-    junctions: Record<JunctionVizId, JunctionViz>
-    junctionAggregators: Record<JunctionAggregatorVizId, JunctionAggregatorViz>
-    confidenceConnectors: Record<ConfidenceConnectorVizId, ConfidenceConnectorViz>
-    deliveryConnectors: Record<DeliveryConnectorVizId, DeliveryConnectorViz>
-    relevanceConnectors: Record<RelevanceConnectorVizId, RelevanceConnectorViz>
-}
+export type VizItem =
+    | ClaimViz
+    | ClaimAggregatorViz
+    | JunctionViz
+    | JunctionAggregatorViz
+    | ConfidenceConnectorViz
+    | DeliveryConnectorViz
+    | RelevanceConnectorViz;
+
+export type VizItemId =
+    | ClaimVizId
+    | ClaimAggregatorVizId
+    | JunctionVizId
+    | JunctionAggregatorVizId
+    | ConfidenceConnectorVizId
+    | DeliveryConnectorVizId
+    | RelevanceConnectorVizId;
+
+export type Snapshot = Record<VizItemId, VizItem>;
 
 export type ClaimVizId = string & { readonly __brand: "ClaimVizId" };
 export type ClaimAggregatorVizId = string & { readonly __brand: "ClaimAggregatorVizId" };

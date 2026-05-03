@@ -7,10 +7,10 @@ import type {
 	RelevanceConnectorId,
 	TargetRelation,
 } from "./Connector.ts";
-import type { DebateCore } from "./Debate.ts";
+import type { DebateBase } from "./Debate.ts";
 
-type CreateDebateInput = Omit<DebateCore, "mainClaimId">;
-export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateCore, "id" | "name" | "description">>;
+type CreateDebateInput = Omit<DebateBase, "mainClaimId">;
+export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateBase, "id" | "name" | "description">>;
 
 type ConnectionInputBase<TConnectorId extends ConfidenceConnectorId | RelevanceConnectorId> = {
 	id?: TConnectorId
