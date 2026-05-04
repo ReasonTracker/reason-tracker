@@ -15,7 +15,6 @@ export const Episode0001 = () => {
                 alignItems: "center",
             }}
         >
-
             TEST
         </AbsoluteFill>
     );

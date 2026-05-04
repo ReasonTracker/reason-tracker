@@ -7,7 +7,7 @@ import {
 	Episode0001,
 	EPISODE0001_DURATION_IN_FRAMES,
 	EPISODE0001_FPS,
-} from "./Episode0001";
+} from "./Episode0001/Episode0001";
 import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
