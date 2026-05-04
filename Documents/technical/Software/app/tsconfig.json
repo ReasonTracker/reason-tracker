@@ -4,5 +4,10 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext"
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "../videos/src/Episode0001/sampleDebateState.ts",
+    "../videos/src/Episode0001/sampleVoilaSnapshot.ts"
+  ]
 }

@@ -1,5 +1,5 @@
-import type { ClaimId } from "../debate-core/Claim.ts";
-import type { ConfidenceConnectorId } from "../debate-core/Connector.ts";
+import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
+import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
 import { sampleSnapshot } from "./sampleDebateState.ts";
 import type {
     ClaimAggregatorVizId,
@@ -9,7 +9,7 @@ import type {
     JunctionAggregatorVizId,
     JunctionVizId,
     Snapshot,
-} from "./Snapshot.ts";
+} from "../../../app/src/planner/Snapshot.ts";
 
 const mainClaimId = "claim-main" as ClaimId;
 

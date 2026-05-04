@@ -1,6 +1,6 @@
-import type { ClaimId } from "../debate-core/Claim.ts";
-import type { ConfidenceConnectorId } from "../debate-core/Connector.ts";
-import type { DebateCore } from "../debate-core/Debate.ts";
+import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
+import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
+import type { DebateCore } from "../../../app/src/debate-core/Debate.ts";
 import type {
     ClaimAggregatorVizId,
     ClaimVizId,
@@ -9,7 +9,7 @@ import type {
     JunctionAggregatorVizId,
     JunctionVizId,
     Snapshot,
-} from "./Snapshot.ts";
+} from "../../../app/src/planner/Snapshot.ts";
 
 const mainClaimId = "claim-main" as ClaimId;
 const existingChildClaimId = "claim-child-existing" as ClaimId;
