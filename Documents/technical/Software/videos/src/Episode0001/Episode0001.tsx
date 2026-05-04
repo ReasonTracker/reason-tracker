@@ -1,21 +1,22 @@
-import { AbsoluteFill } from "remotion";
+import { useCurrentFrame } from "remotion";
 
-export const EPISODE0001_FPS = 30;
-export const EPISODE0001_DURATION_IN_FRAMES = 90;
+import { DebateRenderSurface } from "../shared/DebateRenderSurface";
+import {
+    EPISODE0001_DURATION_IN_FRAMES,
+    EPISODE0001_FPS,
+    resolveEpisode0001Playback,
+} from "./episodeSequence";
+
+export { EPISODE0001_DURATION_IN_FRAMES, EPISODE0001_FPS };
 
 export const Episode0001 = () => {
+    const frame = useCurrentFrame();
+    const playback = resolveEpisode0001Playback(frame);
+
     return (
-        <AbsoluteFill
-            style={{
-                backgroundColor: `var(--bg)`,
-                color: `var(--text)`,
-                background: `var(--bg)`,
-                fontFamily: `var(--sans)`,
-                justifyContent: "center",
-                alignItems: "center",
-            }}
-        >
-            TEST
-        </AbsoluteFill>
+        <DebateRenderSurface
+            renderState={playback.renderState}
+            stepProgress={playback.stepProgress}
+        />
     );
 };

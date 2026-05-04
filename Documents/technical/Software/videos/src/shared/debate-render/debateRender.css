@@ -1,0 +1,105 @@
+.rt-debate-render {
+    background: #000000;
+    color: #ffffff;
+    overflow: hidden;
+    position: relative;
+    --pro-h: 276.37;
+    --pro-l: 65%;
+    --pro: hsl(var(--pro-h), 100%, var(--pro-l));
+    --con-h: 30.21;
+    --con-l: 42%;
+    --con: hsl(var(--con-h), 100%, var(--con-l));
+}
+
+.rt-debate-render__scene {
+    position: relative;
+}
+
+.rt-debate-render__svg {
+    inset: 0;
+    overflow: visible;
+    position: absolute;
+}
+
+.rt-debate-render__claim-shell,
+.rt-debate-render__aggregator {
+    box-sizing: border-box;
+    position: absolute;
+}
+
+.rt-debate-render__claim-shell {
+    overflow: visible;
+}
+
+.rt-debate-render__claim-frame {
+    height: 176px;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(var(--rt-claim-card-scale, 1));
+    transform-origin: center center;
+    width: 360px;
+}
+
+.rt-debate-render__claim-card {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between;
+    overflow: hidden;
+    padding: 16px 20px 14px;
+    width: 100%;
+}
+
+.rt-debate-render__claim-card--pro {
+    background: hsl(var(--pro-h) 100% var(--pro-l) / 0.3);
+    border: 4px solid var(--pro);
+}
+
+.rt-debate-render__claim-card--con {
+    background: hsl(var(--con-h) 100% var(--con-l) / 0.3);
+    border: 4px solid var(--con);
+}
+
+.rt-debate-render__claim-content {
+    display: -webkit-box;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.08;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+
+.rt-debate-render__claim-score {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+}
+
+.rt-debate-render__claim-score-value {
+    color: #f3f4f6;
+    font-size: 32px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 0.92;
+    white-space: nowrap;
+}
+
+.rt-debate-render__claim-score-caption {
+    color: #d1d5db;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.rt-debate-render__aggregator {
+    background: transparent;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+}

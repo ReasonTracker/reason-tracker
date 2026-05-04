@@ -7,7 +7,7 @@ This folder owns Remotion-only helpers that are reused by episode compositions.
 - timeline segment construction for Remotion frame timing
 - fade wrappers that expose visible Remotion `Sequence` ranges
 - graph animation orchestration through `GraphView`, `GraphEvents`, and `CameraMove`
-- graph snapshot mapping from debate-core layouts into Remotion render state
+- tween-aware debate snapshot rendering for video output in [Debate Render](./debate-render/📌README.md)
 - episode frame, template, and brand sequence wrappers
 
 ## Boundaries

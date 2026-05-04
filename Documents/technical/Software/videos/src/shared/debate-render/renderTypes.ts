@@ -1,0 +1,38 @@
+import type { DebateCore } from "../../../../app/src/debate-core/Debate.ts";
+import type {
+    Snapshot,
+} from "../../../../app/src/planner/Snapshot.ts";
+
+export type DebateSnapshotRenderState = {
+    debateCore: DebateCore;
+    snapshot: Snapshot;
+};
+
+export type RenderStepProgress = {
+    stepProgress: number;
+};
+
+export type RenderAttributeValue = boolean | number | string;
+export type RenderStyleValue = number | string;
+
+export interface RenderTextNode {
+    kind: "text";
+    text: string;
+}
+
+export interface RenderElementNode {
+    kind: "element";
+    namespace: "html" | "svg";
+    tagName: string;
+    attributes?: Record<string, RenderAttributeValue | undefined>;
+    styles?: Record<string, RenderStyleValue | undefined>;
+    children?: RenderNode[];
+}
+
+export type RenderNode = RenderElementNode | RenderTextNode;
+
+export type DebateRenderResult = {
+    height: number;
+    root: RenderElementNode;
+    width: number;
+};
