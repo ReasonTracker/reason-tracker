@@ -45,6 +45,11 @@ type WidthTransitionState = {
     transitionLengthPx: number;
 };
 
+type UnitVector = {
+    x: number;
+    y: number;
+};
+
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 const PIPE_INTERIOR_ALPHA = 0.2;
 const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
@@ -97,6 +102,7 @@ export function renderConnector(
         connector.source,
         connector.target,
         maxRenderablePipeWidth,
+        connector.targetApproachUnit,
     );
 
     if (centerlinePoints.length < 2) {
@@ -625,12 +631,13 @@ function buildAngularConnectorCenterlinePoints(
     source: { x: number; y: number },
     target: { x: number; y: number },
     pipeWidth: number,
+    targetApproachUnit?: UnitVector,
 ): Waypoint[] {
     if (shouldUseStraightAngularConnector(source, target)) {
         return [source, target];
     }
 
-    const bendGeometry = resolveAngularConnectorBendGeometry(source, target, pipeWidth);
+    const bendGeometry = resolveAngularConnectorBendGeometry(source, target, pipeWidth, targetApproachUnit);
 
     if (!bendGeometry) {
         return [source, target];
@@ -657,6 +664,7 @@ function resolveAngularConnectorBendGeometry(
     startPoint: { x: number; y: number },
     endPoint: { x: number; y: number },
     pipeWidth: number,
+    targetApproachUnit?: UnitVector,
 ): {
     bendPoints: {
         bendEnd: { x: number; y: number };
@@ -667,7 +675,7 @@ function resolveAngularConnectorBendGeometry(
     bendRadius: number;
     diagonalTurnAngleRadians: number;
 } | undefined {
-    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth);
+    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth, targetApproachUnit);
 
     if (!bendPoints) {
         return undefined;
@@ -694,6 +702,7 @@ function resolveAngularConnectorBendPoints(
     startPoint: { x: number; y: number },
     endPoint: { x: number; y: number },
     pipeWidth: number,
+    targetApproachUnit?: UnitVector,
 ): {
     bendEnd: { x: number; y: number };
     bendStart: { x: number; y: number };
@@ -709,8 +718,13 @@ function resolveAngularConnectorBendPoints(
         return undefined;
     }
 
+    const normalizedTargetApproachUnit = normalizeUnitVector(targetApproachUnit, { x: -1, y: 0 });
+
     return {
-        bendEnd: { x: endPoint.x + straightSegmentLength, y: endPoint.y },
+        bendEnd: {
+            x: endPoint.x - (normalizedTargetApproachUnit.x * straightSegmentLength),
+            y: endPoint.y - (normalizedTargetApproachUnit.y * straightSegmentLength),
+        },
         bendStart: { x: startPoint.x - straightSegmentLength, y: startPoint.y },
         endStraightLength: straightSegmentLength,
         startStraightLength: straightSegmentLength,
@@ -833,6 +847,7 @@ function resolveConnectorFields(args: {
     score: number;
     source: { x: number; y: number };
     target: { x: number; y: number };
+    targetApproachUnit?: UnitVector;
     visible: boolean;
 } {
     const sourceFallback = resolveTweenPoint(args.item.source, args.stepProgress);
@@ -844,7 +859,17 @@ function resolveConnectorFields(args: {
         stepProgress: args.stepProgress,
         targetFallback,
     });
-    const target = resolveConnectorTargetPoint({
+    const relevanceTargetAttachment = args.item.type === "relevanceConnector"
+        ? resolveRelevanceJunctionAttachment({
+            snapshot: args.snapshot,
+            junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
+            stepProgress: args.stepProgress,
+            fallbackPoint: targetFallback,
+            oppositePoint: source,
+            side: args.item.side,
+        })
+        : undefined;
+    const target = relevanceTargetAttachment?.point ?? resolveConnectorTargetPoint({
         fallbackPoint: targetFallback,
         item: args.item,
         snapshot: args.snapshot,
@@ -863,6 +888,7 @@ function resolveConnectorFields(args: {
             x: target.x,
             y: target.y + targetSideOffset,
         },
+        targetApproachUnit: relevanceTargetAttachment?.approachUnit,
         visible: args.item.type === "confidenceConnector"
             ? resolveTweenBoolean(args.item.visible, args.stepProgress)
             : true,
@@ -877,12 +903,31 @@ function resolveConnectorSourcePoint(args: {
     targetFallback: { x: number; y: number };
 }): { x: number; y: number } {
     if (args.item.type === "deliveryConnector") {
-        return resolveSnapshotPositionPoint(args.snapshot, String(args.item.sourceJunctionVizId), args.stepProgress, args.fallbackPoint);
+        return resolveJunctionAttachmentPoint(
+            args.snapshot,
+            String(args.item.sourceJunctionVizId),
+            args.stepProgress,
+            args.fallbackPoint,
+            args.targetFallback,
+        );
     }
 
     const oppositePoint = args.item.type === "confidenceConnector"
-        ? resolveSnapshotPositionPoint(args.snapshot, String(args.item.targetJunctionVizId), args.stepProgress, args.targetFallback)
-        : resolveSnapshotPositionPoint(args.snapshot, String(args.item.targetJunctionAggregatorVizId), args.stepProgress, args.targetFallback);
+        ? resolveJunctionAttachmentPoint(
+            args.snapshot,
+            String(args.item.targetJunctionVizId),
+            args.stepProgress,
+            args.targetFallback,
+            args.fallbackPoint,
+        )
+        : resolveRelevanceJunctionAttachment({
+            snapshot: args.snapshot,
+            junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
+            stepProgress: args.stepProgress,
+            fallbackPoint: args.targetFallback,
+            oppositePoint: args.fallbackPoint,
+            side: args.item.side,
+        }).point;
 
     return resolveClaimAttachmentPoint({
         claimVizId: String(args.item.sourceClaimVizId),
@@ -913,6 +958,27 @@ function resolveConnectorTargetPoint(args: {
     const targetId = args.item.type === "confidenceConnector"
         ? String(args.item.targetJunctionVizId)
         : String(args.item.targetJunctionAggregatorVizId);
+
+    if (args.item.type === "confidenceConnector") {
+        return resolveJunctionAttachmentPoint(
+            args.snapshot,
+            targetId,
+            args.stepProgress,
+            args.fallbackPoint,
+            args.sourcePoint,
+        );
+    }
+
+    if (args.item.type === "relevanceConnector") {
+        return resolveRelevanceJunctionAttachment({
+            snapshot: args.snapshot,
+            junctionAggregatorVizId: targetId,
+            stepProgress: args.stepProgress,
+            fallbackPoint: args.fallbackPoint,
+            oppositePoint: args.sourcePoint,
+            side: args.item.side,
+        }).point;
+    }
 
     return resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.fallbackPoint);
 }
@@ -955,12 +1021,127 @@ function resolveSnapshotPositionPoint(
     return resolveTweenPoint(item.position, stepProgress);
 }
 
+function resolveJunctionAttachmentPoint(
+    snapshot: Snapshot,
+    itemId: string,
+    stepProgress: number,
+    fallbackPoint: { x: number; y: number },
+    oppositePoint: { x: number; y: number },
+): { x: number; y: number } {
+    const item = getSnapshotItem(snapshot, itemId);
+
+    if (!item || item.type !== "junction") {
+        return resolveSnapshotPositionPoint(snapshot, itemId, stepProgress, fallbackPoint);
+    }
+
+    if (!resolveTweenBoolean(item.visible, stepProgress)) {
+        return fallbackPoint;
+    }
+
+    const position = resolveTweenPoint(item.position, stepProgress);
+    const span = Math.max(1, Math.round(resolveTweenNumber(item.incomingRelevanceScale, stepProgress)));
+    const halfSpan = span / 2;
+
+    return {
+        x: oppositePoint.x <= position.x ? position.x - halfSpan : position.x + halfSpan,
+        y: position.y,
+    };
+}
+
+function resolveRelevanceJunctionAttachment(args: {
+    snapshot: Snapshot;
+    junctionAggregatorVizId: string;
+    stepProgress: number;
+    fallbackPoint: { x: number; y: number };
+    oppositePoint: { x: number; y: number };
+    side: Side;
+}): {
+    point: { x: number; y: number };
+    approachUnit?: UnitVector;
+} {
+    const junctionItem = getJunctionForAggregator(args.snapshot, args.junctionAggregatorVizId);
+
+    if (!junctionItem) {
+        return {
+            point: resolveSnapshotPositionPoint(args.snapshot, args.junctionAggregatorVizId, args.stepProgress, args.fallbackPoint),
+        };
+    }
+
+    const position = resolveTweenPoint(junctionItem.position, args.stepProgress);
+    const span = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress)));
+    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress)));
+    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress)));
+    const leftHeight = args.side === "proMain"
+        ? incomingConfidenceHeight
+        : outgoingConfidenceHeight;
+    const rightHeight = args.side === "proMain"
+        ? outgoingConfidenceHeight
+        : incomingConfidenceHeight;
+    const leftX = position.x - (span / 2);
+    const rightX = position.x + (span / 2);
+    const attachToTop = args.oppositePoint.y <= position.y;
+    const edgeStart = attachToTop
+        ? { x: leftX, y: position.y - (leftHeight / 2) }
+        : { x: leftX, y: position.y + (leftHeight / 2) };
+    const edgeEnd = attachToTop
+        ? { x: rightX, y: position.y - (rightHeight / 2) }
+        : { x: rightX, y: position.y + (rightHeight / 2) };
+    const edgeDirectionLeftToRight = normalizeUnitVector({
+        x: edgeEnd.x - edgeStart.x,
+        y: edgeEnd.y - edgeStart.y,
+    }, { x: 1, y: 0 });
+    const approachUnit = attachToTop
+        ? normalizeUnitVector({
+            x: -edgeDirectionLeftToRight.y,
+            y: edgeDirectionLeftToRight.x,
+        }, { x: 0, y: 1 })
+        : normalizeUnitVector({
+            x: edgeDirectionLeftToRight.y,
+            y: -edgeDirectionLeftToRight.x,
+        }, { x: 0, y: -1 });
+
+    return {
+        point: {
+            x: (edgeStart.x + edgeEnd.x) / 2,
+            y: (edgeStart.y + edgeEnd.y) / 2,
+        },
+        approachUnit,
+    };
+}
+
+function getJunctionForAggregator(snapshot: Snapshot, junctionAggregatorVizId: string): Extract<VizItem, { type: "junction" }> | undefined {
+    for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
+        if (item?.type === "junction" && String(item.junctionAggregatorVizId) === junctionAggregatorVizId) {
+            return item;
+        }
+    }
+
+    return undefined;
+}
+
 function getSnapshotItem(snapshot: Snapshot, itemId: string): VizItem | undefined {
     return (snapshot as Partial<Record<string, VizItem>>)[itemId];
 }
 
 function hasPosition(item: VizItem): item is Extract<VizItem, { position: unknown }> {
     return "position" in item;
+}
+
+function normalizeUnitVector(vector: UnitVector | undefined, fallback: UnitVector): UnitVector {
+    if (!vector) {
+        return fallback;
+    }
+
+    const length = Math.hypot(vector.x, vector.y);
+
+    if (length <= 1e-6) {
+        return fallback;
+    }
+
+    return {
+        x: vector.x / length,
+        y: vector.y / length,
+    };
 }
 
 function getTweenNumberEndpoints(value: number | { type: "tween/number"; from: number; to: number }): { from: number; to: number } {

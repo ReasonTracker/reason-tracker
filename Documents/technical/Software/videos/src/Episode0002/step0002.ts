@@ -24,6 +24,7 @@ import {
     claimHalfWidth,
     step0001RenderState,
     thirdColumnClaimLeftEdgeX,
+    thirdLayerPipeWidth,
     thirdLayerClaimScale,
 } from "./step0001";
 
@@ -107,7 +108,9 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             confidenceConnectorId: c7ConfidenceConnectorId,
             junctionAggregatorVizId: c7JunctionAggregatorVizId,
             position: c7ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: thirdLayerPipeWidth,
+            incomingConfidenceScale: thirdLayerPipeWidth,
+            incomingRelevanceScale: thirdLayerPipeWidth,
             visible: false,
         },
         [c7JunctionAggregatorVizId]: {

@@ -17,6 +17,7 @@ import {
     stripDebateSnapshotRenderStateAnimations,
 } from "../shared/debateSnapshotRenderStatePatch";
 import {
+    fullScalePipeWidth,
     leftPad,
     layerWidth,
     mainClaimAggregatorVizId,
@@ -106,7 +107,9 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             confidenceConnectorId: c2ConfidenceConnectorId,
             junctionAggregatorVizId: c2JunctionAggregatorVizId,
             position: c2ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: fullScalePipeWidth,
+            incomingConfidenceScale: fullScalePipeWidth,
+            incomingRelevanceScale: fullScalePipeWidth,
             visible: false,
         },
         [c2JunctionAggregatorVizId]: {

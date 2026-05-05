@@ -142,10 +142,12 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                         item: aggregator,
                         stepProgress: args.stepProgress,
                     })),
-                    ...junctionAggregators.map((aggregator) => renderJunctionAggregator({
-                        item: aggregator,
-                        stepProgress: args.stepProgress,
-                    })),
+                    ...junctionAggregators
+                        .map((aggregator) => renderJunctionAggregator({
+                            item: aggregator,
+                            stepProgress: args.stepProgress,
+                        }))
+                        .filter((node): node is RenderElementNode => !!node),
                 ],
             }),
         ],

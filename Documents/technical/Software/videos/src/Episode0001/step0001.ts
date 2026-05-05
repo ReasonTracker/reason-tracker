@@ -27,6 +27,7 @@ export const mainSupportDeliveryConnectorVizId = "delivery-connector-viz-main-su
 export const leftPad = 500;
 export const layerWidth = 500;
 const claimHalfWidth = 180;
+export const fullScalePipeWidth = 176;
 
 export const mainClaimPosition = { x: leftPad, y: 180 };
 export const mainClaimAggregatorPosition = { x: leftPad, y: 260 };
@@ -109,7 +110,9 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             confidenceConnectorId: mainSupportConfidenceConnectorId,
             junctionAggregatorVizId: mainSupportJunctionAggregatorVizId,
             position: mainSupportSourcePosition,
-            scale: 1,
+            outgoingConfidenceScale: fullScalePipeWidth,
+            incomingConfidenceScale: fullScalePipeWidth,
+            incomingRelevanceScale: fullScalePipeWidth,
             visible: false,
         },
         [mainSupportJunctionAggregatorVizId]: {

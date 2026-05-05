@@ -5,30 +5,29 @@ import { svgElement } from "./renderTree";
 import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
 
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
-const JUNCTION_BASE_WIDTH_PX = 28;
-const JUNCTION_BASE_HEIGHT_PX = 18;
-const JUNCTION_NARROW_SIDE_RATIO = 0.82;
-const JUNCTION_WIDE_SIDE_RATIO = 1.18;
 
 export function renderJunction(args: {
     item: JunctionViz;
     side: Side | undefined;
 } & RenderStepProgress): RenderElementNode | undefined {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
-    const scale = resolveTweenNumber(args.item.scale, args.stepProgress);
+    const span = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress)));
+    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress)));
+    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress)));
     const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
 
-    if (!visible || scale <= 0 || !args.side) {
+    if (!visible || !args.side) {
         return undefined;
     }
 
-    const width = getRenderedJunctionWidth(scale);
-    const narrowHeight = Math.max(1, Math.round(JUNCTION_BASE_HEIGHT_PX * JUNCTION_NARROW_SIDE_RATIO * clampVisualScale(scale)));
-    const wideHeight = getRenderedJunctionHeight(scale);
-    const leftHeight = args.side === "proMain" ? narrowHeight : wideHeight;
-    const rightHeight = args.side === "proMain" ? wideHeight : narrowHeight;
-    const leftX = position.x - (width / 2);
-    const rightX = position.x + (width / 2);
+    const leftHeight = args.side === "proMain"
+        ? incomingConfidenceHeight
+        : outgoingConfidenceHeight;
+    const rightHeight = args.side === "proMain"
+        ? outgoingConfidenceHeight
+        : incomingConfidenceHeight;
+    const leftX = position.x - (span / 2);
+    const rightX = position.x + (span / 2);
     const pathData = [
         `M ${leftX} ${position.y - (leftHeight / 2)}`,
         `L ${rightX} ${position.y - (rightHeight / 2)}`,
@@ -54,28 +53,14 @@ export function getJunctionBounds(args: {
     item: JunctionViz;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
-    const scale = resolveTweenNumber(args.item.scale, args.stepProgress);
+    const span = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress)));
+    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress)));
+    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress)));
 
     return {
-        maxX: position.x + (getRenderedJunctionWidth(scale) / 2),
-        maxY: position.y + (getRenderedJunctionHeight(scale) / 2),
+        maxX: position.x + (span / 2),
+        maxY: position.y + (Math.max(incomingConfidenceHeight, outgoingConfidenceHeight) / 2),
     };
-}
-
-export function getRenderedJunctionWidth(scale: number): number {
-    return Math.max(1, Math.round(JUNCTION_BASE_WIDTH_PX * clampVisualScale(scale)));
-}
-
-export function getRenderedJunctionHeight(scale: number): number {
-    return Math.max(1, Math.round(JUNCTION_BASE_HEIGHT_PX * JUNCTION_WIDE_SIDE_RATIO * clampVisualScale(scale)));
-}
-
-function clampVisualScale(scale: number): number {
-    if (!Number.isFinite(scale)) {
-        return 1;
-    }
-
-    return Math.min(1, Math.max(0, scale));
 }
 
 function resolveSideStroke(side: Side): string {

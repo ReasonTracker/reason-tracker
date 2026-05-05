@@ -15,12 +15,15 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Add Relevance Claim to a New Junction
 
-- **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
+- **Voila**: The new claim scales in from zero to its calculated size on the connector lane of the confidence connection it affects while the existing claims move out of the way.
 - **Sprout**: These all happen at the same time.
-  - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the junction aggregator.
-  - The junction will grow in width from zero to the width necessary to fit the new claim's pipe width and move into position from zero distance in front of the claim at the Claim Lane.
-  - The aggregator will also grow into position.
-  - The delivery and confidence connectors will stay connected to the junction.
+  - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom edge of the junction on the affected confidence connection.
+  - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
+  - The Relevance Connector uses the top edge if the relevance claim is above the junction and the bottom edge if the relevance claim is below it. It reaches that edge with the same slope as that edge.
+  - If there is only one relevance claim, the junction aggregator may remain hidden even though the Relevance Connector is still associated with that junction aggregator.
+  - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
+  - If the junction aggregator needs to become visible, it will grow into position as a separate item from the junction.
+  - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the target-facing edge of the junction.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the update wave at the target Junction Aggregator Adjust step.
 

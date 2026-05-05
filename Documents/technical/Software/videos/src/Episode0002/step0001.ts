@@ -72,7 +72,7 @@ const c3RelevanceConnectorVizId = "episode-0002-relevance-connector-viz-c3" as R
 
 export const claimHalfWidth = 180;
 const leftPad = 340;
-const layerWidth = 540;
+const layerWidth = 680;
 const secondColumnFullCenterX = leftPad + layerWidth;
 export const thirdColumnFullCenterX = leftPad + layerWidth * 2;
 const secondColumnClaimLeftEdgeX = secondColumnFullCenterX - claimHalfWidth;
@@ -80,6 +80,10 @@ export const thirdColumnClaimLeftEdgeX = thirdColumnFullCenterX - claimHalfWidth
 
 export const secondLayerClaimScale = .6;
 export const thirdLayerClaimScale = .4;
+const fullScalePipeWidth = 176;
+export const secondLayerPipeWidth = 106;
+export const thirdLayerPipeWidth = 70;
+const secondLayerNarrowConfidenceScale = 87;
 
 const mainClaimPosition = { x: leftPad, y: 460 };
 const mainClaimAggregatorPosition = { x: leftPad, y: 540 };
@@ -102,13 +106,17 @@ const c2ClaimPosition = {
 };
 const c2ClaimAggregatorPosition = { x: c2ClaimPosition.x, y: 840 };
 const c2ClaimLeftEdgePosition = { x: secondColumnClaimLeftEdgeX, y: c2ClaimPosition.y };
+const c2JunctionPosition = { x: secondColumnClaimLeftEdgeX - 120, y: c2ClaimPosition.y };
 
 const c3ClaimPosition = {
-    x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
-    y: 760,
+    x: secondColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
+    y: c2ClaimPosition.y - 180,
 };
-const c3ClaimAggregatorPosition = { x: c3ClaimPosition.x, y: 820 };
-const c3ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c3ClaimPosition.y };
+const c3ClaimAggregatorPosition = { x: c3ClaimPosition.x, y: c3ClaimPosition.y + 60 };
+const c3ClaimLeftEdgePosition = {
+    x: c3ClaimPosition.x - (claimHalfWidth * thirdLayerClaimScale),
+    y: c3ClaimPosition.y,
+};
 
 const c4ClaimPosition = {
     x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
@@ -373,7 +381,9 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             confidenceConnectorId: c1ConfidenceConnectorId,
             junctionAggregatorVizId: c1JunctionAggregatorVizId,
             position: c1ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: secondLayerPipeWidth,
+            incomingConfidenceScale: secondLayerPipeWidth,
+            incomingRelevanceScale: secondLayerPipeWidth,
             visible: false,
         },
         [c2JunctionVizId]: {
@@ -382,8 +392,10 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
             junctionAggregatorVizId: c2JunctionAggregatorVizId,
-            position: c2ClaimLeftEdgePosition,
-            scale: 1,
+            position: c2JunctionPosition,
+            outgoingConfidenceScale: secondLayerPipeWidth,
+            incomingConfidenceScale: secondLayerNarrowConfidenceScale,
+            incomingRelevanceScale: thirdLayerPipeWidth,
             visible: true,
         },
         [c4JunctionVizId]: {
@@ -393,7 +405,9 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             confidenceConnectorId: c4ConfidenceConnectorId,
             junctionAggregatorVizId: c4JunctionAggregatorVizId,
             position: c4ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: thirdLayerPipeWidth,
+            incomingConfidenceScale: thirdLayerPipeWidth,
+            incomingRelevanceScale: thirdLayerPipeWidth,
             visible: false,
         },
         [c5JunctionVizId]: {
@@ -403,7 +417,9 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             confidenceConnectorId: c5ConfidenceConnectorId,
             junctionAggregatorVizId: c5JunctionAggregatorVizId,
             position: c5ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: thirdLayerPipeWidth,
+            incomingConfidenceScale: thirdLayerPipeWidth,
+            incomingRelevanceScale: thirdLayerPipeWidth,
             visible: false,
         },
         [c6JunctionVizId]: {
@@ -413,7 +429,9 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             confidenceConnectorId: c6ConfidenceConnectorId,
             junctionAggregatorVizId: c6JunctionAggregatorVizId,
             position: c6ClaimLeftEdgePosition,
-            scale: 1,
+            outgoingConfidenceScale: thirdLayerPipeWidth,
+            incomingConfidenceScale: thirdLayerPipeWidth,
+            incomingRelevanceScale: thirdLayerPipeWidth,
             visible: false,
         },
         [c1JunctionAggregatorVizId]: {
@@ -432,11 +450,11 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c2JunctionAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
-            position: c2ClaimLeftEdgePosition,
+            position: c2JunctionPosition,
             relevanceConnectorVizIds: [c3RelevanceConnectorVizId],
             scale: 1,
             score: 1,
-            visible: true,
+            visible: false,
         },
         [c4JunctionAggregatorVizId]: {
             type: "junctionAggregator",
@@ -499,7 +517,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             side: "conMain",
             direction: "sourceToTarget",
             source: c2ClaimLeftEdgePosition,
-            target: c2ClaimLeftEdgePosition,
+            target: c2JunctionPosition,
         },
         [c4ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
@@ -572,7 +590,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c2ClaimLeftEdgePosition,
+            source: c2JunctionPosition,
             target: mainClaimRightEdgePosition,
             targetSideOffset: c2MainTargetSideOffset,
         },
@@ -633,7 +651,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             side: "conMain",
             direction: "sourceToTarget",
             source: c3ClaimLeftEdgePosition,
-            target: c2ClaimLeftEdgePosition,
+            target: c2JunctionPosition,
         },
     },
 };

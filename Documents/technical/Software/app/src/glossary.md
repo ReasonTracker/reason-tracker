@@ -5,11 +5,11 @@
 ### Components
 
 - Claim - a statement that can be supported or attacked by other claims.
-- Aggregator - a display of how the source confidences (and relevances) combine to produce the confidence of the target claim. It might be called a junction aggregator when just before a junction or a claim aggregator when just before a claim, but it is the same structure.
-- Display Relevance Connector - a line connecting a claim to a junction aggregator to show how the relevance source claim affects the relevance of the source confidence claim on the target claim. If there is only one relevance claim, the junction aggregator may not be visible.
-- Display Confidence Connector - the visible part of a confidence relationship before the junction. It shows how the confidence source claim affects the confidence of the target claim. Will not be visible if there is no junction.
-- Junction - a visible structure between the Display Confidence Connector and Delivery Connector where relevance connectors are aggregated through the junction aggregator to show their effect on the confidence being delivered by the Display Confidence Connector. Will not be visible if there are no relevance claims.
-- Delivery Connector - a line carrying the confidence from the source side toward the target claim. When visible, it starts at the junction if there is one; otherwise it appears to start directly from the source claim. In the snapshot, `target` is the midpoint of the target side and optional `targetSideOffset` shifts the target anchor along that side. If `targetSideOffset` is omitted, it is treated as zero.
+- Aggregator - a display shape representing where source confidences or relevances combine to produce the score of the target claim. An aggregator can still exist in the snapshot even when the display does not need to show it. A claim aggregator sits just before a claim. A junction aggregator sits at a junction and is the target shape for incoming relevance connectors.
+- Display Relevance Connector - a line connecting a relevance claim to the junction aggregator of the confidence connection it affects. Visually it lands on the top or bottom edge of that junction. It uses the top edge when the relevance claim is above the junction and the bottom edge when the relevance claim is below it, and it meets that edge with the same slope as that edge. A claim that affects relevance sits on the connector lane of the confidence connection it affects. If there is only one relevance claim, the junction aggregator may remain hidden.
+- Display Confidence Connector - the visible part of a confidence relationship before the junction. It runs from the confidence source claim to the source-facing edge of the junction and appears when a junction is shown.
+- Junction - the visible structure on a confidence connection between the Display Confidence Connector and the Delivery Connector. The junction is a different display item from the junction aggregator. The junction is visible whenever at least one relevance claim affects that confidence connection, even if the junction aggregator remains hidden because there is only one incoming relevance item. The planner authors the junction size directly: how wide the relevance landing span is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
+- Delivery Connector - a line carrying the confidence from the source side toward the target claim. When a junction is shown, it starts at the target-facing edge of that junction. In the snapshot, `target` is the midpoint of the target side and optional `targetSideOffset` shifts the target anchor along that side. If `targetSideOffset` is omitted, it is treated as zero.
 
 #### Connector Parts
 
@@ -27,6 +27,8 @@ Vertical spaces on the graph for different types of components.
   - Source Stub
   - Curve Lane
   - Target Stub
+
+Relevance claims are positioned in the connector lane of the confidence connection they affect.
 
 ### Concepts
 

@@ -35,7 +35,9 @@ export interface JunctionViz {
     confidenceConnectorId: ConfidenceConnectorId
     junctionAggregatorVizId: JunctionAggregatorVizId
     position: TweenPoint
-    scale: TweenNumber
+    outgoingConfidenceScale: TweenNumber
+    incomingConfidenceScale: TweenNumber
+    incomingRelevanceScale: TweenNumber
     visible: TweenBoolean
 }
 
