@@ -12,11 +12,13 @@ import type {
     JunctionVizId,
 } from "../../../app/src/planner/Snapshot.ts";
 
-import { applyDebateSnapshotRenderStatePatch } from "./applyDebateSnapshotRenderStatePatch";
+import {
+    applyDebateSnapshotRenderStatePatch,
+    stripDebateSnapshotRenderStateAnimations,
+} from "./applyDebateSnapshotRenderStatePatch";
 import {
     leftPad,
     layerWidth,
-    mainClaimAggregatorPosition,
     mainClaimAggregatorVizId,
     mainClaimId,
     mainClaimRightEdgePosition,
@@ -24,6 +26,8 @@ import {
     mainSupportDeliveryConnectorVizId,
     step0001RenderState,
 } from "./step0001";
+
+const step0002BaseRenderState = stripDebateSnapshotRenderStateAnimations(step0001RenderState);
 
 const c2ClaimId = "claim-c2" as ClaimId;
 const c2ConfidenceConnectorId = "confidence-main-c2" as ConfidenceConnectorId;
@@ -42,7 +46,7 @@ const c2ClaimAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2,
 const c2ClaimLeftEdgePosition = { x: c2ClaimPosition.x - claimHalfWidth, y: c2ClaimPosition.y };
 
 
-export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0001RenderState, {
+export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0002BaseRenderState, {
     debateCore: {
         claims: {
             [c2ClaimId]: {
@@ -62,17 +66,11 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
     },
     snapshot: {
         [mainClaimAggregatorVizId]: {
-            type: "claimAggregator",
             id: mainClaimAggregatorVizId,
-            animationType: "uniform",
-            claimId: mainClaimId,
             deliveryConnectorVizIds: [
                 mainSupportDeliveryConnectorVizId,
                 c2DeliveryConnectorVizId,
             ],
-            position: mainClaimAggregatorPosition,
-            scale: 1,
-            score: 1,
         },
         [c2ClaimVizId]: {
             type: "claim",
@@ -130,6 +128,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             scale: 1,
             score: 1,
             side: "conMain",
+            direction: "sourceToTarget",
             source: c2ClaimLeftEdgePosition,
             target: c2ClaimLeftEdgePosition,
         },
@@ -143,6 +142,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             scale: 0,
             score: 0,
             side: "conMain",
+            direction: "sourceToTarget",
             source: c2ClaimLeftEdgePosition,
             target: mainClaimRightEdgePosition,
             targetSideOffset: 0,

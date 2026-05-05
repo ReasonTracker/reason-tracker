@@ -9,7 +9,7 @@ These examples describe the visual sequence of what happens on screen and intent
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
-- **Sprout**: The pipe wall and pipe interior progressively trace out the path of the Delivery Connector from the new claim to the target aggregator while the other connectors to that target make room within the target claim's local delivery stack. Each delivery connector stays attached to its target-side anchor slot while those target-side offsets spread apart.
+- **Sprout**: The pipe wall and pipe interior progressively trace out the path of the new Delivery Connector from the new claim to the target aggregator while the existing sibling structure at that target makes room. The sibling claims, their source-side connectors, their junctions, and their delivery connectors stay connected while their scales update smaller and ripple outward through those sibling branches. At the target side, the existing connectors stay attached, their target-end widths shrink from target to source, and their target-side anchor slots spread apart so the new connector can land between them.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the progression wave at the target Claim Aggregator Adjust step.
 

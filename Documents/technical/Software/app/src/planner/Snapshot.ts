@@ -57,6 +57,7 @@ interface ConnectorVizBase {
     scale: TweenNumber
     score: TweenNumber
     side: Side
+    direction: ConnectorVizDirection
     source: TweenPoint
     // Midpoint of the target side before any local stacking offset is applied.
     target: TweenPoint

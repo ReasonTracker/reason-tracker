@@ -1,8 +1,11 @@
 import type {
+    ConnectorVizDirection,
+    Snapshot,
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
     RelevanceConnectorViz,
     Side,
+    VizItem,
 } from "../../../../app/src/planner/Snapshot.ts";
 import { buildPathGeometry, type PathGeometryInstruction, type Waypoint } from "@reasontracker/components/src/path-geometry/buildPathGeometry";
 import {
@@ -10,7 +13,7 @@ import {
     pathGeometryCommandsToSvgPathData,
 } from "@reasontracker/components/src/path-geometry/pathGeometrySvg";
 
-import { getPlannerClaimHeight } from "./renderClaim";
+import { getPlannerClaimHeight, getPlannerClaimWidth } from "./renderClaim";
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { svgElement } from "./renderTree";
 import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
@@ -30,6 +33,18 @@ type ConnectorPathDefinition = {
     strokeWidth?: number;
 };
 
+type ConnectorLayerAnimationMode = "openReveal" | "static" | "widthTransition";
+
+type WidthEndpoints = {
+    from: number;
+    to: number;
+};
+
+type WidthTransitionState = {
+    progress: number;
+    transitionLengthPx: number;
+};
+
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 const PIPE_INTERIOR_ALPHA = 0.2;
 const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
@@ -45,6 +60,7 @@ const MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX = 0.1;
 export function renderConnector(
     args: {
         item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+        snapshot: Snapshot;
     } & RenderStepProgress,
 ): RenderElementNode[] {
     const connector = resolveConnectorFields(args);
@@ -55,16 +71,33 @@ export function renderConnector(
         return [];
     }
 
-    const pipeScale = args.item.animationType === "progressive"
-        ? getRenderableTweenEndpoint(scaleEndpoints)
-        : connector.scale;
-    const pipeWidth = getPlannerPipeWidth(pipeScale);
-    const fluidScore = args.item.animationType === "progressive"
-        ? getRenderableTweenEndpoint(scoreEndpoints)
-        : connector.score;
-    const fluidWidth = pipeWidthToFluidWidth(pipeWidth, fluidScore);
+    const pipeWidthEndpoints = {
+        from: getPlannerPipeWidth(scaleEndpoints.from),
+        to: getPlannerPipeWidth(scaleEndpoints.to),
+    };
+    const currentPipeWidth = getPlannerPipeWidth(connector.scale);
+    const fluidWidthEndpoints = {
+        from: pipeWidthToFluidWidth(pipeWidthEndpoints.from, scoreEndpoints.from),
+        to: pipeWidthToFluidWidth(pipeWidthEndpoints.to, scoreEndpoints.to),
+    };
+    const currentFluidWidth = pipeWidthToFluidWidth(currentPipeWidth, connector.score);
+    const pipeMode = resolveConnectorLayerAnimationMode(args.item.animationType, pipeWidthEndpoints);
+    const fluidMode = resolveConnectorLayerAnimationMode(args.item.animationType, fluidWidthEndpoints);
+    const pipeWidthTransition = pipeMode === "widthTransition"
+        ? buildWidthTransitionState(currentPipeWidth, pipeWidthEndpoints)
+        : undefined;
+    const fluidWidthTransition = fluidMode === "widthTransition"
+        ? pipeWidthTransition ?? buildWidthTransitionState(currentFluidWidth, fluidWidthEndpoints)
+        : undefined;
+    const maxRenderablePipeWidth = args.item.animationType === "progressive"
+        ? Math.max(currentPipeWidth, pipeWidthEndpoints.from, pipeWidthEndpoints.to)
+        : currentPipeWidth;
 
-    const centerlinePoints = buildAngularConnectorCenterlinePoints(connector.source, connector.target, pipeWidth);
+    const centerlinePoints = buildAngularConnectorCenterlinePoints(
+        connector.source,
+        connector.target,
+        maxRenderablePipeWidth,
+    );
 
     if (centerlinePoints.length < 2) {
         return [];
@@ -73,8 +106,12 @@ export function renderConnector(
     const pipeGeometry = buildBandGeometryOrUndefined(
         centerlinePoints,
         buildPipeBandInstructions({
-            pipeRevealProgress: resolveConnectorRevealProgress(args.item.animationType, connector.scale, scaleEndpoints),
-            pipeWidth,
+            centerlinePoints,
+            currentWidth: currentPipeWidth,
+            direction: args.item.direction,
+            mode: pipeMode,
+            widthTransition: pipeWidthTransition,
+            widthEndpoints: pipeWidthEndpoints,
         }),
     );
     const fluidGeometry = buildBandGeometryOrUndefined(
@@ -82,9 +119,13 @@ export function renderConnector(
         buildFluidBandInstructions({
             bandPlacement: resolveDefaultConnectorBandPlacement(args.item.side),
             centerlinePoints,
-            fluidRevealProgress: resolveConnectorRevealProgress(args.item.animationType, connector.score, scoreEndpoints),
-            fluidWidth,
-            pipeWidth,
+            currentFluidWidth,
+            currentPipeWidth,
+            direction: args.item.direction,
+            fluidWidthEndpoints,
+            mode: fluidMode,
+            pipeWidthEndpoints,
+            widthTransition: fluidWidthTransition,
         }),
     );
 
@@ -106,6 +147,7 @@ export function renderConnector(
 
 export function getConnectorBounds(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    snapshot: Snapshot;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const connector = resolveConnectorFields(args);
 
@@ -255,47 +297,115 @@ function buildDefaultFluidBandInstructions(
 }
 
 function buildPipeBandInstructions(args: {
-    pipeRevealProgress: number;
-    pipeWidth: number;
+    centerlinePoints: Waypoint[];
+    currentWidth: number;
+    direction: ConnectorVizDirection;
+    mode: ConnectorLayerAnimationMode;
+    widthEndpoints: WidthEndpoints;
+    widthTransition?: WidthTransitionState;
 }): PathGeometryInstruction[] | undefined {
-    if (args.pipeWidth <= 0.5 || args.pipeRevealProgress <= 0) {
+    if (args.mode === "widthTransition") {
+        const widthTransition = args.widthTransition ?? buildWidthTransitionState(args.currentWidth, args.widthEndpoints);
+
+        return buildConnectorWidthUpdateInstructions({
+            centerlinePoints: args.centerlinePoints,
+            direction: args.direction,
+            fromSection: buildCenteredOffsetsInstruction(args.widthEndpoints.from),
+            fromWidth: args.widthEndpoints.from,
+            progress: widthTransition.progress,
+            toSection: buildCenteredOffsetsInstruction(args.widthEndpoints.to),
+            toWidth: args.widthEndpoints.to,
+            transitionLengthPx: widthTransition.transitionLengthPx,
+        });
+    }
+
+    const pipeRevealProgress = args.mode === "openReveal"
+        ? resolveConnectorRevealProgress(args.currentWidth, args.widthEndpoints)
+        : 1;
+    const pipeRevealWidth = args.mode === "openReveal"
+        ? getRenderableTweenEndpoint(args.widthEndpoints)
+        : args.currentWidth;
+
+    if (pipeRevealWidth <= 0.5 || pipeRevealProgress <= 0) {
         return undefined;
     }
 
-    if (args.pipeRevealProgress >= 1) {
-        return buildDefaultCenteredBandInstructions(args.pipeWidth);
+    if (pipeRevealProgress >= 1) {
+        return buildDefaultCenteredBandInstructions(pipeRevealWidth);
     }
 
-    return buildConnectorOpenRevealInstructions(args.pipeWidth, args.pipeRevealProgress);
+    return buildConnectorOpenRevealInstructions(pipeRevealWidth, pipeRevealProgress, args.direction);
 }
 
 function buildFluidBandInstructions(args: {
     bandPlacement: "center" | "lowerSide" | "upperSide";
     centerlinePoints: Waypoint[];
-    fluidRevealProgress: number;
-    fluidWidth: number;
-    pipeWidth: number;
+    currentFluidWidth: number;
+    currentPipeWidth: number;
+    direction: ConnectorVizDirection;
+    fluidWidthEndpoints: WidthEndpoints;
+    mode: ConnectorLayerAnimationMode;
+    pipeWidthEndpoints: WidthEndpoints;
+    widthTransition?: WidthTransitionState;
 }): PathGeometryInstruction[] | undefined {
-    if (args.fluidWidth <= 0.5 || args.fluidRevealProgress <= 0) {
+    if (args.mode === "widthTransition") {
+        const widthTransition = args.widthTransition ?? buildWidthTransitionState(
+            args.currentFluidWidth,
+            args.fluidWidthEndpoints,
+        );
+
+        return buildConnectorWidthUpdateInstructions({
+            centerlinePoints: args.centerlinePoints,
+            direction: args.direction,
+            fromSection: buildFluidBandProfile(
+                args.pipeWidthEndpoints.from,
+                args.fluidWidthEndpoints.from,
+                args.bandPlacement,
+            ).section,
+            fromWidth: args.fluidWidthEndpoints.from,
+            progress: widthTransition.progress,
+            toSection: buildFluidBandProfile(
+                args.pipeWidthEndpoints.to,
+                args.fluidWidthEndpoints.to,
+                args.bandPlacement,
+            ).section,
+            toWidth: args.fluidWidthEndpoints.to,
+            transitionLengthPx: widthTransition.transitionLengthPx,
+        });
+    }
+
+    const fluidRevealProgress = args.mode === "openReveal"
+        ? resolveConnectorRevealProgress(args.currentFluidWidth, args.fluidWidthEndpoints)
+        : 1;
+    const fluidRevealWidth = args.mode === "openReveal"
+        ? getRenderableTweenEndpoint(args.fluidWidthEndpoints)
+        : args.currentFluidWidth;
+    const fluidRevealPipeWidth = args.mode === "openReveal"
+        ? getRenderableTweenEndpoint(args.pipeWidthEndpoints)
+        : args.currentPipeWidth;
+
+    if (fluidRevealWidth <= 0.5 || fluidRevealProgress <= 0) {
         return undefined;
     }
 
-    if (args.fluidRevealProgress >= 1) {
-        return buildDefaultFluidBandInstructions(args.pipeWidth, args.fluidWidth, args.bandPlacement);
+    if (fluidRevealProgress >= 1) {
+        return buildDefaultFluidBandInstructions(fluidRevealPipeWidth, fluidRevealWidth, args.bandPlacement);
     }
 
     return buildConnectorFluidRevealInstructions({
         bandPlacement: args.bandPlacement,
         centerlinePoints: args.centerlinePoints,
-        fluidWidth: args.fluidWidth,
-        pipeWidth: args.pipeWidth,
-        progress: args.fluidRevealProgress,
+        direction: args.direction,
+        fluidWidth: fluidRevealWidth,
+        pipeWidth: fluidRevealPipeWidth,
+        progress: fluidRevealProgress,
     });
 }
 
 function buildConnectorFluidRevealInstructions(args: {
     bandPlacement: "center" | "lowerSide" | "upperSide";
     centerlinePoints: Waypoint[];
+    direction: ConnectorVizDirection;
     fluidWidth: number;
     pipeWidth: number;
     progress: number;
@@ -304,6 +414,20 @@ function buildConnectorFluidRevealInstructions(args: {
     const transitionLengthPx = getConnectorGeometryTransitionLengthPx(args.fluidWidth);
     const transitionPercent = lengthPxToApproximatePathPercent(args.centerlinePoints, transitionLengthPx);
     const progressPercent = clamp01(args.progress) * 100;
+
+    if (args.direction === "targetToSource") {
+        return [
+            {
+                type: "extremity",
+                kind: "curved",
+                startPositionPercent: 100 - progressPercent,
+                lengthPx: transitionLengthPx,
+                collapseOffset: fluidBandProfile.collapseOffset,
+            },
+            fluidBandProfile.section,
+            { type: "extremity", kind: "open", startPositionPercent: 100 },
+        ];
+    }
 
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
@@ -321,9 +445,18 @@ function buildConnectorFluidRevealInstructions(args: {
 function buildConnectorOpenRevealInstructions(
     width: number,
     progress: number,
+    direction: ConnectorVizDirection,
 ): PathGeometryInstruction[] {
     const safeWidth = Math.max(0, width);
     const progressPercent = clamp01(progress) * 100;
+
+    if (direction === "targetToSource") {
+        return [
+            { type: "extremity", kind: "open", startPositionPercent: 100 - progressPercent },
+            buildCenteredOffsetsInstruction(safeWidth),
+            { type: "extremity", kind: "open", startPositionPercent: 100 },
+        ];
+    }
 
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
@@ -334,6 +467,72 @@ function buildConnectorOpenRevealInstructions(
 
 function buildCenteredOffsetsInstruction(width: number): PathGeometryInstruction {
     return { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 };
+}
+
+function buildConnectorWidthUpdateInstructions(args: {
+    centerlinePoints: Waypoint[];
+    direction: ConnectorVizDirection;
+    fromSection: PathGeometryInstruction;
+    fromWidth: number;
+    progress: number;
+    toSection: PathGeometryInstruction;
+    toWidth: number;
+    transitionLengthPx: number;
+}): PathGeometryInstruction[] | undefined {
+    const widestWidth = Math.max(args.fromWidth, args.toWidth);
+
+    if (widestWidth <= 0.5) {
+        return undefined;
+    }
+
+    const clampedProgress = clamp01(args.progress);
+
+    if (clampedProgress <= 1e-6) {
+        return [
+            { type: "extremity", kind: "open", startPositionPercent: 0 },
+            args.fromSection,
+            { type: "extremity", kind: "open", startPositionPercent: 100 },
+        ];
+    }
+
+    if (clampedProgress >= 1 - 1e-6) {
+        return [
+            { type: "extremity", kind: "open", startPositionPercent: 0 },
+            args.toSection,
+            { type: "extremity", kind: "open", startPositionPercent: 100 },
+        ];
+    }
+
+    const transitionPercent = lengthPxToApproximatePathPercent(args.centerlinePoints, args.transitionLengthPx);
+    const progressPercent = clampedProgress * 100;
+
+    if (args.direction === "targetToSource") {
+        return [
+            { type: "extremity", kind: "open", startPositionPercent: 0 },
+            args.fromSection,
+            {
+                type: "transition",
+                kind: "curved",
+                startPositionPercent: Math.max(0, (100 - progressPercent) - transitionPercent),
+                lengthPx: args.transitionLengthPx,
+            },
+            args.toSection,
+            { type: "extremity", kind: "open", startPositionPercent: 100 },
+        ];
+    }
+
+    return [
+        { type: "extremity", kind: "open", startPositionPercent: 0 },
+        args.toSection,
+        {
+            type: "transition",
+            kind: "curved",
+            startPositionPercent: Math.max(0, progressPercent - transitionPercent),
+            lengthPx: args.transitionLengthPx,
+        },
+        args.fromSection,
+        { type: "extremity", kind: "open", startPositionPercent: 100 },
+    ];
 }
 
 function buildFluidBandProfile(
@@ -628,6 +827,7 @@ function resolveSideFill(side: Side, alpha: number): string {
 
 function resolveConnectorFields(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    snapshot: Snapshot;
 } & RenderStepProgress): {
     scale: number;
     score: number;
@@ -635,7 +835,22 @@ function resolveConnectorFields(args: {
     target: { x: number; y: number };
     visible: boolean;
 } {
-    const target = resolveTweenPoint(args.item.target, args.stepProgress);
+    const sourceFallback = resolveTweenPoint(args.item.source, args.stepProgress);
+    const targetFallback = resolveTweenPoint(args.item.target, args.stepProgress);
+    const source = resolveConnectorSourcePoint({
+        fallbackPoint: sourceFallback,
+        item: args.item,
+        snapshot: args.snapshot,
+        stepProgress: args.stepProgress,
+        targetFallback,
+    });
+    const target = resolveConnectorTargetPoint({
+        fallbackPoint: targetFallback,
+        item: args.item,
+        snapshot: args.snapshot,
+        sourcePoint: source,
+        stepProgress: args.stepProgress,
+    });
     const targetSideOffset = args.item.targetSideOffset === undefined
         ? 0
         : resolveTweenNumber(args.item.targetSideOffset, args.stepProgress);
@@ -643,7 +858,7 @@ function resolveConnectorFields(args: {
     return {
         scale: resolveTweenNumber(args.item.scale, args.stepProgress),
         score: resolveTweenNumber(args.item.score, args.stepProgress),
-        source: resolveTweenPoint(args.item.source, args.stepProgress),
+        source,
         target: {
             x: target.x,
             y: target.y + targetSideOffset,
@@ -652,6 +867,100 @@ function resolveConnectorFields(args: {
             ? resolveTweenBoolean(args.item.visible, args.stepProgress)
             : true,
     };
+}
+
+function resolveConnectorSourcePoint(args: {
+    fallbackPoint: { x: number; y: number };
+    item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    snapshot: Snapshot;
+    stepProgress: number;
+    targetFallback: { x: number; y: number };
+}): { x: number; y: number } {
+    if (args.item.type === "deliveryConnector") {
+        return resolveSnapshotPositionPoint(args.snapshot, String(args.item.sourceJunctionVizId), args.stepProgress, args.fallbackPoint);
+    }
+
+    const oppositePoint = args.item.type === "confidenceConnector"
+        ? resolveSnapshotPositionPoint(args.snapshot, String(args.item.targetJunctionVizId), args.stepProgress, args.targetFallback)
+        : resolveSnapshotPositionPoint(args.snapshot, String(args.item.targetJunctionAggregatorVizId), args.stepProgress, args.targetFallback);
+
+    return resolveClaimAttachmentPoint({
+        claimVizId: String(args.item.sourceClaimVizId),
+        fallbackPoint: args.fallbackPoint,
+        oppositePoint,
+        snapshot: args.snapshot,
+        stepProgress: args.stepProgress,
+    });
+}
+
+function resolveConnectorTargetPoint(args: {
+    fallbackPoint: { x: number; y: number };
+    item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    snapshot: Snapshot;
+    sourcePoint: { x: number; y: number };
+    stepProgress: number;
+}): { x: number; y: number } {
+    if (args.item.type === "deliveryConnector") {
+        return resolveClaimAttachmentPoint({
+            claimVizId: String(args.item.targetClaimVizId),
+            fallbackPoint: args.fallbackPoint,
+            oppositePoint: args.sourcePoint,
+            snapshot: args.snapshot,
+            stepProgress: args.stepProgress,
+        });
+    }
+
+    const targetId = args.item.type === "confidenceConnector"
+        ? String(args.item.targetJunctionVizId)
+        : String(args.item.targetJunctionAggregatorVizId);
+
+    return resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.fallbackPoint);
+}
+
+function resolveClaimAttachmentPoint(args: {
+    claimVizId: string;
+    fallbackPoint: { x: number; y: number };
+    oppositePoint: { x: number; y: number };
+    snapshot: Snapshot;
+    stepProgress: number;
+}): { x: number; y: number } {
+    const item = getSnapshotItem(args.snapshot, args.claimVizId);
+
+    if (!item || item.type !== "claim") {
+        return args.fallbackPoint;
+    }
+
+    const position = resolveTweenPoint(item.position, args.stepProgress);
+    const scale = resolveTweenNumber(item.scale, args.stepProgress);
+    const halfWidth = getPlannerClaimWidth(scale) / 2;
+
+    return {
+        x: args.oppositePoint.x <= position.x ? position.x - halfWidth : position.x + halfWidth,
+        y: position.y,
+    };
+}
+
+function resolveSnapshotPositionPoint(
+    snapshot: Snapshot,
+    itemId: string,
+    stepProgress: number,
+    fallbackPoint: { x: number; y: number },
+): { x: number; y: number } {
+    const item = getSnapshotItem(snapshot, itemId);
+
+    if (!item || !hasPosition(item)) {
+        return fallbackPoint;
+    }
+
+    return resolveTweenPoint(item.position, stepProgress);
+}
+
+function getSnapshotItem(snapshot: Snapshot, itemId: string): VizItem | undefined {
+    return (snapshot as Partial<Record<string, VizItem>>)[itemId];
+}
+
+function hasPosition(item: VizItem): item is Extract<VizItem, { position: unknown }> {
+    return "position" in item;
 }
 
 function getTweenNumberEndpoints(value: number | { type: "tween/number"; from: number; to: number }): { from: number; to: number } {
@@ -672,15 +981,32 @@ function getRenderableTweenEndpoint(endpoints: { from: number; to: number }): nu
     return Math.max(0, endpoints.from, endpoints.to);
 }
 
-function resolveConnectorRevealProgress(
+function resolveConnectorLayerAnimationMode(
     animationType: "uniform" | "progressive",
+    endpoints: { from: number; to: number },
+): ConnectorLayerAnimationMode {
+    if (animationType !== "progressive") {
+        return "static";
+    }
+
+    const clampedFrom = Math.max(0, endpoints.from);
+    const clampedTo = Math.max(0, endpoints.to);
+
+    if (Math.abs(clampedFrom - clampedTo) <= 1e-6) {
+        return "static";
+    }
+
+    if (clampedFrom <= 1e-6 || clampedTo <= 1e-6) {
+        return "openReveal";
+    }
+
+    return "widthTransition";
+}
+
+function resolveConnectorRevealProgress(
     currentValue: number,
     endpoints: { from: number; to: number },
 ): number {
-    if (animationType !== "progressive") {
-        return 1;
-    }
-
     const endpoint = getRenderableTweenEndpoint(endpoints);
 
     if (endpoint <= 1e-6) {
@@ -688,4 +1014,29 @@ function resolveConnectorRevealProgress(
     }
 
     return clamp01(currentValue / endpoint);
+}
+
+function resolveWidthTransitionProgress(
+    currentValue: number,
+    endpoints: { from: number; to: number },
+): number {
+    const delta = endpoints.to - endpoints.from;
+
+    if (Math.abs(delta) <= 1e-6) {
+        return currentValue >= endpoints.to ? 1 : 0;
+    }
+
+    return clamp01((currentValue - endpoints.from) / delta);
+}
+
+function buildWidthTransitionState(
+    currentWidth: number,
+    widthEndpoints: WidthEndpoints,
+): WidthTransitionState {
+    return {
+        progress: resolveWidthTransitionProgress(currentWidth, widthEndpoints),
+        transitionLengthPx: getConnectorGeometryTransitionLengthPx(
+            Math.max(widthEndpoints.from, widthEndpoints.to),
+        ),
+    };
 }

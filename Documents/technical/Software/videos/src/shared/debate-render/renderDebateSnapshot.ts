@@ -6,6 +6,7 @@ import type {
     JunctionAggregatorViz,
     JunctionViz,
     RelevanceConnectorViz,
+    Snapshot,
     Side,
 } from "../../../../app/src/planner/Snapshot.ts";
 
@@ -67,6 +68,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
         connectors,
         junctionAggregators,
         junctions,
+        snapshot: args.renderState.snapshot,
         stepProgress: args.stepProgress,
     });
     const height = computeSceneHeight({
@@ -75,6 +77,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
         connectors,
         junctionAggregators,
         junctions,
+        snapshot: args.renderState.snapshot,
         stepProgress: args.stepProgress,
     });
     const junctionSideByConfidenceConnectorId = new Map<string, Side>();
@@ -116,6 +119,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                         children: [
                             ...connectors.flatMap((connector) => renderConnector({
                                 item: connector,
+                                snapshot: args.renderState.snapshot,
                                 stepProgress: args.stepProgress,
                             })),
                             ...junctions
@@ -160,6 +164,7 @@ function computeSceneWidth(args: {
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
     junctionAggregators: JunctionAggregatorViz[];
     junctions: JunctionViz[];
+    snapshot: Snapshot;
     stepProgress: number;
 }): number {
     let maxX = 1920 - GRAPH_PADDING_PX;
@@ -195,6 +200,7 @@ function computeSceneWidth(args: {
     for (const connector of args.connectors) {
         maxX = Math.max(maxX, getConnectorBounds({
             item: connector,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
     }
@@ -208,6 +214,7 @@ function computeSceneHeight(args: {
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
     junctionAggregators: JunctionAggregatorViz[];
     junctions: JunctionViz[];
+    snapshot: Snapshot;
     stepProgress: number;
 }): number {
     let maxY = 1080 - GRAPH_PADDING_PX;
@@ -243,6 +250,7 @@ function computeSceneHeight(args: {
     for (const connector of args.connectors) {
         maxY = Math.max(maxY, getConnectorBounds({
             item: connector,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);
     }

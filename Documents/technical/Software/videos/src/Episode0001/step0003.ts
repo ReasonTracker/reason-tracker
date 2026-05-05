@@ -1,89 +1,100 @@
 //** This step is the sprout for c2 */
 
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
-import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
-import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
 import type {
     ClaimVizId,
     DeliveryConnectorVizId,
-    JunctionVizId,
 } from "../../../app/src/planner/Snapshot.ts";
 
-import { applyDebateSnapshotRenderStatePatch } from "./applyDebateSnapshotRenderStatePatch";
 import {
-    mainClaimRightEdgePosition,
-    mainClaimVizId,
-    mainSupportConfidenceConnectorId,
+    applyDebateSnapshotRenderStatePatch,
+    stripDebateSnapshotRenderStateAnimations,
+} from "./applyDebateSnapshotRenderStatePatch";
+import {
     mainSupportDeliveryConnectorVizId,
-    mainSupportJunctionVizId,
-    mainSupportSourcePosition,
 } from "./step0001";
 import { step0002RenderState } from "./step0002";
 
-const c2ClaimId = "claim-c2" as ClaimId;
-const c2ConfidenceConnectorId = "confidence-main-c2" as ConfidenceConnectorId;
+const step0003BaseRenderState = stripDebateSnapshotRenderStateAnimations(step0002RenderState);
+
+const c1ClaimVizId = "claim-viz-c1" as ClaimVizId;
 const c2ClaimVizId = "claim-viz-c2" as ClaimVizId;
 const c2DeliveryConnectorVizId = "delivery-connector-viz-c2" as DeliveryConnectorVizId;
-const c2JunctionVizId = "junction-viz-c2" as JunctionVizId;
 
 const claimHalfWidth = 180;
+const siblingClaimScale = .5;
 const leftPad = 500;
 const layerWidth = 500;
-const c2ClaimPosition = { x: leftPad + layerWidth * 2, y: 360 };
-const c2ClaimLeftEdgePosition = { x: c2ClaimPosition.x - claimHalfWidth, y: c2ClaimPosition.y };
+const rightColumnClaimCenterX = leftPad + layerWidth * 2;
+const leftJustifiedClaimLeftX = rightColumnClaimCenterX - claimHalfWidth;
+const leftJustifiedScaledClaimCenterX = leftJustifiedClaimLeftX + (claimHalfWidth * siblingClaimScale);
+const c1ClaimPosition = { x: rightColumnClaimCenterX, y: 180 };
+const c1ScaledClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: c1ClaimPosition.y };
+const c2ClaimPosition = { x: rightColumnClaimCenterX, y: 360 };
+const c2LeftJustifiedClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: c2ClaimPosition.y };
 const mainSupportTargetSideOffset = -44;
-const c2TargetSideOffset = 88;
+const c2TargetSideOffset = 50;
 
-export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0002RenderState, {
+export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0003BaseRenderState, {
     snapshot: {
         [mainSupportDeliveryConnectorVizId]: {
-            type: "deliveryConnector",
             id: mainSupportDeliveryConnectorVizId,
-            animationType: "progressive",
-            confidenceConnectorId: mainSupportConfidenceConnectorId,
-            sourceJunctionVizId: mainSupportJunctionVizId,
-            targetClaimVizId: mainClaimVizId,
             scale: {
                 type: "tween/number",
                 from: 1,
                 to: .5,
+                startPct: .5,
+                endPct: .7,
             },
-            score: .1,
-            side: "proMain",
-            source: mainSupportSourcePosition,
-            target: mainClaimRightEdgePosition,
+            direction: "targetToSource",
             targetSideOffset: {
                 type: "tween/number",
                 from: 0,
                 to: mainSupportTargetSideOffset,
+                startPct: .5,
+                endPct: .7,
+            },
+        },
+        [c1ClaimVizId]: {
+            id: c1ClaimVizId,
+            position: {
+                x: {
+                    type: "tween/number",
+                    from: c1ClaimPosition.x,
+                    to: c1ScaledClaimPosition.x,
+                },
+                y: c1ClaimPosition.y,
+                startPct: .7,
+                endPct: 1,
+            },
+            scale: {
+                type: "tween/number",
+                from: 1,
+                to: siblingClaimScale,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c2ClaimVizId]: {
-            type: "claim",
             id: c2ClaimVizId,
-            claimId: c2ClaimId,
-            position: c2ClaimPosition,
-            scale: .5,
-            scourcesScale: 1,
-            score: 1,
-            side: "conMain",
+            position: {
+                x: {
+                    type: "tween/number",
+                    from: c2ClaimPosition.x,
+                    to: c2LeftJustifiedClaimPosition.x,
+                },
+                y: c2ClaimPosition.y,
+                startPct: .7,
+                endPct: 1,
+            },
         },
         [c2DeliveryConnectorVizId]: {
-            type: "deliveryConnector",
             id: c2DeliveryConnectorVizId,
-            animationType: "progressive",
-            confidenceConnectorId: c2ConfidenceConnectorId,
-            sourceJunctionVizId: c2JunctionVizId,
-            targetClaimVizId: mainClaimVizId,
             scale: {
                 type: "tween/number",
                 from: 0,
                 to: .5,
             },
-            score: 0,
-            side: "conMain",
-            source: c2ClaimLeftEdgePosition,
-            target: mainClaimRightEdgePosition,
             targetSideOffset: c2TargetSideOffset,
         },
     },
