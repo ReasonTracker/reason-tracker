@@ -15,7 +15,7 @@ import type {
 import {
     applyDebateSnapshotRenderStatePatch,
     stripDebateSnapshotRenderStateAnimations,
-} from "./applyDebateSnapshotRenderStatePatch";
+} from "../shared/debateSnapshotRenderStatePatch";
 import {
     leftPad,
     layerWidth,

@@ -1,6 +1,7 @@
 import type { PatchWithRequiredId } from "../../../app/src/utils.ts";
 import type { VizItem, VizItemId } from "../../../app/src/planner/Snapshot.ts";
-import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
+
+import type { DebateSnapshotRenderState } from "./debate-render/renderTypes";
 
 type SnapshotPatchItem<T extends VizItem = VizItem> = T extends { id: unknown }
     ? PatchWithRequiredId<T>
