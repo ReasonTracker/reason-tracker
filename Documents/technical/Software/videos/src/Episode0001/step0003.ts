@@ -18,7 +18,6 @@ import { step0002RenderState } from "./step0002";
 const step0003BaseRenderState = stripDebateSnapshotRenderStateAnimations(step0002RenderState);
 
 const c1ClaimVizId = "claim-viz-c1" as ClaimVizId;
-const c2ClaimVizId = "claim-viz-c2" as ClaimVizId;
 const c2DeliveryConnectorVizId = "delivery-connector-viz-c2" as DeliveryConnectorVizId;
 
 const claimHalfWidth = 180;
@@ -30,8 +29,6 @@ const leftJustifiedClaimLeftX = rightColumnClaimCenterX - claimHalfWidth;
 const leftJustifiedScaledClaimCenterX = leftJustifiedClaimLeftX + (claimHalfWidth * siblingClaimScale);
 const c1ClaimPosition = { x: rightColumnClaimCenterX, y: 180 };
 const c1ScaledClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: c1ClaimPosition.y };
-const c2ClaimPosition = { x: rightColumnClaimCenterX, y: 360 };
-const c2LeftJustifiedClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: c2ClaimPosition.y };
 const mainSupportTargetSideOffset = -44;
 const c2TargetSideOffset = 50;
 
@@ -71,19 +68,6 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 type: "tween/number",
                 from: 1,
                 to: siblingClaimScale,
-                startPct: .7,
-                endPct: 1,
-            },
-        },
-        [c2ClaimVizId]: {
-            id: c2ClaimVizId,
-            position: {
-                x: {
-                    type: "tween/number",
-                    from: c2ClaimPosition.x,
-                    to: c2LeftJustifiedClaimPosition.x,
-                },
-                y: c2ClaimPosition.y,
                 startPct: .7,
                 endPct: 1,
             },

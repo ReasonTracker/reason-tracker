@@ -41,9 +41,12 @@ const c2DeliveryConnectorVizId = "delivery-connector-viz-c2" as DeliveryConnecto
 
 const claimHalfWidth = 180;
 const claim2Scale = .5;
-const c2ClaimPosition = { x: leftPad + layerWidth * 2, y: 360 };
+const rightColumnClaimCenterX = leftPad + layerWidth * 2;
+const leftJustifiedClaimLeftX = rightColumnClaimCenterX - claimHalfWidth;
+const leftJustifiedScaledClaimCenterX = leftJustifiedClaimLeftX + (claimHalfWidth * claim2Scale);
+const c2ClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: 360 };
 const c2ClaimAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2, y: 440 };
-const c2ClaimLeftEdgePosition = { x: c2ClaimPosition.x - claimHalfWidth, y: c2ClaimPosition.y };
+const c2ClaimLeftEdgePosition = { x: leftJustifiedClaimLeftX, y: c2ClaimPosition.y };
 
 
 export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0002BaseRenderState, {
