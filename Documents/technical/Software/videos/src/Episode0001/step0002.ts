@@ -1,3 +1,5 @@
+//** This step is the voila for c2 */
+
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
 import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
@@ -34,17 +36,11 @@ const c2ConfidenceConnectorVizId = "confidence-connector-viz-c2" as ConfidenceCo
 const c2DeliveryConnectorVizId = "delivery-connector-viz-c2" as DeliveryConnectorVizId;
 
 const claimHalfWidth = 180;
+const claim2Scale = .5;
 const c2ClaimPosition = { x: leftPad + layerWidth * 2, y: 360 };
-const c2ClaimAggregatorPosition = { x: leftPad + layerWidth * 2, y: 440 };
+const c2ClaimAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2, y: 440 };
 const c2ClaimLeftEdgePosition = { x: c2ClaimPosition.x - claimHalfWidth, y: c2ClaimPosition.y };
 
-function tweenNumber(from: number, to: number) {
-    return {
-        type: "tween/number" as const,
-        from,
-        to,
-    };
-}
 
 export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0001RenderState, {
     debateCore: {
@@ -83,9 +79,13 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             id: c2ClaimVizId,
             claimId: c2ClaimId,
             position: c2ClaimPosition,
-            scale: tweenNumber(0, 1),
+            scale: {
+                type: "tween/number",
+                from: 0,
+                to: .5,
+            },
             scourcesScale: 1,
-            score: 0.8,
+            score: 1,
             side: "conMain",
         },
         [c2ClaimAggregatorVizId]: {
@@ -96,7 +96,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             deliveryConnectorVizIds: [],
             position: c2ClaimAggregatorPosition,
             scale: 1,
-            score: 0.8,
+            score: 1,
         },
         [c2JunctionVizId]: {
             type: "junction",
@@ -116,19 +116,19 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             position: c2ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
-            score: 0.8,
+            score: 1,
             visible: false,
         },
         [c2ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
             id: c2ConfidenceConnectorVizId,
-            animationType: "uniform",
+            animationType: "progressive",
             confidenceConnectorId: c2ConfidenceConnectorId,
             sourceClaimVizId: c2ClaimVizId,
             targetJunctionVizId: c2JunctionVizId,
             visible: false,
             scale: 1,
-            score: 0.8,
+            score: 1,
             side: "conMain",
             source: c2ClaimLeftEdgePosition,
             target: c2ClaimLeftEdgePosition,
@@ -136,14 +136,16 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
         [c2DeliveryConnectorVizId]: {
             type: "deliveryConnector",
             id: c2DeliveryConnectorVizId,
+            animationType: "progressive",
             confidenceConnectorId: c2ConfidenceConnectorId,
             sourceJunctionVizId: c2JunctionVizId,
             targetClaimVizId: mainClaimVizId,
-            scale: 1,
-            score: 0.8,
+            scale: 0,
+            score: 0,
             side: "conMain",
             source: c2ClaimLeftEdgePosition,
             target: mainClaimRightEdgePosition,
+            targetSideOffset: 0,
         },
     },
 });

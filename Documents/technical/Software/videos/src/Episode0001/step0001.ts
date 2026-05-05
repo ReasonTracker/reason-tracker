@@ -1,3 +1,4 @@
+//** This step is just the initial state, nothign should happen */
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
 import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
@@ -12,14 +13,14 @@ import type {
 
 export const mainClaimId = "claim-main" as ClaimId;
 const c1ClaimId = "claim-c1" as ClaimId;
-const mainSupportConfidenceConnectorId = "confidence-main-support" as ConfidenceConnectorId;
+export const mainSupportConfidenceConnectorId = "confidence-main-support" as ConfidenceConnectorId;
 
 export const mainClaimVizId = "claim-viz-main" as ClaimVizId;
 const c1ClaimVizId = "claim-viz-c1" as ClaimVizId;
 export const mainClaimAggregatorVizId = "claim-aggregator-viz-main" as ClaimAggregatorVizId;
 const c1ClaimAggregatorVizId = "claim-aggregator-viz-c1" as ClaimAggregatorVizId;
 const mainSupportJunctionAggregatorVizId = "junction-aggregator-viz-main-support" as JunctionAggregatorVizId;
-const mainSupportJunctionVizId = "junction-viz-main-support" as JunctionVizId;
+export const mainSupportJunctionVizId = "junction-viz-main-support" as JunctionVizId;
 const mainSupportConfidenceConnectorVizId = "confidence-connector-viz-main-support" as ConfidenceConnectorVizId;
 export const mainSupportDeliveryConnectorVizId = "delivery-connector-viz-main-support" as DeliveryConnectorVizId;
 
@@ -32,7 +33,7 @@ export const mainClaimAggregatorPosition = { x: leftPad, y: 260 };
 const c1ClaimPosition = { x: leftPad + layerWidth * 2, y: 180 };
 const c1ClaimAggregatorPosition = { x: leftPad + layerWidth * 2, y: 260 };
 export const mainClaimRightEdgePosition = { x: mainClaimPosition.x + claimHalfWidth, y: mainClaimPosition.y };
-const c1ClaimLeftEdgePosition = { x: c1ClaimPosition.x - claimHalfWidth, y: c1ClaimPosition.y };
+export const mainSupportSourcePosition = { x: c1ClaimPosition.x - claimHalfWidth, y: c1ClaimPosition.y };
 
 export const step0001RenderState: DebateSnapshotRenderState = {
     debateCore: {
@@ -78,7 +79,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             position: c1ClaimPosition,
             scale: 1,
             scourcesScale: 1,
-            score: 0.8,
+            score: 1,
             side: "proMain",
         },
         [mainClaimAggregatorVizId]: {
@@ -99,7 +100,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             deliveryConnectorVizIds: [],
             position: c1ClaimAggregatorPosition,
             scale: 1,
-            score: 0.8,
+            score: 1,
         },
         [mainSupportJunctionVizId]: {
             type: "junction",
@@ -107,7 +108,7 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
             junctionAggregatorVizId: mainSupportJunctionAggregatorVizId,
-            position: c1ClaimLeftEdgePosition,
+            position: mainSupportSourcePosition,
             scale: 1,
             visible: false,
         },
@@ -116,37 +117,39 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: mainSupportJunctionAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
-            position: c1ClaimLeftEdgePosition,
+            position: mainSupportSourcePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
-            score: 0.8,
+            score: 1,
             visible: false,
         },
         [mainSupportConfidenceConnectorVizId]: {
             type: "confidenceConnector",
             id: mainSupportConfidenceConnectorVizId,
-            animationType: "uniform",
+            animationType: "progressive",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
             sourceClaimVizId: c1ClaimVizId,
             targetJunctionVizId: mainSupportJunctionVizId,
             visible: false,
             scale: 1,
-            score: 0.8,
+            score: 1,
             side: "proMain",
-            source: c1ClaimLeftEdgePosition,
-            target: c1ClaimLeftEdgePosition,
+            source: mainSupportSourcePosition,
+            target: mainSupportSourcePosition,
         },
         [mainSupportDeliveryConnectorVizId]: {
             type: "deliveryConnector",
             id: mainSupportDeliveryConnectorVizId,
+            animationType: "progressive",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
             sourceJunctionVizId: mainSupportJunctionVizId,
             targetClaimVizId: mainClaimVizId,
             scale: 1,
-            score: 0.8,
+            score: 1,
             side: "proMain",
-            source: c1ClaimLeftEdgePosition,
+            source: mainSupportSourcePosition,
             target: mainClaimRightEdgePosition,
+            targetSideOffset: 0,
         },
     },
 };

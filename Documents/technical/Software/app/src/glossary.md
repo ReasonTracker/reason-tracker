@@ -9,7 +9,7 @@
 - Display Relevance Connector - a line connecting a claim to a junction aggregator to show how the relevance source claim affects the relevance of the source confidence claim on the target claim. If there is only one relevance claim, the junction aggregator may not be visible.
 - Display Confidence Connector - the visible part of a confidence relationship before the junction. It shows how the confidence source claim affects the confidence of the target claim. Will not be visible if there is no junction.
 - Junction - a visible structure between the Display Confidence Connector and Delivery Connector where relevance connectors are aggregated through the junction aggregator to show their effect on the confidence being delivered by the Display Confidence Connector. Will not be visible if there are no relevance claims.
-- Delivery Connector - a line carrying the confidence from the source side toward the target claim. When visible, it starts at the junction if there is one; otherwise it appears to start directly from the source claim.
+- Delivery Connector - a line carrying the confidence from the source side toward the target claim. When visible, it starts at the junction if there is one; otherwise it appears to start directly from the source claim. In the snapshot, `target` is the midpoint of the target side and optional `targetSideOffset` shifts the target anchor along that side. If `targetSideOffset` is omitted, it is treated as zero.
 
 #### Connector Parts
 

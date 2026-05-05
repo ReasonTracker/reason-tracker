@@ -58,7 +58,11 @@ interface ConnectorVizBase {
     score: TweenNumber
     side: Side
     source: TweenPoint
+    // Midpoint of the target side before any local stacking offset is applied.
     target: TweenPoint
+    // Signed offset along the target side. If omitted, the renderer treats it as zero.
+    targetSideOffset?: TweenNumber
+    animationType: AnimationType,
 };
 
 // Always present in the snapshot. visible controls whether it is shown.
@@ -118,3 +122,5 @@ export type RelevanceConnectorVizId = string & { readonly __brand: "RelevanceCon
 
 export type Side = "proMain" | "conMain";
 export type AnimationType = "uniform" | "progressive"
+export type ConnectorVizDirection = "sourceToTarget" | "targetToSource"
+

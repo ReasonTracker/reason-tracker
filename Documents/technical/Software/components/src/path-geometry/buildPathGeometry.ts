@@ -736,7 +736,7 @@ function resolveTransitionInterpolation(
 		return clampedInterpolation;
 	}
 
-	return Math.sin((Math.PI * clampedInterpolation) / 2);
+	return (1 - Math.cos(Math.PI * clampedInterpolation)) / 2;
 }
 
 function evaluateConstantOffsetPoint(

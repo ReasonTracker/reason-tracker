@@ -3,59 +3,85 @@ import type { DebateSnapshotRenderState, RenderStepProgress } from "../shared/de
 import { buildTimelineTimes, type TimelineEntry } from "../shared/timeline";
 import { step0001RenderState } from "./step0001";
 import { step0002RenderState } from "./step0002";
+import { step0003RenderState } from "./step0003";
+import { step0004RenderState } from "./step0004";
 
 export const EPISODE0001_FPS = 30;
 
-type Episode0001SegmentId = "opening" | "reveal" | "settled";
+type Episode0001SegmentId = "opening" | "voila" | "sprout" | "firstFill";
 
-const episode0001States: Record<Episode0001SegmentId, DebateSnapshotRenderState> = {
-    opening: step0001RenderState,
-    reveal: step0002RenderState,
-    settled: step0002RenderState,
+type Episode0001SegmentDefinition = {
+    id: Episode0001SegmentId;
+    label: string;
+    durationSeconds: number;
+    renderState: DebateSnapshotRenderState;
 };
 
-const episode0001TimelineEntries: readonly TimelineEntry<Episode0001SegmentId>[] = [
-    ["opening", 1.1],
-    ["reveal", 1.6],
-    ["settled", 1.2],
+export type Episode0001TimelineSegment = {
+    id: Episode0001SegmentId;
+    label: string;
+    from: number;
+    durationInFrames: number;
+    renderState: DebateSnapshotRenderState;
+};
+
+const episode0001SegmentDefinitions: readonly Episode0001SegmentDefinition[] = [
+    {
+        id: "opening",
+        label: "step0001 - Opening",
+        durationSeconds: 1.1,
+        renderState: step0001RenderState,
+    },
+    {
+        id: "voila",
+        label: "step0002 - Voila",
+        durationSeconds: 0.7,
+        renderState: step0002RenderState,
+    },
+    {
+        id: "sprout",
+        label: "step0003 - Sprout",
+        durationSeconds: 0.75,
+        renderState: step0003RenderState,
+    },
+    {
+        id: "firstFill",
+        label: "step0004 - First Fill",
+        durationSeconds: 0.65,
+        renderState: step0004RenderState,
+    }
 ];
+
+const episode0001TimelineEntries: readonly TimelineEntry<Episode0001SegmentId>[] = episode0001SegmentDefinitions.map(
+    ({ id, durationSeconds }) => [id, durationSeconds] as const,
+);
 
 const episode0001Timeline = buildTimelineTimes(episode0001TimelineEntries, EPISODE0001_FPS);
 
-const orderedSegmentIds: readonly Episode0001SegmentId[] = ["opening", "reveal", "settled"];
+export const EPISODE0001_SEGMENTS: readonly Episode0001TimelineSegment[] = episode0001SegmentDefinitions.map(
+    (segmentDefinition) => ({
+        ...segmentDefinition,
+        ...episode0001Timeline.times[segmentDefinition.id],
+    }),
+);
 
 export const EPISODE0001_DURATION_IN_FRAMES = episode0001Timeline.totalDurationInFrames;
 
-export function resolveEpisode0001Playback(frame: number): RenderStepProgress & {
+export function resolveEpisode0001Playback(frame: number): (RenderStepProgress & {
     renderState: DebateSnapshotRenderState;
     segmentId: Episode0001SegmentId;
-} {
-    for (const segmentId of orderedSegmentIds) {
-        const segment = episode0001Timeline.times[segmentId];
-
-        if (frame < segment.from) {
-            break;
-        }
-
+}) | undefined {
+    for (const segment of EPISODE0001_SEGMENTS) {
         const endFrame = segment.from + segment.durationInFrames;
-
-        if (frame < endFrame) {
+        if (frame >= segment.from && frame < endFrame) {
             return {
-                renderState: episode0001States[segmentId],
-                segmentId,
+                renderState: segment.renderState,
+                segmentId: segment.id,
                 stepProgress: resolveStepProgress(frame, segment.from, segment.durationInFrames),
             };
         }
     }
-
-    const finalSegmentId = orderedSegmentIds.at(-1) ?? "settled";
-    const finalSegment = episode0001Timeline.times[finalSegmentId];
-
-    return {
-        renderState: episode0001States[finalSegmentId],
-        segmentId: finalSegmentId,
-        stepProgress: resolveStepProgress(frame, finalSegment.from, finalSegment.durationInFrames),
-    };
+    return undefined;
 }
 
 function resolveStepProgress(frame: number, stepStartFrame: number, stepDurationInFrames: number): number {

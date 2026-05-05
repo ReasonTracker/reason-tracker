@@ -31,7 +31,8 @@ type ConnectorPathDefinition = {
 };
 
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
-const PIPE_INTERIOR_ALPHA = 0.18;
+const PIPE_INTERIOR_ALPHA = 0.2;
+const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
 const CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN = 0.2;
 const CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX = 1;
 const MAX_STRAIGHT_CONNECTOR_VERTICAL_DELTA_PX = 1;
@@ -47,16 +48,21 @@ export function renderConnector(
     } & RenderStepProgress,
 ): RenderElementNode[] {
     const connector = resolveConnectorFields(args);
+    const scaleEndpoints = getTweenNumberEndpoints(args.item.scale);
+    const scoreEndpoints = getTweenNumberEndpoints(args.item.score);
 
     if (args.item.type === "confidenceConnector" && !connector.visible) {
         return [];
     }
 
-    const pipeWidth = getPlannerPipeWidth(connector.scale);
-
-    if (pipeWidth <= 0.5) {
-        return [];
-    }
+    const pipeScale = args.item.animationType === "progressive"
+        ? getRenderableTweenEndpoint(scaleEndpoints)
+        : connector.scale;
+    const pipeWidth = getPlannerPipeWidth(pipeScale);
+    const fluidScore = args.item.animationType === "progressive"
+        ? getRenderableTweenEndpoint(scoreEndpoints)
+        : connector.score;
+    const fluidWidth = pipeWidthToFluidWidth(pipeWidth, fluidScore);
 
     const centerlinePoints = buildAngularConnectorCenterlinePoints(connector.source, connector.target, pipeWidth);
 
@@ -64,18 +70,27 @@ export function renderConnector(
         return [];
     }
 
-    const pipeGeometry = buildBandGeometry(
+    const pipeGeometry = buildBandGeometryOrUndefined(
         centerlinePoints,
-        buildDefaultCenteredBandInstructions(pipeWidth),
-    );
-    const fluidGeometry = buildBandGeometry(
-        centerlinePoints,
-        buildDefaultFluidBandInstructions(
+        buildPipeBandInstructions({
+            pipeRevealProgress: resolveConnectorRevealProgress(args.item.animationType, connector.scale, scaleEndpoints),
             pipeWidth,
-            pipeWidthToFluidWidth(pipeWidth, connector.score),
-            resolveDefaultConnectorBandPlacement(args.item.side),
-        ),
+        }),
     );
+    const fluidGeometry = buildBandGeometryOrUndefined(
+        centerlinePoints,
+        buildFluidBandInstructions({
+            bandPlacement: resolveDefaultConnectorBandPlacement(args.item.side),
+            centerlinePoints,
+            fluidRevealProgress: resolveConnectorRevealProgress(args.item.animationType, connector.score, scoreEndpoints),
+            fluidWidth,
+            pipeWidth,
+        }),
+    );
+
+    if (!pipeGeometry && !fluidGeometry) {
+        return [];
+    }
 
     return [svgElement("g", {
         attributes: {
@@ -101,40 +116,48 @@ export function getConnectorBounds(args: {
 }
 
 function buildConnectorPathDefinitions(args: {
-    fluidGeometry: BandGeometry;
-    pipeGeometry: BandGeometry;
+    fluidGeometry: BandGeometry | undefined;
+    pipeGeometry: BandGeometry | undefined;
     side: Side;
 }): ConnectorPathDefinition[] {
     const sideStroke = resolveSideStroke(args.side);
+    const pathDefinitions: ConnectorPathDefinition[] = [];
 
-    return [
-        {
-            fill: resolveSideFill(args.side, PIPE_INTERIOR_ALPHA),
-            pathData: args.pipeGeometry.closedPathData,
-            stroke: "none",
-        },
-        {
+    if (args.pipeGeometry) {
+        pathDefinitions.push(
+            {
+                fill: resolveSideFill(args.side, PIPE_INTERIOR_ALPHA),
+                pathData: args.pipeGeometry.closedPathData,
+                stroke: "none",
+            },
+            {
+                fill: "none",
+                pathData: args.pipeGeometry.boundaryAPathData,
+                stroke: sideStroke,
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
+            },
+            {
+                fill: "none",
+                pathData: args.pipeGeometry.boundaryBPathData,
+                stroke: sideStroke,
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
+            },
+        );
+    }
+
+    if (args.fluidGeometry) {
+        pathDefinitions.splice(args.pipeGeometry ? 1 : 0, 0, {
             fill: sideStroke,
             pathData: args.fluidGeometry.closedPathData,
             stroke: "none",
-        },
-        {
-            fill: "none",
-            pathData: args.pipeGeometry.boundaryAPathData,
-            stroke: sideStroke,
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
-        },
-        {
-            fill: "none",
-            pathData: args.pipeGeometry.boundaryBPathData,
-            stroke: sideStroke,
-            strokeLinecap: "round",
-            strokeLinejoin: "round",
-            strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
-        },
-    ];
+        });
+    }
+
+    return pathDefinitions;
 }
 
 function renderConnectorPathNodes(pathDefinitions: ConnectorPathDefinition[]): RenderElementNode[] {
@@ -190,10 +213,31 @@ function buildBandGeometry(
     };
 }
 
+function buildBandGeometryOrUndefined(
+    centerlinePoints: Waypoint[],
+    instructions: PathGeometryInstruction[] | undefined,
+): BandGeometry | undefined {
+    if (!instructions || instructions.length === 0) {
+        return undefined;
+    }
+
+    const geometry = buildBandGeometry(centerlinePoints, instructions);
+
+    if (
+        geometry.boundaryAPathData.length === 0
+        && geometry.boundaryBPathData.length === 0
+        && geometry.closedPathData.length === 0
+    ) {
+        return undefined;
+    }
+
+    return geometry;
+}
+
 function buildDefaultCenteredBandInstructions(width: number): PathGeometryInstruction[] {
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
-        { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 },
+        buildCenteredOffsetsInstruction(width),
         { type: "extremity", kind: "open", startPositionPercent: 100 },
     ];
 }
@@ -203,17 +247,140 @@ function buildDefaultFluidBandInstructions(
     fluidWidth: number,
     bandPlacement: "center" | "lowerSide" | "upperSide",
 ): PathGeometryInstruction[] {
-    const bandEnvelope = resolveConnectorBandEnvelope(pipeWidth, fluidWidth, bandPlacement);
+    return [
+        { type: "extremity", kind: "open", startPositionPercent: 0 },
+        buildFluidBandProfile(pipeWidth, fluidWidth, bandPlacement).section,
+        { type: "extremity", kind: "open", startPositionPercent: 100 },
+    ];
+}
+
+function buildPipeBandInstructions(args: {
+    pipeRevealProgress: number;
+    pipeWidth: number;
+}): PathGeometryInstruction[] | undefined {
+    if (args.pipeWidth <= 0.5 || args.pipeRevealProgress <= 0) {
+        return undefined;
+    }
+
+    if (args.pipeRevealProgress >= 1) {
+        return buildDefaultCenteredBandInstructions(args.pipeWidth);
+    }
+
+    return buildConnectorOpenRevealInstructions(args.pipeWidth, args.pipeRevealProgress);
+}
+
+function buildFluidBandInstructions(args: {
+    bandPlacement: "center" | "lowerSide" | "upperSide";
+    centerlinePoints: Waypoint[];
+    fluidRevealProgress: number;
+    fluidWidth: number;
+    pipeWidth: number;
+}): PathGeometryInstruction[] | undefined {
+    if (args.fluidWidth <= 0.5 || args.fluidRevealProgress <= 0) {
+        return undefined;
+    }
+
+    if (args.fluidRevealProgress >= 1) {
+        return buildDefaultFluidBandInstructions(args.pipeWidth, args.fluidWidth, args.bandPlacement);
+    }
+
+    return buildConnectorFluidRevealInstructions({
+        bandPlacement: args.bandPlacement,
+        centerlinePoints: args.centerlinePoints,
+        fluidWidth: args.fluidWidth,
+        pipeWidth: args.pipeWidth,
+        progress: args.fluidRevealProgress,
+    });
+}
+
+function buildConnectorFluidRevealInstructions(args: {
+    bandPlacement: "center" | "lowerSide" | "upperSide";
+    centerlinePoints: Waypoint[];
+    fluidWidth: number;
+    pipeWidth: number;
+    progress: number;
+}): PathGeometryInstruction[] {
+    const fluidBandProfile = buildFluidBandProfile(args.pipeWidth, args.fluidWidth, args.bandPlacement);
+    const transitionLengthPx = getConnectorGeometryTransitionLengthPx(args.fluidWidth);
+    const transitionPercent = lengthPxToApproximatePathPercent(args.centerlinePoints, transitionLengthPx);
+    const progressPercent = clamp01(args.progress) * 100;
 
     return [
         { type: "extremity", kind: "open", startPositionPercent: 0 },
+        fluidBandProfile.section,
         {
+            type: "extremity",
+            kind: "curved",
+            startPositionPercent: Math.max(0, progressPercent - transitionPercent),
+            lengthPx: transitionLengthPx,
+            collapseOffset: fluidBandProfile.collapseOffset,
+        },
+    ];
+}
+
+function buildConnectorOpenRevealInstructions(
+    width: number,
+    progress: number,
+): PathGeometryInstruction[] {
+    const safeWidth = Math.max(0, width);
+    const progressPercent = clamp01(progress) * 100;
+
+    return [
+        { type: "extremity", kind: "open", startPositionPercent: 0 },
+        buildCenteredOffsetsInstruction(safeWidth),
+        { type: "extremity", kind: "open", startPositionPercent: progressPercent },
+    ];
+}
+
+function buildCenteredOffsetsInstruction(width: number): PathGeometryInstruction {
+    return { type: "offsets", offsetA: -(width / 2), offsetB: width / 2 };
+}
+
+function buildFluidBandProfile(
+    pipeWidth: number,
+    fluidWidth: number,
+    bandPlacement: "center" | "lowerSide" | "upperSide",
+): {
+    collapseOffset: number;
+    section: PathGeometryInstruction;
+} {
+    const bandEnvelope = resolveConnectorBandEnvelope(pipeWidth, fluidWidth, bandPlacement);
+
+    return {
+        collapseOffset: bandEnvelope.collapseOffset,
+        section: {
             type: "offsets",
             offsetA: bandEnvelope.topOffset,
             offsetB: bandEnvelope.bottomOffset,
         },
-        { type: "extremity", kind: "open", startPositionPercent: 100 },
-    ];
+    };
+}
+
+function lengthPxToApproximatePathPercent(points: Waypoint[], lengthPx: number): number {
+    const pathLengthPx = estimateCenterlinePathLength(points);
+
+    if (pathLengthPx <= 0.0001) {
+        return 0;
+    }
+
+    return (Math.max(0, lengthPx) / pathLengthPx) * 100;
+}
+
+function estimateCenterlinePathLength(points: Waypoint[]): number {
+    let totalLength = 0;
+
+    for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
+        const previousPoint = points[pointIndex - 1];
+        const point = points[pointIndex];
+
+        totalLength += Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
+    }
+
+    return totalLength;
+}
+
+function getConnectorGeometryTransitionLengthPx(width: number): number {
+    return Math.max(1, Math.round(Math.max(0, width) * CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER));
 }
 
 function resolveDefaultConnectorBandPlacement(side: Side): "center" | "lowerSide" | "upperSide" {
@@ -468,13 +635,57 @@ function resolveConnectorFields(args: {
     target: { x: number; y: number };
     visible: boolean;
 } {
+    const target = resolveTweenPoint(args.item.target, args.stepProgress);
+    const targetSideOffset = args.item.targetSideOffset === undefined
+        ? 0
+        : resolveTweenNumber(args.item.targetSideOffset, args.stepProgress);
+
     return {
         scale: resolveTweenNumber(args.item.scale, args.stepProgress),
         score: resolveTweenNumber(args.item.score, args.stepProgress),
         source: resolveTweenPoint(args.item.source, args.stepProgress),
-        target: resolveTweenPoint(args.item.target, args.stepProgress),
+        target: {
+            x: target.x,
+            y: target.y + targetSideOffset,
+        },
         visible: args.item.type === "confidenceConnector"
             ? resolveTweenBoolean(args.item.visible, args.stepProgress)
             : true,
     };
+}
+
+function getTweenNumberEndpoints(value: number | { type: "tween/number"; from: number; to: number }): { from: number; to: number } {
+    if (typeof value === "number") {
+        return {
+            from: value,
+            to: value,
+        };
+    }
+
+    return {
+        from: value.from,
+        to: value.to,
+    };
+}
+
+function getRenderableTweenEndpoint(endpoints: { from: number; to: number }): number {
+    return Math.max(0, endpoints.from, endpoints.to);
+}
+
+function resolveConnectorRevealProgress(
+    animationType: "uniform" | "progressive",
+    currentValue: number,
+    endpoints: { from: number; to: number },
+): number {
+    if (animationType !== "progressive") {
+        return 1;
+    }
+
+    const endpoint = getRenderableTweenEndpoint(endpoints);
+
+    if (endpoint <= 1e-6) {
+        return 0;
+    }
+
+    return clamp01(currentValue / endpoint);
 }
