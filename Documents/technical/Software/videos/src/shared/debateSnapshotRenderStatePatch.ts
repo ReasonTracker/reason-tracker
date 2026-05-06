@@ -26,6 +26,7 @@ export function applyDebateSnapshotRenderStatePatch(
                 connectors: mergeRecord(baseState.debateCore.connectors, patch.debateCore.connectors),
             }
             : baseState.debateCore,
+        plannerOptions: baseState.plannerOptions,
         snapshot: mergePatchedRecord(baseState.snapshot, patch.snapshot),
     };
 }

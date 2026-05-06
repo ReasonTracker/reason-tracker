@@ -5,6 +5,7 @@ import type {
     Snapshot,
     VizItem,
 } from "../../../../app/src/planner/Snapshot.ts";
+import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
 
 import { getPlannerClaimHeight, getPlannerClaimWidth } from "./renderClaim";
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
@@ -37,9 +38,6 @@ export type AggregatorAttachment = {
     tangent: UnitVector;
 };
 
-// AGENT NOTE: Keep aggregator sizing constants together so renderer tuning stays local.
-/** Full outward depth of a fully expanded visible aggregator outline. */
-const AGGREGATOR_VISIBLE_DEPTH_PX = 36;
 /** Outline width shared with the other graph outline shapes. */
 const AGGREGATOR_OUTLINE_WIDTH_PX = 4;
 /** Skip rendering when the outline would still occupy less than a visible sliver. */
@@ -81,6 +79,7 @@ export function renderAggregatorOutline(args: AggregatorGeometry): RenderElement
 
 export function resolveDeliveryAggregatorGeometry(args: {
     item: DeliveryAggregatorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): AggregatorGeometry | undefined {
@@ -104,13 +103,15 @@ export function resolveDeliveryAggregatorGeometry(args: {
     return {
         aggregatorId: String(args.item.id),
         depth: args.item.deliveryConnectorVizIds.length >= 2
-            ? resolveAggregatorDepth(resolveTweenNumber(args.item.scale, args.stepProgress))
+            ? resolveAggregatorDepth(resolveTweenNumber(args.item.scale, args.stepProgress), args.plannerOptions)
             : 0,
         edgeCenter: {
-            x: claimPosition.x + ((sourceReferencePoint.x <= claimPosition.x ? -1 : 1) * (getPlannerClaimWidth(claimScale) / 2)),
+            x: claimPosition.x
+                + ((sourceReferencePoint.x <= claimPosition.x ? -1 : 1)
+                    * (getPlannerClaimWidth(claimScale, args.plannerOptions) / 2)),
             y: claimPosition.y,
         },
-        edgeLength: getPlannerClaimHeight(claimScale),
+        edgeLength: getPlannerClaimHeight(claimScale, args.plannerOptions),
         outwardNormal: sourceReferencePoint.x <= claimPosition.x
             ? { x: -1, y: 0 }
             : { x: 1, y: 0 },
@@ -121,6 +122,7 @@ export function resolveDeliveryAggregatorGeometry(args: {
 
 export function resolveRelevanceAggregatorGeometry(args: {
     item: RelevanceAggregatorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): AggregatorGeometry | undefined {
@@ -165,7 +167,7 @@ export function resolveRelevanceAggregatorGeometry(args: {
     return {
         aggregatorId: String(args.item.id),
         depth: resolveTweenBoolean(args.item.visible, args.stepProgress) && args.item.relevanceConnectorVizIds.length >= 2
-            ? resolveAggregatorDepth(resolveTweenNumber(args.item.scale, args.stepProgress))
+            ? resolveAggregatorDepth(resolveTweenNumber(args.item.scale, args.stepProgress), args.plannerOptions)
             : 0,
         edgeCenter: {
             x: (edgeStart.x + edgeEnd.x) / 2,
@@ -222,8 +224,8 @@ export function getAggregatorBounds(args: AggregatorGeometry | undefined): { max
     };
 }
 
-export function resolveAggregatorDepth(scale: number): number {
-    return AGGREGATOR_VISIBLE_DEPTH_PX * clampVisualScale(scale);
+export function resolveAggregatorDepth(scale: number, plannerOptions: PlannerOptions): number {
+    return plannerOptions.aggregatorDepth * clampVisualScale(scale);
 }
 
 export function normalizeUnitVector(vector: UnitVector, fallback: UnitVector): UnitVector {

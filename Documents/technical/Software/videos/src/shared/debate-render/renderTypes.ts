@@ -1,10 +1,12 @@
 import type { DebateCore } from "../../../../app/src/debate-core/Debate.ts";
+import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
 import type {
     Snapshot,
 } from "../../../../app/src/planner/Snapshot.ts";
 
 export type DebateSnapshotRenderState = {
     debateCore: DebateCore;
+    plannerOptions?: Partial<PlannerOptions>;
     snapshot: Snapshot;
 };
 

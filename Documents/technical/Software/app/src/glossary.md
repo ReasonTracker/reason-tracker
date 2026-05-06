@@ -21,12 +21,10 @@
 
 Vertical spaces on the graph for different types of components.
 
-- Claim Lane
-- Junction Lane
-- Connector Lane
-  - Source Stub
-  - Curve Lane
-  - Target Stub
+- Claim Lane - the space claims occupy. Claims are ordered vertically within this lane.
+- Junction Lane - the space set aside for the junction and the confidence connector before the junction. Relevance connectors land in this lane, and the relevance aggregator is positioned in this lane. This lane space may not be present if nothing is using it.
+- Connector Curve Lane - the space set aside for the curved portions of connectors.
+- Connector Diagonal Lane - the space set aside for the diagonal portions of connectors.
 
 Relevance claims are positioned in the connector lane of the confidence connection they affect.
 

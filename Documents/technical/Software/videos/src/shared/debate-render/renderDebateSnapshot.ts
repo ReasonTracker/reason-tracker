@@ -1,3 +1,7 @@
+import {
+    resolvePlannerOptions,
+    type PlannerOptions,
+} from "../../../../app/src/planner/contracts.ts";
 import type {
     DeliveryAggregatorViz,
     ClaimViz,
@@ -62,10 +66,13 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
         connectors.push(item);
     }
 
+    const plannerOptions = resolvePlannerOptions(args.renderState.plannerOptions);
+
     const width = computeSceneWidth({
         deliveryAggregators,
         claims,
         connectors,
+        plannerOptions,
         relevanceAggregators,
         junctions,
         snapshot: args.renderState.snapshot,
@@ -75,6 +82,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
         deliveryAggregators,
         claims,
         connectors,
+        plannerOptions,
         relevanceAggregators,
         junctions,
         snapshot: args.renderState.snapshot,
@@ -119,6 +127,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                         children: [
                             ...connectors.flatMap((connector) => renderConnector({
                                 item: connector,
+                                plannerOptions,
                                 snapshot: args.renderState.snapshot,
                                 stepProgress: args.stepProgress,
                             })),
@@ -132,6 +141,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                             ...deliveryAggregators
                                 .map((aggregator) => renderDeliveryAggregator({
                                     item: aggregator,
+                                    plannerOptions,
                                     snapshot: args.renderState.snapshot,
                                     stepProgress: args.stepProgress,
                                 }))
@@ -139,6 +149,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                             ...relevanceAggregators
                                 .map((aggregator) => renderRelevanceAggregator({
                                     item: aggregator,
+                                    plannerOptions,
                                     snapshot: args.renderState.snapshot,
                                     stepProgress: args.stepProgress,
                                 }))
@@ -149,6 +160,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                         .map((claim) => renderClaim({
                             claim: args.renderState.debateCore.claims[claim.claimId],
                             item: claim,
+                            plannerOptions,
                             stepProgress: args.stepProgress,
                         }))
                         .filter((node): node is RenderElementNode => !!node),
@@ -168,6 +180,7 @@ function computeSceneWidth(args: {
     deliveryAggregators: DeliveryAggregatorViz[];
     claims: ClaimViz[];
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
+    plannerOptions: PlannerOptions;
     relevanceAggregators: RelevanceAggregatorViz[];
     junctions: JunctionViz[];
     snapshot: Snapshot;
@@ -178,6 +191,7 @@ function computeSceneWidth(args: {
     for (const claim of args.claims) {
         maxX = Math.max(maxX, getClaimBounds({
             item: claim,
+            plannerOptions: args.plannerOptions,
             stepProgress: args.stepProgress,
         }).maxX);
     }
@@ -185,6 +199,7 @@ function computeSceneWidth(args: {
     for (const aggregator of args.deliveryAggregators) {
         maxX = Math.max(maxX, getDeliveryAggregatorBounds({
             item: aggregator,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
@@ -200,6 +215,7 @@ function computeSceneWidth(args: {
     for (const aggregator of args.relevanceAggregators) {
         maxX = Math.max(maxX, getRelevanceAggregatorBounds({
             item: aggregator,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
@@ -208,6 +224,7 @@ function computeSceneWidth(args: {
     for (const connector of args.connectors) {
         maxX = Math.max(maxX, getConnectorBounds({
             item: connector,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
@@ -220,6 +237,7 @@ function computeSceneHeight(args: {
     deliveryAggregators: DeliveryAggregatorViz[];
     claims: ClaimViz[];
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
+    plannerOptions: PlannerOptions;
     relevanceAggregators: RelevanceAggregatorViz[];
     junctions: JunctionViz[];
     snapshot: Snapshot;
@@ -230,6 +248,7 @@ function computeSceneHeight(args: {
     for (const claim of args.claims) {
         maxY = Math.max(maxY, getClaimBounds({
             item: claim,
+            plannerOptions: args.plannerOptions,
             stepProgress: args.stepProgress,
         }).maxY);
     }
@@ -237,6 +256,7 @@ function computeSceneHeight(args: {
     for (const aggregator of args.deliveryAggregators) {
         maxY = Math.max(maxY, getDeliveryAggregatorBounds({
             item: aggregator,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);
@@ -252,6 +272,7 @@ function computeSceneHeight(args: {
     for (const aggregator of args.relevanceAggregators) {
         maxY = Math.max(maxY, getRelevanceAggregatorBounds({
             item: aggregator,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);
@@ -260,6 +281,7 @@ function computeSceneHeight(args: {
     for (const connector of args.connectors) {
         maxY = Math.max(maxY, getConnectorBounds({
             item: connector,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);

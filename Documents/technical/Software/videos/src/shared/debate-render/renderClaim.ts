@@ -1,23 +1,21 @@
 import type { Claim } from "../../../../app/src/debate-core/Claim.ts";
+import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
 import type { ClaimViz } from "../../../../app/src/planner/Snapshot.ts";
 
 import { resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { htmlElement, textNode } from "./renderTree";
 import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
 
-const PLANNER_BASE_CLAIM_WIDTH_PX = 360;
-const PLANNER_BASE_CLAIM_HEIGHT_PX = 176;
-
 export function renderClaim(args: {
     claim: Claim | undefined;
     item: ClaimViz;
+    plannerOptions: PlannerOptions;
 } & RenderStepProgress): RenderElementNode | undefined {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
     const scale = resolveTweenNumber(args.item.scale, args.stepProgress);
     const score = resolveTweenNumber(args.item.score, args.stepProgress);
-    const clampedScale = Number.isFinite(scale) ? Math.min(1, Math.max(0, scale)) : 1;
-    const width = Math.round(PLANNER_BASE_CLAIM_WIDTH_PX * clampedScale);
-    const height = Math.round(PLANNER_BASE_CLAIM_HEIGHT_PX * clampedScale);
+    const width = getPlannerClaimWidth(scale, args.plannerOptions);
+    const height = getPlannerClaimHeight(scale, args.plannerOptions);
 
     if (width <= 0 || height <= 0) {
         return undefined;
@@ -25,7 +23,10 @@ export function renderClaim(args: {
 
     const x = position.x - (width / 2);
     const y = position.y - (height / 2);
-    const cardScale = Math.min(width / PLANNER_BASE_CLAIM_WIDTH_PX, height / PLANNER_BASE_CLAIM_HEIGHT_PX);
+    const cardScale = Math.min(
+        width / args.plannerOptions.claimWidth,
+        height / args.plannerOptions.claimHeight,
+    );
     const sideClass = args.item.side === "proMain" ? "pro" : "con";
     const content = args.claim?.content ?? String(args.item.claimId);
 
@@ -91,22 +92,23 @@ export function renderClaim(args: {
 
 export function getClaimBounds(args: {
     item: ClaimViz;
+    plannerOptions: PlannerOptions;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
     const scale = resolveTweenNumber(args.item.scale, args.stepProgress);
 
     return {
-        maxX: position.x + (getPlannerClaimWidth(scale) / 2),
-        maxY: position.y + (getPlannerClaimHeight(scale) / 2),
+        maxX: position.x + (getPlannerClaimWidth(scale, args.plannerOptions) / 2),
+        maxY: position.y + (getPlannerClaimHeight(scale, args.plannerOptions) / 2),
     };
 }
 
-export function getPlannerClaimWidth(scale: number): number {
-    return Math.round(PLANNER_BASE_CLAIM_WIDTH_PX * clampVisualScale(scale));
+export function getPlannerClaimWidth(scale: number, plannerOptions: PlannerOptions): number {
+    return Math.round(plannerOptions.claimWidth * clampVisualScale(scale));
 }
 
-export function getPlannerClaimHeight(scale: number): number {
-    return Math.round(PLANNER_BASE_CLAIM_HEIGHT_PX * clampVisualScale(scale));
+export function getPlannerClaimHeight(scale: number, plannerOptions: PlannerOptions): number {
+    return Math.round(plannerOptions.claimHeight * clampVisualScale(scale));
 }
 
 function clampVisualScale(scale: number): number {

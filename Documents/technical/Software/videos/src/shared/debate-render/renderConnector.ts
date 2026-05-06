@@ -7,6 +7,7 @@ import type {
     Side,
     VizItem,
 } from "../../../../app/src/planner/Snapshot.ts";
+import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
 import { buildPathGeometry, type PathGeometryInstruction, type Waypoint } from "@reasontracker/components/src/path-geometry/buildPathGeometry";
 import {
     pathGeometryBoundariesToClosedSvgPathData,
@@ -70,6 +71,7 @@ const MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX = 0.1;
 export function renderConnector(
     args: {
         item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+        plannerOptions: PlannerOptions;
         snapshot: Snapshot;
     } & RenderStepProgress,
 ): RenderElementNode[] {
@@ -82,10 +84,10 @@ export function renderConnector(
     }
 
     const pipeWidthEndpoints = {
-        from: getPlannerPipeWidth(scaleEndpoints.from),
-        to: getPlannerPipeWidth(scaleEndpoints.to),
+        from: getPlannerPipeWidth(scaleEndpoints.from, args.plannerOptions),
+        to: getPlannerPipeWidth(scaleEndpoints.to, args.plannerOptions),
     };
-    const currentPipeWidth = getPlannerPipeWidth(connector.scale);
+    const currentPipeWidth = getPlannerPipeWidth(connector.scale, args.plannerOptions);
     const fluidWidthEndpoints = {
         from: pipeWidthToFluidWidth(pipeWidthEndpoints.from, scoreEndpoints.from),
         to: pipeWidthToFluidWidth(pipeWidthEndpoints.to, scoreEndpoints.to),
@@ -158,6 +160,7 @@ export function renderConnector(
 
 export function getConnectorBounds(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const connector = resolveConnectorFields(args);
@@ -816,8 +819,8 @@ function getMinimumCenterlineBendRadius(pipeWidth: number): number {
         + (Math.max(0, pipeWidth) * MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO);
 }
 
-function getPlannerPipeWidth(scale: number): number {
-    return getPlannerClaimHeight(scale);
+function getPlannerPipeWidth(scale: number, plannerOptions: PlannerOptions): number {
+    return getPlannerClaimHeight(scale, plannerOptions);
 }
 
 function pipeWidthToFluidWidth(pipeWidth: number, score: number): number {
@@ -846,6 +849,7 @@ function resolveSideFill(side: Side, alpha: number): string {
 
 function resolveConnectorFields(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
 } & RenderStepProgress): {
     scale: number;
@@ -857,11 +861,13 @@ function resolveConnectorFields(args: {
 } {
     const source = resolveConnectorSourcePoint({
         item: args.item,
+        plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
     const targetAttachment = resolveConnectorTargetAttachment({
         item: args.item,
+        plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
         sourcePoint: source,
         stepProgress: args.stepProgress,
@@ -889,12 +895,14 @@ function resolveConnectorFields(args: {
 
 function resolveConnectorSourcePoint(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): { x: number; y: number } {
     if (args.item.type === "deliveryConnector") {
         return resolveDeliveryConnectorSourcePoint({
             item: args.item,
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         });
@@ -909,6 +917,7 @@ function resolveConnectorSourcePoint(args: {
             sourceClaimPosition,
         )
         : resolveRelevanceAggregatorAttachment({
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             relevanceAggregatorVizId: String(args.item.targetRelevanceAggregatorVizId),
             stepProgress: args.stepProgress,
@@ -919,6 +928,7 @@ function resolveConnectorSourcePoint(args: {
     return resolveClaimAttachmentPoint({
         claimVizId: String(args.item.sourceClaimVizId),
         oppositePoint,
+        plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
@@ -926,6 +936,7 @@ function resolveConnectorSourcePoint(args: {
 
 function resolveConnectorTargetAttachment(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     sourcePoint: { x: number; y: number };
     stepProgress: number;
@@ -937,6 +948,7 @@ function resolveConnectorTargetAttachment(args: {
     if (args.item.type === "deliveryConnector") {
         return resolveDeliveryAggregatorAttachment({
             deliveryConnectorVizId: String(args.item.id),
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         });
@@ -959,6 +971,7 @@ function resolveConnectorTargetAttachment(args: {
 
     if (args.item.type === "relevanceConnector") {
         return resolveRelevanceAggregatorAttachment({
+            plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
             relevanceAggregatorVizId: targetId,
             stepProgress: args.stepProgress,
@@ -975,6 +988,7 @@ function resolveConnectorTargetAttachment(args: {
 function resolveClaimAttachmentPoint(args: {
     claimVizId: string;
     oppositePoint: { x: number; y: number };
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): { x: number; y: number } {
@@ -986,7 +1000,7 @@ function resolveClaimAttachmentPoint(args: {
 
     const position = resolveTweenPoint(item.position, args.stepProgress);
     const scale = resolveTweenNumber(item.scale, args.stepProgress);
-    const halfWidth = getPlannerClaimWidth(scale) / 2;
+    const halfWidth = getPlannerClaimWidth(scale, args.plannerOptions) / 2;
 
     return {
         x: args.oppositePoint.x <= position.x ? position.x - halfWidth : position.x + halfWidth,
@@ -1108,6 +1122,7 @@ function resolveRelevanceJunctionAttachment(args: {
 
 function resolveDeliveryAggregatorAttachment(args: {
     deliveryConnectorVizId: string;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): {
@@ -1120,6 +1135,7 @@ function resolveDeliveryAggregatorAttachment(args: {
         aggregatorItem
             ? resolveDeliveryAggregatorGeometry({
                 item: aggregatorItem,
+                plannerOptions: args.plannerOptions,
                 snapshot: args.snapshot,
                 stepProgress: args.stepProgress,
             })
@@ -1138,6 +1154,7 @@ function resolveDeliveryAggregatorAttachment(args: {
 }
 
 function resolveRelevanceAggregatorAttachment(args: {
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     relevanceAggregatorVizId: string;
     stepProgress: number;
@@ -1153,6 +1170,7 @@ function resolveRelevanceAggregatorAttachment(args: {
         aggregatorItem?.type === "relevanceAggregator"
             ? resolveRelevanceAggregatorGeometry({
                 item: aggregatorItem,
+                plannerOptions: args.plannerOptions,
                 snapshot: args.snapshot,
                 stepProgress: args.stepProgress,
             })
@@ -1168,11 +1186,13 @@ function resolveRelevanceAggregatorAttachment(args: {
 
 function resolveDeliveryConnectorSourcePoint(args: {
     item: DeliveryConnectorViz;
+    plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
 }): { x: number; y: number } {
     const targetAttachment = resolveDeliveryAggregatorAttachment({
         deliveryConnectorVizId: String(args.item.id),
+        plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
@@ -1201,6 +1221,7 @@ function resolveDeliveryConnectorSourcePoint(args: {
     return resolveClaimAttachmentPoint({
         claimVizId: sourceClaimVizId,
         oppositePoint: targetAttachment.point,
+        plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
