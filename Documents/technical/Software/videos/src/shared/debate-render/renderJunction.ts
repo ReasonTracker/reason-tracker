@@ -1,4 +1,4 @@
-import type { JunctionViz, Side } from "../../../../app/src/planner/Snapshot.ts";
+import type { JunctionViz, Side } from "@planner/Snapshot.ts";
 
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { svgElement } from "./renderTree";

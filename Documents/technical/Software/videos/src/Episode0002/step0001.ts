@@ -1,9 +1,9 @@
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
-import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
+import type { ClaimId } from "@debate-core/Claim.ts";
 import type {
     ConfidenceConnectorId,
     RelevanceConnectorId,
-} from "../../../app/src/debate-core/Connector.ts";
+} from "@debate-core/Connector.ts";
 import type {
     DeliveryAggregatorVizId,
     ClaimVizId,
@@ -12,7 +12,7 @@ import type {
     RelevanceAggregatorVizId,
     JunctionVizId,
     RelevanceConnectorVizId,
-} from "../../../app/src/planner/Snapshot.ts";
+} from "@planner/Snapshot.ts";
 
 export const mainClaimId = "episode-0002-claim-main" as ClaimId;
 export const c1ClaimId = "episode-0002-claim-c1" as ClaimId;

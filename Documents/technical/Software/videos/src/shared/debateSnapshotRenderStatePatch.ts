@@ -1,5 +1,5 @@
-import type { PatchWithRequiredId } from "../../../app/src/utils.ts";
-import type { VizItem, VizItemId } from "../../../app/src/planner/Snapshot.ts";
+import type { PatchWithRequiredId } from "@app/utils.ts";
+import type { VizItem, VizItemId } from "@planner/Snapshot.ts";
 
 import type { DebateSnapshotRenderState } from "./debate-render/renderTypes";
 

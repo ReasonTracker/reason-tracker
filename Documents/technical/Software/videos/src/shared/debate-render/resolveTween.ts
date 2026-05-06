@@ -1,4 +1,4 @@
-import type { TweenBoolean, TweenNumber, TweenNumberBase, TweenPoint } from "../../../../app/src/utils.ts";
+import type { TweenBoolean, TweenNumber, TweenNumberBase, TweenPoint } from "@app/utils.ts";
 import { interpolate } from "remotion";
 
 export function resolveTweenNumber(value: TweenNumber, stepProgress: number): number {

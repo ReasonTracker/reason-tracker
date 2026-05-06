@@ -1,7 +1,7 @@
 import {
     resolvePlannerOptions,
     type PlannerOptions,
-} from "../../../../app/src/planner/contracts.ts";
+} from "@planner/contracts.ts";
 import type {
     DeliveryAggregatorViz,
     ClaimViz,
@@ -12,7 +12,7 @@ import type {
     RelevanceConnectorViz,
     Snapshot,
     Side,
-} from "../../../../app/src/planner/Snapshot.ts";
+} from "@planner/Snapshot.ts";
 
 import { getClaimBounds, renderClaim } from "./renderClaim";
 import { getDeliveryAggregatorBounds, renderDeliveryAggregator } from "./renderDeliveryAggregator";

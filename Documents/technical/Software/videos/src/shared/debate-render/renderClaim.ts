@@ -1,6 +1,6 @@
-import type { Claim } from "../../../../app/src/debate-core/Claim.ts";
-import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
-import type { ClaimViz } from "../../../../app/src/planner/Snapshot.ts";
+import type { Claim } from "@debate-core/Claim.ts";
+import type { PlannerOptions } from "@planner/contracts.ts";
+import type { ClaimViz } from "@planner/Snapshot.ts";
 
 import { resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { htmlElement, textNode } from "./renderTree";

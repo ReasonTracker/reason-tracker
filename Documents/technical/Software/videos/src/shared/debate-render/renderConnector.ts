@@ -6,8 +6,8 @@ import type {
     RelevanceConnectorViz,
     Side,
     VizItem,
-} from "../../../../app/src/planner/Snapshot.ts";
-import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
+} from "@planner/Snapshot.ts";
+import type { PlannerOptions } from "@planner/contracts.ts";
 import { buildPathGeometry, type PathGeometryInstruction, type Waypoint } from "@reasontracker/components/src/path-geometry/buildPathGeometry";
 import {
     pathGeometryBoundariesToClosedSvgPathData,

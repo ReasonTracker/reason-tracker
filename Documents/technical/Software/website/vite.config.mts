@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { Buffer } from "node:buffer";
+import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 
 const WEBSITE_DIR = path.resolve(import.meta.dirname);
@@ -161,7 +162,7 @@ export default defineConfig({
   root: "dist",
   publicDir: false,
   appType: "mpa",
-  plugins: [publishWebsitePlugin()],
+  plugins: [tsconfigPaths(), publishWebsitePlugin()],
   server: {
     host: true,
   },

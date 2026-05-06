@@ -1,6 +1,6 @@
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
-import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
-import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
+import type { ClaimId } from "@debate-core/Claim.ts";
+import type { ConfidenceConnectorId } from "@debate-core/Connector.ts";
 import type {
     DeliveryAggregatorVizId,
     ClaimVizId,
@@ -8,7 +8,7 @@ import type {
     DeliveryConnectorVizId,
     RelevanceAggregatorVizId,
     JunctionVizId,
-} from "../../../app/src/planner/Snapshot.ts";
+} from "@planner/Snapshot.ts";
 
 import {
     applyDebateSnapshotRenderStatePatch,

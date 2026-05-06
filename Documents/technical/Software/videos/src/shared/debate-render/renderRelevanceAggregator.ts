@@ -1,8 +1,8 @@
 import type {
     RelevanceAggregatorViz,
     Snapshot,
-} from "../../../../app/src/planner/Snapshot.ts";
-import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
+} from "@planner/Snapshot.ts";
+import type { PlannerOptions } from "@planner/contracts.ts";
 
 import {
     getAggregatorBounds,

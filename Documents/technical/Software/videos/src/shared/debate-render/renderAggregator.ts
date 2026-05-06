@@ -4,8 +4,8 @@ import type {
     Side,
     Snapshot,
     VizItem,
-} from "../../../../app/src/planner/Snapshot.ts";
-import type { PlannerOptions } from "../../../../app/src/planner/contracts.ts";
+} from "@planner/Snapshot.ts";
+import type { PlannerOptions } from "@planner/contracts.ts";
 
 import { getPlannerClaimHeight, getPlannerClaimWidth } from "./renderClaim";
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";

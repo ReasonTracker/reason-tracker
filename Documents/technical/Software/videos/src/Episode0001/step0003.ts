@@ -4,7 +4,7 @@ import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTy
 import type {
     ClaimVizId,
     DeliveryConnectorVizId,
-} from "../../../app/src/planner/Snapshot.ts";
+} from "@planner/Snapshot.ts";
 
 import {
     applyDebateSnapshotRenderStatePatch,
