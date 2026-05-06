@@ -21,13 +21,13 @@ These examples describe the visual sequence of what happens on screen and intent
 
 - **Voila**: The new claim scales in from zero to its calculated size on the connector lane of the confidence connection it affects while the existing claims move out of the way.
 - **Sprout**: These all happen at the same time.
-  - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom edge of the junction on the affected confidence connection.
+  - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
   - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
-  - The Relevance Connector uses the top edge if the relevance claim is above the junction and the bottom edge if the relevance claim is below it. It reaches that edge with the same slope as that edge.
-  - If there is only one relevance claim, the relevance aggregator may remain hidden even though the Relevance Connector is still associated with that relevance aggregator.
+  - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
+  - If there is only one relevance claim, the relevance aggregator may remain hidden or collapsed even though the Relevance Connector is still associated with that relevance aggregator, which can make it look like the connector is landing directly on the junction in this example orientation.
   - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
-  - If the relevance aggregator needs to become visible, it will grow into position as a separate item from the junction.
-  - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the target-facing edge of the junction.
+  - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
+  - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the delivery aggregator on the target claim side, which can look like it is connecting to the claim when there is only one incoming connector because the delivery aggregator is not visible.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the update wave at the target Relevance Aggregator Adjust step.
 
