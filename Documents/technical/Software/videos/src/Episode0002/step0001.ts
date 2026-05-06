@@ -86,14 +86,12 @@ export const thirdLayerPipeWidth = 70;
 const secondLayerNarrowConfidenceScale = 87;
 
 const mainClaimPosition = { x: leftPad, y: 460 };
-const mainDeliveryAggregatorPosition = { x: leftPad, y: 540 };
 const mainClaimRightEdgePosition = { x: mainClaimPosition.x + claimHalfWidth, y: mainClaimPosition.y };
 
 const c1ClaimPosition = {
     x: secondColumnClaimLeftEdgeX + (claimHalfWidth * secondLayerClaimScale),
     y: 220,
 };
-const c1DeliveryAggregatorPosition = { x: c1ClaimPosition.x, y: 300 };
 const c1ClaimLeftEdgePosition = { x: secondColumnClaimLeftEdgeX, y: c1ClaimPosition.y };
 export const c1ClaimRightEdgePosition = {
     x: c1ClaimPosition.x + (claimHalfWidth * secondLayerClaimScale),
@@ -104,7 +102,6 @@ const c2ClaimPosition = {
     x: secondColumnClaimLeftEdgeX + (claimHalfWidth * secondLayerClaimScale),
     y: 760,
 };
-const c2DeliveryAggregatorPosition = { x: c2ClaimPosition.x, y: 840 };
 const c2ClaimLeftEdgePosition = { x: secondColumnClaimLeftEdgeX, y: c2ClaimPosition.y };
 const c2JunctionPosition = { x: secondColumnClaimLeftEdgeX - 120, y: c2ClaimPosition.y };
 
@@ -112,7 +109,6 @@ const c3ClaimPosition = {
     x: secondColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
     y: c2ClaimPosition.y - 180,
 };
-const c3DeliveryAggregatorPosition = { x: c3ClaimPosition.x, y: c3ClaimPosition.y + 60 };
 const c3ClaimLeftEdgePosition = {
     x: c3ClaimPosition.x - (claimHalfWidth * thirdLayerClaimScale),
     y: c3ClaimPosition.y,
@@ -122,21 +118,18 @@ const c4ClaimPosition = {
     x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
     y: 80,
 };
-const c4DeliveryAggregatorPosition = { x: c4ClaimPosition.x, y: 140 };
 const c4ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c4ClaimPosition.y };
 
 const c5ClaimPosition = {
     x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
     y: 260,
 };
-const c5DeliveryAggregatorPosition = { x: c5ClaimPosition.x, y: 320 };
 const c5ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c5ClaimPosition.y };
 
 const c6ClaimPosition = {
     x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
     y: 440,
 };
-const c6DeliveryAggregatorPosition = { x: c6ClaimPosition.x, y: 500 };
 const c6ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c6ClaimPosition.y };
 
 const c1MainTargetSideOffset = -44;
@@ -306,7 +299,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
                 c1DeliveryConnectorVizId,
                 c2DeliveryConnectorVizId,
             ],
-            position: mainDeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -320,7 +312,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
                 c5DeliveryConnectorVizId,
                 c6DeliveryConnectorVizId,
             ],
-            position: c1DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -330,7 +321,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c2ClaimId,
             deliveryConnectorVizIds: [],
-            position: c2DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -340,7 +330,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c3ClaimId,
             deliveryConnectorVizIds: [],
-            position: c3DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -350,7 +339,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c4ClaimId,
             deliveryConnectorVizIds: [],
-            position: c4DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -360,7 +348,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c5ClaimId,
             deliveryConnectorVizIds: [],
-            position: c5DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -370,7 +357,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c6ClaimId,
             deliveryConnectorVizIds: [],
-            position: c6DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -439,7 +425,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c1RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c1ConfidenceConnectorId,
-            position: c1ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,
@@ -450,7 +435,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c2RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
-            position: c2JunctionPosition,
             relevanceConnectorVizIds: [c3RelevanceConnectorVizId],
             scale: 1,
             score: 1,
@@ -461,7 +445,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c4RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c4ConfidenceConnectorId,
-            position: c4ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,
@@ -472,7 +455,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c5RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c5ConfidenceConnectorId,
-            position: c5ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,
@@ -483,7 +465,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: c6RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c6ConfidenceConnectorId,
-            position: c6ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,

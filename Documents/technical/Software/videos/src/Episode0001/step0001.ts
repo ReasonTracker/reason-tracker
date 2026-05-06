@@ -30,9 +30,7 @@ const claimHalfWidth = 180;
 export const fullScalePipeWidth = 176;
 
 export const mainClaimPosition = { x: leftPad, y: 180 };
-export const mainDeliveryAggregatorPosition = { x: leftPad, y: 260 };
 const c1ClaimPosition = { x: leftPad + layerWidth * 2, y: 180 };
-const c1DeliveryAggregatorPosition = { x: leftPad + layerWidth * 2, y: 260 };
 export const mainClaimRightEdgePosition = { x: mainClaimPosition.x + claimHalfWidth, y: mainClaimPosition.y };
 export const mainSupportSourcePosition = { x: c1ClaimPosition.x - claimHalfWidth, y: c1ClaimPosition.y };
 
@@ -89,7 +87,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: mainClaimId,
             deliveryConnectorVizIds: [mainSupportDeliveryConnectorVizId],
-            position: mainDeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -99,7 +96,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             animationType: "uniform",
             claimId: c1ClaimId,
             deliveryConnectorVizIds: [],
-            position: c1DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -120,7 +116,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: mainSupportRelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
-            position: mainSupportSourcePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,

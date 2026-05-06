@@ -22,7 +22,6 @@ export interface DeliveryAggregatorViz {
     animationType: AnimationType,
     claimId: ClaimId
     deliveryConnectorVizIds: DeliveryConnectorVizId[]
-    position: TweenPoint
     scale: TweenNumber
     score: TweenNumber
 }
@@ -47,7 +46,6 @@ export interface RelevanceAggregatorViz {
     id: RelevanceAggregatorVizId
     animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
-    position: TweenPoint
     relevanceConnectorVizIds: RelevanceConnectorVizId[]
     scale: TweenNumber
     score: TweenNumber

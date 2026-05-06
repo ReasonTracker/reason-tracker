@@ -129,22 +129,26 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                                     stepProgress: args.stepProgress,
                                 }))
                                 .filter((node): node is RenderElementNode => !!node),
+                            ...deliveryAggregators
+                                .map((aggregator) => renderDeliveryAggregator({
+                                    item: aggregator,
+                                    snapshot: args.renderState.snapshot,
+                                    stepProgress: args.stepProgress,
+                                }))
+                                .filter((node): node is RenderElementNode => !!node),
+                            ...relevanceAggregators
+                                .map((aggregator) => renderRelevanceAggregator({
+                                    item: aggregator,
+                                    snapshot: args.renderState.snapshot,
+                                    stepProgress: args.stepProgress,
+                                }))
+                                .filter((node): node is RenderElementNode => !!node),
                         ],
                     }),
                     ...claims
                         .map((claim) => renderClaim({
                             claim: args.renderState.debateCore.claims[claim.claimId],
                             item: claim,
-                            stepProgress: args.stepProgress,
-                        }))
-                        .filter((node): node is RenderElementNode => !!node),
-                    ...deliveryAggregators.map((aggregator) => renderDeliveryAggregator({
-                        item: aggregator,
-                        stepProgress: args.stepProgress,
-                    })),
-                    ...relevanceAggregators
-                        .map((aggregator) => renderRelevanceAggregator({
-                            item: aggregator,
                             stepProgress: args.stepProgress,
                         }))
                         .filter((node): node is RenderElementNode => !!node),
@@ -181,6 +185,7 @@ function computeSceneWidth(args: {
     for (const aggregator of args.deliveryAggregators) {
         maxX = Math.max(maxX, getDeliveryAggregatorBounds({
             item: aggregator,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
     }
@@ -195,6 +200,7 @@ function computeSceneWidth(args: {
     for (const aggregator of args.relevanceAggregators) {
         maxX = Math.max(maxX, getRelevanceAggregatorBounds({
             item: aggregator,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxX);
     }
@@ -231,6 +237,7 @@ function computeSceneHeight(args: {
     for (const aggregator of args.deliveryAggregators) {
         maxY = Math.max(maxY, getDeliveryAggregatorBounds({
             item: aggregator,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);
     }
@@ -245,6 +252,7 @@ function computeSceneHeight(args: {
     for (const aggregator of args.relevanceAggregators) {
         maxY = Math.max(maxY, getRelevanceAggregatorBounds({
             item: aggregator,
+            snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         }).maxY);
     }

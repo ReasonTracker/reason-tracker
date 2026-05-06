@@ -13,6 +13,11 @@ import {
     pathGeometryCommandsToSvgPathData,
 } from "@reasontracker/components/src/path-geometry/pathGeometrySvg";
 
+import {
+    resolveAggregatorOuterEdgeAttachment,
+    resolveDeliveryAggregatorGeometry,
+    resolveRelevanceAggregatorGeometry,
+} from "./renderAggregator";
 import { getPlannerClaimHeight, getPlannerClaimWidth } from "./renderClaim";
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { svgElement } from "./renderTree";
@@ -855,16 +860,7 @@ function resolveConnectorFields(args: {
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
-    const relevanceTargetAttachment = args.item.type === "relevanceConnector"
-        ? resolveRelevanceJunctionAttachment({
-            snapshot: args.snapshot,
-            relevanceAggregatorVizId: String(args.item.targetRelevanceAggregatorVizId),
-            stepProgress: args.stepProgress,
-            oppositePoint: source,
-            side: args.item.side,
-        })
-        : undefined;
-    const target = relevanceTargetAttachment?.point ?? resolveConnectorTargetPoint({
+    const targetAttachment = resolveConnectorTargetAttachment({
         item: args.item,
         snapshot: args.snapshot,
         sourcePoint: source,
@@ -881,10 +877,10 @@ function resolveConnectorFields(args: {
         score: resolveTweenNumber(args.item.score, args.stepProgress),
         source,
         target: {
-            x: target.x,
-            y: target.y + targetSideOffset,
+            x: targetAttachment.point.x + ((targetAttachment.tangent?.x ?? 0) * targetSideOffset),
+            y: targetAttachment.point.y + ((targetAttachment.tangent?.y ?? 1) * targetSideOffset),
         },
-        targetApproachUnit: relevanceTargetAttachment?.approachUnit,
+        targetApproachUnit: targetAttachment.approachUnit,
         visible: args.item.type === "confidenceConnector"
             ? resolveTweenBoolean(args.item.visible, args.stepProgress)
             : true,
@@ -912,7 +908,7 @@ function resolveConnectorSourcePoint(args: {
             args.stepProgress,
             sourceClaimPosition,
         )
-        : resolveRelevanceJunctionAttachment({
+        : resolveRelevanceAggregatorAttachment({
             snapshot: args.snapshot,
             relevanceAggregatorVizId: String(args.item.targetRelevanceAggregatorVizId),
             stepProgress: args.stepProgress,
@@ -928,16 +924,19 @@ function resolveConnectorSourcePoint(args: {
     });
 }
 
-function resolveConnectorTargetPoint(args: {
+function resolveConnectorTargetAttachment(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
     snapshot: Snapshot;
     sourcePoint: { x: number; y: number };
     stepProgress: number;
-}): { x: number; y: number } {
+}): {
+    point: { x: number; y: number };
+    approachUnit?: UnitVector;
+    tangent?: UnitVector;
+} {
     if (args.item.type === "deliveryConnector") {
-        return resolveClaimAttachmentPoint({
-            claimVizId: String(args.item.targetClaimVizId),
-            oppositePoint: args.sourcePoint,
+        return resolveDeliveryAggregatorAttachment({
+            deliveryConnectorVizId: String(args.item.id),
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
         });
@@ -948,25 +947,29 @@ function resolveConnectorTargetPoint(args: {
         : String(args.item.targetRelevanceAggregatorVizId);
 
     if (args.item.type === "confidenceConnector") {
-        return resolveJunctionAttachmentPoint(
-            args.snapshot,
-            targetId,
-            args.stepProgress,
-            args.sourcePoint,
-        );
+        return {
+            point: resolveJunctionAttachmentPoint(
+                args.snapshot,
+                targetId,
+                args.stepProgress,
+                args.sourcePoint,
+            ),
+        };
     }
 
     if (args.item.type === "relevanceConnector") {
-        return resolveRelevanceJunctionAttachment({
+        return resolveRelevanceAggregatorAttachment({
             snapshot: args.snapshot,
             relevanceAggregatorVizId: targetId,
             stepProgress: args.stepProgress,
             oppositePoint: args.sourcePoint,
             side: args.item.side,
-        }).point;
+        });
     }
 
-    return resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.sourcePoint);
+    return {
+        point: resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.sourcePoint),
+    };
 }
 
 function resolveClaimAttachmentPoint(args: {
@@ -1049,12 +1052,14 @@ function resolveRelevanceJunctionAttachment(args: {
 }): {
     point: { x: number; y: number };
     approachUnit?: UnitVector;
+    tangent: UnitVector;
 } {
     const junctionItem = getJunctionForAggregator(args.snapshot, args.relevanceAggregatorVizId);
 
     if (!junctionItem) {
         return {
             point: resolveSnapshotPositionPoint(args.snapshot, args.relevanceAggregatorVizId, args.stepProgress, args.oppositePoint),
+            tangent: { x: 1, y: 0 },
         };
     }
 
@@ -1097,7 +1102,68 @@ function resolveRelevanceJunctionAttachment(args: {
             y: (edgeStart.y + edgeEnd.y) / 2,
         },
         approachUnit,
+        tangent: edgeDirectionLeftToRight,
     };
+}
+
+function resolveDeliveryAggregatorAttachment(args: {
+    deliveryConnectorVizId: string;
+    snapshot: Snapshot;
+    stepProgress: number;
+}): {
+    point: { x: number; y: number };
+    approachUnit?: UnitVector;
+    tangent: UnitVector;
+} {
+    const aggregatorItem = getDeliveryAggregatorForConnector(args.snapshot, args.deliveryConnectorVizId);
+    const attachment = resolveAggregatorOuterEdgeAttachment(
+        aggregatorItem
+            ? resolveDeliveryAggregatorGeometry({
+                item: aggregatorItem,
+                snapshot: args.snapshot,
+                stepProgress: args.stepProgress,
+            })
+            : undefined,
+    );
+
+    if (attachment) {
+        return attachment;
+    }
+
+    return {
+        approachUnit: { x: -1, y: 0 },
+        point: resolveSnapshotPositionPoint(args.snapshot, args.deliveryConnectorVizId, args.stepProgress, { x: 0, y: 0 }),
+        tangent: { x: 0, y: 1 },
+    };
+}
+
+function resolveRelevanceAggregatorAttachment(args: {
+    snapshot: Snapshot;
+    relevanceAggregatorVizId: string;
+    stepProgress: number;
+    oppositePoint: { x: number; y: number };
+    side: Side;
+}): {
+    point: { x: number; y: number };
+    approachUnit?: UnitVector;
+    tangent: UnitVector;
+} {
+    const aggregatorItem = getSnapshotItem(args.snapshot, args.relevanceAggregatorVizId);
+    const attachment = resolveAggregatorOuterEdgeAttachment(
+        aggregatorItem?.type === "relevanceAggregator"
+            ? resolveRelevanceAggregatorGeometry({
+                item: aggregatorItem,
+                snapshot: args.snapshot,
+                stepProgress: args.stepProgress,
+            })
+            : undefined,
+    );
+
+    if (attachment) {
+        return attachment;
+    }
+
+    return resolveRelevanceJunctionAttachment(args);
 }
 
 function resolveDeliveryConnectorSourcePoint(args: {
@@ -1105,7 +1171,11 @@ function resolveDeliveryConnectorSourcePoint(args: {
     snapshot: Snapshot;
     stepProgress: number;
 }): { x: number; y: number } {
-    const targetClaimPosition = resolveClaimPositionPoint(args.snapshot, String(args.item.targetClaimVizId), args.stepProgress);
+    const targetAttachment = resolveDeliveryAggregatorAttachment({
+        deliveryConnectorVizId: String(args.item.id),
+        snapshot: args.snapshot,
+        stepProgress: args.stepProgress,
+    });
     const junctionItem = getSnapshotItem(args.snapshot, String(args.item.sourceJunctionVizId));
 
     if (junctionItem?.type === "junction" && resolveTweenBoolean(junctionItem.visible, args.stepProgress)) {
@@ -1113,7 +1183,7 @@ function resolveDeliveryConnectorSourcePoint(args: {
             args.snapshot,
             String(args.item.sourceJunctionVizId),
             args.stepProgress,
-            targetClaimPosition,
+            targetAttachment.point,
         );
     }
 
@@ -1124,13 +1194,13 @@ function resolveDeliveryConnectorSourcePoint(args: {
             args.snapshot,
             String(args.item.sourceJunctionVizId),
             args.stepProgress,
-            targetClaimPosition,
+            targetAttachment.point,
         );
     }
 
     return resolveClaimAttachmentPoint({
         claimVizId: sourceClaimVizId,
-        oppositePoint: targetClaimPosition,
+        oppositePoint: targetAttachment.point,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
     });
@@ -1143,6 +1213,22 @@ function getSourceClaimVizIdForConfidenceConnector(
     for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
         if (item?.type === "confidenceConnector" && item.confidenceConnectorId === confidenceConnectorId) {
             return String(item.sourceClaimVizId);
+        }
+    }
+
+    return undefined;
+}
+
+function getDeliveryAggregatorForConnector(
+    snapshot: Snapshot,
+    deliveryConnectorVizId: string,
+): Extract<VizItem, { type: "deliveryAggregator" }> | undefined {
+    for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
+        if (
+            item?.type === "deliveryAggregator"
+            && item.deliveryConnectorVizIds.some((connectorVizId) => String(connectorVizId) === deliveryConnectorVizId)
+        ) {
+            return item;
         }
     }
 

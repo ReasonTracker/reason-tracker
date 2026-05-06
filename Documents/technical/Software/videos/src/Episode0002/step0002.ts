@@ -46,7 +46,6 @@ const c7ClaimPosition = {
     x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * compactThirdLayerClaimScale),
     y: c7FinalY,
 };
-const c7DeliveryAggregatorPosition = { x: c7ClaimPosition.x, y: c7FinalY + 60 };
 const c7ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c7FinalY };
 const c7TargetSideOffset = 54;
 
@@ -98,7 +97,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             animationType: "uniform",
             claimId: c7ClaimId,
             deliveryConnectorVizIds: [],
-            position: c7DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -119,7 +117,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             id: c7RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c7ConfidenceConnectorId,
-            position: c7ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,

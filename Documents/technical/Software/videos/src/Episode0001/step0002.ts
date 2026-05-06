@@ -46,7 +46,6 @@ const rightColumnClaimCenterX = leftPad + layerWidth * 2;
 const leftJustifiedClaimLeftX = rightColumnClaimCenterX - claimHalfWidth;
 const leftJustifiedScaledClaimCenterX = leftJustifiedClaimLeftX + (claimHalfWidth * claim2Scale);
 const c2ClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: 360 };
-const c2DeliveryAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2, y: 440 };
 const c2ClaimLeftEdgePosition = { x: leftJustifiedClaimLeftX, y: c2ClaimPosition.y };
 
 
@@ -96,7 +95,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             animationType: "uniform",
             claimId: c2ClaimId,
             deliveryConnectorVizIds: [],
-            position: c2DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -117,7 +115,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             id: c2RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
-            position: c2ClaimLeftEdgePosition,
             relevanceConnectorVizIds: [],
             scale: 1,
             score: 1,

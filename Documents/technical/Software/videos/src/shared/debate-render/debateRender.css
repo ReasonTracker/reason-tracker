@@ -22,7 +22,7 @@
 }
 
 .rt-debate-render__claim-shell,
-.rt-debate-render__aggregator {
+.rt-debate-render__claim-shell {
     box-sizing: border-box;
     position: absolute;
 }
@@ -95,11 +95,4 @@
     letter-spacing: 0.06em;
     line-height: 1;
     margin-top: 2px;
-}
-
-.rt-debate-render__aggregator {
-    background: transparent;
-    border-radius: 50%;
-    opacity: 0;
-    pointer-events: none;
 }

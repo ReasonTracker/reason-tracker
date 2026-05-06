@@ -1,49 +1,27 @@
-import type { RelevanceAggregatorViz } from "../../../../app/src/planner/Snapshot.ts";
+import type {
+    RelevanceAggregatorViz,
+    Snapshot,
+} from "../../../../app/src/planner/Snapshot.ts";
 
-import { resolveTweenBoolean, resolveTweenPoint } from "./resolveTween";
-import { htmlElement } from "./renderTree";
+import {
+    getAggregatorBounds,
+    renderAggregatorOutline,
+    resolveRelevanceAggregatorGeometry,
+} from "./renderAggregator";
 import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
-
-const AGGREGATOR_BASE_SIZE_PX = 2;
 
 export function renderRelevanceAggregator(args: {
     item: RelevanceAggregatorViz;
+    snapshot: Snapshot;
 } & RenderStepProgress): RenderElementNode | undefined {
-    const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
+    const geometry = resolveRelevanceAggregatorGeometry(args);
 
-    if (!visible) {
-        return undefined;
-    }
-
-    const position = resolveTweenPoint(args.item.position, args.stepProgress);
-
-    return htmlElement("div", {
-        attributes: {
-            "class": "rt-debate-render__aggregator rt-debate-render__aggregator--junction",
-            "data-aggregator-id": String(args.item.id),
-        },
-        styles: {
-            height: AGGREGATOR_BASE_SIZE_PX,
-            left: position.x - (AGGREGATOR_BASE_SIZE_PX / 2),
-            top: position.y - (AGGREGATOR_BASE_SIZE_PX / 2),
-            width: AGGREGATOR_BASE_SIZE_PX,
-        },
-    });
+    return geometry ? renderAggregatorOutline(geometry) : undefined;
 }
 
 export function getRelevanceAggregatorBounds(args: {
     item: RelevanceAggregatorViz;
+    snapshot: Snapshot;
 } & RenderStepProgress): { maxX: number; maxY: number } {
-    const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
-
-    if (!visible) {
-        return { maxX: 0, maxY: 0 };
-    }
-
-    const position = resolveTweenPoint(args.item.position, args.stepProgress);
-
-    return {
-        maxX: position.x,
-        maxY: position.y,
-    };
+    return getAggregatorBounds(resolveRelevanceAggregatorGeometry(args));
 }
