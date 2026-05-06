@@ -10,10 +10,11 @@ These examples describe the visual sequence of what happens on screen and intent
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
 - **Sprout**: These stages happen in order across the sprout step.
-  - `0% - 50%`: The new Delivery Connector's pipe wall and pipe interior trace out from the new claim toward the target claim in the `sourceToTarget` direction. During this interval, the new connector grows from zero to its planned post-sprout scale and is already attached to its planned target-side landing slot.
-  - `50% - 70%`: The existing sibling Delivery Connectors make room at the target. Their target-side attachments slide toward their planned landing slots while their widths shrink toward their planned post-sprout scales, and that width change sweeps in the `targetToSource` direction.
+  - `0% - 50%`: The new Delivery Connector's pipe wall and pipe interior trace out from the new claim toward the target claim in the `sourceToTarget` direction. During this interval, the new connector grows from zero to its planned post-sprout scale and is already attached to its planned stacked target-side attachment position.
+  - `50% - 70%`: The existing sibling Delivery Connectors make room at the target. Their target-side attachments slide toward their planned stacked target-side attachment positions while their widths shrink toward their planned post-sprout scales, and that width change sweeps in the `targetToSource` direction.
   - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout.
   - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
+  - See [Connector Stacking](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the progression wave at the target Delivery Aggregator Adjust step.
 
@@ -24,6 +25,7 @@ These examples describe the visual sequence of what happens on screen and intent
   - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
   - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
+  - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Connector Stacking](../../design/debate-animation-data-model.md#connector-stacking) rules.
   - If there is only one relevance claim, the relevance aggregator may remain hidden or collapsed even though the Relevance Connector is still associated with that relevance aggregator, which can make it look like the connector is landing directly on the junction in this example orientation.
   - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
   - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
