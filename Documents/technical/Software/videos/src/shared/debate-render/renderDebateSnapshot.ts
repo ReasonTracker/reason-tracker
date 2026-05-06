@@ -1,9 +1,9 @@
 import type {
-    ClaimAggregatorViz,
+    DeliveryAggregatorViz,
     ClaimViz,
     ConfidenceConnectorViz,
     DeliveryConnectorViz,
-    JunctionAggregatorViz,
+    RelevanceAggregatorViz,
     JunctionViz,
     RelevanceConnectorViz,
     Snapshot,
@@ -11,10 +11,10 @@ import type {
 } from "../../../../app/src/planner/Snapshot.ts";
 
 import { getClaimBounds, renderClaim } from "./renderClaim";
-import { getClaimAggregatorBounds, renderClaimAggregator } from "./renderClaimAggregator";
+import { getDeliveryAggregatorBounds, renderDeliveryAggregator } from "./renderDeliveryAggregator";
 import { getConnectorBounds, renderConnector } from "./renderConnector";
 import { getJunctionBounds, renderJunction } from "./renderJunction";
-import { getJunctionAggregatorBounds, renderJunctionAggregator } from "./renderJunctionAggregator";
+import { getRelevanceAggregatorBounds, renderRelevanceAggregator } from "./renderRelevanceAggregator";
 import { htmlElement, svgElement } from "./renderTree";
 import type {
     DebateRenderResult,
@@ -29,9 +29,9 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
     renderState: DebateSnapshotRenderState;
 }): DebateRenderResult {
     const claims: ClaimViz[] = [];
-    const claimAggregators: ClaimAggregatorViz[] = [];
+    const deliveryAggregators: DeliveryAggregatorViz[] = [];
     const junctions: JunctionViz[] = [];
-    const junctionAggregators: JunctionAggregatorViz[] = [];
+    const relevanceAggregators: RelevanceAggregatorViz[] = [];
     const connectors: Array<
         ConfidenceConnectorViz
         | DeliveryConnectorViz
@@ -44,8 +44,8 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
             continue;
         }
 
-        if (item.type === "claimAggregator") {
-            claimAggregators.push(item);
+        if (item.type === "deliveryAggregator") {
+            deliveryAggregators.push(item);
             continue;
         }
 
@@ -54,8 +54,8 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
             continue;
         }
 
-        if (item.type === "junctionAggregator") {
-            junctionAggregators.push(item);
+        if (item.type === "relevanceAggregator") {
+            relevanceAggregators.push(item);
             continue;
         }
 
@@ -63,19 +63,19 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
     }
 
     const width = computeSceneWidth({
-        claimAggregators,
+        deliveryAggregators,
         claims,
         connectors,
-        junctionAggregators,
+        relevanceAggregators,
         junctions,
         snapshot: args.renderState.snapshot,
         stepProgress: args.stepProgress,
     });
     const height = computeSceneHeight({
-        claimAggregators,
+        deliveryAggregators,
         claims,
         connectors,
-        junctionAggregators,
+        relevanceAggregators,
         junctions,
         snapshot: args.renderState.snapshot,
         stepProgress: args.stepProgress,
@@ -138,12 +138,12 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                             stepProgress: args.stepProgress,
                         }))
                         .filter((node): node is RenderElementNode => !!node),
-                    ...claimAggregators.map((aggregator) => renderClaimAggregator({
+                    ...deliveryAggregators.map((aggregator) => renderDeliveryAggregator({
                         item: aggregator,
                         stepProgress: args.stepProgress,
                     })),
-                    ...junctionAggregators
-                        .map((aggregator) => renderJunctionAggregator({
+                    ...relevanceAggregators
+                        .map((aggregator) => renderRelevanceAggregator({
                             item: aggregator,
                             stepProgress: args.stepProgress,
                         }))
@@ -161,10 +161,10 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
 }
 
 function computeSceneWidth(args: {
-    claimAggregators: ClaimAggregatorViz[];
+    deliveryAggregators: DeliveryAggregatorViz[];
     claims: ClaimViz[];
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
-    junctionAggregators: JunctionAggregatorViz[];
+    relevanceAggregators: RelevanceAggregatorViz[];
     junctions: JunctionViz[];
     snapshot: Snapshot;
     stepProgress: number;
@@ -178,8 +178,8 @@ function computeSceneWidth(args: {
         }).maxX);
     }
 
-    for (const aggregator of args.claimAggregators) {
-        maxX = Math.max(maxX, getClaimAggregatorBounds({
+    for (const aggregator of args.deliveryAggregators) {
+        maxX = Math.max(maxX, getDeliveryAggregatorBounds({
             item: aggregator,
             stepProgress: args.stepProgress,
         }).maxX);
@@ -192,8 +192,8 @@ function computeSceneWidth(args: {
         }).maxX);
     }
 
-    for (const aggregator of args.junctionAggregators) {
-        maxX = Math.max(maxX, getJunctionAggregatorBounds({
+    for (const aggregator of args.relevanceAggregators) {
+        maxX = Math.max(maxX, getRelevanceAggregatorBounds({
             item: aggregator,
             stepProgress: args.stepProgress,
         }).maxX);
@@ -211,10 +211,10 @@ function computeSceneWidth(args: {
 }
 
 function computeSceneHeight(args: {
-    claimAggregators: ClaimAggregatorViz[];
+    deliveryAggregators: DeliveryAggregatorViz[];
     claims: ClaimViz[];
     connectors: Array<ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz>;
-    junctionAggregators: JunctionAggregatorViz[];
+    relevanceAggregators: RelevanceAggregatorViz[];
     junctions: JunctionViz[];
     snapshot: Snapshot;
     stepProgress: number;
@@ -228,8 +228,8 @@ function computeSceneHeight(args: {
         }).maxY);
     }
 
-    for (const aggregator of args.claimAggregators) {
-        maxY = Math.max(maxY, getClaimAggregatorBounds({
+    for (const aggregator of args.deliveryAggregators) {
+        maxY = Math.max(maxY, getDeliveryAggregatorBounds({
             item: aggregator,
             stepProgress: args.stepProgress,
         }).maxY);
@@ -242,8 +242,8 @@ function computeSceneHeight(args: {
         }).maxY);
     }
 
-    for (const aggregator of args.junctionAggregators) {
-        maxY = Math.max(maxY, getJunctionAggregatorBounds({
+    for (const aggregator of args.relevanceAggregators) {
+        maxY = Math.max(maxY, getRelevanceAggregatorBounds({
             item: aggregator,
             stepProgress: args.stepProgress,
         }).maxY);

@@ -3,11 +3,11 @@ import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTy
 import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
 import type {
-    ClaimAggregatorVizId,
+    DeliveryAggregatorVizId,
     ClaimVizId,
     ConfidenceConnectorVizId,
     DeliveryConnectorVizId,
-    JunctionAggregatorVizId,
+    RelevanceAggregatorVizId,
     JunctionVizId,
 } from "../../../app/src/planner/Snapshot.ts";
 
@@ -17,9 +17,9 @@ export const mainSupportConfidenceConnectorId = "confidence-main-support" as Con
 
 export const mainClaimVizId = "claim-viz-main" as ClaimVizId;
 const c1ClaimVizId = "claim-viz-c1" as ClaimVizId;
-export const mainClaimAggregatorVizId = "claim-aggregator-viz-main" as ClaimAggregatorVizId;
-const c1ClaimAggregatorVizId = "claim-aggregator-viz-c1" as ClaimAggregatorVizId;
-const mainSupportJunctionAggregatorVizId = "junction-aggregator-viz-main-support" as JunctionAggregatorVizId;
+export const mainDeliveryAggregatorVizId = "delivery-aggregator-viz-main" as DeliveryAggregatorVizId;
+const c1DeliveryAggregatorVizId = "delivery-aggregator-viz-c1" as DeliveryAggregatorVizId;
+const mainSupportRelevanceAggregatorVizId = "relevance-aggregator-viz-main-support" as RelevanceAggregatorVizId;
 export const mainSupportJunctionVizId = "junction-viz-main-support" as JunctionVizId;
 const mainSupportConfidenceConnectorVizId = "confidence-connector-viz-main-support" as ConfidenceConnectorVizId;
 export const mainSupportDeliveryConnectorVizId = "delivery-connector-viz-main-support" as DeliveryConnectorVizId;
@@ -30,9 +30,9 @@ const claimHalfWidth = 180;
 export const fullScalePipeWidth = 176;
 
 export const mainClaimPosition = { x: leftPad, y: 180 };
-export const mainClaimAggregatorPosition = { x: leftPad, y: 260 };
+export const mainDeliveryAggregatorPosition = { x: leftPad, y: 260 };
 const c1ClaimPosition = { x: leftPad + layerWidth * 2, y: 180 };
-const c1ClaimAggregatorPosition = { x: leftPad + layerWidth * 2, y: 260 };
+const c1DeliveryAggregatorPosition = { x: leftPad + layerWidth * 2, y: 260 };
 export const mainClaimRightEdgePosition = { x: mainClaimPosition.x + claimHalfWidth, y: mainClaimPosition.y };
 export const mainSupportSourcePosition = { x: c1ClaimPosition.x - claimHalfWidth, y: c1ClaimPosition.y };
 
@@ -83,23 +83,23 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
         },
-        [mainClaimAggregatorVizId]: {
-            type: "claimAggregator",
-            id: mainClaimAggregatorVizId,
+        [mainDeliveryAggregatorVizId]: {
+            type: "deliveryAggregator",
+            id: mainDeliveryAggregatorVizId,
             animationType: "uniform",
             claimId: mainClaimId,
             deliveryConnectorVizIds: [mainSupportDeliveryConnectorVizId],
-            position: mainClaimAggregatorPosition,
+            position: mainDeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
-        [c1ClaimAggregatorVizId]: {
-            type: "claimAggregator",
-            id: c1ClaimAggregatorVizId,
+        [c1DeliveryAggregatorVizId]: {
+            type: "deliveryAggregator",
+            id: c1DeliveryAggregatorVizId,
             animationType: "uniform",
             claimId: c1ClaimId,
             deliveryConnectorVizIds: [],
-            position: c1ClaimAggregatorPosition,
+            position: c1DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -108,16 +108,16 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             id: mainSupportJunctionVizId,
             animationType: "uniform",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
-            junctionAggregatorVizId: mainSupportJunctionAggregatorVizId,
+            relevanceAggregatorVizId: mainSupportRelevanceAggregatorVizId,
             position: mainSupportSourcePosition,
             outgoingConfidenceScale: fullScalePipeWidth,
             incomingConfidenceScale: fullScalePipeWidth,
             incomingRelevanceScale: fullScalePipeWidth,
             visible: false,
         },
-        [mainSupportJunctionAggregatorVizId]: {
-            type: "junctionAggregator",
-            id: mainSupportJunctionAggregatorVizId,
+        [mainSupportRelevanceAggregatorVizId]: {
+            type: "relevanceAggregator",
+            id: mainSupportRelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: mainSupportConfidenceConnectorId,
             position: mainSupportSourcePosition,

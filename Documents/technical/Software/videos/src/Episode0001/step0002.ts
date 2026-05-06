@@ -4,11 +4,11 @@ import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTy
 import type { ClaimId } from "../../../app/src/debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../../../app/src/debate-core/Connector.ts";
 import type {
-    ClaimAggregatorVizId,
+    DeliveryAggregatorVizId,
     ClaimVizId,
     ConfidenceConnectorVizId,
     DeliveryConnectorVizId,
-    JunctionAggregatorVizId,
+    RelevanceAggregatorVizId,
     JunctionVizId,
 } from "../../../app/src/planner/Snapshot.ts";
 
@@ -20,7 +20,7 @@ import {
     fullScalePipeWidth,
     leftPad,
     layerWidth,
-    mainClaimAggregatorVizId,
+    mainDeliveryAggregatorVizId,
     mainClaimId,
     mainClaimRightEdgePosition,
     mainClaimVizId,
@@ -34,8 +34,8 @@ const c2ClaimId = "claim-c2" as ClaimId;
 const c2ConfidenceConnectorId = "confidence-main-c2" as ConfidenceConnectorId;
 
 const c2ClaimVizId = "claim-viz-c2" as ClaimVizId;
-const c2ClaimAggregatorVizId = "claim-aggregator-viz-c2" as ClaimAggregatorVizId;
-const c2JunctionAggregatorVizId = "junction-aggregator-viz-c2" as JunctionAggregatorVizId;
+const c2DeliveryAggregatorVizId = "delivery-aggregator-viz-c2" as DeliveryAggregatorVizId;
+const c2RelevanceAggregatorVizId = "relevance-aggregator-viz-c2" as RelevanceAggregatorVizId;
 const c2JunctionVizId = "junction-viz-c2" as JunctionVizId;
 const c2ConfidenceConnectorVizId = "confidence-connector-viz-c2" as ConfidenceConnectorVizId;
 const c2DeliveryConnectorVizId = "delivery-connector-viz-c2" as DeliveryConnectorVizId;
@@ -46,7 +46,7 @@ const rightColumnClaimCenterX = leftPad + layerWidth * 2;
 const leftJustifiedClaimLeftX = rightColumnClaimCenterX - claimHalfWidth;
 const leftJustifiedScaledClaimCenterX = leftJustifiedClaimLeftX + (claimHalfWidth * claim2Scale);
 const c2ClaimPosition = { x: leftJustifiedScaledClaimCenterX, y: 360 };
-const c2ClaimAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2, y: 440 };
+const c2DeliveryAggregatorPosition = { x: leftPad + (layerWidth * claim2Scale) * 2, y: 440 };
 const c2ClaimLeftEdgePosition = { x: leftJustifiedClaimLeftX, y: c2ClaimPosition.y };
 
 
@@ -69,8 +69,8 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
         },
     },
     snapshot: {
-        [mainClaimAggregatorVizId]: {
-            id: mainClaimAggregatorVizId,
+        [mainDeliveryAggregatorVizId]: {
+            id: mainDeliveryAggregatorVizId,
             deliveryConnectorVizIds: [
                 mainSupportDeliveryConnectorVizId,
                 c2DeliveryConnectorVizId,
@@ -90,13 +90,13 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             score: 1,
             side: "conMain",
         },
-        [c2ClaimAggregatorVizId]: {
-            type: "claimAggregator",
-            id: c2ClaimAggregatorVizId,
+        [c2DeliveryAggregatorVizId]: {
+            type: "deliveryAggregator",
+            id: c2DeliveryAggregatorVizId,
             animationType: "uniform",
             claimId: c2ClaimId,
             deliveryConnectorVizIds: [],
-            position: c2ClaimAggregatorPosition,
+            position: c2DeliveryAggregatorPosition,
             scale: 1,
             score: 1,
         },
@@ -105,16 +105,16 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             id: c2JunctionVizId,
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
-            junctionAggregatorVizId: c2JunctionAggregatorVizId,
+            relevanceAggregatorVizId: c2RelevanceAggregatorVizId,
             position: c2ClaimLeftEdgePosition,
             outgoingConfidenceScale: fullScalePipeWidth,
             incomingConfidenceScale: fullScalePipeWidth,
             incomingRelevanceScale: fullScalePipeWidth,
             visible: false,
         },
-        [c2JunctionAggregatorVizId]: {
-            type: "junctionAggregator",
-            id: c2JunctionAggregatorVizId,
+        [c2RelevanceAggregatorVizId]: {
+            type: "relevanceAggregator",
+            id: c2RelevanceAggregatorVizId,
             animationType: "uniform",
             confidenceConnectorId: c2ConfidenceConnectorId,
             position: c2ClaimLeftEdgePosition,

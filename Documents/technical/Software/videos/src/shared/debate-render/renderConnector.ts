@@ -858,7 +858,7 @@ function resolveConnectorFields(args: {
     const relevanceTargetAttachment = args.item.type === "relevanceConnector"
         ? resolveRelevanceJunctionAttachment({
             snapshot: args.snapshot,
-            junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
+            relevanceAggregatorVizId: String(args.item.targetRelevanceAggregatorVizId),
             stepProgress: args.stepProgress,
             oppositePoint: source,
             side: args.item.side,
@@ -870,9 +870,11 @@ function resolveConnectorFields(args: {
         sourcePoint: source,
         stepProgress: args.stepProgress,
     });
-    const targetSideOffset = args.item.targetSideOffset === undefined
-        ? 0
-        : resolveTweenNumber(args.item.targetSideOffset, args.stepProgress);
+    let targetSideOffset = 0;
+
+    if (args.item.type !== "confidenceConnector" && args.item.targetSideOffset !== undefined) {
+        targetSideOffset = resolveTweenNumber(args.item.targetSideOffset, args.stepProgress);
+    }
 
     return {
         scale: resolveTweenNumber(args.item.scale, args.stepProgress),
@@ -912,7 +914,7 @@ function resolveConnectorSourcePoint(args: {
         )
         : resolveRelevanceJunctionAttachment({
             snapshot: args.snapshot,
-            junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
+            relevanceAggregatorVizId: String(args.item.targetRelevanceAggregatorVizId),
             stepProgress: args.stepProgress,
             oppositePoint: sourceClaimPosition,
             side: args.item.side,
@@ -943,7 +945,7 @@ function resolveConnectorTargetPoint(args: {
 
     const targetId = args.item.type === "confidenceConnector"
         ? String(args.item.targetJunctionVizId)
-        : String(args.item.targetJunctionAggregatorVizId);
+        : String(args.item.targetRelevanceAggregatorVizId);
 
     if (args.item.type === "confidenceConnector") {
         return resolveJunctionAttachmentPoint(
@@ -957,7 +959,7 @@ function resolveConnectorTargetPoint(args: {
     if (args.item.type === "relevanceConnector") {
         return resolveRelevanceJunctionAttachment({
             snapshot: args.snapshot,
-            junctionAggregatorVizId: targetId,
+            relevanceAggregatorVizId: targetId,
             stepProgress: args.stepProgress,
             oppositePoint: args.sourcePoint,
             side: args.item.side,
@@ -1040,7 +1042,7 @@ function resolveJunctionAttachmentPoint(
 
 function resolveRelevanceJunctionAttachment(args: {
     snapshot: Snapshot;
-    junctionAggregatorVizId: string;
+    relevanceAggregatorVizId: string;
     stepProgress: number;
     oppositePoint: { x: number; y: number };
     side: Side;
@@ -1048,11 +1050,11 @@ function resolveRelevanceJunctionAttachment(args: {
     point: { x: number; y: number };
     approachUnit?: UnitVector;
 } {
-    const junctionItem = getJunctionForAggregator(args.snapshot, args.junctionAggregatorVizId);
+    const junctionItem = getJunctionForAggregator(args.snapshot, args.relevanceAggregatorVizId);
 
     if (!junctionItem) {
         return {
-            point: resolveSnapshotPositionPoint(args.snapshot, args.junctionAggregatorVizId, args.stepProgress, args.oppositePoint),
+            point: resolveSnapshotPositionPoint(args.snapshot, args.relevanceAggregatorVizId, args.stepProgress, args.oppositePoint),
         };
     }
 
@@ -1147,9 +1149,9 @@ function getSourceClaimVizIdForConfidenceConnector(
     return undefined;
 }
 
-function getJunctionForAggregator(snapshot: Snapshot, junctionAggregatorVizId: string): Extract<VizItem, { type: "junction" }> | undefined {
+function getJunctionForAggregator(snapshot: Snapshot, relevanceAggregatorVizId: string): Extract<VizItem, { type: "junction" }> | undefined {
     for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
-        if (item?.type === "junction" && String(item.junctionAggregatorVizId) === junctionAggregatorVizId) {
+        if (item?.type === "junction" && String(item.relevanceAggregatorVizId) === relevanceAggregatorVizId) {
             return item;
         }
     }

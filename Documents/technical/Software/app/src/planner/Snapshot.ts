@@ -16,9 +16,9 @@ export interface ClaimViz {
     side: Side
 }
 
-export interface ClaimAggregatorViz {
-    type: "claimAggregator"
-    id: ClaimAggregatorVizId
+export interface DeliveryAggregatorViz {
+    type: "deliveryAggregator"
+    id: DeliveryAggregatorVizId
     animationType: AnimationType,
     claimId: ClaimId
     deliveryConnectorVizIds: DeliveryConnectorVizId[]
@@ -33,7 +33,7 @@ export interface JunctionViz {
     id: JunctionVizId
     animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
-    junctionAggregatorVizId: JunctionAggregatorVizId
+    relevanceAggregatorVizId: RelevanceAggregatorVizId
     position: TweenPoint
     outgoingConfidenceScale: TweenNumber
     incomingConfidenceScale: TweenNumber
@@ -42,9 +42,9 @@ export interface JunctionViz {
 }
 
 // Always present in the snapshot. visible controls whether it is shown.
-export interface JunctionAggregatorViz {
-    type: "junctionAggregator"
-    id: JunctionAggregatorVizId
+export interface RelevanceAggregatorViz {
+    type: "relevanceAggregator"
+    id: RelevanceAggregatorVizId
     animationType: AnimationType,
     confidenceConnectorId: ConfidenceConnectorId
     position: TweenPoint
@@ -60,9 +60,6 @@ interface ConnectorVizBase {
     score: TweenNumber
     side: Side
     direction: ConnectorVizDirection
-    // Signed offset applied after the target end is resolved.
-    // Current use: delivery connector stacking along the target side.
-    targetSideOffset?: TweenNumber
     animationType: AnimationType,
 };
 
@@ -83,6 +80,7 @@ export interface DeliveryConnectorViz extends ConnectorVizBase {
     confidenceConnectorId: ConfidenceConnectorId
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
+    targetSideOffset?: TweenNumber
 }
 
 export interface RelevanceConnectorViz extends ConnectorVizBase {
@@ -90,23 +88,24 @@ export interface RelevanceConnectorViz extends ConnectorVizBase {
     id: RelevanceConnectorVizId
     relevanceConnectorId: RelevanceConnectorId
     sourceClaimVizId: ClaimVizId
-    targetJunctionAggregatorVizId: JunctionAggregatorVizId
+    targetRelevanceAggregatorVizId: RelevanceAggregatorVizId
+    targetSideOffset?: TweenNumber
 }
 
 export type VizItem =
     | ClaimViz
-    | ClaimAggregatorViz
+    | DeliveryAggregatorViz
     | JunctionViz
-    | JunctionAggregatorViz
+    | RelevanceAggregatorViz
     | ConfidenceConnectorViz
     | DeliveryConnectorViz
     | RelevanceConnectorViz;
 
 export type VizItemId =
     | ClaimVizId
-    | ClaimAggregatorVizId
+    | DeliveryAggregatorVizId
     | JunctionVizId
-    | JunctionAggregatorVizId
+    | RelevanceAggregatorVizId
     | ConfidenceConnectorVizId
     | DeliveryConnectorVizId
     | RelevanceConnectorVizId;
@@ -114,9 +113,9 @@ export type VizItemId =
 export type Snapshot = Record<VizItemId, VizItem>;
 
 export type ClaimVizId = string & { readonly __brand: "ClaimVizId" };
-export type ClaimAggregatorVizId = string & { readonly __brand: "ClaimAggregatorVizId" };
+export type DeliveryAggregatorVizId = string & { readonly __brand: "DeliveryAggregatorVizId" };
 export type JunctionVizId = string & { readonly __brand: "JunctionVizId" };
-export type JunctionAggregatorVizId = string & { readonly __brand: "JunctionAggregatorVizId" };
+export type RelevanceAggregatorVizId = string & { readonly __brand: "RelevanceAggregatorVizId" };
 export type ConfidenceConnectorVizId = string & { readonly __brand: "ConfidenceConnectorVizId" };
 export type DeliveryConnectorVizId = string & { readonly __brand: "DeliveryConnectorVizId" };
 export type RelevanceConnectorVizId = string & { readonly __brand: "RelevanceConnectorVizId" };

@@ -1,18 +1,18 @@
-import type { ClaimAggregatorViz } from "../../../../app/src/planner/Snapshot.ts";
+import type { DeliveryAggregatorViz } from "../../../../app/src/planner/Snapshot.ts";
 
 import { resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { htmlElement } from "./renderTree";
 import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
 
 const AGGREGATOR_BASE_SIZE_PX = 2;
-const PLANNER_BASE_CLAIM_AGGREGATOR_OFFSET_X_PX = 36;
+const PLANNER_BASE_DELIVERY_AGGREGATOR_OFFSET_X_PX = 36;
 
-export function renderClaimAggregator(args: {
-    item: ClaimAggregatorViz;
+export function renderDeliveryAggregator(args: {
+    item: DeliveryAggregatorViz;
 } & RenderStepProgress): RenderElementNode {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
     const scale = resolveTweenNumber(args.item.scale, args.stepProgress);
-    const x = position.x - getPlannerClaimAggregatorOffsetX(scale);
+    const x = position.x - getPlannerDeliveryAggregatorOffsetX(scale);
 
     return htmlElement("div", {
         attributes: {
@@ -28,8 +28,8 @@ export function renderClaimAggregator(args: {
     });
 }
 
-export function getClaimAggregatorBounds(args: {
-    item: ClaimAggregatorViz;
+export function getDeliveryAggregatorBounds(args: {
+    item: DeliveryAggregatorViz;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
 
@@ -39,8 +39,8 @@ export function getClaimAggregatorBounds(args: {
     };
 }
 
-function getPlannerClaimAggregatorOffsetX(scale: number): number {
-    return Math.round(PLANNER_BASE_CLAIM_AGGREGATOR_OFFSET_X_PX * clampVisualScale(scale));
+function getPlannerDeliveryAggregatorOffsetX(scale: number): number {
+    return Math.round(PLANNER_BASE_DELIVERY_AGGREGATOR_OFFSET_X_PX * clampVisualScale(scale));
 }
 
 function clampVisualScale(scale: number): number {

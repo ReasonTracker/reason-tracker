@@ -1,4 +1,4 @@
-import type { JunctionAggregatorViz } from "../../../../app/src/planner/Snapshot.ts";
+import type { RelevanceAggregatorViz } from "../../../../app/src/planner/Snapshot.ts";
 
 import { resolveTweenBoolean, resolveTweenPoint } from "./resolveTween";
 import { htmlElement } from "./renderTree";
@@ -6,8 +6,8 @@ import type { RenderElementNode, RenderStepProgress } from "./renderTypes";
 
 const AGGREGATOR_BASE_SIZE_PX = 2;
 
-export function renderJunctionAggregator(args: {
-    item: JunctionAggregatorViz;
+export function renderRelevanceAggregator(args: {
+    item: RelevanceAggregatorViz;
 } & RenderStepProgress): RenderElementNode | undefined {
     const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
 
@@ -31,8 +31,8 @@ export function renderJunctionAggregator(args: {
     });
 }
 
-export function getJunctionAggregatorBounds(args: {
-    item: JunctionAggregatorViz;
+export function getRelevanceAggregatorBounds(args: {
+    item: RelevanceAggregatorViz;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
 
@@ -47,4 +47,3 @@ export function getJunctionAggregatorBounds(args: {
         maxY: position.y,
     };
 }
-

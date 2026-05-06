@@ -5,30 +5,30 @@ import {
     stripDebateSnapshotRenderStateAnimations,
 } from "../shared/debateSnapshotRenderStatePatch";
 import {
-    c4ClaimAggregatorVizId,
+    c4DeliveryAggregatorVizId,
     c4ClaimVizId,
     c4DeliveryConnectorVizId,
-    c4JunctionAggregatorVizId,
+    c4RelevanceAggregatorVizId,
     c4JunctionVizId,
-    c5ClaimAggregatorVizId,
+    c5DeliveryAggregatorVizId,
     c5ClaimVizId,
     c5DeliveryConnectorVizId,
-    c5JunctionAggregatorVizId,
+    c5RelevanceAggregatorVizId,
     c5JunctionVizId,
-    c6ClaimAggregatorVizId,
+    c6DeliveryAggregatorVizId,
     c6ClaimVizId,
     c6DeliveryConnectorVizId,
-    c6JunctionAggregatorVizId,
+    c6RelevanceAggregatorVizId,
     c6JunctionVizId,
     claimHalfWidth,
     thirdColumnClaimLeftEdgeX,
     thirdLayerClaimScale,
 } from "./step0001";
 import {
-    c7ClaimAggregatorVizId,
+    c7DeliveryAggregatorVizId,
     c7ClaimVizId,
     c7DeliveryConnectorVizId,
-    c7JunctionAggregatorVizId,
+    c7RelevanceAggregatorVizId,
     c7JunctionVizId,
     step0002RenderState,
 } from "./step0002";
@@ -155,8 +155,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c4ClaimAggregatorVizId]: {
-            id: c4ClaimAggregatorVizId,
+        [c4DeliveryAggregatorVizId]: {
+            id: c4DeliveryAggregatorVizId,
             position: {
                 x: {
                     type: "tween/number",
@@ -172,8 +172,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c5ClaimAggregatorVizId]: {
-            id: c5ClaimAggregatorVizId,
+        [c5DeliveryAggregatorVizId]: {
+            id: c5DeliveryAggregatorVizId,
             position: {
                 x: {
                     type: "tween/number",
@@ -189,8 +189,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c6ClaimAggregatorVizId]: {
-            id: c6ClaimAggregatorVizId,
+        [c6DeliveryAggregatorVizId]: {
+            id: c6DeliveryAggregatorVizId,
             position: {
                 x: {
                     type: "tween/number",
@@ -206,8 +206,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c7ClaimAggregatorVizId]: {
-            id: c7ClaimAggregatorVizId,
+        [c7DeliveryAggregatorVizId]: {
+            id: c7DeliveryAggregatorVizId,
             position: {
                 x: {
                     type: "tween/number",
@@ -275,8 +275,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c4JunctionAggregatorVizId]: {
-            id: c4JunctionAggregatorVizId,
+        [c4RelevanceAggregatorVizId]: {
+            id: c4RelevanceAggregatorVizId,
             position: {
                 x: thirdColumnClaimLeftEdgeX,
                 y: {
@@ -288,8 +288,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c5JunctionAggregatorVizId]: {
-            id: c5JunctionAggregatorVizId,
+        [c5RelevanceAggregatorVizId]: {
+            id: c5RelevanceAggregatorVizId,
             position: {
                 x: thirdColumnClaimLeftEdgeX,
                 y: {
@@ -301,8 +301,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c6JunctionAggregatorVizId]: {
-            id: c6JunctionAggregatorVizId,
+        [c6RelevanceAggregatorVizId]: {
+            id: c6RelevanceAggregatorVizId,
             position: {
                 x: thirdColumnClaimLeftEdgeX,
                 y: {
@@ -314,8 +314,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 endPct: .85,
             },
         },
-        [c7JunctionAggregatorVizId]: {
-            id: c7JunctionAggregatorVizId,
+        [c7RelevanceAggregatorVizId]: {
+            id: c7RelevanceAggregatorVizId,
             position: {
                 x: thirdColumnClaimLeftEdgeX,
                 y: {
