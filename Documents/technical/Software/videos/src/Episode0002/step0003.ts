@@ -25,11 +25,7 @@ import {
     thirdLayerClaimScale,
 } from "./step0001";
 import {
-    c7DeliveryAggregatorVizId,
-    c7ClaimVizId,
     c7DeliveryConnectorVizId,
-    c7RelevanceAggregatorVizId,
-    c7JunctionVizId,
     step0002RenderState,
 } from "./step0002";
 
@@ -42,12 +38,10 @@ const compactColumnX = thirdColumnClaimLeftEdgeX + (claimHalfWidth * compactThir
 const c4InitialY = 80;
 const c5InitialY = 260;
 const c6InitialY = 440;
-const c7InitialY = 620;
 
 const c4FinalY = 60;
 const c5FinalY = 220;
 const c6FinalY = 380;
-const c7FinalY = 540;
 
 const c4InitialTargetSideOffset = -36;
 const c5InitialTargetSideOffset = 0;
@@ -72,15 +66,15 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c4InitialY,
                     to: c4FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
             scale: {
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c5ClaimVizId]: {
@@ -96,15 +90,15 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c5InitialY,
                     to: c5FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
             scale: {
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c6ClaimVizId]: {
@@ -120,39 +114,15 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c6InitialY,
                     to: c6FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
             scale: {
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
-            },
-        },
-        [c7ClaimVizId]: {
-            id: c7ClaimVizId,
-            position: {
-                x: {
-                    type: "tween/number",
-                    from: initialColumnX,
-                    to: compactColumnX,
-                },
-                y: {
-                    type: "tween/number",
-                    from: c7InitialY,
-                    to: c7FinalY,
-                },
-                startPct: .45,
-                endPct: .85,
-            },
-            scale: {
-                type: "tween/number",
-                from: thirdLayerClaimScale,
-                to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c4DeliveryAggregatorVizId]: {
@@ -168,8 +138,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c4InitialY + 60,
                     to: c4FinalY + 60,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c5DeliveryAggregatorVizId]: {
@@ -185,8 +155,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c5InitialY + 60,
                     to: c5FinalY + 60,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c6DeliveryAggregatorVizId]: {
@@ -202,25 +172,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c6InitialY + 60,
                     to: c6FinalY + 60,
                 },
-                startPct: .45,
-                endPct: .85,
-            },
-        },
-        [c7DeliveryAggregatorVizId]: {
-            id: c7DeliveryAggregatorVizId,
-            position: {
-                x: {
-                    type: "tween/number",
-                    from: initialColumnX,
-                    to: compactColumnX,
-                },
-                y: {
-                    type: "tween/number",
-                    from: c7InitialY + 60,
-                    to: c7FinalY + 60,
-                },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c4JunctionVizId]: {
@@ -232,8 +185,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c4InitialY,
                     to: c4FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c5JunctionVizId]: {
@@ -245,8 +198,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c5InitialY,
                     to: c5FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c6JunctionVizId]: {
@@ -258,21 +211,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c6InitialY,
                     to: c6FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
-            },
-        },
-        [c7JunctionVizId]: {
-            id: c7JunctionVizId,
-            position: {
-                x: thirdColumnClaimLeftEdgeX,
-                y: {
-                    type: "tween/number",
-                    from: c7InitialY,
-                    to: c7FinalY,
-                },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c4RelevanceAggregatorVizId]: {
@@ -284,8 +224,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c4InitialY,
                     to: c4FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c5RelevanceAggregatorVizId]: {
@@ -297,8 +237,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c5InitialY,
                     to: c5FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c6RelevanceAggregatorVizId]: {
@@ -310,21 +250,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                     from: c6InitialY,
                     to: c6FinalY,
                 },
-                startPct: .45,
-                endPct: .85,
-            },
-        },
-        [c7RelevanceAggregatorVizId]: {
-            id: c7RelevanceAggregatorVizId,
-            position: {
-                x: thirdColumnClaimLeftEdgeX,
-                y: {
-                    type: "tween/number",
-                    from: c7InitialY,
-                    to: c7FinalY,
-                },
-                startPct: .45,
-                endPct: .85,
+                startPct: .7,
+                endPct: 1,
             },
         },
         [c4DeliveryConnectorVizId]: {
@@ -333,15 +260,16 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
+            direction: "targetToSource",
             targetSideOffset: {
                 type: "tween/number",
                 from: c4InitialTargetSideOffset,
                 to: c4FinalTargetSideOffset,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
         },
         [c5DeliveryConnectorVizId]: {
@@ -350,15 +278,16 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
+            direction: "targetToSource",
             targetSideOffset: {
                 type: "tween/number",
                 from: c5InitialTargetSideOffset,
                 to: c5FinalTargetSideOffset,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
         },
         [c6DeliveryConnectorVizId]: {
@@ -367,15 +296,16 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 type: "tween/number",
                 from: thirdLayerClaimScale,
                 to: compactThirdLayerClaimScale,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
+            direction: "targetToSource",
             targetSideOffset: {
                 type: "tween/number",
                 from: c6InitialTargetSideOffset,
                 to: c6FinalTargetSideOffset,
-                startPct: .45,
-                endPct: .85,
+                startPct: .5,
+                endPct: .7,
             },
         },
         [c7DeliveryConnectorVizId]: {
@@ -384,6 +314,8 @@ export const step0003RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 type: "tween/number",
                 from: 0,
                 to: compactThirdLayerClaimScale,
+                startPct: 0,
+                endPct: .5,
             },
             targetSideOffset: c7FinalTargetSideOffset,
         },

@@ -40,13 +40,14 @@ export const c7JunctionVizId = "episode-0002-junction-viz-c7" as JunctionVizId;
 const c7ConfidenceConnectorVizId = "episode-0002-confidence-connector-viz-c7" as ConfidenceConnectorVizId;
 export const c7DeliveryConnectorVizId = "episode-0002-delivery-connector-viz-c7" as DeliveryConnectorVizId;
 
-const c7InitialY = 620;
+const compactThirdLayerClaimScale = .32;
+const c7FinalY = 540;
 const c7ClaimPosition = {
-    x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * thirdLayerClaimScale),
-    y: c7InitialY,
+    x: thirdColumnClaimLeftEdgeX + (claimHalfWidth * compactThirdLayerClaimScale),
+    y: c7FinalY,
 };
-const c7DeliveryAggregatorPosition = { x: c7ClaimPosition.x, y: c7InitialY + 60 };
-const c7ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c7InitialY };
+const c7DeliveryAggregatorPosition = { x: c7ClaimPosition.x, y: c7FinalY + 60 };
+const c7ClaimLeftEdgePosition = { x: thirdColumnClaimLeftEdgeX, y: c7FinalY };
 const c7TargetSideOffset = 54;
 
 export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapshotRenderStatePatch(step0002BaseRenderState, {
@@ -85,7 +86,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             scale: {
                 type: "tween/number",
                 from: 0,
-                to: thirdLayerClaimScale,
+                to: compactThirdLayerClaimScale,
             },
             scourcesScale: 1,
             score: 1,

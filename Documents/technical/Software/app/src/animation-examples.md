@@ -9,7 +9,11 @@ These examples describe the visual sequence of what happens on screen and intent
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
-- **Sprout**: The pipe wall and pipe interior progressively trace out the path of the new Delivery Connector from the new claim to the target delivery aggregator while the existing sibling structure at that target makes room. The sibling claims, their source-side connectors, their junctions, and their delivery connectors stay connected while their scales update smaller from the target to the source on those sibling connectors. At the target side, the existing connectors stay attached, their target-end widths shrink from target to source, and their target-side anchor slots spread apart so the new connector can land between them.
+- **Sprout**: These stages happen in order across the sprout step.
+  - `0% - 50%`: The new Delivery Connector's pipe wall and pipe interior trace out from the new claim toward the target claim in the `sourceToTarget` direction. During this interval, the new connector grows from zero to its planned post-sprout scale and is already attached to its planned target-side landing slot.
+  - `50% - 70%`: The existing sibling Delivery Connectors make room at the target. Their target-side attachments slide toward their planned landing slots while their widths shrink toward their planned post-sprout scales, and that width change sweeps in the `targetToSource` direction.
+  - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout.
+  - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the progression wave at the target Delivery Aggregator Adjust step.
 
