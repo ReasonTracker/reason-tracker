@@ -60,10 +60,8 @@ interface ConnectorVizBase {
     score: TweenNumber
     side: Side
     direction: ConnectorVizDirection
-    source: TweenPoint
-    // Midpoint of the target side before any local stacking offset is applied.
-    target: TweenPoint
-    // Signed offset along the target side. If omitted, the renderer treats it as zero.
+    // Signed offset applied after the target end is resolved.
+    // Current use: delivery connector stacking along the target side.
     targetSideOffset?: TweenNumber
     animationType: AnimationType,
 };

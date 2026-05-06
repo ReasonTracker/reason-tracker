@@ -501,8 +501,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c1ClaimLeftEdgePosition,
-            target: c1ClaimLeftEdgePosition,
         },
         [c2ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
@@ -516,8 +514,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c2ClaimLeftEdgePosition,
-            target: c2JunctionPosition,
         },
         [c4ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
@@ -531,8 +527,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c4ClaimLeftEdgePosition,
-            target: c4ClaimLeftEdgePosition,
         },
         [c5ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
@@ -546,8 +540,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c5ClaimLeftEdgePosition,
-            target: c5ClaimLeftEdgePosition,
         },
         [c6ConfidenceConnectorVizId]: {
             type: "confidenceConnector",
@@ -561,8 +553,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c6ClaimLeftEdgePosition,
-            target: c6ClaimLeftEdgePosition,
         },
         [c1DeliveryConnectorVizId]: {
             type: "deliveryConnector",
@@ -575,8 +565,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c1ClaimLeftEdgePosition,
-            target: mainClaimRightEdgePosition,
             targetSideOffset: c1MainTargetSideOffset,
         },
         [c2DeliveryConnectorVizId]: {
@@ -590,8 +578,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c2JunctionPosition,
-            target: mainClaimRightEdgePosition,
             targetSideOffset: c2MainTargetSideOffset,
         },
         [c4DeliveryConnectorVizId]: {
@@ -605,8 +591,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c4ClaimLeftEdgePosition,
-            target: c1ClaimRightEdgePosition,
             targetSideOffset: c4C1TargetSideOffset,
         },
         [c5DeliveryConnectorVizId]: {
@@ -620,8 +604,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: c5ClaimLeftEdgePosition,
-            target: c1ClaimRightEdgePosition,
             targetSideOffset: c5C1TargetSideOffset,
         },
         [c6DeliveryConnectorVizId]: {
@@ -635,8 +617,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c6ClaimLeftEdgePosition,
-            target: c1ClaimRightEdgePosition,
             targetSideOffset: c6C1TargetSideOffset,
         },
         [c3RelevanceConnectorVizId]: {
@@ -650,8 +630,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c3ClaimLeftEdgePosition,
-            target: c2JunctionPosition,
         },
     },
 };

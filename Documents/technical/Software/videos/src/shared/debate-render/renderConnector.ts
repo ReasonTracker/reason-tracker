@@ -850,27 +850,21 @@ function resolveConnectorFields(args: {
     targetApproachUnit?: UnitVector;
     visible: boolean;
 } {
-    const sourceFallback = resolveTweenPoint(args.item.source, args.stepProgress);
-    const targetFallback = resolveTweenPoint(args.item.target, args.stepProgress);
     const source = resolveConnectorSourcePoint({
-        fallbackPoint: sourceFallback,
         item: args.item,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
-        targetFallback,
     });
     const relevanceTargetAttachment = args.item.type === "relevanceConnector"
         ? resolveRelevanceJunctionAttachment({
             snapshot: args.snapshot,
             junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
             stepProgress: args.stepProgress,
-            fallbackPoint: targetFallback,
             oppositePoint: source,
             side: args.item.side,
         })
         : undefined;
     const target = relevanceTargetAttachment?.point ?? resolveConnectorTargetPoint({
-        fallbackPoint: targetFallback,
         item: args.item,
         snapshot: args.snapshot,
         sourcePoint: source,
@@ -896,42 +890,36 @@ function resolveConnectorFields(args: {
 }
 
 function resolveConnectorSourcePoint(args: {
-    fallbackPoint: { x: number; y: number };
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
     snapshot: Snapshot;
     stepProgress: number;
-    targetFallback: { x: number; y: number };
 }): { x: number; y: number } {
     if (args.item.type === "deliveryConnector") {
-        return resolveJunctionAttachmentPoint(
-            args.snapshot,
-            String(args.item.sourceJunctionVizId),
-            args.stepProgress,
-            args.fallbackPoint,
-            args.targetFallback,
-        );
+        return resolveDeliveryConnectorSourcePoint({
+            item: args.item,
+            snapshot: args.snapshot,
+            stepProgress: args.stepProgress,
+        });
     }
 
+    const sourceClaimPosition = resolveClaimPositionPoint(args.snapshot, String(args.item.sourceClaimVizId), args.stepProgress);
     const oppositePoint = args.item.type === "confidenceConnector"
         ? resolveJunctionAttachmentPoint(
             args.snapshot,
             String(args.item.targetJunctionVizId),
             args.stepProgress,
-            args.targetFallback,
-            args.fallbackPoint,
+            sourceClaimPosition,
         )
         : resolveRelevanceJunctionAttachment({
             snapshot: args.snapshot,
             junctionAggregatorVizId: String(args.item.targetJunctionAggregatorVizId),
             stepProgress: args.stepProgress,
-            fallbackPoint: args.targetFallback,
-            oppositePoint: args.fallbackPoint,
+            oppositePoint: sourceClaimPosition,
             side: args.item.side,
         }).point;
 
     return resolveClaimAttachmentPoint({
         claimVizId: String(args.item.sourceClaimVizId),
-        fallbackPoint: args.fallbackPoint,
         oppositePoint,
         snapshot: args.snapshot,
         stepProgress: args.stepProgress,
@@ -939,7 +927,6 @@ function resolveConnectorSourcePoint(args: {
 }
 
 function resolveConnectorTargetPoint(args: {
-    fallbackPoint: { x: number; y: number };
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
     snapshot: Snapshot;
     sourcePoint: { x: number; y: number };
@@ -948,7 +935,6 @@ function resolveConnectorTargetPoint(args: {
     if (args.item.type === "deliveryConnector") {
         return resolveClaimAttachmentPoint({
             claimVizId: String(args.item.targetClaimVizId),
-            fallbackPoint: args.fallbackPoint,
             oppositePoint: args.sourcePoint,
             snapshot: args.snapshot,
             stepProgress: args.stepProgress,
@@ -964,7 +950,6 @@ function resolveConnectorTargetPoint(args: {
             args.snapshot,
             targetId,
             args.stepProgress,
-            args.fallbackPoint,
             args.sourcePoint,
         );
     }
@@ -974,18 +959,16 @@ function resolveConnectorTargetPoint(args: {
             snapshot: args.snapshot,
             junctionAggregatorVizId: targetId,
             stepProgress: args.stepProgress,
-            fallbackPoint: args.fallbackPoint,
             oppositePoint: args.sourcePoint,
             side: args.item.side,
         }).point;
     }
 
-    return resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.fallbackPoint);
+    return resolveSnapshotPositionPoint(args.snapshot, targetId, args.stepProgress, args.sourcePoint);
 }
 
 function resolveClaimAttachmentPoint(args: {
     claimVizId: string;
-    fallbackPoint: { x: number; y: number };
     oppositePoint: { x: number; y: number };
     snapshot: Snapshot;
     stepProgress: number;
@@ -993,7 +976,7 @@ function resolveClaimAttachmentPoint(args: {
     const item = getSnapshotItem(args.snapshot, args.claimVizId);
 
     if (!item || item.type !== "claim") {
-        return args.fallbackPoint;
+        return args.oppositePoint;
     }
 
     const position = resolveTweenPoint(item.position, args.stepProgress);
@@ -1004,6 +987,14 @@ function resolveClaimAttachmentPoint(args: {
         x: args.oppositePoint.x <= position.x ? position.x - halfWidth : position.x + halfWidth,
         y: position.y,
     };
+}
+
+function resolveClaimPositionPoint(
+    snapshot: Snapshot,
+    claimVizId: string,
+    stepProgress: number,
+): { x: number; y: number } {
+    return resolveSnapshotPositionPoint(snapshot, claimVizId, stepProgress, { x: 0, y: 0 });
 }
 
 function resolveSnapshotPositionPoint(
@@ -1025,17 +1016,16 @@ function resolveJunctionAttachmentPoint(
     snapshot: Snapshot,
     itemId: string,
     stepProgress: number,
-    fallbackPoint: { x: number; y: number },
     oppositePoint: { x: number; y: number },
 ): { x: number; y: number } {
     const item = getSnapshotItem(snapshot, itemId);
 
     if (!item || item.type !== "junction") {
-        return resolveSnapshotPositionPoint(snapshot, itemId, stepProgress, fallbackPoint);
+        return resolveSnapshotPositionPoint(snapshot, itemId, stepProgress, oppositePoint);
     }
 
     if (!resolveTweenBoolean(item.visible, stepProgress)) {
-        return fallbackPoint;
+        return resolveTweenPoint(item.position, stepProgress);
     }
 
     const position = resolveTweenPoint(item.position, stepProgress);
@@ -1052,7 +1042,6 @@ function resolveRelevanceJunctionAttachment(args: {
     snapshot: Snapshot;
     junctionAggregatorVizId: string;
     stepProgress: number;
-    fallbackPoint: { x: number; y: number };
     oppositePoint: { x: number; y: number };
     side: Side;
 }): {
@@ -1063,7 +1052,7 @@ function resolveRelevanceJunctionAttachment(args: {
 
     if (!junctionItem) {
         return {
-            point: resolveSnapshotPositionPoint(args.snapshot, args.junctionAggregatorVizId, args.stepProgress, args.fallbackPoint),
+            point: resolveSnapshotPositionPoint(args.snapshot, args.junctionAggregatorVizId, args.stepProgress, args.oppositePoint),
         };
     }
 
@@ -1107,6 +1096,55 @@ function resolveRelevanceJunctionAttachment(args: {
         },
         approachUnit,
     };
+}
+
+function resolveDeliveryConnectorSourcePoint(args: {
+    item: DeliveryConnectorViz;
+    snapshot: Snapshot;
+    stepProgress: number;
+}): { x: number; y: number } {
+    const targetClaimPosition = resolveClaimPositionPoint(args.snapshot, String(args.item.targetClaimVizId), args.stepProgress);
+    const junctionItem = getSnapshotItem(args.snapshot, String(args.item.sourceJunctionVizId));
+
+    if (junctionItem?.type === "junction" && resolveTweenBoolean(junctionItem.visible, args.stepProgress)) {
+        return resolveJunctionAttachmentPoint(
+            args.snapshot,
+            String(args.item.sourceJunctionVizId),
+            args.stepProgress,
+            targetClaimPosition,
+        );
+    }
+
+    const sourceClaimVizId = getSourceClaimVizIdForConfidenceConnector(args.snapshot, args.item.confidenceConnectorId);
+
+    if (!sourceClaimVizId) {
+        return resolveSnapshotPositionPoint(
+            args.snapshot,
+            String(args.item.sourceJunctionVizId),
+            args.stepProgress,
+            targetClaimPosition,
+        );
+    }
+
+    return resolveClaimAttachmentPoint({
+        claimVizId: sourceClaimVizId,
+        oppositePoint: targetClaimPosition,
+        snapshot: args.snapshot,
+        stepProgress: args.stepProgress,
+    });
+}
+
+function getSourceClaimVizIdForConfidenceConnector(
+    snapshot: Snapshot,
+    confidenceConnectorId: DeliveryConnectorViz["confidenceConnectorId"],
+): string | undefined {
+    for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
+        if (item?.type === "confidenceConnector" && item.confidenceConnectorId === confidenceConnectorId) {
+            return String(item.sourceClaimVizId);
+        }
+    }
+
+    return undefined;
 }
 
 function getJunctionForAggregator(snapshot: Snapshot, junctionAggregatorVizId: string): Extract<VizItem, { type: "junction" }> | undefined {

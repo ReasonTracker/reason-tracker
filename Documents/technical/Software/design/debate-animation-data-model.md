@@ -24,7 +24,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Snapshot**
 
 - Each snapshot (from `graph-render-state.ts`) contains all node/edge positions, confidence values, and properties needed for rendering and animation.
-- Connector visuals can keep `target` at the midpoint of the target side and use optional `targetSideOffset` to place the target anchor within a target-local stack. When omitted, `targetSideOffset` is zero.
+- Connector end positions are derived from the connected claims, junctions, and junction aggregators in the snapshot. Optional `targetSideOffset` shifts a delivery connector's target attachment along the target side. When omitted, `targetSideOffset` is zero.
 - The snapshot is the current display state, not the underlying DebateCore state.
 
 **Planner config**

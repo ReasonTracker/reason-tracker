@@ -135,8 +135,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             score: 1,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c2ClaimLeftEdgePosition,
-            target: c2ClaimLeftEdgePosition,
         },
         [c2DeliveryConnectorVizId]: {
             type: "deliveryConnector",
@@ -149,8 +147,6 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             score: 0,
             side: "conMain",
             direction: "sourceToTarget",
-            source: c2ClaimLeftEdgePosition,
-            target: mainClaimRightEdgePosition,
             targetSideOffset: 0,
         },
     },

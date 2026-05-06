@@ -138,8 +138,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: mainSupportSourcePosition,
-            target: mainSupportSourcePosition,
         },
         [mainSupportDeliveryConnectorVizId]: {
             type: "deliveryConnector",
@@ -152,8 +150,6 @@ export const step0001RenderState: DebateSnapshotRenderState = {
             score: 1,
             side: "proMain",
             direction: "sourceToTarget",
-            source: mainSupportSourcePosition,
-            target: mainClaimRightEdgePosition,
             targetSideOffset: 0,
         },
     },
