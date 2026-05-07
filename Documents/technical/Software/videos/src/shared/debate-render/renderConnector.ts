@@ -1048,7 +1048,7 @@ function resolveJunctionAttachmentPoint(
     }
 
     const position = resolveTweenPoint(item.position, stepProgress);
-    const span = Math.max(1, Math.round(resolveTweenNumber(item.incomingRelevanceScale, stepProgress)));
+    const span = resolveNonNegativeDimension(resolveTweenNumber(item.incomingRelevanceScale, stepProgress));
     const halfSpan = span / 2;
 
     return {
@@ -1078,9 +1078,9 @@ function resolveRelevanceJunctionAttachment(args: {
     }
 
     const position = resolveTweenPoint(junctionItem.position, args.stepProgress);
-    const span = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress)));
-    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress)));
-    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress)));
+    const span = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress));
+    const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress));
+    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress));
     const leftHeight = args.side === "proMain"
         ? incomingConfidenceHeight
         : outgoingConfidenceHeight;
@@ -1289,6 +1289,14 @@ function normalizeUnitVector(vector: UnitVector | undefined, fallback: UnitVecto
         x: vector.x / length,
         y: vector.y / length,
     };
+}
+
+function resolveNonNegativeDimension(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, value);
 }
 
 function getTweenNumberEndpoints(value: number | { type: "tween/number"; from: number; to: number }): { from: number; to: number } {

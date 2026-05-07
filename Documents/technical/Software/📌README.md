@@ -44,11 +44,11 @@ These tools are for local development ergonomics and are not a CI requirement.
 The setup script is intended to be idempotent: rerun it whenever you want the local machine tools, workspace dependencies, and recommended VS Code extensions brought back to the expected state.
 
 <!-- autonav:start -->
-
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [Components](./components/📌README.md)
 - [App](./app/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
+- [Design](./design/📌README.md)
 <!-- autonav:end -->

@@ -1,15 +1,11 @@
 # Markdown Maintenance Report
 
-Last updated: 2026-04-26
+Last updated: 2026-05-07
 
 Run type: Markdown maintenance
 
 ## Unresolved Links
 
-- Source: Documents/technical/Software/components/src/📌README.md
-  - Link Text: Debate Render
-  - Target: ./debate-render/📌README.md
-  - Reason: No matching H1 title found
 - Source: Documents/technical/Software/components/src/📌README.md
   - Link Text: Claim Connector
   - Target: ./claim-connector/📌README.md
@@ -27,6 +23,10 @@ Run type: Markdown maintenance
   - Target: ./Animations%20Glossary.md
   - Reason: No matching H1 title found
 - Source: Documents/technical/📌README.md
+  - Link Text: Renderer Algorithm Rationale
+  - Target: ./Renderer%20Algorithm%20Rationale.md
+  - Reason: No matching H1 title found
+- Source: Documents/technical/📌README.md
   - Link Text: V3 Proposal
   - Target: ./v3/V3%20Proposal.md
   - Reason: No matching H1 title found
@@ -41,5 +41,4 @@ Run type: Markdown maintenance
 
 ## Auto-Added Links
 
-- Source: Documents/technical/Software/app/src/📌README.md
-  - [Debate Core](./debate-core/📌README.md) -> Documents/technical/Software/app/src/debate-core/📌README.md
+No auto-added links.

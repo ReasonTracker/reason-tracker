@@ -11,6 +11,11 @@ export interface ClaimViz {
     claimId: ClaimId
     position: TweenPoint
     scale: TweenNumber
+    /**
+     * Owned by the target claim for its source side.
+     * Every source targeting this claim uses the same value, and the planner
+     * propagates that value onto the proper source-side visuals.
+     */
     sourcesScale: TweenNumber
     score: TweenNumber
     side: Side

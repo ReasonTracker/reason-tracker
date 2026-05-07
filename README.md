@@ -16,6 +16,6 @@ uncertainty explicit, and improve over time as you contribute feedback and new e
 - [About](./Documents/About.md)
 - [Vision](./Documents/Vision.md)
 - [Technical](./Documents/technical/📌README.md)
-- [Videos](./Documents/Videos/📌README.md)
+- [Videos](./Documents/technical/Software/videos/📌README.md)
 - [Agent Steering](./AGENTS.md)
 <!-- autonav:end -->

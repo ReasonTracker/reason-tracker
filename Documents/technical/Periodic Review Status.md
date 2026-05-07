@@ -8,7 +8,7 @@ The AI may choose the review approach, but should keep findings concise, actiona
 
 ## AI Architecture Review
 
-- Next prompt after: 2026-04-17
+- Next prompt after: 2026-05-17
 - Cadence: 30 days
 - Scope: Review whether the repository is organized so an AI agent can quickly find the right context, understand the system accurately, and avoid unnecessary broad exploration or excessive context use.
 - Pay special attention to:
@@ -24,7 +24,7 @@ The AI may choose the review approach, but should keep findings concise, actiona
 
 ## Repo Guideline Compliance Review
 
-- Next prompt after: 2026-04-17
+- Next prompt after: 2026-05-17
 - Cadence: 30 days
 - Scope: Review whether the repository follows its own documented rules, including prototype constraints, README patterns, and agent guidance.
 - Pay special attention to:
@@ -40,7 +40,7 @@ The AI may choose the review approach, but should keep findings concise, actiona
 
 ## Code Quality Analysis
 
-- Next prompt after: 2026-04-17
+- Next prompt after: 2026-05-17
 - Cadence: 30 days
 - Scope: Run automated code quality analysis and address safe, obvious issues.
 - Command: `npx fallow --format json`

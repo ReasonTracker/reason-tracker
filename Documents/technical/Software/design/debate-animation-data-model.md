@@ -4,6 +4,41 @@
 
 Defines the data models and orchestration for debate graph animation, supporting stepwise confidence propagation and visual transitions.
 
+## Current Implementation Scope
+
+- The first production planner scope assumes debates are acyclic.
+- The first production planner scope currently covers `claim/add` when the new claim is connected with a confidence connection.
+- The first production planner sequence currently stops at `firstFill`.
+- The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
+
+## Deferred Scope
+
+- add-relevance animation
+- propagation-wave sequencing after `firstFill`
+- command types outside the current `claim/add` confidence flow
+- cycle handling and score-node duplication policy
+
+## Command Contract Boundary
+
+- The current debate-core command contracts are out of date relative to the planner boundary and the current connector model.
+- Planner implementation should not keep extending those stale payloads ad hoc.
+- The next command-contract pass should produce a concrete architectural proposal, then get approval before changing exported debate-core command types.
+- A likely direction is to split the overloaded add-claim flow into separate confidence-attached and relevance-attached claim-creation commands, but that is still a proposal rather than an approved contract.
+- Prefer the best long-term command architecture over a minimal compatibility patch.
+
+## Scale Contract
+
+- The planner authors the expected visual scale directly.
+- The renderer must honor that authored scale without smoothing, protective floors, or clamping.
+- Scale is uniform across the local visual structure. Claims, connectors, junctions, aggregators, and attachment geometry should stay geometrically consistent with each other at the authored scale.
+- Zooming into a scaled-down region should therefore match the geometry of a larger region viewed farther out.
+- `sourcesScale` is the owned scale value for a target claim's source side. It is stored on the target claim so every source of that target shares the same scale, and the planner propagates that value to the relevant source-side visuals.
+- `sourcesScale` allocation is recursive. A claim's source-side budget becomes the budget its direct confidence children divide on the next outward step of the graph.
+- Direct confidence children divide the target-owned `sourcesScale` budget, so their allocated widths add back up to the target's source-side width and the nesting stays exact.
+- Direct relevance children do not mint a second scale budget. They inherit the affected target-side `sourcesScale` unchanged because they sit on the affected confidence connection's lane.
+- Relevance still changes source-side share indirectly by reweighting how much of the target-owned `sourcesScale` budget the affected confidence child receives.
+- When every direct confidence-child share weight resolves to zero, that target-owned `sourcesScale` budget falls back to an equal split across the direct confidence children.
+
 ## Flow
 
 **Data Model**
@@ -27,6 +62,17 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Connector end positions are derived from the connected claims, junctions, delivery aggregators, and relevance aggregators in the snapshot. Aggregator geometry is derived from its target plus aggregator state. Optional `targetSideOffset` on delivery and relevance connectors shifts the target attachment along the resolved target edge. When omitted, `targetSideOffset` is zero.
 - The snapshot is the current display state, not the underlying DebateCore state.
 
+## Shared Ordering
+
+Sibling claim order and target-edge connector stack order use the same ordered list.
+
+- The order must match so connector lines do not cross their sibling claims.
+- Group siblings first by how they relate to the target: `proTarget` siblings first, then `conTarget` siblings.
+- Within each target-relationship group, order is deterministic and source-position driven.
+- When source positions tie, use a stable tie-breaker so repeated layouts keep the same order.
+- The compact along-lane order of sibling claims in a claim lane uses this ordered list.
+- The target-edge stack order for delivery connectors and relevance connectors uses this same ordered list.
+
 ## Connector Stacking
 
 Connector stacking is the shared rule for arranging delivery connectors and relevance connectors when more than one connector lands on the same target edge. Delivery connectors and relevance connectors use the same stacking behavior after the target edge is resolved. The planner authors `targetSideOffset` for each connector in that stack, and the renderer applies that offset along the resolved target edge tangent.
@@ -35,7 +81,7 @@ Connector stacking is the shared rule for arranging delivery connectors and rele
 - A delivery connector stacks on the edge of its target delivery aggregator.
 - A relevance connector first chooses the top or bottom edge of its target relevance aggregator based on which edge faces the source claim, then stacks on that edge.
 - Stack membership is the set of connectors that land on the same target edge.
-- Stack order is deterministic and source-position driven. When source positions tie, use a stable tie-breaker so repeated layouts keep the same order.
+- Stack order comes from the shared ordering rule above rather than from a separate connector-only ordering rule.
 - The thickness contribution of each stacked connector is its rendered fluid-band width, not the full pipe outline width.
 - Carry the old delivery rule forward for both delivery connectors and relevance connectors: fluid-band width is the connector's full pipe width at its current scale multiplied by its clamped current score.
 - The stack is therefore based on current scored fluid, not on a connector's full potential pipe width at that scale.

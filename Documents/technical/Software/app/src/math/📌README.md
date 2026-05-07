@@ -14,6 +14,11 @@ New information changes the score only when it is added as a claim and connected
 - Attacks reduce standing when they survive their own challenges.
 - Defenses matter by weakening attacks.
 - Relevance changes how much one claim affects another.
+- Source-side scale allocation follows the score graph and lives in math.
+- A target claim owns its `sourcesScale` budget.
+- Direct score children split that target-owned budget.
+- Direct relevance children inherit the affected target-side budget unchanged.
+- When all direct score-child weights are zero, that target budget falls back to an equal split across the direct score children.
 - Missing information has no hidden score effect.
 
 ## Suggested Reading path
@@ -24,5 +29,6 @@ New information changes the score only when it is added as a claim and connected
 4. `calculateClaimScore.ts` - one parent score from child impacts
 5. `calculateScoreValue.ts` - weighted value kernel
 6. `calculateRelevance.ts` - relevance multiplier
-7. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
-8. `sortClaimsLeavesToRoot.ts` - evaluation order
+7. `calculateSourcesScales.ts` - recursive source-side scale allocation
+8. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
+9. `sortClaimsLeavesToRoot.ts` - evaluation order

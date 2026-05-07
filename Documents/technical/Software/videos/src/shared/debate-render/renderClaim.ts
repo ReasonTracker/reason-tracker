@@ -104,17 +104,17 @@ export function getClaimBounds(args: {
 }
 
 export function getPlannerClaimWidth(scale: number, plannerOptions: PlannerOptions): number {
-    return Math.round(plannerOptions.claimWidth * clampVisualScale(scale));
+    return plannerOptions.claimWidth * resolveVisualScale(scale);
 }
 
 export function getPlannerClaimHeight(scale: number, plannerOptions: PlannerOptions): number {
-    return Math.round(plannerOptions.claimHeight * clampVisualScale(scale));
+    return plannerOptions.claimHeight * resolveVisualScale(scale);
 }
 
-function clampVisualScale(scale: number): number {
+function resolveVisualScale(scale: number): number {
     if (!Number.isFinite(scale)) {
         return 1;
     }
 
-    return Math.min(1, Math.max(0, scale));
+    return Math.max(0, scale);
 }

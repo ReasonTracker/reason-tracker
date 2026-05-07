@@ -10,4 +10,8 @@ This folder owns the app package source entrypoints.
 
 <!-- autonav:start -->
 - [Debate Core](./debate-core/📌README.md)
+- [Math](./math/📌README.md)
+- [Planner](./planner/📌README.md)
+- [Animation Example Descriptions](./animation-examples.md)
+- [Glossary](./glossary.md)
 <!-- autonav:end -->

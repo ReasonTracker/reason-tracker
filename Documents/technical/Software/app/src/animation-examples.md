@@ -2,19 +2,39 @@
 
 These examples describe the visual sequence of what happens on screen and intentionally leave out how the DebateCore is updated or how that DebateCore update interacts with the visuals. The planner can still depend on that interaction; this document is only describing the visible sequence.
 
+## Current Implementation Scope
+
+- The first production planner implementation currently covers add-confidence claim animation only.
+- The first production planner sequence currently stops at `firstFill`.
+- Add-relevance animation and propagation-wave sequencing are future scope.
+- The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
+- The planner input boundary is the pre-command DebateCore state plus the command payload.
+
+## Scale Rule
+
+- The calculated scale is the expected visual scale.
+- The renderer should not smooth, clamp, or floor that scale.
+- Scale is uniform across the local visual structure, so zooming into a scaled-down area should make it geometrically identical to a larger area viewed farther out.
+- `sourcesScale` is the owned scale value for a target claim's source side. It is stored on the target so every source of that target shares the same scale, and the planner propagates that value to the proper source-side visuals.
+- `sourcesScale` allocation is recursive, so each settled target budget becomes the next outward budget its direct confidence children divide.
+- Direct confidence-child widths should always add up to the target's source-side width budget so the nesting stays exact.
+- Relevance claims do not create a separate scale budget. They change how much of the target-owned budget the affected confidence claim receives.
+- When the direct confidence-share weights are all zero, the target-owned budget falls back to an equal split across those direct confidence children.
+
 ## Add Confidence Claim to Existing Debate Example
 
 - **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
-  - Adds in the new claim setting the scale to tween from zero to the scourcesScale of it's target claim.
+  - Adds in the new claim setting the scale to tween from zero to the `sourcesScale` of its target claim.
+  - That `sourcesScale` is owned by the target claim's source side, not recalculated independently on each source visual.
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
 - **Sprout**: These stages happen in order across the sprout step.
   - `0% - 50%`: The new Delivery Connector's pipe wall and pipe interior trace out from the new claim toward the target claim in the `sourceToTarget` direction. During this interval, the new connector grows from zero to its planned post-sprout scale and is already attached to its planned stacked target-side attachment position.
   - `50% - 70%`: The existing sibling Delivery Connectors make room at the target. Their target-side attachments slide toward their planned stacked target-side attachment positions while their widths shrink toward their planned post-sprout scales, and that width change sweeps in the `targetToSource` direction.
-  - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout.
+  - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout. That compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
   - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
-  - See [Connector Stacking](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
+  - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the progression wave at the target Delivery Aggregator Adjust step.
 
@@ -25,7 +45,7 @@ These examples describe the visual sequence of what happens on screen and intent
   - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
   - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
-  - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Connector Stacking](../../design/debate-animation-data-model.md#connector-stacking) rules.
+  - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) rules.
   - If there is only one relevance claim, the relevance aggregator may remain hidden or collapsed even though the Relevance Connector is still associated with that relevance aggregator, which can make it look like the connector is landing directly on the junction in this example orientation.
   - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
   - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
@@ -53,3 +73,4 @@ The Update Wave is a process that propagates changes through the graph starting 
 - If it is the Main Claim, then continue to the next step. If not, then go to the start of this list.
 - **Scale**: The whole graph will uniformly adjust scales based on the new scores.
 - **Order**: The whole graph will uniformly adjust the order of claims and targets to and inside the aggregators based on all the new scores.
+  The same shared ordering rule must still be used for both claim order and target-edge connector stack order.

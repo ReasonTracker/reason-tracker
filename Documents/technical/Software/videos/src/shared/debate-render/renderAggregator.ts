@@ -40,11 +40,9 @@ export type AggregatorAttachment = {
 
 /** Outline width shared with the other graph outline shapes. */
 const AGGREGATOR_OUTLINE_WIDTH_PX = 4;
-/** Skip rendering when the outline would still occupy less than a visible sliver. */
-const MIN_RENDERABLE_AGGREGATOR_DEPTH_PX = 0.5;
 
 export function renderAggregatorOutline(args: AggregatorGeometry): RenderElementNode | undefined {
-    if (args.depth <= MIN_RENDERABLE_AGGREGATOR_DEPTH_PX || args.edgeLength <= MIN_RENDERABLE_AGGREGATOR_DEPTH_PX) {
+    if (args.depth <= 0 || args.edgeLength <= 0) {
         return undefined;
     }
 
@@ -141,9 +139,9 @@ export function resolveRelevanceAggregatorGeometry(args: {
     const sourceClaimPosition = sourceClaim?.type === "claim"
         ? resolveTweenPoint(sourceClaim.position, args.stepProgress)
         : { x: junctionPosition.x, y: junctionPosition.y - 1 };
-    const span = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress)));
-    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress)));
-    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress)));
+    const span = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress));
+    const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress));
+    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress));
     const leftHeight = side === "proMain"
         ? incomingConfidenceHeight
         : outgoingConfidenceHeight;
@@ -201,7 +199,7 @@ export function resolveAggregatorOuterEdgeAttachment(args: AggregatorGeometry | 
 }
 
 export function getAggregatorBounds(args: AggregatorGeometry | undefined): { maxX: number; maxY: number } {
-    if (!args || args.depth <= MIN_RENDERABLE_AGGREGATOR_DEPTH_PX || args.edgeLength <= MIN_RENDERABLE_AGGREGATOR_DEPTH_PX) {
+    if (!args || args.depth <= 0 || args.edgeLength <= 0) {
         return { maxX: 0, maxY: 0 };
     }
 
@@ -225,7 +223,7 @@ export function getAggregatorBounds(args: AggregatorGeometry | undefined): { max
 }
 
 export function resolveAggregatorDepth(scale: number, plannerOptions: PlannerOptions): number {
-    return plannerOptions.aggregatorDepth * clampVisualScale(scale);
+    return plannerOptions.aggregatorDepth * resolveVisualScale(scale);
 }
 
 export function normalizeUnitVector(vector: UnitVector, fallback: UnitVector): UnitVector {
@@ -259,12 +257,20 @@ function resolveSideStroke(side: Side): string {
     return side === "proMain" ? "var(--pro)" : "var(--con)";
 }
 
-function clampVisualScale(scale: number): number {
+function resolveVisualScale(scale: number): number {
     if (!Number.isFinite(scale)) {
         return 1;
     }
 
-    return Math.min(1, Math.max(0, scale));
+    return Math.max(0, scale);
+}
+
+function resolveNonNegativeDimension(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, value);
 }
 
 function resolveDeliveryAggregatorSourceReferencePoint(args: {

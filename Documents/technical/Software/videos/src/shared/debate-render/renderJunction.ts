@@ -11,9 +11,9 @@ export function renderJunction(args: {
     side: Side | undefined;
 } & RenderStepProgress): RenderElementNode | undefined {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
-    const span = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress)));
-    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress)));
-    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress)));
+    const span = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress));
+    const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress));
+    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress));
     const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
 
     if (!visible || !args.side) {
@@ -53,9 +53,9 @@ export function getJunctionBounds(args: {
     item: JunctionViz;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
-    const span = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress)));
-    const incomingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress)));
-    const outgoingConfidenceHeight = Math.max(1, Math.round(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress)));
+    const span = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress));
+    const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress));
+    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress));
 
     return {
         maxX: position.x + (span / 2),
@@ -65,4 +65,12 @@ export function getJunctionBounds(args: {
 
 function resolveSideStroke(side: Side): string {
     return side === "proMain" ? "var(--pro)" : "var(--con)";
+}
+
+function resolveNonNegativeDimension(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, value);
 }

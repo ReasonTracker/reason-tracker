@@ -3,35 +3,19 @@
 import { PatchWithRequiredId } from "../utils.ts";
 import type { ClaimCreate, ClaimPatch, ClaimId } from "./Claim.ts";
 import type {
+	ConfidenceConnectorCreate,
 	ConfidenceConnectorId,
+	RelevanceConnectorCreate,
 	RelevanceConnectorId,
-	TargetRelation,
 } from "./Connector.ts";
 import type { DebateBase } from "./Debate.ts";
 
 type CreateDebateInput = Omit<DebateBase, "mainClaimId">;
 export type DebateMetadataPatch = PatchWithRequiredId<Pick<DebateBase, "id" | "name" | "description">>;
 
-type ConnectionInputBase<TConnectorId extends ConfidenceConnectorId | RelevanceConnectorId> = {
-	id?: TConnectorId
-	targetRelationship: TargetRelation
-};
-
-export type ConfidenceConnectionInput = {
-	type: "confidence"
-} & ConnectionInputBase<ConfidenceConnectorId>;
-
-export type RelevanceConnectionInput = {
-	type: "relevance"
-} & ConnectionInputBase<RelevanceConnectorId>;
-
-export type ClaimConnectionInput =
-	| ConfidenceConnectionInput
-	| RelevanceConnectionInput;
-
-type ConnectClaimCommandBase<TConnection extends ClaimConnectionInput> = {
-	sourceClaimId: ClaimId
-	connection: TConnection
+type AddClaimCommandBase<TConnector extends ConfidenceConnectorCreate | RelevanceConnectorCreate> = {
+	claim: ClaimCreate
+	connector: Omit<TConnector, "source">
 };
 
 export type ConnectClaimCommand =
@@ -55,10 +39,16 @@ export type DebateCommand =
 
 
 // #region Claim commands
-export interface AddClaimCommand {
-	type: "claim/add"
-	claim: ClaimCreate
-	connection: ClaimConnectionInput
+export type AddClaimCommand =
+	| AddConfidenceClaimCommand
+	| AddRelevanceClaimCommand;
+
+export interface AddConfidenceClaimCommand extends AddClaimCommandBase<ConfidenceConnectorCreate> {
+	type: "confidence/claim/add"
+}
+
+export interface AddRelevanceClaimCommand extends AddClaimCommandBase<RelevanceConnectorCreate> {
+	type: "relevance/claim/add"
 }
 
 export interface UpdateClaimCommand {
@@ -73,12 +63,14 @@ export interface DeleteClaimCommand {
 // #endregion
 
 // #region Connection commands
-export interface ConnectClaimWithConfidenceCommand extends ConnectClaimCommandBase<ConfidenceConnectionInput> {
+export interface ConnectClaimWithConfidenceCommand {
 	type: "confidence/connect"
+	connector: ConfidenceConnectorCreate
 }
 
-export interface ConnectClaimWithRelevanceCommand extends ConnectClaimCommandBase<RelevanceConnectionInput> {
+export interface ConnectClaimWithRelevanceCommand {
 	type: "relevance/connect"
+	connector: RelevanceConnectorCreate
 }
 
 export interface DisconnectConfidenceCommand {
