@@ -804,6 +804,11 @@ function buildSproutSnapshot(args: {
         settledSnapshot: args.settledSnapshot,
         targetClaimId: args.targetClaimId,
     });
+    const localAnimatedItemIds = new Set<string>([
+        targetDeliveryAggregatorVizId,
+        ...siblingDeliveryConnectorVizIds,
+        ...voilaClaimPlacements.map((placement) => placement.claimVizId),
+    ]);
 
     snapshot[newDeliveryConnectorVizId] = {
         ...settledNewDeliveryConnector,
@@ -859,6 +864,17 @@ function buildSproutSnapshot(args: {
         };
     }
 
+    restoreOpeningItemsOutsideLocalAnimation({
+        localAnimatedItemIds,
+        openingSnapshot: args.openingSnapshot,
+        snapshot,
+    });
+
+    copyOpeningScoresToMatchingItems({
+        openingSnapshot: args.openingSnapshot,
+        snapshot,
+    });
+
     return snapshot;
 }
 
@@ -870,15 +886,78 @@ function buildFirstFillSnapshot(args: {
     targetClaimId: ClaimId;
 }): Snapshot {
     const snapshot: Snapshot = { ...args.settledSnapshot };
+    const targetDeliveryAggregatorVizId = resolveOrCreateDeliveryAggregatorVizId(args.settledSnapshot, args.targetClaimId);
+    const siblingDeliveryConnectorVizIds = getRequiredDeliveryAggregator(
+        args.settledSnapshot,
+        targetDeliveryAggregatorVizId,
+    ).deliveryConnectorVizIds;
     const newDeliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(args.settledSnapshot, args.confidenceConnectorId);
     const settledNewDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, newDeliveryConnectorVizId);
+    const voilaClaimPlacements = resolveVoilaClaimPlacements({
+        openingSnapshot: args.openingSnapshot,
+        options: args.options,
+        settledSnapshot: args.settledSnapshot,
+        targetClaimId: args.targetClaimId,
+    });
+    const localAnimatedItemIds = new Set<string>([
+        targetDeliveryAggregatorVizId,
+        ...siblingDeliveryConnectorVizIds,
+        ...voilaClaimPlacements.map((placement) => placement.claimVizId),
+    ]);
 
     snapshot[newDeliveryConnectorVizId] = {
         ...settledNewDeliveryConnector,
         score: buildTweenNumber(0, resolveStaticTweenNumber(settledNewDeliveryConnector.score)),
     };
 
+    restoreOpeningItemsOutsideLocalAnimation({
+        localAnimatedItemIds,
+        openingSnapshot: args.openingSnapshot,
+        snapshot,
+    });
+
+    copyOpeningScoresToMatchingItems({
+        openingSnapshot: args.openingSnapshot,
+        snapshot,
+    });
+
     return snapshot;
+}
+
+function restoreOpeningItemsOutsideLocalAnimation(args: {
+    localAnimatedItemIds: ReadonlySet<string>;
+    openingSnapshot: Snapshot;
+    snapshot: Snapshot;
+}): void {
+    for (const [rawItemId, openingItem] of Object.entries(args.openingSnapshot as Partial<Record<string, VizItem>>)) {
+        if (!openingItem || args.localAnimatedItemIds.has(rawItemId)) {
+            continue;
+        }
+
+        args.snapshot[openingItem.id] = openingItem;
+    }
+}
+
+function copyOpeningScoresToMatchingItems(args: {
+    openingSnapshot: Snapshot;
+    snapshot: Snapshot;
+}): void {
+    for (const openingItem of Object.values(args.openingSnapshot as Partial<Record<string, VizItem>>)) {
+        if (!openingItem || !("score" in openingItem)) {
+            continue;
+        }
+
+        const snapshotItem = args.snapshot[openingItem.id];
+
+        if (!snapshotItem || !("score" in snapshotItem)) {
+            continue;
+        }
+
+        args.snapshot[snapshotItem.id] = {
+            ...snapshotItem,
+            score: openingItem.score,
+        } as VizItem;
+    }
 }
 
 function resolveSiblingDeliveryPlacementBasis(args: {
