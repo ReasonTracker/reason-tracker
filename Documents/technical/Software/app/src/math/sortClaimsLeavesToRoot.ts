@@ -1,5 +1,5 @@
-import type { ScoreGraph, ScoreNodeId } from "./scoreTypes.js";
-import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.js";
+import type { ScoreGraph, ScoreNodeId } from "./scoreTypes.ts";
+import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.ts";
 
 /**
  * Returns ScoreNodeIds in the order needed for scoring.

@@ -1,5 +1,5 @@
-import type { Impact, Score, ScoreNode } from "./scoreTypes.js";
-import { CON_PARENT_SIGN, PRO_PARENT_SIGN } from "./scoringAxioms.js";
+import type { Impact, Score, ScoreNode } from "./scoreTypes.ts";
+import { CON_PARENT_SIGN, PRO_PARENT_SIGN } from "./scoringAxioms.ts";
 
 /**
  * Converts one scored child into the value it contributes to its parent.
@@ -16,21 +16,8 @@ export function calculateChildImpact(
   if (child.proParent === undefined) {
     throw new Error(`Score child is missing proParent: ${child.id}`);
   }
-
-  let value = childScore.value;
-
-  /**
-   * A non-reversible child cannot pass negative standing upward.
-   *
-   * This prevents a defeated attack from becoming support for the thing
-   * it originally attacked.
-   */
-  if (!child.reversible && value < 0) {
-    value = 0;
-  }
-
   const sign = child.proParent ? PRO_PARENT_SIGN : CON_PARENT_SIGN;
-  const signedValue = value * sign;
+  const signedValue = childScore.value * sign;
 
   return {
     scoreNodeId: child.id,

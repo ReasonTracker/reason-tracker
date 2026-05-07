@@ -1,6 +1,6 @@
-import type { ScoreGraph, ScoreNode, ScoreNodeId, Scores } from "./scoreTypes.js";
-import { NEUTRAL_RELEVANCE } from "./scoringAxioms.js";
-import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.js";
+import type { ScoreGraph, ScoreNode, ScoreNodeId, Scores } from "./scoreTypes.ts";
+import { NEUTRAL_RELEVANCE } from "./scoringAxioms.ts";
+import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.ts";
 
 /**
  * Calculates the relevance multiplier for one direct score child.
@@ -44,11 +44,5 @@ function calculateRelevanceValue(child: ScoreNode, scoreValue: number): number {
     throw new Error(`Relevance child is missing proParent: ${child.id}`);
   }
 
-  let value = scoreValue;
-
-  if (!child.reversible && value < 0) {
-    value = 0;
-  }
-
-  return child.proParent ? value : -value;
+  return child.proParent ? scoreValue : -scoreValue;
 }

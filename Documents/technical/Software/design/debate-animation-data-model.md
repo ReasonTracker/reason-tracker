@@ -7,7 +7,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 ## Current Implementation Scope
 
 - The first production planner scope assumes debates are acyclic.
-- The first production planner scope currently covers `claim/add` when the new claim is connected with a confidence connection.
+- The first production planner scope currently covers `confidence/claim/add`.
 - The first production planner sequence currently stops at `firstFill`.
 - The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
 
@@ -15,29 +15,42 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - add-relevance animation
 - propagation-wave sequencing after `firstFill`
-- command types outside the current `claim/add` confidence flow
-- cycle handling and score-node duplication policy
+- command types outside the current `confidence/claim/add` flow
+- cycle handling and any future path-occurrence policy needed beyond the current acyclic scope
+- reversible score and relevance behavior after the math and debate-core contracts are explicitly redesigned for it
 
 ## Command Contract Boundary
 
-- The current debate-core command contracts are out of date relative to the planner boundary and the current connector model.
-- Planner implementation should not keep extending those stale payloads ad hoc.
-- The next command-contract pass should produce a concrete architectural proposal, then get approval before changing exported debate-core command types.
-- A likely direction is to split the overloaded add-claim flow into separate confidence-attached and relevance-attached claim-creation commands, but that is still a proposal rather than an approved contract.
+- Debate-core command contracts for add and connect flows are connector-backed.
+- The current planner scope uses `confidence/claim/add` for confidence-attached claim creation.
+- Debate-core exported command types remain a guarded boundary. Further command-contract changes should start from a concrete proposal and get approval before changing those exported types.
 - Prefer the best long-term command architecture over a minimal compatibility patch.
+
+## Math Boundary
+
+- Planner-facing math entrypoints should stay DebateCore-shaped.
+- Math owns score derivation, relevance derivation, side derivation, and source-side scale allocation.
+- The planner should not construct a separate scoring adapter layer.
+- If a future scope requires path-specific internal occurrence handling, keep that inside math unless an exported boundary genuinely needs a separate contract.
 
 ## Scale Contract
 
-- The planner authors the expected visual scale directly.
+- The planner authors the expected visual scale directly, and that scale represents the full pipe or claim size at `100%` score.
 - The renderer must honor that authored scale without smoothing, protective floors, or clamping.
 - Scale is uniform across the local visual structure. Claims, connectors, junctions, aggregators, and attachment geometry should stay geometrically consistent with each other at the authored scale.
 - Zooming into a scaled-down region should therefore match the geometry of a larger region viewed farther out.
-- `sourcesScale` is the owned scale value for a target claim's source side. It is stored on the target claim so every source of that target shares the same scale, and the planner propagates that value to the relevant source-side visuals.
-- `sourcesScale` allocation is recursive. A claim's source-side budget becomes the budget its direct confidence children divide on the next outward step of the graph.
-- Direct confidence children divide the target-owned `sourcesScale` budget, so their allocated widths add back up to the target's source-side width and the nesting stays exact.
-- Direct relevance children do not mint a second scale budget. They inherit the affected target-side `sourcesScale` unchanged because they sit on the affected confidence connection's lane.
-- Relevance still changes source-side share indirectly by reweighting how much of the target-owned `sourcesScale` budget the affected confidence child receives.
-- When every direct confidence-child share weight resolves to zero, that target-owned `sourcesScale` budget falls back to an equal split across the direct confidence children.
+- Current score controls fluid fill inside the pipe. It does not shrink the authored pipe diameter.
+- `sourcesScale` is the owned potential scale value for a target claim's source side. The target claim owns that fixed source-side budget, and the planner propagates the resulting child potential scales to the relevant source-side visuals.
+- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited shares of that target-owned potential scale.
+- Direct relevance children do not mint a second scale budget. They inherit the affected confidence connection's potential scale unchanged.
+- Relevance can increase or decrease the affected confidence child's share of that fixed target-owned potential scale, while current score still controls only the fluid fraction inside that pipe.
+
+## Layout Contract
+
+- `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along the lane axis, not a center-to-center distance.
+- That gap resolves at the same local `sourcesScale` as the surrounding geometry so zoom-equivalent structures keep the same proportions and shrink or grow with the source-side potential scale.
+- In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
+- Sibling source claims form local clusters that stay mostly centered on their source claim when the surrounding layout constraints permit it.
 
 ## Flow
 
@@ -53,7 +66,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 **Planner**
 
-- Receives the current `DebateCore` state, the current snapshot, and the command.
+- Receives the pre-command `DebateCore` state and the command.
+- Builds the settled display snapshot implied by applying that command.
 - Produces a sequence of `GraphRenderState` snapshots and metadata.
 
 **Snapshot**

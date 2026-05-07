@@ -14,21 +14,35 @@ New information changes the score only when it is added as a claim and connected
 - Attacks reduce standing when they survive their own challenges.
 - Defenses matter by weakening attacks.
 - Relevance changes how much one claim affects another.
-- Source-side scale allocation follows the score graph and lives in math.
-- A target claim owns its `sourcesScale` budget.
-- Direct score children split that target-owned budget.
-- Direct relevance children inherit the affected target-side budget unchanged.
-- When all direct score-child weights are zero, that target budget falls back to an equal split across the direct score children.
+- `ScoreNodeId` means one claim occurrence in the acyclic scoring graph, not the reusable claim identity itself.
+- Planner-facing math entrypoints stay DebateCore-shaped.
+- The planner should not construct a separate scoring adapter layer.
+- If internal path-occurrence handling is needed for a later scope, keep it inside math unless an exported boundary genuinely needs a separate contract.
+- Eventual `proMain` or `conMain` side derivation lives in math.
+- Source-side potential-scale derivation lives in math.
+- `sourcesScale` represents full pipe size at `100%` score, not current fluid fill.
+- Current score changes fluid fill, not pipe diameter.
+- A target claim owns the fixed `sourcesScale` budget for its source side.
+- Before relevance modifiers are applied, direct confidence children of the same target use equal inherited shares of that fixed target-owned potential scale.
+- Direct relevance children inherit the affected confidence connection's potential scale unchanged.
+- Relevance can increase or decrease the affected confidence child's share of that fixed target-owned potential scale.
 - Missing information has no hidden score effect.
+
+## Deferred math issue
+
+- Reversible score and relevance behavior is intentionally out of scope for the current contract pass. Reintroduce it only after the debate-core contract and the exact math semantics are approved.
 
 ## Suggested Reading path
 
 1. `scoringAxioms.ts`
-2. `calculateScores.ts` - full scoring pass
-3. `calculateChildImpact.ts` - one child claim's effect on its parent
-4. `calculateClaimScore.ts` - one parent score from child impacts
-5. `calculateScoreValue.ts` - weighted value kernel
-6. `calculateRelevance.ts` - relevance multiplier
-7. `calculateSourcesScales.ts` - recursive source-side scale allocation
-8. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
-9. `sortClaimsLeavesToRoot.ts` - evaluation order
+2. `calculateScoresFromDebateCore.ts` - DebateCore-first scoring entrypoint
+3. `calculateSourcesScalesFromDebateCore.ts` - DebateCore-first source-scale entrypoint
+4. `calculateSidesFromDebateCore.ts` - DebateCore-first side derivation entrypoint
+5. `calculateScores.ts` - current full scoring pass
+6. `calculateChildImpact.ts` - one child claim's effect on its parent
+7. `calculateClaimScore.ts` - one parent score from child impacts
+8. `calculateScoreValue.ts` - weighted value kernel
+9. `calculateRelevance.ts` - relevance multiplier
+10. `calculateSourcesScales.ts` - recursive source-side scale allocation
+11. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
+12. `sortClaimsLeavesToRoot.ts` - evaluation order

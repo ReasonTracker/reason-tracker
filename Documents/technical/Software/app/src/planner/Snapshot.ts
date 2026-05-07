@@ -10,11 +10,21 @@ export interface ClaimViz {
     id: ClaimVizId
     claimId: ClaimId
     position: TweenPoint
+    /**
+     * The propagated render scale for this claim visual.
+     *
+        * In a settled state this is the authored full-size scale for this claim
+        * occurrence at `100%` score, so the renderer does not need to look it up
+        * elsewhere. During animation it may temporarily diverge from
+        * `sourcesScale` so the claim can animate independently from its owned
+        * outgoing source-side potential scale.
+     */
     scale: TweenNumber
     /**
-     * Owned by the target claim for its source side.
-     * Every source targeting this claim uses the same value, and the planner
-     * propagates that value onto the proper source-side visuals.
+        * Owned by the target claim for its source side.
+        * This is the full-size potential scale for that source side at `100%`
+        * score. Every source targeting this claim starts from that value, and the
+        * planner propagates that value onto the proper source-side visuals.
      */
     sourcesScale: TweenNumber
     score: TweenNumber

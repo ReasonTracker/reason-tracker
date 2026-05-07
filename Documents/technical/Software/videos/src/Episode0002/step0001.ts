@@ -1,9 +1,4 @@
 import type { DebateSnapshotRenderState } from "../shared/debate-render/renderTypes";
-import type { ClaimId } from "@debate-core/Claim.ts";
-import type {
-    ConfidenceConnectorId,
-    RelevanceConnectorId,
-} from "@debate-core/Connector.ts";
 import type {
     DeliveryAggregatorVizId,
     ClaimVizId,
@@ -14,20 +9,22 @@ import type {
     RelevanceConnectorVizId,
 } from "@planner/Snapshot.ts";
 
-export const mainClaimId = "episode-0002-claim-main" as ClaimId;
-export const c1ClaimId = "episode-0002-claim-c1" as ClaimId;
-const c2ClaimId = "episode-0002-claim-c2" as ClaimId;
-const c3ClaimId = "episode-0002-claim-c3" as ClaimId;
-const c4ClaimId = "episode-0002-claim-c4" as ClaimId;
-const c5ClaimId = "episode-0002-claim-c5" as ClaimId;
-const c6ClaimId = "episode-0002-claim-c6" as ClaimId;
-
-const c1ConfidenceConnectorId = "episode-0002-confidence-main-c1" as ConfidenceConnectorId;
-export const c2ConfidenceConnectorId = "episode-0002-confidence-main-c2" as ConfidenceConnectorId;
-const c3RelevanceConnectorId = "episode-0002-relevance-c3-c2" as RelevanceConnectorId;
-const c4ConfidenceConnectorId = "episode-0002-confidence-c1-c4" as ConfidenceConnectorId;
-const c5ConfidenceConnectorId = "episode-0002-confidence-c1-c5" as ConfidenceConnectorId;
-const c6ConfidenceConnectorId = "episode-0002-confidence-c1-c6" as ConfidenceConnectorId;
+import {
+    c1ClaimId,
+    c1ConfidenceConnectorId,
+    c2ClaimId,
+    c2ConfidenceConnectorId,
+    c3ClaimId,
+    c3RelevanceConnectorId,
+    c4ClaimId,
+    c4ConfidenceConnectorId,
+    c5ClaimId,
+    c5ConfidenceConnectorId,
+    c6ClaimId,
+    c6ConfidenceConnectorId,
+    episode0002DebateCore,
+    mainClaimId,
+} from "./scenario";
 
 export const mainClaimVizId = "episode-0002-claim-viz-main" as ClaimVizId;
 export const c1ClaimVizId = "episode-0002-claim-viz-c1" as ClaimVizId;
@@ -139,86 +136,7 @@ const c5C1TargetSideOffset = 0;
 const c6C1TargetSideOffset = 36;
 
 export const step0001RenderState: DebateSnapshotRenderState = {
-    debateCore: {
-        id: "episode-0002-debate" as DebateSnapshotRenderState["debateCore"]["id"],
-        description: "Episode 0002 authored debate snapshot.",
-        name: "Episode 0002 Debate",
-        mainClaimId,
-        claims: {
-            [mainClaimId]: {
-                id: mainClaimId,
-                content: "Main",
-            },
-            [c1ClaimId]: {
-                id: c1ClaimId,
-                content: "C1",
-            },
-            [c2ClaimId]: {
-                id: c2ClaimId,
-                content: "C2",
-            },
-            [c3ClaimId]: {
-                id: c3ClaimId,
-                content: "C3",
-            },
-            [c4ClaimId]: {
-                id: c4ClaimId,
-                content: "C4",
-            },
-            [c5ClaimId]: {
-                id: c5ClaimId,
-                content: "C5",
-            },
-            [c6ClaimId]: {
-                id: c6ClaimId,
-                content: "C6",
-            },
-        },
-        connectors: {
-            [c1ConfidenceConnectorId]: {
-                id: c1ConfidenceConnectorId,
-                type: "confidence",
-                source: c1ClaimId,
-                targetClaimId: mainClaimId,
-                targetRelationship: "proTarget",
-            },
-            [c2ConfidenceConnectorId]: {
-                id: c2ConfidenceConnectorId,
-                type: "confidence",
-                source: c2ClaimId,
-                targetClaimId: mainClaimId,
-                targetRelationship: "conTarget",
-            },
-            [c3RelevanceConnectorId]: {
-                id: c3RelevanceConnectorId,
-                type: "relevance",
-                source: c3ClaimId,
-                targetConfidenceConnectorId: c2ConfidenceConnectorId,
-                targetRelationship: "proTarget",
-            },
-            [c4ConfidenceConnectorId]: {
-                id: c4ConfidenceConnectorId,
-                type: "confidence",
-                source: c4ClaimId,
-                targetClaimId: c1ClaimId,
-                targetRelationship: "proTarget",
-            },
-            [c5ConfidenceConnectorId]: {
-                id: c5ConfidenceConnectorId,
-                type: "confidence",
-                source: c5ClaimId,
-                targetClaimId: c1ClaimId,
-                targetRelationship: "proTarget",
-            },
-            [c6ConfidenceConnectorId]: {
-                id: c6ConfidenceConnectorId,
-                type: "confidence",
-                source: c6ClaimId,
-                targetClaimId: c1ClaimId,
-                targetRelationship: "conTarget",
-            },
-        },
-    },
+    debateCore: episode0002DebateCore,
     snapshot: {
         [mainClaimVizId]: {
             type: "claim",

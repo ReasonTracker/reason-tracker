@@ -1,17 +1,18 @@
-import { calculateChildImpact } from "./calculateChildImpact.js";
-import { calculateRelevance } from "./calculateRelevance.js";
-import { withChildrenByParentId } from "./calculateScores.js";
-import type { ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.js";
+import { calculateRelevance } from "./calculateRelevance.ts";
+import { withChildrenByParentId } from "./calculateScores.ts";
+import type { ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.ts";
 
 export type SourcesScales = Partial<Record<ScoreNodeId, number>>;
 
 /**
- * Recursively assigns each ScoreNode's source-side scale budget.
+ * Recursively assigns each ScoreNode's source-side potential scale.
  *
- * Direct score children split the current target budget according to their
- * current weighted impact. Direct relevance children inherit the current
- * target budget unchanged because they live on the affected confidence
- * connection's lane rather than taking a separate claim-lane share.
+ * Direct score children all start from equal inherited shares of the current
+ * target's potential scale. Relevance reweights those equal shares while
+ * keeping the full target-owned budget on that source side fixed. Direct
+ * relevance children inherit the affected confidence connection's potential
+ * scale unchanged because they live on that lane rather than taking a
+ * separate claim-lane scale.
  */
 export function calculateSourcesScales(args: {
     rootScoreNodeId: ScoreNodeId;
@@ -34,12 +35,12 @@ export function calculateSourcesScales(args: {
 }
 
 /**
- * Allocates one target's source-side scale budget across its direct score
- * children.
+ * Resolves one target's direct score-child potential scales.
  *
- * The shares always sum back to the target budget. When the current weighted
- * impacts all resolve to zero, the budget falls back to an equal split across
- * the direct score children.
+ * Each direct score child starts from the same equal inherited share of the
+ * target's source-side potential scale. Relevance changes how much of that
+ * fixed target-owned budget each direct confidence child receives, but
+ * current score does not shrink the full pipe diameter here.
  */
 export function calculateDirectScoreChildSourcesScales(args: {
     targetScoreNodeId: ScoreNodeId;
@@ -55,39 +56,28 @@ export function calculateDirectScoreChildSourcesScales(args: {
     }
 
     const targetSourcesScale = resolveSourcesScale(args.targetSourcesScale);
-    const weightsByScoreNodeId: SourcesScales = {};
-    let totalWeight = 0;
+    const relevanceByScoreNodeId: SourcesScales = {};
+    let totalRelevance = 0;
 
     for (const scoreChildId of scoreChildIds) {
-        const scoreChild = graphWithChildren.nodes[scoreChildId];
+        const relevanceMultiplier = resolveSourcesScale(calculateRelevance(scoreChildId, graphWithChildren, args.scores));
 
-        if (!scoreChild) {
-            throw new Error(`Missing direct score child while calculating source scales: ${scoreChildId}`);
-        }
-
-        const childScore = args.scores[scoreChildId];
-
-        if (!childScore) {
-            throw new Error(`Missing score for direct score child while calculating source scales: ${scoreChildId}`);
-        }
-
-        const relevance = calculateRelevance(scoreChildId, graphWithChildren, args.scores);
-        const impact = calculateChildImpact(scoreChild, childScore, relevance);
-
-        weightsByScoreNodeId[scoreChildId] = impact.weight;
-        totalWeight += impact.weight;
+        relevanceByScoreNodeId[scoreChildId] = relevanceMultiplier;
+        totalRelevance += relevanceMultiplier;
     }
 
-    const fallbackToEqualSplit = totalWeight === 0;
-    const normalizedTotal = fallbackToEqualSplit ? scoreChildIds.length : totalWeight;
+    const fallbackToEqualSplit = totalRelevance === 0;
+    const normalizedTotal = fallbackToEqualSplit ? scoreChildIds.length : totalRelevance;
     const sourcesScales: SourcesScales = {};
 
     for (const scoreChildId of scoreChildIds) {
-        const shareWeight = fallbackToEqualSplit
+        const relevanceMultiplier = fallbackToEqualSplit
             ? 1
-            : (weightsByScoreNodeId[scoreChildId] ?? 0);
+            : (relevanceByScoreNodeId[scoreChildId] ?? 0);
 
-        sourcesScales[scoreChildId] = targetSourcesScale * (shareWeight / normalizedTotal);
+        sourcesScales[scoreChildId] = resolveSourcesScale(
+            targetSourcesScale * (relevanceMultiplier / normalizedTotal),
+        );
     }
 
     return sourcesScales;

@@ -1,5 +1,5 @@
-import type { Impact } from "./scoreTypes.js";
-import { UNCHALLENGED_CLAIM_SCORE } from "./scoringAxioms.js";
+import type { Impact } from "./scoreTypes.ts";
+import { UNCHALLENGED_CLAIM_SCORE } from "./scoringAxioms.ts";
 
 export type ScoreValue = {
   value: number;

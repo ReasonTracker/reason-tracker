@@ -1,6 +1,12 @@
 export type Brand<T, Name extends string> = T & { readonly __brand: Name };
 
 export type ClaimId = Brand<string, "ClaimId">;
+/**
+ * The id of one claim occurrence in the acyclic scoring graph.
+ *
+ * One reusable ClaimId can appear in more than one ScoreNode when the math
+ * needs separate scored occurrences.
+ */
 export type ScoreNodeId = Brand<string, "ScoreNodeId">;
 
 /**
@@ -24,7 +30,6 @@ export type ScoreNode = {
 	parentId?: ScoreNodeId;
 	proParent?: boolean;
 	affects: "Score" | "Relevance";
-	reversible?: boolean;
 };
 
 /**

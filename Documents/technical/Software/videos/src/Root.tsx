@@ -14,12 +14,18 @@ import {
 	EPISODE0002_FPS,
 } from "./Episode0002/Episode0002";
 import {
+	Episode0004,
+	EPISODE0004_DURATION_IN_FRAMES,
+	EPISODE0004_FPS,
+} from "./Episode0004/Episode0004";
+import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
 
 const episode0001Composition = Episode0001 as ComponentType<Record<string, unknown>>;
 const episode0002Composition = Episode0002 as ComponentType<Record<string, unknown>>;
+const episode0004Composition = Episode0004 as ComponentType<Record<string, unknown>>;
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
 
@@ -39,6 +45,14 @@ export const RemotionRoot = () => {
 				component={episode0002Composition}
 				durationInFrames={EPISODE0002_DURATION_IN_FRAMES}
 				fps={EPISODE0002_FPS}
+				height={1080}
+				width={1920}
+			/>
+			<Composition
+				id="Episode0004"
+				component={episode0004Composition}
+				durationInFrames={EPISODE0004_DURATION_IN_FRAMES}
+				fps={EPISODE0004_FPS}
 				height={1080}
 				width={1920}
 			/>

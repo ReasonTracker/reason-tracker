@@ -1,9 +1,9 @@
-import type { Impact, Score, ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.js";
-import { calculateChildImpact } from "./calculateChildImpact.js";
-import { calculateClaimScore } from "./calculateClaimScore.js";
-import { calculateRelevance } from "./calculateRelevance.js";
-import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.js";
-import { sortClaimsLeavesToRoot } from "./sortClaimsLeavesToRoot.js";
+import type { Impact, Score, ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.ts";
+import { calculateChildImpact } from "./calculateChildImpact.ts";
+import { calculateClaimScore } from "./calculateClaimScore.ts";
+import { calculateRelevance } from "./calculateRelevance.ts";
+import { claimChildrenIdsByParentId } from "./claimChildrenIdsByParentId.ts";
+import { sortClaimsLeavesToRoot } from "./sortClaimsLeavesToRoot.ts";
 
 export type ScoreCalculationStep = {
   scoreNodeId: ScoreNodeId;

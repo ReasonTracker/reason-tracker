@@ -9,23 +9,31 @@ These examples describe the visual sequence of what happens on screen and intent
 - Add-relevance animation and propagation-wave sequencing are future scope.
 - The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
 - The planner input boundary is the pre-command DebateCore state plus the command payload.
+- Planner-facing math should stay DebateCore-shaped, so the planner should consume DebateCore-first math entrypoints rather than building a separate scoring adapter layer.
 
 ## Scale Rule
 
-- The calculated scale is the expected visual scale.
+- The calculated scale is the expected visual scale for the full pipe or claim size at `100%` score.
 - The renderer should not smooth, clamp, or floor that scale.
 - Scale is uniform across the local visual structure, so zooming into a scaled-down area should make it geometrically identical to a larger area viewed farther out.
-- `sourcesScale` is the owned scale value for a target claim's source side. It is stored on the target so every source of that target shares the same scale, and the planner propagates that value to the proper source-side visuals.
-- `sourcesScale` allocation is recursive, so each settled target budget becomes the next outward budget its direct confidence children divide.
-- Direct confidence-child widths should always add up to the target's source-side width budget so the nesting stays exact.
-- Relevance claims do not create a separate scale budget. They change how much of the target-owned budget the affected confidence claim receives.
-- When the direct confidence-share weights are all zero, the target-owned budget falls back to an equal split across those direct confidence children.
+- Current score does not shrink the pipe or claim scale. Current score only changes how much fluid fills that already-authored full size.
+- `sourcesScale` is the owned potential scale value for a target claim's source side. The target owns that fixed source-side budget, and the planner propagates the resulting child potential scales to the proper source-side visuals.
+- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited shares of that target-owned potential scale.
+- Relevance claims do not create a separate scale budget. They reweight how that fixed target-owned potential scale is divided among direct confidence children while leaving current score to control only fluid fill.
+- Direct relevance children inherit the affected confidence connection's potential scale unchanged. They do not create a separate claim-positioning or potential-scale lane model.
+
+## Layout Rule
+
+- `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along the lane axis, not a center-to-center distance.
+- That gap resolves at the same local `sourcesScale` as the surrounding geometry, so it shrinks and grows with the source-side potential scale.
+- In the current orientation, claim boxes are left-justified within the claim-lane band.
+- Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
 
 ## Add Confidence Claim to Existing Debate Example
 
 - **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
-  - Adds in the new claim setting the scale to tween from zero to the `sourcesScale` of its target claim.
-  - That `sourcesScale` is owned by the target claim's source side, not recalculated independently on each source visual.
+  - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
+  - That planned scale is the source-side potential scale inherited from the target and then modified only by any applicable relevance, not by the current fluid score.
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
@@ -38,9 +46,9 @@ These examples describe the visual sequence of what happens on screen and intent
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the progression wave at the target Delivery Aggregator Adjust step.
 
-## Add Relevance Claim to a New Junction
+## Add Relevance Claim To A New Junction
 
-- **Voila**: The new claim scales in from zero to its calculated size on the connector lane of the confidence connection it affects while the existing claims move out of the way.
+- **Voila**: The new claim scales in from zero to its calculated size in its calculated claim-lane position while the existing claims in that source claim cluster move out of the way.
 - **Sprout**: These all happen at the same time.
   - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
   - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
@@ -71,6 +79,6 @@ The Update Wave is a process that propagates changes through the graph starting 
   - Do we want the scales or orders to happen here instead of at the end?
 - **Claim Adjust**: The claim adjusts to its new score.
 - If it is the Main Claim, then continue to the next step. If not, then go to the start of this list.
-- **Scale**: The whole graph will uniformly adjust scales based on the new scores.
+- **Scale**: The whole graph will uniformly adjust scales when the potential pipe-size calculation changes. Current score still only controls the fraction of fluid shown inside those pipe sizes.
 - **Order**: The whole graph will uniformly adjust the order of claims and targets to and inside the aggregators based on all the new scores.
   The same shared ordering rule must still be used for both claim order and target-edge connector stack order.

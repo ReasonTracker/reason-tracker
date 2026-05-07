@@ -41,4 +41,5 @@ Run type: Markdown maintenance
 
 ## Auto-Added Links
 
-No auto-added links.
+- Source: Documents/technical/Software/videos/src/📌README.md
+  - [Episode0004](./Episode0004/📌README.md) -> Documents/technical/Software/videos/src/Episode0004/📌README.md

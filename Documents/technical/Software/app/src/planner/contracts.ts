@@ -4,36 +4,30 @@ import type { Snapshot } from "./Snapshot.ts";
 
 // #region Planner options
 export interface PlannerOptions {
-    /** Horizontal spacing between one claim lane and the next claim lane. */
-    claimLaneSpacing: number
-    /** Vertical distance between sibling claims within the same layer. */
-    claimSpacing: number
-    /** Size reserved for the junction lane when that lane is present. */
-    junctionLaneSize: number
-    /** Size reserved for the connector curve lane. */
-    connectorCurveLaneSize: number
-    /** Size reserved for the connector diagonal lane. */
-    connectorDiagonalLaneSize: number
+    /** Edge-to-edge gap between sibling claim boxes along a claim lane's lane axis. This gap resolves at local `sourcesScale`. */
+    claimLaneAxisGap: number
+    /** Width reserved for the junction lane on the cross-lane axis when that lane is present. */
+    junctionLaneWidth: number
+    /** Width reserved for the connector curve lane on the cross-lane axis. */
+    connectorCurveLaneWidth: number
+    /** Width reserved for the connector diagonal lane on the cross-lane axis. */
+    connectorDiagonalLaneWidth: number
     /** Claim width used when resolving claim edges from claim centers. */
     claimWidth: number
     /** Claim height used for claim bounds and derived pipe width. */
     claimHeight: number
     /** Outward depth for delivery and relevance aggregators. */
     aggregatorDepth: number
-    /** Junction width as a multiple of the incoming claim size used to form that junction. */
-    junctionWidthFromIncomingClaimSize: number
 }
 
 export const defaultPlannerOptions: PlannerOptions = {
-    claimLaneSpacing: 500,
-    claimSpacing: 100,
-    junctionLaneSize: 500,
-    connectorCurveLaneSize: 100,
-    connectorDiagonalLaneSize: 100,
+    claimLaneAxisGap: 100,
+    junctionLaneWidth: 100,
+    connectorCurveLaneWidth: 100,
+    connectorDiagonalLaneWidth: 100,
     claimWidth: 360,
     claimHeight: 176,
     aggregatorDepth: 36,
-    junctionWidthFromIncomingClaimSize: 1,
 };
 
 export function resolvePlannerOptions(options?: Partial<PlannerOptions>): PlannerOptions {
@@ -48,7 +42,6 @@ export function resolvePlannerOptions(options?: Partial<PlannerOptions>): Planne
 // #region Planner boundary
 export interface PlannerInput {
     debateCore: DebateCore
-    snapshot: Snapshot
     command: DebateCommand
     options?: Partial<PlannerOptions>
 }

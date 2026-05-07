@@ -16,7 +16,6 @@ import {
 } from "../shared/debateSnapshotRenderStatePatch";
 import {
     c1DeliveryAggregatorVizId,
-    c1ClaimId,
     c1ClaimRightEdgePosition,
     c4DeliveryConnectorVizId,
     c5DeliveryConnectorVizId,
@@ -27,6 +26,7 @@ import {
     thirdLayerPipeWidth,
     thirdLayerClaimScale,
 } from "./step0001";
+import { c1ClaimId } from "./scenario";
 
 const step0002BaseRenderState = stripDebateSnapshotRenderStateAnimations(step0001RenderState);
 

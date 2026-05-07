@@ -1,6 +1,6 @@
-import type { Impact, Score, ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.js";
-import { calculateScoreImpacts, calculateScores, withChildrenByParentId } from "./calculateScores.js";
-import { sortClaimsLeavesToRoot } from "./sortClaimsLeavesToRoot.js";
+import type { Impact, Score, ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.ts";
+import { calculateScoreImpacts, calculateScores, withChildrenByParentId } from "./calculateScores.ts";
+import { sortClaimsLeavesToRoot } from "./sortClaimsLeavesToRoot.ts";
 
 export type ApplyCommandResult = {
 	graph: ScoreGraph;
