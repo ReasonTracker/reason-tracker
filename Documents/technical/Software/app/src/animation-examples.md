@@ -17,10 +17,11 @@ These examples describe the visual sequence of what happens on screen and intent
 - The renderer should not smooth, clamp, or floor that scale.
 - Scale is uniform across the local visual structure, so zooming into a scaled-down area should make it geometrically identical to a larger area viewed farther out.
 - Current score does not shrink the pipe or claim scale. Current score only changes how much fluid fills that already-authored full size.
-- `sourcesScale` is the owned potential scale value for a target claim's source side. The target owns that fixed source-side budget, and the planner propagates the resulting child potential scales to the proper source-side visuals.
-- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited shares of that target-owned potential scale.
-- Relevance claims do not create a separate scale budget. They reweight how that fixed target-owned potential scale is divided among direct confidence children while leaving current score to control only fluid fill.
-- Direct relevance children inherit the affected confidence connection's potential scale unchanged. They do not create a separate claim-positioning or potential-scale lane model.
+- `sourcesScale` is the owned potential scale budget for a claim's own source side.
+- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited source-side scales derived from that target-owned budget.
+- Relevance claims do not create a separate scale budget. They change only how that fixed target-owned budget is divided across outgoing delivery sides after the affected junctions while leaving current score to control only fluid fill.
+- Direct relevance children inherit the affected confidence connection's source-side scale unchanged. They do not create a separate claim-positioning or potential-scale lane model.
+- Relevance can therefore widen or shrink the outgoing delivery side relative to the source-side claim and Display Confidence Connector.
 
 ## Layout Rule
 
@@ -33,7 +34,7 @@ These examples describe the visual sequence of what happens on screen and intent
 
 - **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
   - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
-  - That planned scale is the source-side potential scale inherited from the target and then modified only by any applicable relevance, not by the current fluid score.
+  - That planned claim scale is the source-side scale inherited from the target. Relevance can reshape only the outgoing delivery side, and current fluid score still does not change that planned claim scale.
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
@@ -55,7 +56,8 @@ These examples describe the visual sequence of what happens on screen and intent
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
   - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) rules.
   - If there is only one relevance claim, the relevance aggregator may remain hidden or collapsed even though the Relevance Connector is still associated with that relevance aggregator, which can make it look like the connector is landing directly on the junction in this example orientation.
-  - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming confidence side is, and how thick the outgoing delivery side is.
+  - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming Display Confidence Connector side is, and how thick the outgoing Delivery Connector side is.
+  - Relevance can make that outgoing Delivery Connector side either wider or narrower than the incoming Display Confidence Connector side.
   - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
   - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the delivery aggregator on the target claim side, which can look like it is connecting to the claim when there is only one incoming connector because the delivery aggregator is not visible.
 - **First Fill**: The score fluid progressively fills the new pipe.

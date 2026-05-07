@@ -134,6 +134,7 @@ export function renderDebateSnapshot(args: RenderStepProgress & {
                             ...junctions
                                 .map((junction) => renderJunction({
                                     item: junction,
+                                    plannerOptions,
                                     side: junctionSideByConfidenceConnectorId.get(String(junction.confidenceConnectorId)),
                                     stepProgress: args.stepProgress,
                                 }))
@@ -208,6 +209,7 @@ function computeSceneWidth(args: {
     for (const junction of args.junctions) {
         maxX = Math.max(maxX, getJunctionBounds({
             item: junction,
+            plannerOptions: args.plannerOptions,
             stepProgress: args.stepProgress,
         }).maxX);
     }
@@ -265,6 +267,7 @@ function computeSceneHeight(args: {
     for (const junction of args.junctions) {
         maxY = Math.max(maxY, getJunctionBounds({
             item: junction,
+            plannerOptions: args.plannerOptions,
             stepProgress: args.stepProgress,
         }).maxY);
     }

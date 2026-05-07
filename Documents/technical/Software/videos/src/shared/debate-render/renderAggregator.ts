@@ -27,6 +27,7 @@ export type AggregatorGeometry = {
     depth: number;
     edgeCenter: Point;
     edgeLength: number;
+    outlineWidth: number;
     outwardNormal: UnitVector;
     side: Side;
     tangent: UnitVector;
@@ -40,37 +41,23 @@ export type AggregatorAttachment = {
 
 /** Outline width shared with the other graph outline shapes. */
 const AGGREGATOR_OUTLINE_WIDTH_PX = 4;
+const OUTLINE_WIDTH_SHARE_OF_BASE_CLAIM_HEIGHT = AGGREGATOR_OUTLINE_WIDTH_PX / 176;
 
 export function renderAggregatorOutline(args: AggregatorGeometry): RenderElementNode | undefined {
     if (args.depth <= 0 || args.edgeLength <= 0) {
         return undefined;
     }
 
-    const tangent = normalizeUnitVector(args.tangent, { x: -args.outwardNormal.y, y: args.outwardNormal.x });
-    const outwardNormal = normalizeUnitVector(args.outwardNormal, { x: 1, y: 0 });
-    const halfEdgeLength = args.edgeLength / 2;
-    const innerStart = addPoint(args.edgeCenter, scaleUnitVector(tangent, -halfEdgeLength));
-    const innerEnd = addPoint(args.edgeCenter, scaleUnitVector(tangent, halfEdgeLength));
-    const outerEnd = addPoint(innerEnd, scaleUnitVector(outwardNormal, args.depth));
-    const outerStart = addPoint(innerStart, scaleUnitVector(outwardNormal, args.depth));
-    const pathData = [
-        `M ${innerStart.x} ${innerStart.y}`,
-        `L ${innerEnd.x} ${innerEnd.y}`,
-        `L ${outerEnd.x} ${outerEnd.y}`,
-        `L ${outerStart.x} ${outerStart.y}`,
-        "Z",
-    ].join(" ");
-
     return svgElement("path", {
         attributes: {
             "class": "rt-debate-render__aggregator",
-            "d": pathData,
+            "d": buildAggregatorPathData(args),
             "data-aggregator-id": args.aggregatorId,
             "fill": "none",
             "pointer-events": "none",
             "stroke": resolveSideStroke(args.side),
             "stroke-linejoin": "round",
-            "stroke-width": AGGREGATOR_OUTLINE_WIDTH_PX,
+            "stroke-width": args.outlineWidth,
         },
     });
 }
@@ -110,6 +97,7 @@ export function resolveDeliveryAggregatorGeometry(args: {
             y: claimPosition.y,
         },
         edgeLength: getPlannerClaimHeight(claimScale, args.plannerOptions),
+        outlineWidth: resolveAggregatorOutlineWidth(resolveTweenNumber(args.item.scale, args.stepProgress), args.plannerOptions),
         outwardNormal: sourceReferencePoint.x <= claimPosition.x
             ? { x: -1, y: 0 }
             : { x: 1, y: 0 },
@@ -141,12 +129,12 @@ export function resolveRelevanceAggregatorGeometry(args: {
         : { x: junctionPosition.x, y: junctionPosition.y - 1 };
     const span = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress));
     const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress));
-    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress));
+    const outgoingDeliveryHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingDeliveryScale, args.stepProgress));
     const leftHeight = side === "proMain"
         ? incomingConfidenceHeight
-        : outgoingConfidenceHeight;
+        : outgoingDeliveryHeight;
     const rightHeight = side === "proMain"
-        ? outgoingConfidenceHeight
+        ? outgoingDeliveryHeight
         : incomingConfidenceHeight;
     const leftX = junctionPosition.x - (span / 2);
     const rightX = junctionPosition.x + (span / 2);
@@ -172,6 +160,7 @@ export function resolveRelevanceAggregatorGeometry(args: {
             y: (edgeStart.y + edgeEnd.y) / 2,
         },
         edgeLength: Math.hypot(edgeEnd.x - edgeStart.x, edgeEnd.y - edgeStart.y),
+        outlineWidth: resolveAggregatorOutlineWidth(resolveTweenNumber(args.item.scale, args.stepProgress), args.plannerOptions),
         outwardNormal: attachToTop
             ? { x: tangent.y, y: -tangent.x }
             : { x: -tangent.y, y: tangent.x },
@@ -217,13 +206,17 @@ export function getAggregatorBounds(args: AggregatorGeometry | undefined): { max
     );
 
     return {
-        maxX: Math.max(...corners.map((corner) => corner.x)) + (AGGREGATOR_OUTLINE_WIDTH_PX / 2),
-        maxY: Math.max(...corners.map((corner) => corner.y)) + (AGGREGATOR_OUTLINE_WIDTH_PX / 2),
+        maxX: Math.max(...corners.map((corner) => corner.x)) + (args.outlineWidth / 2),
+        maxY: Math.max(...corners.map((corner) => corner.y)) + (args.outlineWidth / 2),
     };
 }
 
 export function resolveAggregatorDepth(scale: number, plannerOptions: PlannerOptions): number {
     return plannerOptions.aggregatorDepth * resolveVisualScale(scale);
+}
+
+function resolveAggregatorOutlineWidth(scale: number, plannerOptions: PlannerOptions): number {
+    return getPlannerClaimHeight(scale, plannerOptions) * OUTLINE_WIDTH_SHARE_OF_BASE_CLAIM_HEIGHT;
 }
 
 export function normalizeUnitVector(vector: UnitVector, fallback: UnitVector): UnitVector {
@@ -255,6 +248,42 @@ function scaleUnitVector(vector: UnitVector, distance: number): UnitVector {
 
 function resolveSideStroke(side: Side): string {
     return side === "proMain" ? "var(--pro)" : "var(--con)";
+}
+
+function buildAggregatorPathData(args: AggregatorGeometry): string {
+    const { innerStart, innerEnd, outerEnd, outerStart } = resolveAggregatorCorners(args);
+
+    return [
+        `M ${innerStart.x} ${innerStart.y}`,
+        `L ${innerEnd.x} ${innerEnd.y}`,
+        `L ${outerEnd.x} ${outerEnd.y}`,
+        `L ${outerStart.x} ${outerStart.y}`,
+        "Z",
+    ].join(" ");
+}
+
+function resolveAggregatorCorners(args: AggregatorGeometry): {
+    innerEnd: Point;
+    innerStart: Point;
+    outerEnd: Point;
+    outerStart: Point;
+    tangent: UnitVector;
+} {
+    const tangent = normalizeUnitVector(args.tangent, { x: -args.outwardNormal.y, y: args.outwardNormal.x });
+    const outwardNormal = normalizeUnitVector(args.outwardNormal, { x: 1, y: 0 });
+    const halfEdgeLength = args.edgeLength / 2;
+    const innerStart = addPoint(args.edgeCenter, scaleUnitVector(tangent, -halfEdgeLength));
+    const innerEnd = addPoint(args.edgeCenter, scaleUnitVector(tangent, halfEdgeLength));
+    const outerEnd = addPoint(innerEnd, scaleUnitVector(outwardNormal, args.depth));
+    const outerStart = addPoint(innerStart, scaleUnitVector(outwardNormal, args.depth));
+
+    return {
+        innerEnd,
+        innerStart,
+        outerEnd,
+        outerStart,
+        tangent,
+    };
 }
 
 function resolveVisualScale(scale: number): number {

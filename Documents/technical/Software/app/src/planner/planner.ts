@@ -79,6 +79,7 @@ type IncomingConfidenceLayout = {
 type SettledSnapshotBuildContext = {
     confidenceConnectorIdByScoreNodeId: Partial<Record<ScoreNodeId, ConfidenceConnectorId>>;
     debateCore: PlannerInput["debateCore"];
+    deliveryScales: ReturnType<typeof calculateSourcesScalesFromDebateCore>["deliveryScales"];
     graph: ReturnType<typeof withChildrenByParentId>;
     options: PlannerOptions;
     relevanceConnectorIdByScoreNodeId: Partial<Record<ScoreNodeId, RelevanceConnectorId>>;
@@ -94,6 +95,10 @@ export function buildSnapshotFromDebateCore(args: {
 }): Snapshot {
     const options = resolvePlannerOptions(args.options);
     const scored = calculateScoresFromDebateCore(args.debateCore);
+    const calculatedScales = calculateSourcesScalesFromDebateCore({
+        debateCore: args.debateCore,
+        rootSourcesScale: 1,
+    });
     const graph = withChildrenByParentId(scored.graph);
 
     assertUniqueVisibleClaimOccurrences(graph.nodes);
@@ -101,6 +106,7 @@ export function buildSnapshotFromDebateCore(args: {
     const context: SettledSnapshotBuildContext = {
         confidenceConnectorIdByScoreNodeId: invertScoreNodeMapping(scored.scoreNodeIdByConfidenceConnectorId),
         debateCore: args.debateCore,
+        deliveryScales: calculatedScales.deliveryScales,
         graph,
         options,
         relevanceConnectorIdByScoreNodeId: invertScoreNodeMapping(scored.scoreNodeIdByRelevanceConnectorId),
@@ -110,10 +116,7 @@ export function buildSnapshotFromDebateCore(args: {
             rootScoreNodeId: scored.rootScoreNodeId,
         }),
         snapshot: {},
-        sourcesScales: calculateSourcesScalesFromDebateCore({
-            debateCore: args.debateCore,
-            rootSourcesScale: 1,
-        }).sourcesScales,
+        sourcesScales: calculatedScales.sourcesScales,
     };
 
     buildSettledClaimOccurrence({
@@ -175,17 +178,17 @@ function buildSettledClaimOccurrence(args: {
         throw new Error(`Missing score node while building settled snapshot: ${args.scoreNodeId}`);
     }
 
-    const claimScale = resolveOccurrenceScale(args.context.sourcesScales, args.scoreNodeId);
+    const claimSourcesScale = resolveOccurrenceScale(args.context.sourcesScales, args.scoreNodeId);
     const claimViz: ClaimViz = {
         type: "claim",
         id: resolveClaimVizId(args.scoreNodeId),
         claimId: scoreNode.claimId,
         position: {
-            x: args.claimLeftEdgeX + ((args.context.options.claimWidth * claimScale) / 2),
+            x: args.claimLeftEdgeX + ((args.context.options.claimWidth * claimSourcesScale) / 2),
             y: args.claimCenterY,
         },
-        scale: claimScale,
-        sourcesScale: claimScale,
+        scale: claimSourcesScale,
+        sourcesScale: claimSourcesScale,
         score: resolveScoreValue(args.context.scored.scores[args.scoreNodeId]?.value),
         side: args.context.sides[args.scoreNodeId] ?? "proMain",
     };
@@ -215,7 +218,8 @@ function buildIncomingConfidenceStructures(args: {
     scoreNodeId: ScoreNodeId;
 }): void {
     const directRelevanceChildren = getDirectRelevanceChildren(args.context, args.scoreNodeId);
-    const claimSourcesScale = resolveStaticTweenNumber(args.claimViz.sourcesScale);
+    const sourceSideScale = resolveStaticTweenNumber(args.claimViz.sourcesScale);
+    const deliveryScale = resolveOccurrenceScale(args.context.deliveryScales, args.scoreNodeId);
     const relevanceChildren = directRelevanceChildren.map(({ relevanceConnector, scoreNodeId }) => ({
         edge: relevanceConnector.targetRelationship === "proTarget" ? "top" as const : "bottom" as const,
         relevanceConnector,
@@ -289,7 +293,7 @@ function buildIncomingConfidenceStructures(args: {
         animationType: "uniform",
         confidenceConnectorId: args.incomingConfidenceLayout.confidenceConnector.id,
         relevanceConnectorVizIds,
-        scale: resolveStaticTweenNumber(args.claimViz.sourcesScale),
+        scale: sourceSideScale,
         score: resolveStaticTweenNumber(args.claimViz.score),
         visible: relevanceConnectorVizIds.length >= 2,
     };
@@ -303,9 +307,9 @@ function buildIncomingConfidenceStructures(args: {
             x: args.incomingConfidenceLayout.junctionCenterX,
             y: resolveStaticTweenPoint(args.claimViz.position).y,
         },
-        outgoingConfidenceScale: resolvePipeWidth(claimSourcesScale, args.context.options),
-        incomingConfidenceScale: resolvePipeWidth(claimSourcesScale, args.context.options),
+        incomingConfidenceScale: resolvePipeWidth(sourceSideScale, args.context.options),
         incomingRelevanceScale,
+        outgoingDeliveryScale: resolvePipeWidth(deliveryScale, args.context.options),
         visible: relevanceConnectorVizIds.length > 0,
     };
     args.context.snapshot[confidenceConnectorVizId] = {
@@ -316,7 +320,7 @@ function buildIncomingConfidenceStructures(args: {
         sourceClaimVizId: args.claimViz.id,
         targetJunctionVizId: junctionVizId,
         visible: relevanceConnectorVizIds.length > 0,
-        scale: claimSourcesScale,
+        scale: sourceSideScale,
         score: resolveStaticTweenNumber(args.claimViz.score),
         side: args.claimViz.side,
         direction: "sourceToTarget",
@@ -328,7 +332,7 @@ function buildIncomingConfidenceStructures(args: {
         confidenceConnectorId: args.incomingConfidenceLayout.confidenceConnector.id,
         sourceJunctionVizId: junctionVizId,
         targetClaimVizId: args.incomingConfidenceLayout.targetClaimVizId,
-        scale: claimSourcesScale,
+        scale: deliveryScale,
         score: resolveStaticTweenNumber(args.claimViz.score),
         side: args.claimViz.side,
         direction: "sourceToTarget",
@@ -390,19 +394,19 @@ function buildOutgoingConfidenceStructures(args: {
     const claimCenterYByMemberId = Object.fromEntries(
         claimLanePlacements.map((placement) => [placement.placementId, placement.centerY]),
     ) as Partial<Record<string, number>>;
-    const siblingPlacementBasis = resolveSiblingPlacementBasis({
-        childSourceScales: args.context.sourcesScales,
+    const siblingDeliveryPlacementBasis = resolveSiblingDeliveryPlacementBasis({
+        childDeliveryScales: args.context.deliveryScales,
         options: args.context.options,
         scored: args.context.scored,
         siblingConnectors,
     });
     const targetSideOffsets = resolveTargetSideOffsets({
-        placements: siblingPlacementBasis.map((placement) => ({
+        placements: siblingDeliveryPlacementBasis.map((placement) => ({
             envelopeHeight: placement.envelopeHeight,
         })),
     });
     const targetSideOffsetByConfidenceConnectorId = Object.fromEntries(
-        siblingPlacementBasis.map((placement, index) => [placement.connector.id, targetSideOffsets[index] ?? 0]),
+        siblingDeliveryPlacementBasis.map((placement, index) => [placement.connector.id, targetSideOffsets[index] ?? 0]),
     ) as Partial<Record<ConfidenceConnectorId, number>>;
 
     for (const claimLaneMember of claimLaneMembers) {
@@ -608,7 +612,7 @@ function normalizeSnapshotToTopLeft(args: {
                     minY,
                     position.y - (Math.max(
                         resolveStaticTweenNumber(item.incomingConfidenceScale),
-                        resolveStaticTweenNumber(item.outgoingConfidenceScale),
+                        resolveStaticTweenNumber(item.outgoingDeliveryScale),
                     ) / 2),
                 );
             } else {
@@ -724,7 +728,6 @@ function buildVoilaSnapshot(args: {
     };
 
     const voilaClaimPlacements = resolveVoilaClaimPlacements({
-        confidenceConnectorId: args.confidenceConnectorId,
         openingSnapshot: args.openingSnapshot,
         options: args.options,
         settledSnapshot: args.settledSnapshot,
@@ -751,21 +754,30 @@ function buildVoilaSnapshot(args: {
         if (!args.openingSnapshot[confidenceConnector.sourceClaimVizId]) {
             continue;
         }
+    }
 
-        const currentClaimViz = getRequiredClaimViz(args.openingSnapshot, confidenceConnector.sourceClaimVizId);
-        const voilaClaimPlacement = voilaClaimPlacements.find((placement) => placement.connectorId === settledDeliveryConnector.confidenceConnectorId);
+    for (const voilaClaimPlacement of voilaClaimPlacements) {
+        const currentClaimViz = args.openingSnapshot[voilaClaimPlacement.claimVizId];
 
-        if (!voilaClaimPlacement) {
+        if (currentClaimViz?.type === "claim") {
+            snapshot[voilaClaimPlacement.claimVizId] = {
+                ...currentClaimViz,
+                position: buildTweenPoint(
+                    resolveStaticTweenPoint(currentClaimViz.position),
+                    voilaClaimPlacement.position,
+                ),
+            };
             continue;
         }
 
-        snapshot[confidenceConnector.sourceClaimVizId] = {
-            ...currentClaimViz,
-            position: buildTweenPoint(
-                resolveStaticTweenPoint(currentClaimViz.position),
-                voilaClaimPlacement.position,
-            ),
-        };
+        const stagedClaimViz = snapshot[voilaClaimPlacement.claimVizId];
+
+        if (stagedClaimViz?.type === "claim") {
+            snapshot[voilaClaimPlacement.claimVizId] = {
+                ...stagedClaimViz,
+                position: voilaClaimPlacement.position,
+            };
+        }
     }
 
     return snapshot;
@@ -787,7 +799,6 @@ function buildSproutSnapshot(args: {
     const newDeliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(args.settledSnapshot, args.confidenceConnectorId);
     const settledNewDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, newDeliveryConnectorVizId);
     const voilaClaimPlacements = resolveVoilaClaimPlacements({
-        confidenceConnectorId: args.confidenceConnectorId,
         openingSnapshot: args.openingSnapshot,
         options: args.options,
         settledSnapshot: args.settledSnapshot,
@@ -825,41 +836,26 @@ function buildSproutSnapshot(args: {
             };
         }
 
-        const confidenceConnectorVizId = resolveOrCreateConfidenceConnectorVizId(
-            args.settledSnapshot,
-            settledDeliveryConnector.confidenceConnectorId,
-        );
-        const confidenceConnector = args.openingSnapshot[confidenceConnectorVizId]
-            ?? args.settledSnapshot[confidenceConnectorVizId];
+    }
 
-        if (confidenceConnector?.type !== "confidenceConnector") {
-            continue;
-        }
+    for (const voilaClaimPlacement of voilaClaimPlacements) {
+        const settledClaimViz = getRequiredClaimViz(args.settledSnapshot, voilaClaimPlacement.claimVizId);
+        const currentClaimViz = args.openingSnapshot[voilaClaimPlacement.claimVizId];
 
-        if (!args.openingSnapshot[confidenceConnector.sourceClaimVizId]) {
-            continue;
-        }
-
-        const currentClaimViz = getRequiredClaimViz(args.openingSnapshot, confidenceConnector.sourceClaimVizId);
-        const settledClaimViz = getRequiredClaimViz(args.settledSnapshot, confidenceConnector.sourceClaimVizId);
-        const voilaClaimPlacement = voilaClaimPlacements.find((placement) => placement.connectorId === settledDeliveryConnector.confidenceConnectorId);
-
-        if (!voilaClaimPlacement) {
-            continue;
-        }
-
-        snapshot[confidenceConnector.sourceClaimVizId] = {
+        snapshot[voilaClaimPlacement.claimVizId] = {
             ...settledClaimViz,
             position: buildTweenPoint(
                 voilaClaimPlacement.position,
                 resolveStaticTweenPoint(settledClaimViz.position),
                 { endPct: 1, startPct: 0.7 },
             ),
-            scale: buildTweenNumber(
-                resolveStaticTweenNumber(currentClaimViz.scale),
-                resolveStaticTweenNumber(settledClaimViz.scale),
-                { endPct: 1, startPct: 0.7 },
-            ),
+            scale: currentClaimViz?.type === "claim"
+                ? buildTweenNumber(
+                    resolveStaticTweenNumber(currentClaimViz.scale),
+                    resolveStaticTweenNumber(settledClaimViz.scale),
+                    { endPct: 1, startPct: 0.7 },
+                )
+                : settledClaimViz.scale,
         };
     }
 
@@ -885,16 +881,16 @@ function buildFirstFillSnapshot(args: {
     return snapshot;
 }
 
-function resolveSiblingPlacementBasis(args: {
-    childSourceScales: Partial<Record<ScoreNodeId, number>>;
+function resolveSiblingDeliveryPlacementBasis(args: {
+    childDeliveryScales: Partial<Record<ScoreNodeId, number>>;
     options: PlannerOptions;
     scored: ReturnType<typeof calculateScoresFromDebateCore>;
     siblingConnectors: ConfidenceConnector[];
 }): Array<{
     connector: ConfidenceConnector;
+    deliveryScale: number;
     envelopeHeight: number;
     scoreNodeId: ScoreNodeId;
-    sourcesScale: number;
 }> {
     return args.siblingConnectors.map((connector) => {
         const scoreNodeId = args.scored.scoreNodeIdByConfidenceConnectorId[connector.id];
@@ -903,17 +899,17 @@ function resolveSiblingPlacementBasis(args: {
             throw new Error(`Missing score node id for confidence connector: ${connector.id}`);
         }
 
-        const sourcesScale = resolveScoreValue(args.childSourceScales[scoreNodeId]);
+        const deliveryScale = resolveScoreValue(args.childDeliveryScales[scoreNodeId]);
         const score = resolveScoreValue(args.scored.scores[scoreNodeId]?.value);
         const side = resolveSide(args.scored.graph.nodes[scoreNodeId]?.proParent);
-        const pipeWidth = resolvePipeWidth(sourcesScale, args.options);
+        const pipeWidth = resolvePipeWidth(deliveryScale, args.options);
         const fluidWidth = Math.max(0, Math.min(pipeWidth, pipeWidth * score));
 
         return {
             connector,
+            deliveryScale,
             envelopeHeight: resolveBandEnvelopeHeight(pipeWidth, fluidWidth, side),
             scoreNodeId,
-            sourcesScale,
         };
     });
 }
@@ -943,14 +939,19 @@ function resolveClaimPlacements<TPlacementId extends string>(args: {
         : -1;
 
     if (pinnedIndex >= 0 && args.pinnedPlacement) {
-        const centerYs = new Array<number>(args.placements.length);
+        const centerYs: Array<number | undefined> = Array.from({ length: args.placements.length });
         centerYs[pinnedIndex] = args.pinnedPlacement.centerY;
 
         for (let placementIndex = pinnedIndex - 1; placementIndex >= 0; placementIndex -= 1) {
             const belowPlacement = args.placements[placementIndex + 1];
             const currentPlacement = args.placements[placementIndex];
+            const belowCenterY = centerYs[placementIndex + 1];
 
-            centerYs[placementIndex] = centerYs[placementIndex + 1]
+            if (belowCenterY === undefined) {
+                throw new Error(`Missing below placement center while resolving claim placements: ${placementIndex + 1}`);
+            }
+
+            centerYs[placementIndex] = belowCenterY
                 - ((args.options.claimHeight * belowPlacement.sourcesScale) / 2)
                 - (args.options.claimLaneAxisGap * ((currentPlacement.sourcesScale + belowPlacement.sourcesScale) / 2))
                 - ((args.options.claimHeight * currentPlacement.sourcesScale) / 2);
@@ -959,8 +960,13 @@ function resolveClaimPlacements<TPlacementId extends string>(args: {
         for (let placementIndex = pinnedIndex + 1; placementIndex < args.placements.length; placementIndex += 1) {
             const abovePlacement = args.placements[placementIndex - 1];
             const currentPlacement = args.placements[placementIndex];
+            const aboveCenterY = centerYs[placementIndex - 1];
 
-            centerYs[placementIndex] = centerYs[placementIndex - 1]
+            if (aboveCenterY === undefined) {
+                throw new Error(`Missing above placement center while resolving claim placements: ${placementIndex - 1}`);
+            }
+
+            centerYs[placementIndex] = aboveCenterY
                 + ((args.options.claimHeight * abovePlacement.sourcesScale) / 2)
                 + (args.options.claimLaneAxisGap * ((abovePlacement.sourcesScale + currentPlacement.sourcesScale) / 2))
                 + ((args.options.claimHeight * currentPlacement.sourcesScale) / 2);
@@ -1019,70 +1025,102 @@ function resolveTargetSideOffsets(args: {
 }
 
 function resolveVoilaClaimPlacements(args: {
-    confidenceConnectorId: ConfidenceConnectorId;
     openingSnapshot: Snapshot;
     options: PlannerOptions;
     settledSnapshot: Snapshot;
     targetClaimId: ClaimId;
 }): Array<{
-    connectorId: ConfidenceConnectorId;
+    claimVizId: ClaimVizId;
     position: { x: number; y: number };
     scale: number;
 }> {
     const targetClaimVizId = findUniqueClaimVizId(args.settledSnapshot, args.targetClaimId);
-    const targetClaimViz = getRequiredClaimViz(args.settledSnapshot, targetClaimVizId);
-    const targetDeliveryAggregatorVizId = resolveOrCreateDeliveryAggregatorVizId(args.settledSnapshot, args.targetClaimId);
-    const siblingDeliveryConnectorVizIds = getRequiredDeliveryAggregator(
-        args.settledSnapshot,
-        targetDeliveryAggregatorVizId,
-    ).deliveryConnectorVizIds;
-    const siblingConfidenceConnectors = siblingDeliveryConnectorVizIds.map((deliveryConnectorVizId) => {
-        const deliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, deliveryConnectorVizId);
-
-        return getRequiredConfidenceConnector(
-            args.settledSnapshot,
-            resolveOrCreateConfidenceConnectorVizId(args.settledSnapshot, deliveryConnector.confidenceConnectorId),
-        );
+    const settledTargetClaimViz = getRequiredClaimViz(args.settledSnapshot, targetClaimVizId);
+    const displayedTargetClaimViz = args.openingSnapshot[targetClaimVizId]?.type === "claim"
+        ? args.openingSnapshot[targetClaimVizId]
+        : settledTargetClaimViz;
+    const sourceClusterClaimVizIds = resolveOrderedSourceClusterClaimVizIds({
+        snapshot: args.settledSnapshot,
+        targetClaimId: args.targetClaimId,
     });
-    const settledNewConfidenceConnector = siblingConfidenceConnectors.find(
-        (confidenceConnector) => confidenceConnector.confidenceConnectorId === args.confidenceConnectorId,
-    );
-
-    if (!settledNewConfidenceConnector) {
-        throw new Error(`Missing new confidence connector viz: ${args.confidenceConnectorId}`);
-    }
-
-    const settledNewClaimViz = getRequiredClaimViz(args.settledSnapshot, settledNewConfidenceConnector.sourceClaimVizId);
     const claimPlacements = resolveClaimPlacements({
         options: args.options,
-        placements: siblingConfidenceConnectors.map((confidenceConnector) => {
-            const currentClaimViz = args.openingSnapshot[confidenceConnector.sourceClaimVizId];
-            const settledClaimViz = getRequiredClaimViz(args.settledSnapshot, confidenceConnector.sourceClaimVizId);
+        placements: sourceClusterClaimVizIds.map((claimVizId) => {
+            const currentClaimViz = args.openingSnapshot[claimVizId];
+            const settledClaimViz = getRequiredClaimViz(args.settledSnapshot, claimVizId);
 
             return {
-                placementId: confidenceConnector.confidenceConnectorId,
+                placementId: claimVizId,
                 sourcesScale: currentClaimViz?.type === "claim"
-                    ? resolveStaticTweenNumber(currentClaimViz.sourcesScale)
-                    : resolveStaticTweenNumber(settledClaimViz.sourcesScale),
+                    ? resolveStaticTweenNumber(currentClaimViz.scale)
+                    : resolveStaticTweenNumber(settledClaimViz.scale),
             };
         }),
-        pinnedPlacement: {
-            centerY: resolveStaticTweenPoint(settledNewClaimViz.position).y,
-            placementId: args.confidenceConnectorId,
-        },
-        targetClaimViz,
+        targetClaimViz: displayedTargetClaimViz,
     });
-    const sourceLaneLeftEdgeX = resolveStaticTweenPoint(settledNewClaimViz.position).x
-        - ((args.options.claimWidth * resolveStaticTweenNumber(settledNewClaimViz.sourcesScale)) / 2);
+    const settledSourceLaneLeftEdgeX = Math.min(
+        ...sourceClusterClaimVizIds.map((claimVizId) => resolveClaimLeftEdgeX(
+            getRequiredClaimViz(args.settledSnapshot, claimVizId),
+            args.options,
+        )),
+    );
+    const sourceLaneLeftEdgeOffset = settledSourceLaneLeftEdgeX - resolveTargetClaimRightEdgeX(settledTargetClaimViz, args.options);
+    const sourceLaneLeftEdgeX = resolveTargetClaimRightEdgeX(displayedTargetClaimViz, args.options) + sourceLaneLeftEdgeOffset;
 
     return claimPlacements.map((placement) => ({
-        connectorId: placement.placementId,
+        claimVizId: placement.placementId,
         position: {
             x: sourceLaneLeftEdgeX + ((args.options.claimWidth * placement.sourcesScale) / 2),
             y: placement.centerY,
         },
         scale: placement.sourcesScale,
     }));
+}
+
+function resolveOrderedSourceClusterClaimVizIds(args: {
+    snapshot: Snapshot;
+    targetClaimId: ClaimId;
+}): ClaimVizId[] {
+    const targetDeliveryAggregatorVizId = resolveOrCreateDeliveryAggregatorVizId(args.snapshot, args.targetClaimId);
+    const targetDeliveryAggregator = getRequiredDeliveryAggregator(args.snapshot, targetDeliveryAggregatorVizId);
+    const claimVizIds = new Set<ClaimVizId>();
+
+    for (const deliveryConnectorVizId of targetDeliveryAggregator.deliveryConnectorVizIds) {
+        const deliveryConnector = getRequiredDeliveryConnector(args.snapshot, deliveryConnectorVizId);
+        const confidenceConnectorViz = getRequiredConfidenceConnector(
+            args.snapshot,
+            resolveOrCreateConfidenceConnectorVizId(args.snapshot, deliveryConnector.confidenceConnectorId),
+        );
+
+        claimVizIds.add(confidenceConnectorViz.sourceClaimVizId);
+
+        const relevanceAggregator = getRequiredRelevanceAggregator(
+            args.snapshot,
+            resolveOrCreateRelevanceAggregatorVizId(args.snapshot, deliveryConnector.confidenceConnectorId),
+        );
+
+        for (const relevanceConnectorVizId of relevanceAggregator.relevanceConnectorVizIds) {
+            const relevanceConnector = args.snapshot[relevanceConnectorVizId];
+
+            if (!relevanceConnector || relevanceConnector.type !== "relevanceConnector") {
+                throw new Error(`Missing relevance connector viz: ${relevanceConnectorVizId}`);
+            }
+
+            claimVizIds.add(relevanceConnector.sourceClaimVizId);
+        }
+    }
+
+    return [...claimVizIds].sort((left, right) => {
+        const leftClaimViz = getRequiredClaimViz(args.snapshot, left);
+        const rightClaimViz = getRequiredClaimViz(args.snapshot, right);
+        const yDelta = resolveStaticTweenPoint(leftClaimViz.position).y - resolveStaticTweenPoint(rightClaimViz.position).y;
+
+        if (yDelta !== 0) {
+            return yDelta;
+        }
+
+        return String(left).localeCompare(String(right));
+    });
 }
 
 function resolveSourceLaneLeftEdgeX(args: {
@@ -1134,7 +1172,7 @@ function resolveScaledCrossLaneWidth(width: number, sourcesScale: number): numbe
 
 function resolveTargetClaimRightEdgeX(targetClaimViz: ClaimViz, options: PlannerOptions): number {
     const targetPosition = resolveStaticTweenPoint(targetClaimViz.position);
-    const targetScale = resolveStaticTweenNumber(targetClaimViz.sourcesScale);
+    const targetScale = resolveStaticTweenNumber(targetClaimViz.scale);
 
     return targetPosition.x + ((options.claimWidth * targetScale) / 2);
 }
@@ -1323,7 +1361,7 @@ function resolveSide(proParent: boolean | undefined): Side {
     return proParent === false ? "conMain" : "proMain";
 }
 
-function resolveBandEnvelopeHeight(pipeWidth: number, bandWidth: number, side: Side): number {
+function resolveBandEnvelopeHeight(pipeWidth: number, bandWidth: number, _side: Side): number {
     const safePipeWidth = Math.max(0, pipeWidth);
     const safeBandWidth = Math.min(safePipeWidth, Math.max(0, bandWidth));
 

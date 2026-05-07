@@ -23,9 +23,10 @@
 
 ## Current Layout Decisions
 
-- `ClaimViz.scale` is the propagated full-pipe render scale for that claim occurrence at `100%` score.
-- `ClaimViz.sourcesScale` is the owned source-side potential scale for that claim occurrence and is the master size value for settled layout sizing. `scale` may animate separately from it.
+- `ClaimViz.scale` is the propagated claim render scale. In a settled state it matches `ClaimViz.sourcesScale`, and during animation it may diverge temporarily.
+- `ClaimViz.sourcesScale` is the owned source-side potential scale budget for that claim occurrence as a target. Downstream source-side layout from that claim uses this value.
 - Current `score` changes fluid fill inside that authored scale. Current `score` does not directly shrink the pipe or claim diameter.
+- Display Confidence Connectors, Relevance Connectors, delivery-aggregator edge length, and source-claim boxes use the claim's `sourcesScale` as their settled size basis. Delivery Connectors and the outgoing side of a junction use the relevance-adjusted delivery scale.
 - `claimLaneAxisGap` is an edge-to-edge gap, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry.
 - The delivery-connector corridor is expressed as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.

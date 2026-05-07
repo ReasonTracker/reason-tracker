@@ -43,6 +43,13 @@ if (plannedSnapshots.length !== 3) {
     throw new Error(`Episode0004 expected 3 planner snapshots, received ${plannedSnapshots.length}`);
 }
 
+console.log("Episode0004 planner snapshots", {
+    firstFillSnapshot: plannedSnapshots[2],
+    openingSnapshot,
+    sproutSnapshot: plannedSnapshots[1],
+    voilaSnapshot: plannedSnapshots[0],
+});
+
 function toRenderState(snapshot: Snapshot): DebateSnapshotRenderState {
     return {
         debateCore: appliedCommand.debateCore,

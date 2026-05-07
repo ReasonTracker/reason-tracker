@@ -105,7 +105,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
             confidenceConnectorId: c2ConfidenceConnectorId,
             relevanceAggregatorVizId: c2RelevanceAggregatorVizId,
             position: c2ClaimLeftEdgePosition,
-            outgoingConfidenceScale: fullScalePipeWidth,
+            outgoingDeliveryScale: fullScalePipeWidth,
             incomingConfidenceScale: fullScalePipeWidth,
             incomingRelevanceScale: fullScalePipeWidth,
             visible: false,

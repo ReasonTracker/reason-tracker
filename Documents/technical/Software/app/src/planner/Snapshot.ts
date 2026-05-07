@@ -13,18 +13,18 @@ export interface ClaimViz {
     /**
      * The propagated render scale for this claim visual.
      *
-        * In a settled state this is the authored full-size scale for this claim
-        * occurrence at `100%` score, so the renderer does not need to look it up
-        * elsewhere. During animation it may temporarily diverge from
-        * `sourcesScale` so the claim can animate independently from its owned
-        * outgoing source-side potential scale.
+            * In a settled state this equals `sourcesScale`, which is the authored
+            * full-size scale for this claim occurrence at `100%` score. During
+            * animation it may temporarily diverge so the claim can animate
+            * independently from its settled source-side scale.
      */
     scale: TweenNumber
     /**
-        * Owned by the target claim for its source side.
-        * This is the full-size potential scale for that source side at `100%`
-        * score. Every source targeting this claim starts from that value, and the
-        * planner propagates that value onto the proper source-side visuals.
+            * Owned by this claim for its own source side.
+            * This is the full-size base source-side scale for this claim at `100%`
+            * score. Claims, source-side connectors, and source-side layout use this
+            * as their settled size basis. Relevance-driven delivery differences live
+            * on the outgoing delivery connector and junction, not here.
      */
     sourcesScale: TweenNumber
     score: TweenNumber
@@ -49,9 +49,9 @@ export interface JunctionViz {
     confidenceConnectorId: ConfidenceConnectorId
     relevanceAggregatorVizId: RelevanceAggregatorVizId
     position: TweenPoint
-    outgoingConfidenceScale: TweenNumber
     incomingConfidenceScale: TweenNumber
     incomingRelevanceScale: TweenNumber
+    outgoingDeliveryScale: TweenNumber
     visible: TweenBoolean
 }
 

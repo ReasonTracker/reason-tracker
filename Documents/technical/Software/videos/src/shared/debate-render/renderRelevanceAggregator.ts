@@ -18,7 +18,9 @@ export function renderRelevanceAggregator(args: {
 } & RenderStepProgress): RenderElementNode | undefined {
     const geometry = resolveRelevanceAggregatorGeometry(args);
 
-    return geometry ? renderAggregatorOutline(geometry) : undefined;
+    return geometry
+        ? renderAggregatorOutline(geometry)
+        : undefined;
 }
 
 export function getRelevanceAggregatorBounds(args: {

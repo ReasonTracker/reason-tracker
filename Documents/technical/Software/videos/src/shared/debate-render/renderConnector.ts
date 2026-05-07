@@ -57,6 +57,7 @@ type UnitVector = {
 };
 
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
+const OUTLINE_WIDTH_SHARE_OF_BASE_CLAIM_HEIGHT = CONNECTOR_OUTLINE_WIDTH_PX / 176;
 const PIPE_INTERIOR_ALPHA = 0.2;
 const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
 const CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN = 0.2;
@@ -93,6 +94,7 @@ export function renderConnector(
         to: pipeWidthToFluidWidth(pipeWidthEndpoints.to, scoreEndpoints.to),
     };
     const currentFluidWidth = pipeWidthToFluidWidth(currentPipeWidth, connector.score);
+    const currentOutlineWidth = getPlannerOutlineWidth(connector.scale, args.plannerOptions);
     const pipeMode = resolveConnectorLayerAnimationMode(args.item.animationType, pipeWidthEndpoints);
     const fluidMode = resolveConnectorLayerAnimationMode(args.item.animationType, fluidWidthEndpoints);
     const pipeWidthTransition = pipeMode === "widthTransition"
@@ -152,6 +154,7 @@ export function renderConnector(
         },
         children: renderConnectorPathNodes(buildConnectorPathDefinitions({
             fluidGeometry,
+            outlineWidth: currentOutlineWidth,
             pipeGeometry,
             side: args.item.side,
         })),
@@ -173,6 +176,7 @@ export function getConnectorBounds(args: {
 
 function buildConnectorPathDefinitions(args: {
     fluidGeometry: BandGeometry | undefined;
+    outlineWidth: number;
     pipeGeometry: BandGeometry | undefined;
     side: Side;
 }): ConnectorPathDefinition[] {
@@ -192,7 +196,7 @@ function buildConnectorPathDefinitions(args: {
                 stroke: sideStroke,
                 strokeLinecap: "round",
                 strokeLinejoin: "round",
-                strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
+                strokeWidth: args.outlineWidth,
             },
             {
                 fill: "none",
@@ -200,7 +204,7 @@ function buildConnectorPathDefinitions(args: {
                 stroke: sideStroke,
                 strokeLinecap: "round",
                 strokeLinejoin: "round",
-                strokeWidth: CONNECTOR_OUTLINE_WIDTH_PX,
+                strokeWidth: args.outlineWidth,
             },
         );
     }
@@ -823,6 +827,10 @@ function getPlannerPipeWidth(scale: number, plannerOptions: PlannerOptions): num
     return getPlannerClaimHeight(scale, plannerOptions);
 }
 
+function getPlannerOutlineWidth(scale: number, plannerOptions: PlannerOptions): number {
+    return getPlannerPipeWidth(scale, plannerOptions) * OUTLINE_WIDTH_SHARE_OF_BASE_CLAIM_HEIGHT;
+}
+
 function pipeWidthToFluidWidth(pipeWidth: number, score: number): number {
     return pipeWidth * clamp01(score);
 }
@@ -1080,12 +1088,12 @@ function resolveRelevanceJunctionAttachment(args: {
     const position = resolveTweenPoint(junctionItem.position, args.stepProgress);
     const span = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingRelevanceScale, args.stepProgress));
     const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.incomingConfidenceScale, args.stepProgress));
-    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingConfidenceScale, args.stepProgress));
+    const outgoingDeliveryHeight = resolveNonNegativeDimension(resolveTweenNumber(junctionItem.outgoingDeliveryScale, args.stepProgress));
     const leftHeight = args.side === "proMain"
         ? incomingConfidenceHeight
-        : outgoingConfidenceHeight;
+        : outgoingDeliveryHeight;
     const rightHeight = args.side === "proMain"
-        ? outgoingConfidenceHeight
+        ? outgoingDeliveryHeight
         : incomingConfidenceHeight;
     const leftX = position.x - (span / 2);
     const rightX = position.x + (span / 2);

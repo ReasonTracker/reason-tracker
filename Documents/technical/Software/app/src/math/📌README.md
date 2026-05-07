@@ -20,12 +20,12 @@ New information changes the score only when it is added as a claim and connected
 - If internal path-occurrence handling is needed for a later scope, keep it inside math unless an exported boundary genuinely needs a separate contract.
 - Eventual `proMain` or `conMain` side derivation lives in math.
 - Source-side potential-scale derivation lives in math.
-- `sourcesScale` represents full pipe size at `100%` score, not current fluid fill.
+- `sourcesScale` represents a claim's owned source-side potential-scale budget at `100%` score, not current fluid fill.
 - Current score changes fluid fill, not pipe diameter.
 - A target claim owns the fixed `sourcesScale` budget for its source side.
-- Before relevance modifiers are applied, direct confidence children of the same target use equal inherited shares of that fixed target-owned potential scale.
-- Direct relevance children inherit the affected confidence connection's potential scale unchanged.
-- Relevance can increase or decrease the affected confidence child's share of that fixed target-owned potential scale.
+- Before relevance modifiers are applied, direct confidence children of the same target use equal inherited source-side scales derived from that fixed target-owned potential scale.
+- Direct relevance children inherit the affected confidence connection's source-side scale unchanged.
+- Relevance can increase or decrease the affected confidence child's outgoing Delivery Connector scale after the junction.
 - Missing information has no hidden score effect.
 
 ## Deferred math issue

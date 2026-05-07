@@ -1,4 +1,5 @@
 import type { JunctionViz, Side } from "@planner/Snapshot.ts";
+import type { PlannerOptions } from "@planner/contracts.ts";
 
 import { resolveTweenBoolean, resolveTweenNumber, resolveTweenPoint } from "./resolveTween";
 import { svgElement } from "./renderTree";
@@ -8,12 +9,14 @@ const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 
 export function renderJunction(args: {
     item: JunctionViz;
+    plannerOptions: PlannerOptions;
     side: Side | undefined;
 } & RenderStepProgress): RenderElementNode | undefined {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
     const span = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress));
     const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress));
-    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress));
+    const outgoingDeliveryHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingDeliveryScale, args.stepProgress));
+    const outlineWidth = resolveJunctionOutlineWidth(Math.max(incomingConfidenceHeight, outgoingDeliveryHeight), args.plannerOptions);
     const visible = resolveTweenBoolean(args.item.visible, args.stepProgress);
 
     if (!visible || !args.side) {
@@ -22,9 +25,9 @@ export function renderJunction(args: {
 
     const leftHeight = args.side === "proMain"
         ? incomingConfidenceHeight
-        : outgoingConfidenceHeight;
+        : outgoingDeliveryHeight;
     const rightHeight = args.side === "proMain"
-        ? outgoingConfidenceHeight
+        ? outgoingDeliveryHeight
         : incomingConfidenceHeight;
     const leftX = position.x - (span / 2);
     const rightX = position.x + (span / 2);
@@ -44,22 +47,24 @@ export function renderJunction(args: {
             "pointer-events": "none",
             "stroke": resolveSideStroke(args.side),
             "stroke-linejoin": "round",
-            "stroke-width": CONNECTOR_OUTLINE_WIDTH_PX,
+            "stroke-width": outlineWidth,
         },
     });
 }
 
 export function getJunctionBounds(args: {
     item: JunctionViz;
+    plannerOptions: PlannerOptions;
 } & RenderStepProgress): { maxX: number; maxY: number } {
     const position = resolveTweenPoint(args.item.position, args.stepProgress);
     const span = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingRelevanceScale, args.stepProgress));
     const incomingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.incomingConfidenceScale, args.stepProgress));
-    const outgoingConfidenceHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingConfidenceScale, args.stepProgress));
+    const outgoingDeliveryHeight = resolveNonNegativeDimension(resolveTweenNumber(args.item.outgoingDeliveryScale, args.stepProgress));
+    const outlineWidth = resolveJunctionOutlineWidth(Math.max(incomingConfidenceHeight, outgoingDeliveryHeight), args.plannerOptions);
 
     return {
-        maxX: position.x + (span / 2),
-        maxY: position.y + (Math.max(incomingConfidenceHeight, outgoingConfidenceHeight) / 2),
+        maxX: position.x + (span / 2) + (outlineWidth / 2),
+        maxY: position.y + (Math.max(incomingConfidenceHeight, outgoingDeliveryHeight) / 2) + (outlineWidth / 2),
     };
 }
 
@@ -73,4 +78,12 @@ function resolveNonNegativeDimension(value: number): number {
     }
 
     return Math.max(0, value);
+}
+
+function resolveJunctionOutlineWidth(maxPipeHeight: number, plannerOptions: PlannerOptions): number {
+    if (plannerOptions.claimHeight <= 0) {
+        return 0;
+    }
+
+    return Math.max(0, maxPipeHeight) * (CONNECTOR_OUTLINE_WIDTH_PX / plannerOptions.claimHeight);
 }
