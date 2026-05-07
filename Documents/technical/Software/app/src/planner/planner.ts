@@ -1092,10 +1092,13 @@ function resolveSourceLaneLeftEdgeX(args: {
     usesSourceJunctionLane: boolean;
 }): number {
     const targetRightEdgeX = resolveTargetClaimRightEdgeX(args.targetClaimViz, args.options);
-    let crossLaneDistance = args.options.connectorCurveLaneWidth + args.options.connectorDiagonalLaneWidth;
+    let crossLaneDistance = resolveDeliveryConnectorCorridorWidth(args.targetClaimViz, args.options);
 
     if (args.usesSourceJunctionLane) {
-        crossLaneDistance += args.options.junctionLaneWidth;
+        crossLaneDistance += resolveScaledCrossLaneWidth(
+            args.options.junctionLaneWidth,
+            resolveStaticTweenNumber(args.targetClaimViz.sourcesScale),
+        );
     }
 
     return targetRightEdgeX + crossLaneDistance;
@@ -1111,10 +1114,22 @@ function resolveSourceJunctionCenterX(args: {
         return args.sourceLaneLeftEdgeX;
     }
 
-    return args.sourceLaneLeftEdgeX
-        - args.options.connectorCurveLaneWidth
-        - args.options.connectorDiagonalLaneWidth
-        - (args.options.junctionLaneWidth / 2);
+    return args.sourceLaneLeftEdgeX - (resolveScaledCrossLaneWidth(
+        args.options.junctionLaneWidth,
+        resolveStaticTweenNumber(args.targetClaimViz.sourcesScale),
+    ) / 2);
+}
+
+function resolveDeliveryConnectorCorridorWidth(targetClaimViz: ClaimViz, options: PlannerOptions): number {
+    const localSourcesScale = resolveStaticTweenNumber(targetClaimViz.sourcesScale);
+
+    return resolveScaledCrossLaneWidth(options.connectorCurveLaneWidth, localSourcesScale)
+        + resolveScaledCrossLaneWidth(options.connectorDiagonalLaneWidth, localSourcesScale)
+        + resolveScaledCrossLaneWidth(options.connectorCurveLaneWidth, localSourcesScale);
+}
+
+function resolveScaledCrossLaneWidth(width: number, sourcesScale: number): number {
+    return width * sourcesScale;
 }
 
 function resolveTargetClaimRightEdgeX(targetClaimViz: ClaimViz, options: PlannerOptions): number {

@@ -49,6 +49,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along the lane axis, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry so zoom-equivalent structures keep the same proportions and shrink or grow with the source-side potential scale.
+- The delivery-connector corridor on the cross-lane axis is expressed directly as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.
+- Those cross-lane widths also resolve at local `sourcesScale`.
 - In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when the surrounding layout constraints permit it.
 

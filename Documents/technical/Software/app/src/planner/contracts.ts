@@ -8,9 +8,9 @@ export interface PlannerOptions {
     claimLaneAxisGap: number
     /** Width reserved for the junction lane on the cross-lane axis when that lane is present. */
     junctionLaneWidth: number
-    /** Width reserved for the connector curve lane on the cross-lane axis. */
+    /** Width reserved for one curved connector segment on the cross-lane axis. */
     connectorCurveLaneWidth: number
-    /** Width reserved for the connector diagonal lane on the cross-lane axis. */
+    /** Width reserved for one connector diagonal segment on the cross-lane axis. */
     connectorDiagonalLaneWidth: number
     /** Claim width used when resolving claim edges from claim centers. */
     claimWidth: number
@@ -22,9 +22,9 @@ export interface PlannerOptions {
 
 export const defaultPlannerOptions: PlannerOptions = {
     claimLaneAxisGap: 100,
-    junctionLaneWidth: 100,
+    junctionLaneWidth: 300,
     connectorCurveLaneWidth: 100,
-    connectorDiagonalLaneWidth: 100,
+    connectorDiagonalLaneWidth: 50,
     claimWidth: 360,
     claimHeight: 176,
     aggregatorDepth: 36,

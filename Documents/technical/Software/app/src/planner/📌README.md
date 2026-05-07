@@ -28,6 +28,8 @@
 - Current `score` changes fluid fill inside that authored scale. Current `score` does not directly shrink the pipe or claim diameter.
 - `claimLaneAxisGap` is an edge-to-edge gap, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry.
+- The delivery-connector corridor is expressed as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.
+- Those cross-lane widths also resolve at the same local `sourcesScale` as the surrounding geometry.
 - In the current orientation, claim boxes are left-justified within the claim-lane band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
 
