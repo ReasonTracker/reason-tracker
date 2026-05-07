@@ -87,7 +87,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 from: 0,
                 to: compactThirdLayerClaimScale,
             },
-            scourcesScale: 1,
+            sourcesScale: 1,
             score: 1,
             side: "conMain",
         },

@@ -85,7 +85,7 @@ export const step0002RenderState: DebateSnapshotRenderState = applyDebateSnapsho
                 from: 0,
                 to: .5,
             },
-            scourcesScale: 1,
+            sourcesScale: 1,
             score: 1,
             side: "conMain",
         },
