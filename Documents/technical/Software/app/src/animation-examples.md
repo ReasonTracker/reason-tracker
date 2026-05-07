@@ -17,11 +17,14 @@ These examples describe the visual sequence of what happens on screen and intent
 - The renderer should not smooth, clamp, or floor that scale.
 - Scale is uniform across the local visual structure, so zooming into a scaled-down area should make it geometrically identical to a larger area viewed farther out.
 - Current score does not shrink the pipe or claim scale. Current score only changes how much fluid fills that already-authored full size.
+
+## Group Scale Rule
+
 - `sourcesScale` is the owned potential scale budget for a claim's own source side.
-- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited source-side scales derived from that target-owned budget.
-- Relevance claims do not create a separate scale budget. They change only how that fixed target-owned budget is divided across outgoing delivery sides after the affected junctions while leaving current score to control only fluid fill.
-- Direct relevance children inherit the affected confidence connection's source-side scale unchanged. They do not create a separate claim-positioning or potential-scale lane model.
-- Relevance can therefore widen or shrink the outgoing delivery side relative to the source-side claim and Display Confidence Connector.
+- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's continuous relevance multipliers.
+- Every direct confidence child claim in that sibling group uses that same shared child `sourcesScale`, so sibling claims stay equal to each other while the whole sibling group grows or shrinks together.
+- Direct relevance children stay on the affected confidence connection's source side and inherit that same shared child `sourcesScale`.
+- Each direct confidence child's outgoing delivery side starts from that same shared child `sourcesScale` and then applies that child's continuous relevance multiplier to determine the outgoing delivery width after the junction.
 
 ## Layout Rule
 
@@ -34,7 +37,7 @@ These examples describe the visual sequence of what happens on screen and intent
 
 - **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
   - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
-  - That planned claim scale is the source-side scale inherited from the target. Relevance can reshape only the outgoing delivery side, and current fluid score still does not change that planned claim scale.
+  - That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero

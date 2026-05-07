@@ -40,11 +40,14 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Scale is uniform across the local visual structure. Claims, connectors, junctions, aggregators, and attachment geometry should stay geometrically consistent with each other at the authored scale.
 - Zooming into a scaled-down region should therefore match the geometry of a larger region viewed farther out.
 - Current score controls fluid fill inside the pipe. It does not shrink the authored pipe diameter.
+
+## Group Scale Contract
+
 - `sourcesScale` is the owned potential scale budget for a claim's own source side.
-- Before relevance modifiers are applied, direct confidence children of the same target start from equal inherited source-side scales derived from that target-owned budget.
-- Direct relevance children do not mint a second scale budget. They stay on the affected confidence connection's source side and inherit that same source-side scale unchanged.
-- Relevance can increase or decrease only the affected confidence child's outgoing delivery scale after the junction, while current score still controls only the fluid fraction inside the authored pipe.
-- A junction can therefore taper in either direction: relevance can make the outgoing delivery side wider or narrower than the source-side confidence side.
+- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's continuous relevance multipliers.
+- Every direct confidence child claim and source-side confidence path in that sibling group uses that same shared child `sourcesScale`, so the sibling claims stay equal to each other while the whole sibling group grows or shrinks together.
+- Direct relevance children stay on the affected confidence connection's source side and inherit that same shared child `sourcesScale`.
+- Each direct confidence child's outgoing delivery scale and the outgoing side of its junction use that same shared child `sourcesScale` multiplied by that child's continuous relevance multiplier.
 
 ## Layout Contract
 

@@ -23,9 +23,9 @@ New information changes the score only when it is added as a claim and connected
 - `sourcesScale` represents a claim's owned source-side potential-scale budget at `100%` score, not current fluid fill.
 - Current score changes fluid fill, not pipe diameter.
 - A target claim owns the fixed `sourcesScale` budget for its source side.
-- Before relevance modifiers are applied, direct confidence children of the same target use equal inherited source-side scales derived from that fixed target-owned potential scale.
-- Direct relevance children inherit the affected confidence connection's source-side scale unchanged.
-- Relevance can increase or decrease the affected confidence child's outgoing Delivery Connector scale after the junction.
+- Direct confidence children of the same target share one solved child `sourcesScale` derived from that target-owned budget and the direct confidence children's continuous relevance multipliers.
+- Direct relevance children inherit the affected confidence connection's solved child `sourcesScale` unchanged.
+- Each direct confidence child's outgoing Delivery Connector scale is that solved child `sourcesScale` multiplied by that child's continuous relevance multiplier.
 - Missing information has no hidden score effect.
 
 ## Deferred math issue
