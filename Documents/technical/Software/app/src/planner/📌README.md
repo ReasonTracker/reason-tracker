@@ -24,8 +24,8 @@
 ## Current Layout Decisions
 
 - `ClaimViz.scale` is the propagated claim render scale. In a settled state it matches `ClaimViz.sourcesScale`, and during animation it may diverge temporarily.
-- `ClaimViz.sourcesScale` is the owned source-side potential scale budget for that claim occurrence as a target. For direct confidence-child sibling groups, math solves one shared child `sourcesScale` from the target-owned budget and the direct confidence children's continuous relevance multipliers. Downstream source-side layout from that claim uses this value.
-- Current `score` changes fluid fill inside that authored scale. Current `score` does not directly shrink the pipe or claim diameter.
+- `ClaimViz.sourcesScale` is the owned source-side potential scale budget for that claim occurrence as a target. For direct confidence-child sibling groups, math solves one shared child `sourcesScale` from the target-owned budget and the direct confidence children's current scored delivery demand. Downstream source-side layout from that claim uses this value.
+- Current `score` changes fluid fill inside that authored scale. Current `score` does not directly shrink an individual pipe or claim diameter, and it also participates in solving the shared base scale for a direct confidence-child sibling group.
 - Display Confidence Connectors, Relevance Connectors, delivery-aggregator edge length, and source-claim boxes use the claim's `sourcesScale` as their settled size basis. Delivery Connectors and the outgoing side of a junction use that same child `sourcesScale` multiplied by the relevant child's continuous relevance multiplier.
 - `claimLaneAxisGap` is an edge-to-edge gap, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry.

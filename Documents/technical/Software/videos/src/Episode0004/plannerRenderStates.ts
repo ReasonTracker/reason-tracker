@@ -64,3 +64,4 @@ export const openingRenderState: DebateSnapshotRenderState = {
 export const voilaRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[0]);
 export const sproutRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[1]);
 export const firstFillRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[2]);
+

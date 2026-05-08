@@ -14,17 +14,17 @@ export interface ClaimViz {
      * The propagated render scale for this claim visual.
      *
             * In a settled state this equals `sourcesScale`, which is the authored
-            * full-size scale for this claim occurrence at `100%` score. During
-            * animation it may temporarily diverge so the claim can animate
-            * independently from its settled source-side scale.
+             * full-size source-side scale solved for this claim occurrence.
+             * During animation it may temporarily diverge so the claim can
+             * animate independently from its settled source-side scale.
      */
     scale: TweenNumber
     /**
             * Owned by this claim for its own source side.
-            * This is the full-size base source-side scale for this claim at `100%`
-            * score. Claims, source-side connectors, and source-side layout use this
-            * as their settled size basis. Relevance-driven delivery differences live
-            * on the outgoing delivery connector and junction, not here.
+             * This is the full-size base source-side scale solved for this claim
+             * occurrence. Claims, source-side connectors, and source-side layout use
+             * this as their settled size basis. Relevance-driven delivery differences
+             * live on the outgoing delivery connector and junction, not here.
      */
     sourcesScale: TweenNumber
     score: TweenNumber

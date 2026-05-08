@@ -39,12 +39,13 @@ Defines the data models and orchestration for debate graph animation, supporting
 - The renderer must honor that authored scale without smoothing, protective floors, or clamping.
 - Scale is uniform across the local visual structure. Claims, connectors, junctions, aggregators, and attachment geometry should stay geometrically consistent with each other at the authored scale.
 - Zooming into a scaled-down region should therefore match the geometry of a larger region viewed farther out.
-- Current score controls fluid fill inside the pipe. It does not shrink the authored pipe diameter.
+- Current score controls fluid fill inside the pipe. It does not directly shrink an individual authored pipe diameter, and direct confidence-child sibling groups solve their shared base scale from current scored delivery demand.
 
 ## Group Scale Contract
 
 - `sourcesScale` is the owned potential scale budget for a claim's own source side.
-- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's continuous relevance multipliers.
+- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's current scored delivery demand.
+- Each direct confidence child's current scored delivery demand is that child's continuous relevance multiplier multiplied by that child's current score value.
 - Every direct confidence child claim and source-side confidence path in that sibling group uses that same shared child `sourcesScale`, so the sibling claims stay equal to each other while the whole sibling group grows or shrinks together.
 - Direct relevance children stay on the affected confidence connection's source side and inherit that same shared child `sourcesScale`.
 - Each direct confidence child's outgoing delivery scale and the outgoing side of its junction use that same shared child `sourcesScale` multiplied by that child's continuous relevance multiplier.

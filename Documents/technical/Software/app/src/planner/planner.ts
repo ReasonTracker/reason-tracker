@@ -232,7 +232,7 @@ function buildIncomingConfidenceStructures(args: {
     const bottomChildren = relevanceChildren.filter((placement) => placement.edge === "bottom");
     const topOffsets = resolveTargetSideOffsets({
         placements: topChildren.map((placement) => ({
-            envelopeHeight: resolveConnectorEnvelopeHeight({
+            envelope: resolveConnectorEnvelope({
                 context: args.context,
                 sourcesScale: placement.sourcesScale,
                 scoreNodeId: placement.scoreNodeId,
@@ -241,7 +241,7 @@ function buildIncomingConfidenceStructures(args: {
     });
     const bottomOffsets = resolveTargetSideOffsets({
         placements: bottomChildren.map((placement) => ({
-            envelopeHeight: resolveConnectorEnvelopeHeight({
+            envelope: resolveConnectorEnvelope({
                 context: args.context,
                 sourcesScale: placement.sourcesScale,
                 scoreNodeId: placement.scoreNodeId,
@@ -255,22 +255,6 @@ function buildIncomingConfidenceStructures(args: {
     bottomChildren.forEach((placement, index) => {
         targetSideOffsetByConnectorId[placement.relevanceConnector.id] = bottomOffsets[index] ?? 0;
     });
-
-    for (const placement of relevanceChildren) {
-        args.context.snapshot[resolveRelevanceConnectorVizId(placement.relevanceConnector.id)] = {
-            type: "relevanceConnector",
-            id: resolveRelevanceConnectorVizId(placement.relevanceConnector.id),
-            relevanceConnectorId: placement.relevanceConnector.id,
-            sourceClaimVizId: resolveClaimVizId(placement.scoreNodeId),
-            targetRelevanceAggregatorVizId: resolveRelevanceAggregatorVizId(args.incomingConfidenceLayout.confidenceConnector.id),
-            targetSideOffset: targetSideOffsetByConnectorId[placement.relevanceConnector.id] ?? 0,
-            scale: placement.sourcesScale,
-            score: resolveScoreValue(args.context.scored.scores[placement.scoreNodeId]?.value),
-            side: args.context.sides[placement.scoreNodeId] ?? "proMain",
-            direction: "sourceToTarget",
-            animationType: "progressive",
-        };
-    }
 
     const relevanceAggregatorVizId = resolveRelevanceAggregatorVizId(args.incomingConfidenceLayout.confidenceConnector.id);
     const junctionVizId = resolveJunctionVizId(args.incomingConfidenceLayout.confidenceConnector.id);
@@ -286,6 +270,24 @@ function buildIncomingConfidenceStructures(args: {
             placements: bottomChildren,
         }),
     );
+
+    for (const placement of relevanceChildren) {
+        const relevanceConnectorVizId = resolveRelevanceConnectorVizId(placement.relevanceConnector.id);
+
+        args.context.snapshot[relevanceConnectorVizId] = {
+            type: "relevanceConnector",
+            id: relevanceConnectorVizId,
+            animationType: "progressive",
+            relevanceConnectorId: placement.relevanceConnector.id,
+            sourceClaimVizId: resolveClaimVizId(placement.scoreNodeId),
+            targetRelevanceAggregatorVizId: relevanceAggregatorVizId,
+            scale: placement.sourcesScale,
+            score: resolveScoreValue(args.context.scored.scores[placement.scoreNodeId]?.value),
+            side: args.context.sides[placement.scoreNodeId] ?? "proMain",
+            direction: "sourceToTarget",
+            targetSideOffset: targetSideOffsetByConnectorId[placement.relevanceConnector.id] ?? 0,
+        };
+    }
 
     args.context.snapshot[relevanceAggregatorVizId] = {
         type: "relevanceAggregator",
@@ -402,7 +404,7 @@ function buildOutgoingConfidenceStructures(args: {
     });
     const targetSideOffsets = resolveTargetSideOffsets({
         placements: siblingDeliveryPlacementBasis.map((placement) => ({
-            envelopeHeight: placement.envelopeHeight,
+            envelope: placement.envelope,
         })),
     });
     const targetSideOffsetByConfidenceConnectorId = Object.fromEntries(
@@ -555,10 +557,23 @@ function resolveConnectorEnvelopeHeight(args: {
     sourcesScale: number;
     scoreNodeId: ScoreNodeId;
 }): number {
+    const envelope = resolveConnectorEnvelope(args);
+
+    return envelope.bottomOffset - envelope.topOffset;
+}
+
+function resolveConnectorEnvelope(args: {
+    context: SettledSnapshotBuildContext;
+    sourcesScale: number;
+    scoreNodeId: ScoreNodeId;
+}): {
+    bottomOffset: number;
+    topOffset: number;
+} {
     const pipeWidth = resolvePipeWidth(args.sourcesScale, args.context.options);
     const fluidWidth = Math.max(0, Math.min(pipeWidth, pipeWidth * resolveScoreValue(args.context.scored.scores[args.scoreNodeId]?.value)));
 
-    return resolveBandEnvelopeHeight(
+    return resolveBandEnvelope(
         pipeWidth,
         fluidWidth,
         args.context.sides[args.scoreNodeId] ?? "proMain",
@@ -968,7 +983,10 @@ function resolveSiblingDeliveryPlacementBasis(args: {
 }): Array<{
     connector: ConfidenceConnector;
     deliveryScale: number;
-    envelopeHeight: number;
+    envelope: {
+        bottomOffset: number;
+        topOffset: number;
+    };
     scoreNodeId: ScoreNodeId;
 }> {
     return args.siblingConnectors.map((connector) => {
@@ -987,7 +1005,7 @@ function resolveSiblingDeliveryPlacementBasis(args: {
         return {
             connector,
             deliveryScale,
-            envelopeHeight: resolveBandEnvelopeHeight(pipeWidth, fluidWidth, side),
+            envelope: resolveBandEnvelope(pipeWidth, fluidWidth, side),
             scoreNodeId,
         };
     });
@@ -1090,15 +1108,21 @@ function resolveClaimPlacements<TPlacementId extends string>(args: {
 
 function resolveTargetSideOffsets(args: {
     placements: Array<{
-        envelopeHeight: number;
+        envelope: {
+            bottomOffset: number;
+            topOffset: number;
+        };
     }>;
 }): number[] {
-    const totalEnvelope = args.placements.reduce((sum, placement) => sum + placement.envelopeHeight, 0);
-    let nextOffset = -(totalEnvelope / 2);
+    const totalEnvelope = args.placements.reduce(
+        (sum, placement) => sum + (placement.envelope.bottomOffset - placement.envelope.topOffset),
+        0,
+    );
+    let nextEnvelopeTop = -(totalEnvelope / 2);
 
     return args.placements.map((placement) => {
-        const targetSideOffset = nextOffset + (placement.envelopeHeight / 2);
-        nextOffset += placement.envelopeHeight;
+        const targetSideOffset = nextEnvelopeTop - placement.envelope.topOffset;
+        nextEnvelopeTop += placement.envelope.bottomOffset - placement.envelope.topOffset;
         return targetSideOffset;
     });
 }
@@ -1440,11 +1464,24 @@ function resolveSide(proParent: boolean | undefined): Side {
     return proParent === false ? "conMain" : "proMain";
 }
 
-function resolveBandEnvelopeHeight(pipeWidth: number, bandWidth: number, _side: Side): number {
+function resolveBandEnvelope(pipeWidth: number, bandWidth: number, side: Side): {
+    bottomOffset: number;
+    topOffset: number;
+} {
     const safePipeWidth = Math.max(0, pipeWidth);
     const safeBandWidth = Math.min(safePipeWidth, Math.max(0, bandWidth));
 
-    return safeBandWidth;
+    if (side === "conMain") {
+        return {
+            bottomOffset: -(safePipeWidth / 2) + safeBandWidth,
+            topOffset: -(safePipeWidth / 2),
+        };
+    }
+
+    return {
+        bottomOffset: safePipeWidth / 2,
+        topOffset: (safePipeWidth / 2) - safeBandWidth,
+    };
 }
 
 
