@@ -13,19 +13,24 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Scale Rule
 
-- The calculated scale is the expected visual scale for the full pipe or claim size at `100%` score.
-- The renderer should not smooth, clamp, or floor that scale.
-- Scale is uniform across the local visual structure, so zooming into a scaled-down area should make it geometrically identical to a larger area viewed farther out.
-- Current score does not directly shrink an individual pipe or claim scale. Current score changes fluid fill inside that authored full size, and direct confidence-child sibling groups also solve their shared base scale from current scored delivery demand.
+- `sourcesScale` is the size factor applied uniformly to every structural element in a local area: claim boxes, confidence connectors, and all layout distances.
+- Scale is self-similar — zooming into a scaled-down area produces geometry identical to the same area at full size.
+- A claim's own score never affects `sourcesScale`. Score only controls fluid fill inside a structurally fixed pipe.
 
 ## Group Scale Rule
 
-- `sourcesScale` is the owned potential scale budget for a claim's own source side.
-- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's current scored delivery demand.
-- Each direct confidence child's current scored delivery demand is that child's continuous relevance multiplier multiplied by that child's current score value.
-- Every direct confidence child claim in that sibling group uses that same shared child `sourcesScale`, so sibling claims stay equal to each other while the whole sibling group grows or shrinks together.
-- Direct relevance children stay on the affected confidence connection's source side and inherit that same shared child `sourcesScale`.
-- Each direct confidence child's outgoing delivery side starts from that same shared child `sourcesScale` and then applies that child's continuous relevance multiplier to determine the outgoing delivery width after the junction.
+**Terms:**
+
+- `relevanceMultiplier`: the combined effect of all relevance connectors on one confidence connection. Equals 1 when no relevance connectors are attached.
+- `deliveryScore`: what a source claim delivers to its target = `relevanceMultiplier × sourceScore`. Controls fluid fill, not structural size.
+
+**Rules:**
+
+- All source claims connecting to the same target share one `sourcesScale` = `targetSourcesScale / sum(relevanceMultipliers)`, clamped to not exceed `targetSourcesScale`.
+- When all `relevanceMultipliers` are zero the budget is split equally among children.
+- Every claim in the group and its confidence connector use this same `sourcesScale`. Adding any new source claim shrinks all siblings uniformly, regardless of what score it has or what it does to any claim's score.
+- Each source's delivery connector scale = `sourcesScale × relevanceMultiplier`, making it wider or narrower than the confidence connector when relevance is not 1.
+- Fluid fill inside each delivery connector = `deliveryScore` as a fraction of the delivery connector's full pipe diameter.
 
 ## Layout Rule
 

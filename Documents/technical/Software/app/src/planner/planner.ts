@@ -749,28 +749,6 @@ function buildVoilaSnapshot(args: {
         targetClaimId: args.targetClaimId,
     });
 
-    for (const deliveryConnectorVizId of siblingDeliveryConnectorVizIds) {
-        if (deliveryConnectorVizId === newDeliveryConnectorVizId) {
-            continue;
-        }
-
-        const settledDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, deliveryConnectorVizId);
-        const confidenceConnectorVizId = resolveOrCreateConfidenceConnectorVizId(
-            args.settledSnapshot,
-            settledDeliveryConnector.confidenceConnectorId,
-        );
-        const confidenceConnector = args.openingSnapshot[confidenceConnectorVizId]
-            ?? args.settledSnapshot[confidenceConnectorVizId];
-
-        if (confidenceConnector?.type !== "confidenceConnector") {
-            continue;
-        }
-
-        if (!args.openingSnapshot[confidenceConnector.sourceClaimVizId]) {
-            continue;
-        }
-    }
-
     for (const voilaClaimPlacement of voilaClaimPlacements) {
         const currentClaimViz = args.openingSnapshot[voilaClaimPlacement.claimVizId];
 
@@ -813,22 +791,29 @@ function buildSproutSnapshot(args: {
     ).deliveryConnectorVizIds;
     const newDeliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(args.settledSnapshot, args.confidenceConnectorId);
     const settledNewDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, newDeliveryConnectorVizId);
+    const targetScaleRatio = resolveOpeningToSettledTargetScaleRatio(args);
     const voilaClaimPlacements = resolveVoilaClaimPlacements({
         openingSnapshot: args.openingSnapshot,
         options: args.options,
         settledSnapshot: args.settledSnapshot,
         targetClaimId: args.targetClaimId,
     });
+    const siblingJunctionVizIds = siblingDeliveryConnectorVizIds.map(
+        (id) => getRequiredDeliveryConnector(args.settledSnapshot, id).sourceJunctionVizId,
+    );
+    const openingJunctionX = resolveOpeningJunctionX(siblingJunctionVizIds, args.openingSnapshot, args.settledSnapshot);
     const localAnimatedItemIds = new Set<string>([
         targetDeliveryAggregatorVizId,
         ...siblingDeliveryConnectorVizIds,
+        ...siblingJunctionVizIds,
         ...voilaClaimPlacements.map((placement) => placement.claimVizId),
     ]);
 
     snapshot[newDeliveryConnectorVizId] = {
         ...settledNewDeliveryConnector,
-        scale: buildTweenNumber(0, resolveStaticTweenNumber(settledNewDeliveryConnector.scale)),
+        scale: buildTweenNumber(0, resolveStaticTweenNumber(settledNewDeliveryConnector.scale) * targetScaleRatio),
         score: 0,
+        targetSideOffset: resolveOptionalTweenNumber(settledNewDeliveryConnector.targetSideOffset) * targetScaleRatio,
     };
 
     for (const deliveryConnectorVizId of siblingDeliveryConnectorVizIds) {
@@ -845,17 +830,33 @@ function buildSproutSnapshot(args: {
                 direction: "targetToSource",
                 scale: buildTweenNumber(
                     resolveStaticTweenNumber(currentDeliveryConnector.scale),
-                    resolveStaticTweenNumber(settledDeliveryConnector.scale),
+                    resolveStaticTweenNumber(settledDeliveryConnector.scale) * targetScaleRatio,
                     { endPct: 0.7, startPct: 0.5 },
                 ),
                 targetSideOffset: buildTweenNumber(
                     resolveOptionalTweenNumber(currentDeliveryConnector.targetSideOffset),
-                    resolveOptionalTweenNumber(settledDeliveryConnector.targetSideOffset),
+                    resolveOptionalTweenNumber(settledDeliveryConnector.targetSideOffset) * targetScaleRatio,
                     { endPct: 0.7, startPct: 0.5 },
                 ),
             };
         }
+    }
 
+    for (const junctionVizId of siblingJunctionVizIds) {
+        const settledJunction = getRequiredJunction(args.settledSnapshot, junctionVizId);
+        const openingJunction = args.openingSnapshot[junctionVizId];
+        const openingY = openingJunction?.type === "junction"
+            ? resolveStaticTweenPoint(openingJunction.position).y
+            : resolveStaticTweenPoint(settledJunction.position).y;
+
+        snapshot[junctionVizId] = {
+            ...settledJunction,
+            position: buildTweenPoint(
+                { x: openingJunctionX, y: openingY },
+                resolveStaticTweenPoint(settledJunction.position),
+                { endPct: 1, startPct: 0.7 },
+            ),
+        };
     }
 
     for (const voilaClaimPlacement of voilaClaimPlacements) {
@@ -908,6 +909,10 @@ function buildFirstFillSnapshot(args: {
     ).deliveryConnectorVizIds;
     const newDeliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(args.settledSnapshot, args.confidenceConnectorId);
     const settledNewDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, newDeliveryConnectorVizId);
+    const targetScaleRatio = resolveOpeningToSettledTargetScaleRatio(args);
+    const siblingJunctionVizIds = siblingDeliveryConnectorVizIds.map(
+        (id) => getRequiredDeliveryConnector(args.settledSnapshot, id).sourceJunctionVizId,
+    );
     const voilaClaimPlacements = resolveVoilaClaimPlacements({
         openingSnapshot: args.openingSnapshot,
         options: args.options,
@@ -917,13 +922,30 @@ function buildFirstFillSnapshot(args: {
     const localAnimatedItemIds = new Set<string>([
         targetDeliveryAggregatorVizId,
         ...siblingDeliveryConnectorVizIds,
+        ...siblingJunctionVizIds,
         ...voilaClaimPlacements.map((placement) => placement.claimVizId),
     ]);
 
     snapshot[newDeliveryConnectorVizId] = {
         ...settledNewDeliveryConnector,
+        scale: resolveStaticTweenNumber(settledNewDeliveryConnector.scale) * targetScaleRatio,
         score: buildTweenNumber(0, resolveStaticTweenNumber(settledNewDeliveryConnector.score)),
+        targetSideOffset: resolveOptionalTweenNumber(settledNewDeliveryConnector.targetSideOffset) * targetScaleRatio,
     };
+
+    for (const deliveryConnectorVizId of siblingDeliveryConnectorVizIds) {
+        if (deliveryConnectorVizId === newDeliveryConnectorVizId) {
+            continue;
+        }
+
+        const settledDeliveryConnector = getRequiredDeliveryConnector(args.settledSnapshot, deliveryConnectorVizId);
+
+        snapshot[deliveryConnectorVizId] = {
+            ...settledDeliveryConnector,
+            scale: resolveStaticTweenNumber(settledDeliveryConnector.scale) * targetScaleRatio,
+            targetSideOffset: resolveOptionalTweenNumber(settledDeliveryConnector.targetSideOffset) * targetScaleRatio,
+        };
+    }
 
     restoreOpeningItemsOutsideLocalAnimation({
         localAnimatedItemIds,
@@ -1458,6 +1480,49 @@ function resolveScoreValue(value: number | undefined): number {
 
 function resolvePipeWidth(scale: number, options: PlannerOptions): number {
     return options.claimHeight * Math.max(0, scale);
+}
+
+function resolveOpeningToSettledTargetScaleRatio(args: {
+    openingSnapshot: Snapshot;
+    settledSnapshot: Snapshot;
+    targetClaimId: ClaimId;
+}): number {
+    const targetClaimVizId = findUniqueClaimVizId(args.settledSnapshot, args.targetClaimId);
+    const settledTargetClaimViz = getRequiredClaimViz(args.settledSnapshot, targetClaimVizId);
+    const openingTargetClaimViz = args.openingSnapshot[targetClaimVizId];
+    const settledTargetSourcesScale = resolveStaticTweenNumber(settledTargetClaimViz.sourcesScale);
+    const openingTargetSourcesScale = openingTargetClaimViz?.type === "claim"
+        ? resolveStaticTweenNumber(openingTargetClaimViz.sourcesScale)
+        : settledTargetSourcesScale;
+
+    return settledTargetSourcesScale > 0
+        ? openingTargetSourcesScale / settledTargetSourcesScale
+        : 1;
+}
+
+function resolveOpeningJunctionX(
+    junctionVizIds: JunctionVizId[],
+    openingSnapshot: Snapshot,
+    settledSnapshot: Snapshot,
+): number {
+    for (const junctionVizId of junctionVizIds) {
+        const openingJunction = openingSnapshot[junctionVizId];
+
+        if (openingJunction?.type === "junction") {
+            return resolveStaticTweenPoint(openingJunction.position).x;
+        }
+    }
+
+    // No existing opening junction found — fall back to the first settled junction x.
+    for (const junctionVizId of junctionVizIds) {
+        const settledJunction = settledSnapshot[junctionVizId];
+
+        if (settledJunction?.type === "junction") {
+            return resolveStaticTweenPoint(settledJunction.position).x;
+        }
+    }
+
+    return 0;
 }
 
 function resolveSide(proParent: boolean | undefined): Side {

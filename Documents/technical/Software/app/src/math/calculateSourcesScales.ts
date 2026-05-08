@@ -13,12 +13,12 @@ type DirectScoreChildScalePlan = {
 /**
  * Recursively assigns each ScoreNode's source-side potential scale.
  *
- * Direct score children of the same target share one solved source-side scale
- * for their sibling group. That shared scale is chosen from the current
- * target-owned source-side potential scale and the direct score children's
- * current scored delivery demand. Direct relevance children stay on the
- * affected confidence connection's source side, so they inherit that same
- * solved source-side scale unchanged.
+ * All confidence children of the same target share one `sourcesScale`.
+ * That shared value = `targetSourcesScale / sum(relevanceMultipliers)`,
+ * clamped to not exceed `targetSourcesScale`. If all relevance multipliers
+ * are zero the target budget is split equally among children.
+ * Relevance children inherit the same `sourcesScale` as their sibling
+ * confidence child.
  */
 export function calculateSourcesScales(args: {
     rootScoreNodeId: ScoreNodeId;
@@ -41,13 +41,10 @@ export function calculateSourcesScales(args: {
 }
 
 /**
- * Resolves one target's direct score-child source-side scales.
+ * Resolves one target's confidence-child source-side scales.
  *
- * Direct score children of the same target share one solved source-side scale.
- * That shared scale is chosen from the target-owned source-side budget and the
- * direct score children's current scored delivery demand, so sibling claims
- * stay equal while the outgoing delivery side can still widen or shrink
- * continuously after the junction.
+ * All confidence children of the same target share one `sourcesScale` so
+ * sibling claims stay equal in structural size regardless of their scores.
  */
 export function calculateDirectScoreChildSourcesScales(args: {
     targetScoreNodeId: ScoreNodeId;
@@ -71,13 +68,11 @@ export function calculateDirectScoreChildSourcesScales(args: {
 }
 
 /**
- * Resolves one target's direct score-child delivery scales.
+ * Resolves one target's confidence-child delivery scales.
  *
- * Each direct score child starts from the same solved source-side scale.
- * Relevance continuously widens or shrinks that child's outgoing delivery side
- * from the same shared sibling-group base scale. Current score still changes
- * the fluid fill inside the authored pipe diameter, and that same current
- * score also participates in solving the shared sibling-group base scale.
+ * Each confidence child's delivery connector scale =
+ * `sharedChildSourcesScale × relevanceMultiplier`. Score controls fluid fill
+ * inside that pipe but does not affect its structural diameter.
  */
 export function calculateDirectScoreChildDeliveryScales(args: {
     targetScoreNodeId: ScoreNodeId;
@@ -91,11 +86,9 @@ export function calculateDirectScoreChildDeliveryScales(args: {
 /**
  * Recursively assigns each ScoreNode's delivery-side scale.
  *
- * This matches the source-side scale when no relevance changes the confidence
- * connection. When relevance is present, direct score children still share the
- * same source-side scale and only the outgoing delivery side widens or shrinks
- * continuously from that common base, while the shared base itself is solved
- * from the direct score children's current scored delivery demand.
+ * Matches the source-side scale when relevanceMultiplier = 1. When relevance
+ * is present the delivery connector widens or narrows proportionally while
+ * the shared sibling `sourcesScale` stays the same for all siblings.
  */
 export function calculateDeliveryScales(args: {
     rootScoreNodeId: ScoreNodeId;
@@ -267,35 +260,22 @@ function resolveDirectScoreChildScalePlan(args: {
     const targetSourcesScale = resolveSourcesScale(args.targetSourcesScale);
     const relevanceByScoreNodeId: SourcesScales = {};
     let totalRelevance = 0;
-    let totalScoredDeliveryDemand = 0;
 
     for (const scoreChildId of scoreChildIds) {
-        const childScore = args.scores[scoreChildId];
-
-        if (!childScore) {
-            throw new Error(`Missing score for direct score child while resolving scales: ${scoreChildId}`);
-        }
-
         const relevanceMultiplier = resolveSourcesScale(calculateRelevance(scoreChildId, graphWithChildren, args.scores));
-        const scoredDeliveryDemand = resolveSourcesScale(relevanceMultiplier * resolveSourcesScale(childScore.value));
 
         relevanceByScoreNodeId[scoreChildId] = relevanceMultiplier;
         totalRelevance += relevanceMultiplier;
-        totalScoredDeliveryDemand += scoredDeliveryDemand;
     }
 
-    const fallbackToEqualSplit = totalRelevance === 0;
-    const rawDeliveryDemandTotal = fallbackToEqualSplit ? scoreChildIds.length : totalRelevance;
-    const normalizedTotal = totalScoredDeliveryDemand > 0
-        ? totalScoredDeliveryDemand
-        : rawDeliveryDemandTotal;
-    const sharedChildSourcesScale = resolveSourcesScale(targetSourcesScale / normalizedTotal);
+    const denominator = totalRelevance > 0 ? totalRelevance : scoreChildIds.length;
+    const sharedChildSourcesScale = Math.min(targetSourcesScale / denominator, targetSourcesScale);
     const deliveryScales: SourcesScales = {};
 
     for (const scoreChildId of scoreChildIds) {
-        const relevanceMultiplier = fallbackToEqualSplit
-            ? 1
-            : (relevanceByScoreNodeId[scoreChildId] ?? 0);
+        const relevanceMultiplier = totalRelevance > 0
+            ? (relevanceByScoreNodeId[scoreChildId] ?? 0)
+            : 1;
 
         deliveryScales[scoreChildId] = resolveSourcesScale(sharedChildSourcesScale * relevanceMultiplier);
     }
