@@ -39,15 +39,18 @@ const plannedSnapshots = planner({
     debateCore: episode0002DebateCore,
 });
 
-if (plannedSnapshots.length !== 3) {
-    throw new Error(`Episode0004 expected 3 planner snapshots, received ${plannedSnapshots.length}`);
+if (plannedSnapshots.length !== 6) {
+    throw new Error(`Episode0004 expected 6 planner snapshots, received ${plannedSnapshots.length}`);
 }
 
 console.log("Episode0004 planner snapshots", {
     firstFillSnapshot: plannedSnapshots[2],
     openingSnapshot,
+    scaleSnapshot: plannedSnapshots[5],
     sproutSnapshot: plannedSnapshots[1],
     voilaSnapshot: plannedSnapshots[0],
+    waveC1Snapshot: plannedSnapshots[3],
+    waveMainSnapshot: plannedSnapshots[4],
 });
 
 function toRenderState(snapshot: Snapshot): DebateSnapshotRenderState {
@@ -64,4 +67,7 @@ export const openingRenderState: DebateSnapshotRenderState = {
 export const voilaRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[0]);
 export const sproutRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[1]);
 export const firstFillRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[2]);
+export const waveC1RenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[3]);
+export const waveMainRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[4]);
+export const scaleRenderState: DebateSnapshotRenderState = toRenderState(plannedSnapshots[5]);
 

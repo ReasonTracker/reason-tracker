@@ -4,13 +4,16 @@ import { buildTimelineTimes, type TimelineEntry } from "../shared/timeline";
 import {
     firstFillRenderState,
     openingRenderState,
+    scaleRenderState,
     sproutRenderState,
     voilaRenderState,
+    waveC1RenderState,
+    waveMainRenderState,
 } from "./plannerRenderStates";
 
 export const EPISODE0004_FPS = 30;
 
-type Episode0004SegmentId = "opening" | "voila" | "sprout" | "firstFill";
+type Episode0004SegmentId = "opening" | "voila" | "sprout" | "firstFill" | "waveC1" | "waveMain" | "scale";
 
 type Episode0004SegmentDefinition = {
     id: Episode0004SegmentId;
@@ -51,6 +54,24 @@ const episode0004SegmentDefinitions: readonly Episode0004SegmentDefinition[] = [
         label: "step0004 - First Fill",
         durationSeconds: 0.65,
         renderState: firstFillRenderState,
+    },
+    {
+        id: "waveC1",
+        label: "step0005 - Wave - C1 Adjust",
+        durationSeconds: 0.5,
+        renderState: waveC1RenderState,
+    },
+    {
+        id: "waveMain",
+        label: "step0006 - Wave - Main Propagate",
+        durationSeconds: 0.5,
+        renderState: waveMainRenderState,
+    },
+    {
+        id: "scale",
+        label: "step0007 - Scale",
+        durationSeconds: 0.5,
+        renderState: scaleRenderState,
     },
 ];
 

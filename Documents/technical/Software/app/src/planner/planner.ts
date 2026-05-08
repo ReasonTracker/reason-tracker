@@ -29,6 +29,7 @@ import type {
     Snapshot,
     Side,
     VizItem,
+    VizItemId,
 } from "./Snapshot.ts";
 
 const plannersByCommandType: Partial<Record<PlannerInput["command"]["type"], Planner>> = {
@@ -682,6 +683,7 @@ function planAddConfidenceClaim(input: PlannerInput): Snapshot[] {
     });
 
     return buildConfidenceClaimAddSequence({
+        appliedDebateCore: applied.debateCore,
         confidenceConnectorId: applied.confidenceConnectorId,
         openingSnapshot,
         options,
@@ -691,6 +693,7 @@ function planAddConfidenceClaim(input: PlannerInput): Snapshot[] {
 }
 
 function buildConfidenceClaimAddSequence(args: {
+    appliedDebateCore: PlannerInput["debateCore"];
     confidenceConnectorId: ConfidenceConnectorId;
     openingSnapshot: Snapshot;
     options: PlannerOptions;
@@ -700,8 +703,15 @@ function buildConfidenceClaimAddSequence(args: {
     const voilaSnapshot = buildVoilaSnapshot(args);
     const sproutSnapshot = buildSproutSnapshot(args);
     const firstFillSnapshot = buildFirstFillSnapshot(args);
+    const waveSnapshots = buildWaveSnapshots({
+        appliedDebateCore: args.appliedDebateCore,
+        firstFillSnapshot,
+        openingSnapshot: args.openingSnapshot,
+        settledSnapshot: args.settledSnapshot,
+        targetClaimId: args.targetClaimId,
+    });
 
-    return [voilaSnapshot, sproutSnapshot, firstFillSnapshot];
+    return [voilaSnapshot, sproutSnapshot, firstFillSnapshot, ...waveSnapshots];
 }
 
 function buildVoilaSnapshot(args: {
@@ -1638,3 +1648,327 @@ function resolveOptionalTweenNumber(value: number | { from: number; to: number }
 
     return resolveStaticTweenNumber(value);
 }
+
+// #region Wave
+
+type WaveStep = {
+    adjustedClaimId: ClaimId;
+    incomingConfidenceConnectorId: ConfidenceConnectorId | null;
+};
+
+function resolveWaveSteps(args: {
+    debateCore: PlannerInput["debateCore"];
+    targetClaimId: ClaimId;
+}): WaveStep[] {
+    const steps: WaveStep[] = [];
+    let currentClaimId: ClaimId = args.targetClaimId;
+
+    steps.push({ adjustedClaimId: currentClaimId, incomingConfidenceConnectorId: null });
+
+    while (currentClaimId !== args.debateCore.mainClaimId) {
+        const outgoingConnector = Object.values(args.debateCore.connectors).find(
+            (connector): connector is ConfidenceConnector =>
+                connector.type === "confidence" && connector.source === currentClaimId,
+        );
+
+        if (!outgoingConnector) {
+            break;
+        }
+
+        currentClaimId = outgoingConnector.targetClaimId;
+        steps.push({
+            adjustedClaimId: currentClaimId,
+            incomingConfidenceConnectorId: outgoingConnector.id,
+        });
+    }
+
+    return steps;
+}
+
+function buildWaveSnapshots(args: {
+    appliedDebateCore: PlannerInput["debateCore"];
+    firstFillSnapshot: Snapshot;
+    openingSnapshot: Snapshot;
+    settledSnapshot: Snapshot;
+    targetClaimId: ClaimId;
+}): Snapshot[] {
+    const waveSteps = resolveWaveSteps({
+        debateCore: args.appliedDebateCore,
+        targetClaimId: args.targetClaimId,
+    });
+
+    const waveStepSnapshots = waveSteps.map((step, stepIndex) =>
+        buildWaveStepSnapshot({
+            allSteps: waveSteps,
+            firstFillSnapshot: args.firstFillSnapshot,
+            openingSnapshot: args.openingSnapshot,
+            settledSnapshot: args.settledSnapshot,
+            step,
+            stepIndex,
+        }),
+    );
+
+    const scaleSnapshot = buildScaleSnapshot({
+        firstFillSnapshot: args.firstFillSnapshot,
+        settledSnapshot: args.settledSnapshot,
+    });
+
+    return [...waveStepSnapshots, scaleSnapshot];
+}
+
+function buildWaveStepSnapshot(args: {
+    allSteps: WaveStep[];
+    firstFillSnapshot: Snapshot;
+    openingSnapshot: Snapshot;
+    settledSnapshot: Snapshot;
+    step: WaveStep;
+    stepIndex: number;
+}): Snapshot {
+    // Start from firstFill (with score tweens resolved to their end values) to avoid
+    // scale/position jumps between firstFill and wave steps.
+    const snapshot: Snapshot = resolveSnapshotScoreTweensToEnd({ ...args.firstFillSnapshot });
+
+    copyOpeningScoresToMatchingItems({ openingSnapshot: args.openingSnapshot, snapshot });
+
+    for (let i = 0; i < args.stepIndex; i++) {
+        applyWaveStepSettledScores(args.allSteps[i], args.settledSnapshot, snapshot);
+    }
+
+    applyWaveStepTweenedScores(args.step, args.openingSnapshot, args.settledSnapshot, snapshot);
+
+    return snapshot;
+}
+
+function resolveSnapshotScoreTweensToEnd(snapshot: Snapshot): Snapshot {
+    for (const item of Object.values(snapshot as Partial<Record<string, VizItem>>)) {
+        if (!item || !("score" in item)) {
+            continue;
+        }
+
+        const score = (item as Extract<VizItem, { score: number | { from: number; to: number } }>).score;
+
+        if (typeof score !== "number") {
+            (snapshot as Record<string, VizItem>)[item.id] = {
+                ...item,
+                score: resolveStaticTweenNumber(score),
+            } as VizItem;
+        }
+    }
+
+    return snapshot;
+}
+
+function buildScaleSnapshot(args: {
+    firstFillSnapshot: Snapshot;
+    settledSnapshot: Snapshot;
+}): Snapshot {
+    const snapshot: Snapshot = { ...args.settledSnapshot };
+    const resolvedFirstFill = resolveSnapshotScoreTweensToEnd({ ...args.firstFillSnapshot });
+
+    for (const firstFillItem of Object.values(resolvedFirstFill as Partial<Record<string, VizItem>>)) {
+        if (!firstFillItem) {
+            continue;
+        }
+
+        const settledItem = snapshot[firstFillItem.id];
+
+        if (!settledItem) {
+            continue;
+        }
+
+        if (firstFillItem.type === "deliveryConnector" && settledItem.type === "deliveryConnector") {
+            const fromScale = resolveStaticTweenNumber(firstFillItem.scale);
+            const toScale = resolveStaticTweenNumber(settledItem.scale);
+            const fromOffset = resolveOptionalTweenNumber(firstFillItem.targetSideOffset);
+            const toOffset = resolveOptionalTweenNumber(settledItem.targetSideOffset);
+            const scaleChanged = Math.abs(fromScale - toScale) > 1e-6;
+            const offsetChanged = Math.abs(fromOffset - toOffset) > 1e-6;
+
+            if (scaleChanged || offsetChanged) {
+                snapshot[firstFillItem.id] = {
+                    ...settledItem,
+                    scale: scaleChanged ? buildTweenNumber(fromScale, toScale) : settledItem.scale,
+                    targetSideOffset: offsetChanged ? buildTweenNumber(fromOffset, toOffset) : settledItem.targetSideOffset,
+                };
+            }
+
+            continue;
+        }
+
+        if (firstFillItem.type === "claim" && settledItem.type === "claim") {
+            const fromPos = resolveStaticTweenPoint(firstFillItem.position);
+            const toPos = resolveStaticTweenPoint(settledItem.position);
+            const fromScale = resolveStaticTweenNumber(firstFillItem.scale);
+            const toScale = resolveStaticTweenNumber(settledItem.scale);
+            const fromSourcesScale = resolveStaticTweenNumber(firstFillItem.sourcesScale);
+            const toSourcesScale = resolveStaticTweenNumber(settledItem.sourcesScale);
+            const posChanged = Math.abs(fromPos.x - toPos.x) > 1e-6 || Math.abs(fromPos.y - toPos.y) > 1e-6;
+            const scaleChanged = Math.abs(fromScale - toScale) > 1e-6;
+            const sourcesScaleChanged = Math.abs(fromSourcesScale - toSourcesScale) > 1e-6;
+
+            if (posChanged || scaleChanged || sourcesScaleChanged) {
+                snapshot[firstFillItem.id] = {
+                    ...settledItem,
+                    position: posChanged ? buildTweenPoint(fromPos, toPos) : settledItem.position,
+                    scale: scaleChanged ? buildTweenNumber(fromScale, toScale) : settledItem.scale,
+                    sourcesScale: sourcesScaleChanged ? buildTweenNumber(fromSourcesScale, toSourcesScale) : settledItem.sourcesScale,
+                };
+            }
+
+            continue;
+        }
+
+        if (firstFillItem.type === "junction" && settledItem.type === "junction") {
+            const fromPos = resolveStaticTweenPoint(firstFillItem.position);
+            const toPos = resolveStaticTweenPoint(settledItem.position);
+            const fields = ["incomingConfidenceScale", "incomingRelevanceScale", "outgoingDeliveryScale"] as const;
+            const posChanged = Math.abs(fromPos.x - toPos.x) > 1e-6 || Math.abs(fromPos.y - toPos.y) > 1e-6;
+            const fieldTweens: Partial<JunctionViz> = {};
+            let anyFieldChanged = false;
+
+            for (const field of fields) {
+                const from = resolveStaticTweenNumber(firstFillItem[field]);
+                const to = resolveStaticTweenNumber(settledItem[field]);
+
+                if (Math.abs(from - to) > 1e-6) {
+                    fieldTweens[field] = buildTweenNumber(from, to);
+                    anyFieldChanged = true;
+                }
+            }
+
+            if (posChanged || anyFieldChanged) {
+                snapshot[firstFillItem.id] = {
+                    ...settledItem,
+                    ...fieldTweens,
+                    position: posChanged ? buildTweenPoint(fromPos, toPos) : settledItem.position,
+                };
+            }
+        }
+    }
+
+    return snapshot;
+}
+
+function applyWaveStepSettledScores(
+    step: WaveStep,
+    settledSnapshot: Snapshot,
+    snapshot: Snapshot,
+): void {
+    const deliveryAggregatorVizId = resolveOrCreateDeliveryAggregatorVizId(settledSnapshot, step.adjustedClaimId);
+    const claimVizId = findUniqueClaimVizId(settledSnapshot, step.adjustedClaimId);
+
+    restoreSettledScoreForId(deliveryAggregatorVizId, settledSnapshot, snapshot);
+    restoreSettledScoreForId(claimVizId, settledSnapshot, snapshot);
+
+    if (step.incomingConfidenceConnectorId) {
+        const deliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(settledSnapshot, step.incomingConfidenceConnectorId);
+
+        restoreSettledScoreForId(deliveryConnectorVizId, settledSnapshot, snapshot);
+
+        const confidenceConnectorVizId = resolveOrCreateConfidenceConnectorVizId(settledSnapshot, step.incomingConfidenceConnectorId);
+        const confidenceConnectorViz = settledSnapshot[confidenceConnectorVizId];
+
+        if (confidenceConnectorViz?.type === "confidenceConnector" && resolveStaticTweenBoolean(confidenceConnectorViz.visible)) {
+            restoreSettledScoreForId(confidenceConnectorVizId, settledSnapshot, snapshot);
+        }
+    }
+}
+
+function applyWaveStepTweenedScores(
+    step: WaveStep,
+    openingSnapshot: Snapshot,
+    settledSnapshot: Snapshot,
+    snapshot: Snapshot,
+): void {
+    const deliveryAggregatorVizId = resolveOrCreateDeliveryAggregatorVizId(settledSnapshot, step.adjustedClaimId);
+    const claimVizId = findUniqueClaimVizId(settledSnapshot, step.adjustedClaimId);
+
+    tweenScoreForId(deliveryAggregatorVizId, openingSnapshot, settledSnapshot, snapshot);
+    tweenScoreForId(claimVizId, openingSnapshot, settledSnapshot, snapshot);
+
+    if (step.incomingConfidenceConnectorId) {
+        const deliveryConnectorVizId = resolveOrCreateDeliveryConnectorVizId(settledSnapshot, step.incomingConfidenceConnectorId);
+        const deliveryConnectorItem = snapshot[deliveryConnectorVizId];
+
+        if (deliveryConnectorItem?.type === "deliveryConnector") {
+            const openingItem = openingSnapshot[deliveryConnectorVizId];
+            const openingScore = openingItem?.type === "deliveryConnector"
+                ? resolveStaticTweenNumber(openingItem.score)
+                : resolveStaticTweenNumber(deliveryConnectorItem.score);
+            const settledScore = resolveStaticTweenNumber(
+                (settledSnapshot[deliveryConnectorVizId] as DeliveryConnectorViz | undefined)?.score ?? deliveryConnectorItem.score,
+            );
+
+            snapshot[deliveryConnectorVizId] = {
+                ...deliveryConnectorItem,
+                direction: "targetToSource",
+                score: openingScore === settledScore ? settledScore : buildTweenNumber(openingScore, settledScore),
+            };
+        }
+
+        const confidenceConnectorVizId = resolveOrCreateConfidenceConnectorVizId(settledSnapshot, step.incomingConfidenceConnectorId);
+        const confidenceConnectorViz = settledSnapshot[confidenceConnectorVizId];
+
+        if (confidenceConnectorViz?.type === "confidenceConnector" && resolveStaticTweenBoolean(confidenceConnectorViz.visible)) {
+            const confidenceConnectorItem = snapshot[confidenceConnectorVizId];
+
+            if (confidenceConnectorItem?.type === "confidenceConnector") {
+                const openingItem = openingSnapshot[confidenceConnectorVizId];
+                const openingScore = openingItem?.type === "confidenceConnector"
+                    ? resolveStaticTweenNumber(openingItem.score)
+                    : resolveStaticTweenNumber(confidenceConnectorItem.score);
+                const settledScore = resolveStaticTweenNumber(
+                    (settledSnapshot[confidenceConnectorVizId] as ConfidenceConnectorViz | undefined)?.score ?? confidenceConnectorItem.score,
+                );
+
+                snapshot[confidenceConnectorVizId] = {
+                    ...confidenceConnectorItem,
+                    direction: "targetToSource",
+                    score: openingScore === settledScore ? settledScore : buildTweenNumber(openingScore, settledScore),
+                };
+            }
+        }
+    }
+}
+
+function restoreSettledScoreForId(
+    id: VizItemId,
+    settledSnapshot: Snapshot,
+    snapshot: Snapshot,
+): void {
+    const settledItem = settledSnapshot[id];
+    const snapshotItem = snapshot[id];
+
+    if (!settledItem || !snapshotItem || !("score" in settledItem) || !("score" in snapshotItem)) {
+        return;
+    }
+
+    snapshot[id] = { ...snapshotItem, score: (settledItem as Extract<VizItem, { score: unknown }>).score } as VizItem;
+}
+
+function tweenScoreForId(
+    id: VizItemId,
+    openingSnapshot: Snapshot,
+    settledSnapshot: Snapshot,
+    snapshot: Snapshot,
+): void {
+    const settledItem = settledSnapshot[id];
+    const snapshotItem = snapshot[id];
+
+    if (!settledItem || !snapshotItem || !("score" in settledItem) || !("score" in snapshotItem)) {
+        return;
+    }
+
+    const openingItem = openingSnapshot[id];
+    const openingScore = openingItem && "score" in openingItem
+        ? resolveStaticTweenNumber((openingItem as Extract<VizItem, { score: unknown }>).score as Parameters<typeof resolveStaticTweenNumber>[0])
+        : resolveStaticTweenNumber((settledItem as Extract<VizItem, { score: unknown }>).score as Parameters<typeof resolveStaticTweenNumber>[0]);
+    const settledScore = resolveStaticTweenNumber((settledItem as Extract<VizItem, { score: unknown }>).score as Parameters<typeof resolveStaticTweenNumber>[0]);
+
+    snapshot[id] = {
+        ...snapshotItem,
+        score: openingScore === settledScore ? settledScore : buildTweenNumber(openingScore, settledScore),
+    } as VizItem;
+}
+
+// #endregion
