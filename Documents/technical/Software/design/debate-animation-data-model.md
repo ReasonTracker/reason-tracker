@@ -54,8 +54,9 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along the lane axis, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry so zoom-equivalent structures keep the same proportions and shrink or grow with the source-side potential scale.
-- The delivery-connector corridor on the cross-lane axis is expressed directly as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.
-- Those cross-lane widths also resolve at local `sourcesScale`.
+- `crossLaneExtraGap` is public breathing room added after planner layout satisfies the minimum geometry and separation requirements for delivery routing.
+- Planner layout derives the delivery-connector corridor on the cross-lane axis from minimum turn allowance, target-edge separation needs, any required junction allowance, and `crossLaneExtraGap`.
+- That derived cross-lane width resolves at local `sourcesScale`.
 - In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when the surrounding layout constraints permit it.
 
@@ -80,7 +81,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Snapshot**
 
 - Each snapshot (from `graph-render-state.ts`) contains the authored positions, confidence values, and other properties needed for rendering and animation. Some display geometry, including aggregator footprints and connector endpoints, is derived from those snapshot values at render time.
-- Connector end positions are derived from the connected claims, junctions, delivery aggregators, and relevance aggregators in the snapshot. Aggregator geometry is derived from its target plus aggregator state. Optional `targetSideOffset` on delivery and relevance connectors shifts the target attachment along the resolved target edge. When omitted, `targetSideOffset` is zero.
+- Delivery connectors may carry planner-authored `centerlineWaypoints` in the snapshot. The renderer should consume those supplied route points and leave corner shaping to shared path geometry.
+- Connector end positions are derived from the connected claims, junctions, delivery aggregators, and relevance aggregators in the snapshot unless the connector already carries planner-owned route points. Aggregator geometry is derived from its target plus aggregator state. Optional `targetSideOffset` on delivery and relevance connectors shifts the target attachment along the resolved target edge. When omitted, `targetSideOffset` is zero.
 - The snapshot is the current display state, not the underlying DebateCore state.
 
 ## Shared Ordering

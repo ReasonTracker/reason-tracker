@@ -20,6 +20,7 @@ import type {
     DeliveryAggregatorViz,
     DeliveryAggregatorVizId,
     DeliveryConnectorViz,
+    DeliveryConnectorLayoutIssueCode,
     DeliveryConnectorVizId,
     JunctionViz,
     JunctionVizId,
@@ -71,9 +72,31 @@ type ClaimLaneMember =
 
 type IncomingConfidenceLayout = {
     confidenceConnector: ConfidenceConnector;
+    deliveryRoute: ResolvedDeliveryRouteLayout;
     junctionCenterX: number;
     targetClaimVizId: ClaimVizId;
     targetSideOffset: number;
+};
+
+type LayoutPoint = {
+    x: number;
+    y: number;
+};
+
+type ResolvedDeliveryRouteLayout = {
+    centerlineWaypoints: LayoutPoint[];
+    issueCodes: DeliveryConnectorLayoutIssueCode[];
+};
+
+type ResolvedOutgoingConfidenceMemberLayout = {
+    claimCenterY: number;
+    claimLaneMember: ClaimLaneMember;
+    incomingConfidenceLayout?: IncomingConfidenceLayout;
+};
+
+type ResolvedOutgoingConfidenceLayout = {
+    members: ResolvedOutgoingConfidenceMemberLayout[];
+    sourceLaneLeftEdgeX: number;
 };
 
 type SettledSnapshotBuildContext = {
@@ -332,6 +355,8 @@ function buildIncomingConfidenceStructures(args: {
         id: deliveryConnectorVizId,
         animationType: "progressive",
         confidenceConnectorId: args.incomingConfidenceLayout.confidenceConnector.id,
+        centerlineWaypoints: args.incomingConfidenceLayout.deliveryRoute.centerlineWaypoints,
+        layoutIssueCodes: args.incomingConfidenceLayout.deliveryRoute.issueCodes,
         sourceJunctionVizId: junctionVizId,
         targetClaimVizId: args.incomingConfidenceLayout.targetClaimVizId,
         scale: deliveryScale,
@@ -364,38 +389,43 @@ function buildOutgoingConfidenceStructures(args: {
         return;
     }
 
-    const siblingConnectors = directConfidenceChildren.map(({ confidenceConnector }) => confidenceConnector);
+    const outgoingConfidenceLayout = resolveOutgoingConfidenceLayout({
+        claimViz: args.claimViz,
+        context: args.context,
+        directConfidenceChildren,
+    });
+
+    for (const member of outgoingConfidenceLayout.members) {
+        if (member.claimLaneMember.kind === "relevance") {
+            buildSettledClaimOccurrence({
+                claimCenterY: member.claimCenterY,
+                claimLeftEdgeX: outgoingConfidenceLayout.sourceLaneLeftEdgeX,
+                context: args.context,
+                scoreNodeId: member.claimLaneMember.scoreNodeId,
+            });
+            continue;
+        }
+
+        buildSettledClaimOccurrence({
+            claimCenterY: member.claimCenterY,
+            claimLeftEdgeX: outgoingConfidenceLayout.sourceLaneLeftEdgeX,
+            context: args.context,
+            incomingConfidenceLayout: member.incomingConfidenceLayout,
+            scoreNodeId: member.claimLaneMember.scoreNodeId,
+        });
+    }
+}
+
+function resolveOutgoingConfidenceLayout(args: {
+    claimViz: ClaimViz;
+    context: SettledSnapshotBuildContext;
+    directConfidenceChildren: SortedConfidenceChild[];
+}): ResolvedOutgoingConfidenceLayout {
+    const siblingConnectors = args.directConfidenceChildren.map(({ confidenceConnector }) => confidenceConnector);
     const usesSourceJunctionLane = resolveSiblingSetUsesSourceJunctionLane({
         debateCoreAfter: args.context.debateCore,
         siblingConnectors,
     });
-    const sourceLaneLeftEdgeX = resolveSourceLaneLeftEdgeX({
-        options: args.context.options,
-        siblingConnectors,
-        targetClaimViz: args.claimViz,
-        usesSourceJunctionLane,
-    });
-    const sourceJunctionCenterX = resolveSourceJunctionCenterX({
-        options: args.context.options,
-        sourceLaneLeftEdgeX,
-        targetClaimViz: args.claimViz,
-        usesSourceJunctionLane,
-    });
-    const claimLaneMembers = resolveClaimLaneMembers({
-        context: args.context,
-        directConfidenceChildren,
-    });
-    const claimLanePlacements = resolveClaimPlacements({
-        options: args.context.options,
-        placements: claimLaneMembers.map((member) => ({
-            placementId: resolveClaimLaneMemberPlacementId(member),
-            sourcesScale: resolveOccurrenceScale(args.context.sourcesScales, member.scoreNodeId),
-        })),
-        targetClaimViz: args.claimViz,
-    });
-    const claimCenterYByMemberId = Object.fromEntries(
-        claimLanePlacements.map((placement) => [placement.placementId, placement.centerY]),
-    ) as Partial<Record<string, number>>;
     const siblingDeliveryPlacementBasis = resolveSiblingDeliveryPlacementBasis({
         childDeliveryScales: args.context.deliveryScales,
         options: args.context.options,
@@ -410,34 +440,156 @@ function buildOutgoingConfidenceStructures(args: {
     const targetSideOffsetByConfidenceConnectorId = Object.fromEntries(
         siblingDeliveryPlacementBasis.map((placement, index) => [placement.connector.id, targetSideOffsets[index] ?? 0]),
     ) as Partial<Record<ConfidenceConnectorId, number>>;
+    const maximumTargetSideOffsetMagnitude = resolveMaximumTargetSideOffsetMagnitude(targetSideOffsets);
+    const junctionAllowance = usesSourceJunctionLane
+        ? resolveMaximumIncomingConfidenceJunctionAllowance({
+            context: args.context,
+            directConfidenceChildren: args.directConfidenceChildren,
+        })
+        : 0;
+    const sourceLaneLeftEdgeX = resolveSourceLaneLeftEdgeX({
+        junctionAllowance,
+        maximumTargetSideOffsetMagnitude,
+        options: args.context.options,
+        targetClaimViz: args.claimViz,
+    });
+    const sourceJunctionCenterX = resolveSourceJunctionCenterX({
+        junctionAllowance,
+        sourceLaneLeftEdgeX,
+    });
+    const claimLaneMembers = resolveClaimLaneMembers({
+        context: args.context,
+        directConfidenceChildren: args.directConfidenceChildren,
+    });
+    const claimLanePlacements = resolveClaimPlacements({
+        options: args.context.options,
+        placements: claimLaneMembers.map((member) => ({
+            placementId: resolveClaimLaneMemberPlacementId(member),
+            sourcesScale: resolveOccurrenceScale(args.context.sourcesScales, member.scoreNodeId),
+        })),
+        targetClaimViz: args.claimViz,
+    });
+    const claimCenterYByMemberId = Object.fromEntries(
+        claimLanePlacements.map((placement) => [placement.placementId, placement.centerY]),
+    ) as Partial<Record<string, number>>;
 
-    for (const claimLaneMember of claimLaneMembers) {
-        const claimCenterY = claimCenterYByMemberId[resolveClaimLaneMemberPlacementId(claimLaneMember)]
-            ?? resolveStaticTweenPoint(args.claimViz.position).y;
+    return {
+        members: claimLaneMembers.map((claimLaneMember) => {
+            const claimCenterY = claimCenterYByMemberId[resolveClaimLaneMemberPlacementId(claimLaneMember)]
+                ?? resolveStaticTweenPoint(args.claimViz.position).y;
 
-        if (claimLaneMember.kind === "relevance") {
-            buildSettledClaimOccurrence({
-                claimCenterY,
-                claimLeftEdgeX: sourceLaneLeftEdgeX,
+            if (claimLaneMember.kind === "relevance") {
+                return {
+                    claimCenterY,
+                    claimLaneMember,
+                };
+            }
+
+            const sourceJunctionSpan = resolveIncomingConfidenceJunctionSpan({
                 context: args.context,
                 scoreNodeId: claimLaneMember.scoreNodeId,
             });
-            continue;
-        }
+            const targetSideOffset = targetSideOffsetByConfidenceConnectorId[claimLaneMember.confidenceConnector.id] ?? 0;
 
-        buildSettledClaimOccurrence({
-            claimCenterY,
-            claimLeftEdgeX: sourceLaneLeftEdgeX,
-            context: args.context,
-            incomingConfidenceLayout: {
-                confidenceConnector: claimLaneMember.confidenceConnector,
-                junctionCenterX: sourceJunctionCenterX,
-                targetClaimVizId: args.claimViz.id,
-                targetSideOffset: targetSideOffsetByConfidenceConnectorId[claimLaneMember.confidenceConnector.id] ?? 0,
-            },
-            scoreNodeId: claimLaneMember.scoreNodeId,
-        });
+            return {
+                claimCenterY,
+                claimLaneMember,
+                incomingConfidenceLayout: {
+                    confidenceConnector: claimLaneMember.confidenceConnector,
+                    deliveryRoute: resolveDeliveryRouteLayout({
+                        claimCenterY,
+                        deliveryConnectorCount: args.directConfidenceChildren.length,
+                        options: args.context.options,
+                        sourceJunctionCenterX,
+                        sourceJunctionSpan,
+                        sourceLaneLeftEdgeX,
+                        targetClaimViz: args.claimViz,
+                        targetSideOffset,
+                    }),
+                    junctionCenterX: sourceJunctionCenterX,
+                    targetClaimVizId: args.claimViz.id,
+                    targetSideOffset,
+                },
+            };
+        }),
+        sourceLaneLeftEdgeX,
+    };
+}
+
+function resolveDeliveryRouteLayout(args: {
+    claimCenterY: number;
+    deliveryConnectorCount: number;
+    options: PlannerOptions;
+    sourceJunctionCenterX: number;
+    sourceJunctionSpan: number;
+    sourceLaneLeftEdgeX: number;
+    targetClaimViz: ClaimViz;
+    targetSideOffset: number;
+}): ResolvedDeliveryRouteLayout {
+    const sourcePoint = resolveDeliveryRouteSourcePoint(args);
+    const targetPoint = resolveDeliveryRouteTargetPoint(args);
+    const localSourcesScale = resolveStaticTweenNumber(args.targetClaimViz.sourcesScale);
+    const minimumTurnAllowance = resolveMinimumTurnAllowance(localSourcesScale, args.options);
+    const availableForwardDistance = Math.max(0, sourcePoint.x - targetPoint.x);
+    const resolvedTurnAllowance = Math.min(minimumTurnAllowance, availableForwardDistance / 2);
+    const issueCodes: DeliveryConnectorLayoutIssueCode[] = resolvedTurnAllowance + 1e-6 < minimumTurnAllowance
+        ? ["delivery-route-tightened"]
+        : [];
+
+    if (Math.abs(sourcePoint.y - targetPoint.y) <= 1e-6 || resolvedTurnAllowance <= 1e-6) {
+        return {
+            centerlineWaypoints: [sourcePoint, targetPoint],
+            issueCodes,
+        };
     }
+
+    return {
+        centerlineWaypoints: [
+            sourcePoint,
+            { x: sourcePoint.x - resolvedTurnAllowance, y: sourcePoint.y },
+            { x: targetPoint.x + resolvedTurnAllowance, y: targetPoint.y },
+            targetPoint,
+        ],
+        issueCodes,
+    };
+}
+
+function resolveDeliveryRouteSourcePoint(args: {
+    claimCenterY: number;
+    sourceJunctionCenterX: number;
+    sourceJunctionSpan: number;
+    sourceLaneLeftEdgeX: number;
+    targetClaimViz: ClaimViz;
+}): LayoutPoint {
+    if (args.sourceJunctionSpan > 1e-6) {
+        return {
+            x: args.sourceJunctionCenterX - (args.sourceJunctionSpan / 2),
+            y: resolveStaticTweenPoint(args.targetClaimViz.position).y,
+        };
+    }
+
+    return {
+        x: args.sourceLaneLeftEdgeX,
+        y: args.claimCenterY,
+    };
+}
+
+function resolveDeliveryRouteTargetPoint(args: {
+    deliveryConnectorCount: number;
+    options: PlannerOptions;
+    targetClaimViz: ClaimViz;
+    targetSideOffset: number;
+}): LayoutPoint {
+    const targetPosition = resolveStaticTweenPoint(args.targetClaimViz.position);
+    const targetScale = resolveStaticTweenNumber(args.targetClaimViz.scale);
+    const aggregatorDepth = args.deliveryConnectorCount >= 2
+        ? args.options.aggregatorDepth * resolveStaticTweenNumber(args.targetClaimViz.sourcesScale)
+        : 0;
+
+    return {
+        x: targetPosition.x + ((args.options.claimWidth * targetScale) / 2) + aggregatorDepth,
+        y: targetPosition.y + args.targetSideOffset,
+    };
 }
 
 function getDirectConfidenceChildren(
@@ -1227,46 +1379,105 @@ function resolveOrderedSourceClusterClaimVizIds(args: {
 }
 
 function resolveSourceLaneLeftEdgeX(args: {
+    junctionAllowance: number;
+    maximumTargetSideOffsetMagnitude: number;
     options: PlannerOptions;
-    siblingConnectors: ConfidenceConnector[];
     targetClaimViz: ClaimViz;
-    usesSourceJunctionLane: boolean;
 }): number {
     const targetRightEdgeX = resolveTargetClaimRightEdgeX(args.targetClaimViz, args.options);
-    let crossLaneDistance = resolveDeliveryConnectorCorridorWidth(args.targetClaimViz, args.options);
-
-    if (args.usesSourceJunctionLane) {
-        crossLaneDistance += resolveScaledCrossLaneWidth(
-            args.options.junctionLaneWidth,
-            resolveStaticTweenNumber(args.targetClaimViz.sourcesScale),
-        );
-    }
+    const crossLaneDistance = resolveDeliveryConnectorCorridorWidth({
+        maximumTargetSideOffsetMagnitude: args.maximumTargetSideOffsetMagnitude,
+        options: args.options,
+        targetClaimViz: args.targetClaimViz,
+    }) + args.junctionAllowance;
 
     return targetRightEdgeX + crossLaneDistance;
 }
 
 function resolveSourceJunctionCenterX(args: {
-    options: PlannerOptions;
+    junctionAllowance: number;
     sourceLaneLeftEdgeX: number;
-    targetClaimViz: ClaimViz;
-    usesSourceJunctionLane: boolean;
 }): number {
-    if (!args.usesSourceJunctionLane) {
+    if (args.junctionAllowance <= 1e-6) {
         return args.sourceLaneLeftEdgeX;
     }
 
-    return args.sourceLaneLeftEdgeX - (resolveScaledCrossLaneWidth(
-        args.options.junctionLaneWidth,
-        resolveStaticTweenNumber(args.targetClaimViz.sourcesScale),
-    ) / 2);
+    return args.sourceLaneLeftEdgeX - (args.junctionAllowance / 2);
 }
 
-function resolveDeliveryConnectorCorridorWidth(targetClaimViz: ClaimViz, options: PlannerOptions): number {
-    const localSourcesScale = resolveStaticTweenNumber(targetClaimViz.sourcesScale);
+function resolveDeliveryConnectorCorridorWidth(args: {
+    maximumTargetSideOffsetMagnitude: number;
+    options: PlannerOptions;
+    targetClaimViz: ClaimViz;
+}): number {
+    const localSourcesScale = resolveStaticTweenNumber(args.targetClaimViz.sourcesScale);
+    const requiredCrossLaneWidth = resolveRequiredCrossLaneWidth({
+        localSourcesScale,
+        maximumTargetSideOffsetMagnitude: args.maximumTargetSideOffsetMagnitude,
+        options: args.options,
+    });
 
-    return resolveScaledCrossLaneWidth(options.connectorCurveLaneWidth, localSourcesScale)
-        + resolveScaledCrossLaneWidth(options.connectorDiagonalLaneWidth, localSourcesScale)
-        + resolveScaledCrossLaneWidth(options.connectorCurveLaneWidth, localSourcesScale);
+    return requiredCrossLaneWidth + resolveScaledCrossLaneWidth(args.options.crossLaneExtraGap, localSourcesScale);
+}
+
+function resolveRequiredCrossLaneWidth(args: {
+    localSourcesScale: number;
+    maximumTargetSideOffsetMagnitude: number;
+    options: PlannerOptions;
+}): number {
+    const minimumTurnAllowance = resolveMinimumTurnAllowance(args.localSourcesScale, args.options);
+
+    return (minimumTurnAllowance * 2) + Math.max(0, args.maximumTargetSideOffsetMagnitude);
+}
+
+function resolveMinimumTurnAllowance(localSourcesScale: number, options: PlannerOptions): number {
+    return resolvePipeWidth(localSourcesScale, options) / 2;
+}
+
+function resolveMaximumTargetSideOffsetMagnitude(targetSideOffsets: number[]): number {
+    return targetSideOffsets.reduce(
+        (maximumMagnitude, targetSideOffset) => Math.max(maximumMagnitude, Math.abs(targetSideOffset)),
+        0,
+    );
+}
+
+function resolveMaximumIncomingConfidenceJunctionAllowance(args: {
+    context: SettledSnapshotBuildContext;
+    directConfidenceChildren: SortedConfidenceChild[];
+}): number {
+    return args.directConfidenceChildren.reduce((maximumAllowance, child) => {
+        const junctionSpan = resolveIncomingConfidenceJunctionSpan({
+            context: args.context,
+            scoreNodeId: child.scoreNodeId,
+        });
+
+        return Math.max(maximumAllowance, junctionSpan);
+    }, 0);
+}
+
+function resolveIncomingConfidenceJunctionSpan(args: {
+    context: SettledSnapshotBuildContext;
+    scoreNodeId: ScoreNodeId;
+}): number {
+    const directRelevanceChildren = getDirectRelevanceChildren(args.context, args.scoreNodeId);
+    const relevanceChildren = directRelevanceChildren.map(({ relevanceConnector, scoreNodeId }) => ({
+        edge: relevanceConnector.targetRelationship === "proTarget" ? "top" as const : "bottom" as const,
+        scoreNodeId,
+        sourcesScale: resolveOccurrenceScale(args.context.sourcesScales, scoreNodeId),
+    }));
+    const topChildren = relevanceChildren.filter((placement) => placement.edge === "top");
+    const bottomChildren = relevanceChildren.filter((placement) => placement.edge === "bottom");
+
+    return Math.max(
+        resolveTotalEnvelopeHeight({
+            context: args.context,
+            placements: topChildren,
+        }),
+        resolveTotalEnvelopeHeight({
+            context: args.context,
+            placements: bottomChildren,
+        }),
+    );
 }
 
 function resolveScaledCrossLaneWidth(width: number, sourcesScale: number): number {

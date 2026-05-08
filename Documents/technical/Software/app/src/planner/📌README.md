@@ -29,11 +29,12 @@
 - Display Confidence Connectors, Relevance Connectors, delivery-aggregator edge length, and source-claim boxes use the claim's `sourcesScale` as their settled size basis. Delivery Connectors and the outgoing side of a junction use that same child `sourcesScale` multiplied by the relevant child's continuous relevance multiplier.
 - `claimLaneAxisGap` is an edge-to-edge gap, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry.
-- The delivery-connector corridor is expressed as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.
-- Those cross-lane widths also resolve at the same local `sourcesScale` as the surrounding geometry.
+- Cross-lane width for outgoing delivery layout is derived inside planner layout from minimum turn allowance, target-edge separation needs, any required junction allowance, and public `crossLaneExtraGap`.
+- That derived cross-lane width resolves at the same local `sourcesScale` as the surrounding geometry.
 - In the current orientation, claim boxes are left-justified within the claim-lane band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
 - Current planner-owned delivery corridor widths do not yet encode larger detours for route-around-line behavior or crossing avoidance. Those routing expansions are deferred rather than hidden in renderer-local stub lengths.
+- Delivery connectors may carry planner-owned `centerlineWaypoints` in the snapshot. The renderer should consume that supplied route and leave corner shaping to shared path geometry.
 
 <!-- autonav:start -->
 <!-- autonav:end -->

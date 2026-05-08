@@ -6,12 +6,8 @@ import type { Snapshot } from "./Snapshot.ts";
 export interface PlannerOptions {
     /** Edge-to-edge gap between sibling claim boxes along a claim lane's lane axis. This gap resolves at local `sourcesScale`. */
     claimLaneAxisGap: number
-    /** Width reserved for the junction lane on the cross-lane axis when that lane is present. */
-    junctionLaneWidth: number
-    /** Width reserved for one curved connector segment on the cross-lane axis. */
-    connectorCurveLaneWidth: number
-    /** Width reserved for one connector diagonal segment on the cross-lane axis. */
-    connectorDiagonalLaneWidth: number
+    /** Additional cross-lane breathing room added after minimum geometry and separation requirements are satisfied. */
+    crossLaneExtraGap: number
     /** Claim width used when resolving claim edges from claim centers. */
     claimWidth: number
     /** Claim height used for claim bounds and derived pipe width. */
@@ -22,9 +18,7 @@ export interface PlannerOptions {
 
 export const defaultPlannerOptions: PlannerOptions = {
     claimLaneAxisGap: 50,
-    junctionLaneWidth: 300,
-    connectorCurveLaneWidth: 100,
-    connectorDiagonalLaneWidth: 50,
+    crossLaneExtraGap: 50,
     claimWidth: 360,
     claimHeight: 176,
     aggregatorDepth: 36,

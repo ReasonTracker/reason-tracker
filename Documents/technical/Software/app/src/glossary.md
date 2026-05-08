@@ -23,9 +23,7 @@
 - Lane Axis - the axis that runs along a lane. In the current orientation, this maps to `y`.
 - Cross-Lane Axis - the axis that separates lanes from each other. In the current orientation, this maps to `x`.
 - Claim Lane - the lane used for claim visuals. Claims in a claim lane are ordered along the lane axis. In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
-- Junction Lane - the lane reserved for the junction and the confidence connector before the junction. Relevance connectors land in this lane, and the relevance aggregator is positioned in this lane. This lane may not be present if nothing is using it.
-- Connector Curve Lane - the lane reserved for one curved connector segment.
-- Connector Diagonal Lane - the lane reserved for one diagonal connector segment.
+- Junction Lane - the cross-lane allowance reserved when a visible junction needs space between the delivery route field and the source claim lane. This allowance is derived by planner layout rather than exposed as a public planner option.
 
 Relevance claims use the same claim-lane positioning model as the other claim visuals in the source claim cluster they belong with.
 
@@ -37,7 +35,8 @@ Relevance claims use the same claim-lane positioning model as the other claim vi
 ### Layout Spacing
 
 - Claim Lane Axis Gap - the edge-to-edge gap between sibling claim boxes along a claim lane. It is resolved at the same local `sourcesScale` as the surrounding geometry, so the same local shape stays proportional when zoomed and shrinks or grows with the source-side potential scale.
-- Delivery Connector Corridor - the cross-lane corridor reserved for a delivery connector. It is expressed as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied. The whole corridor resolves at local `sourcesScale`.
+- Cross-Lane Extra Gap - additional cross-axis breathing room added after planner layout satisfies the minimum geometry and separation requirements for delivery routing. It resolves at local `sourcesScale`.
+- Delivery Connector Corridor - the cross-lane corridor reserved for a delivery connector. Planner layout derives it from minimum turn allowance, target-edge separation needs, any required junction allowance, and public `crossLaneExtraGap`. The whole corridor resolves at local `sourcesScale`.
 - Source Claim Cluster - the local group of sibling source claims attached to one target. The cluster follows the shared ordering rule and stays mostly centered on the source claim it belongs with when surrounding constraints permit it.
 
 ### Concepts

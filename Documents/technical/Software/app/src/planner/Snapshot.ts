@@ -87,10 +87,14 @@ export interface ConfidenceConnectorViz extends ConnectorVizBase {
     visible: TweenBoolean
 }
 
+export type DeliveryConnectorLayoutIssueCode = "delivery-route-tightened";
+
 export interface DeliveryConnectorViz extends ConnectorVizBase {
     type: "deliveryConnector"
     id: DeliveryConnectorVizId
     confidenceConnectorId: ConfidenceConnectorId
+    centerlineWaypoints?: TweenPoint[]
+    layoutIssueCodes?: DeliveryConnectorLayoutIssueCode[]
     sourceJunctionVizId: JunctionVizId
     targetClaimVizId: ClaimVizId
     targetSideOffset?: TweenNumber

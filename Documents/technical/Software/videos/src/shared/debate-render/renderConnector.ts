@@ -83,6 +83,7 @@ type ConnectorAttachment = {
 
 type ConnectorRouteResolution = {
     cornerFitIssues: PathGeometryCornerFitIssue[];
+    layoutIssueCodes: string[];
     points: Waypoint[];
     routeIssues: ConnectorRouteIssue[];
 };
@@ -132,7 +133,11 @@ export function renderConnector(
         ? Math.max(currentPipeWidth, pipeWidthEndpoints.from, pipeWidthEndpoints.to)
         : currentPipeWidth;
 
-    const centerlineRoute = buildAngularConnectorCenterlinePoints({
+    const centerlineRoute = resolvePlannerOwnedConnectorRoute({
+        item: args.item,
+        pipeWidth: maxRenderablePipeWidth,
+        stepProgress: args.stepProgress,
+    }) ?? buildAngularConnectorCenterlinePoints({
         kind: args.item.type,
         pipeWidth: maxRenderablePipeWidth,
         source: connector.source,
@@ -142,10 +147,15 @@ export function renderConnector(
         targetTangentUnit: connector.targetTangentUnit,
     });
 
-    if (centerlineRoute.routeIssues.length > 0 || centerlineRoute.cornerFitIssues.length > 0) {
+    if (
+        centerlineRoute.routeIssues.length > 0
+        || centerlineRoute.cornerFitIssues.length > 0
+        || centerlineRoute.layoutIssueCodes.length > 0
+    ) {
         console.warn("Connector geometry issues", {
             connectorId: String(args.item.id),
             cornerFitIssues: centerlineRoute.cornerFitIssues,
+            layoutIssueCodes: centerlineRoute.layoutIssueCodes,
             routeIssues: centerlineRoute.routeIssues,
             source: connector.source,
             sourceDepartureUnit: connector.sourceDepartureUnit,
@@ -318,7 +328,37 @@ function buildConnectorGroupAttributes(
         attributes["data-corner-fit-issues"] = centerlineRoute.cornerFitIssues.map((issue) => issue.code).join(" ");
     }
 
+    if (centerlineRoute.layoutIssueCodes.length > 0) {
+        attributes["data-layout-issues"] = centerlineRoute.layoutIssueCodes.join(" ");
+    }
+
     return attributes;
+}
+
+function resolvePlannerOwnedConnectorRoute(args: {
+    item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
+    pipeWidth: number;
+    stepProgress: number;
+}): ConnectorRouteResolution | undefined {
+    if (args.item.type !== "deliveryConnector" || !args.item.centerlineWaypoints || args.item.centerlineWaypoints.length < 2) {
+        return undefined;
+    }
+
+    const routedPoints = args.item.centerlineWaypoints.map((point) => resolveTweenPoint(point, args.stepProgress));
+    const fittedCorners = fitPathGeometryCorners({
+        offsetEnvelope: {
+            maxOffset: Math.max(0, args.pipeWidth) / 2,
+            minOffset: -(Math.max(0, args.pipeWidth) / 2),
+        },
+        points: routedPoints,
+    });
+
+    return {
+        cornerFitIssues: fittedCorners.issues,
+        layoutIssueCodes: args.item.layoutIssueCodes ?? [],
+        points: fittedCorners.points,
+        routeIssues: [],
+    };
 }
 
 function buildBandGeometry(
@@ -720,6 +760,7 @@ function buildAngularConnectorCenterlinePoints(
     if (args.kind === "confidenceConnector") {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [args.source, args.target],
             routeIssues: [],
         };
@@ -730,6 +771,7 @@ function buildAngularConnectorCenterlinePoints(
     if (!targetApproachUnit) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [],
             routeIssues: [{
                 code: "connector-route-missing-target-approach",
@@ -743,6 +785,7 @@ function buildAngularConnectorCenterlinePoints(
     if (!sourceDepartureUnit) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [],
             routeIssues: [{
                 code: "connector-route-missing-source-direction",
@@ -776,6 +819,7 @@ function buildAngularConnectorCenterlinePoints(
     if (!rayIntersection) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [],
             routeIssues: [{
                 code: areParallelDirections(sourceDepartureUnit, reverseTargetApproachUnit)
@@ -791,6 +835,7 @@ function buildAngularConnectorCenterlinePoints(
     if (pointsAlmostEqual(args.source, rayIntersection.point) || pointsAlmostEqual(args.target, rayIntersection.point)) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [args.source, args.target],
             routeIssues: [],
         };
@@ -810,6 +855,7 @@ function buildAngularConnectorCenterlinePoints(
 
     return {
         cornerFitIssues: fittedCorners.issues,
+        layoutIssueCodes: [],
         points: fittedCorners.points,
         routeIssues: [],
     };
@@ -829,6 +875,7 @@ function buildParallelEndpointConnectorRoute(
     if (!routeNormalUnit) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [],
             routeIssues: [{
                 code: "connector-route-missing-target-tangent",
@@ -844,6 +891,7 @@ function buildParallelEndpointConnectorRoute(
     if (forwardDistancePx <= ROUTE_GEOMETRY_EPSILON) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [],
             routeIssues: [{
                 code: "connector-route-no-forward-intersection",
@@ -855,6 +903,7 @@ function buildParallelEndpointConnectorRoute(
     if (Math.abs(crossDistancePx) <= ROUTE_GEOMETRY_EPSILON) {
         return {
             cornerFitIssues: [],
+            layoutIssueCodes: [],
             points: [args.source, args.target],
             routeIssues: [],
         };
@@ -878,6 +927,7 @@ function buildParallelEndpointConnectorRoute(
 
     return {
         cornerFitIssues: fittedCorners.issues,
+        layoutIssueCodes: [],
         points: fittedCorners.points,
         routeIssues: [],
     };
