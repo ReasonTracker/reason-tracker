@@ -33,6 +33,7 @@
 - Those cross-lane widths also resolve at the same local `sourcesScale` as the surrounding geometry.
 - In the current orientation, claim boxes are left-justified within the claim-lane band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
+- Current planner-owned delivery corridor widths do not yet encode larger detours for route-around-line behavior or crossing avoidance. Those routing expansions are deferred rather than hidden in renderer-local stub lengths.
 
 <!-- autonav:start -->
 <!-- autonav:end -->

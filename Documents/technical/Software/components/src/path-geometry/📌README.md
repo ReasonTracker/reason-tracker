@@ -13,6 +13,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 ## Owns
 
 - `buildPathGeometry`
+- `fitPathGeometryCorners`
 - shared type contracts that describe path-geometry inputs and outputs
 - SVG path-data helpers for path-geometry command output
 
@@ -24,6 +25,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 ## Responsibilities
 
 - create drawable band geometry in relation to a routed reference path
+- fit shared corner radii for an already-authored routed path using the supplied visible offset envelope
 - support stable offsets states between edge extremities
 - support asymmetric sections that are not centered on the path
 - support explicit transition ranges between offsets states
@@ -31,6 +33,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - own path-relative reveal, taper, and ordered state-sweep behavior when that behavior can be expressed as offsets plus transitions or extremities along the routed path
 - measure transition positions as path-relative percentages and transition or extremity spans in pixels along the routed path
 - output renderer-agnostic path commands that a consumer can map to SVG or another renderer
+- emit diagnostic issues when requested corner fitting or geometry construction cannot be satisfied by the supplied routed path
 
 ## Input Model
 
@@ -93,6 +96,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - Keep higher-level component composition out of this folder unless it is specific to path geometry.
 - Consumers should express connector reveal, removal, and ordered geometry sweeps by composing `PathGeometryInstruction` values here instead of introducing host-side clipping, visibility-window, or surrogate transition props.
 - Prefer colocating the core contracts with `buildPathGeometry` until this slice clearly needs more separation.
+- Do not invent alternate route skeletons here when a supplied route cannot support a requested corner treatment.
 
 ---
 

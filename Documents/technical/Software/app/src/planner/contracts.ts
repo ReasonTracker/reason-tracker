@@ -21,7 +21,7 @@ export interface PlannerOptions {
 }
 
 export const defaultPlannerOptions: PlannerOptions = {
-    claimLaneAxisGap: 100,
+    claimLaneAxisGap: 50,
     junctionLaneWidth: 300,
     connectorCurveLaneWidth: 100,
     connectorDiagonalLaneWidth: 50,

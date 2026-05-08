@@ -84,6 +84,37 @@ export interface PathGeometryInput {
 	instructions: PathGeometryInstruction[];
 }
 
+export interface PathGeometryOffsetEnvelope {
+	maxOffset: number;
+	minOffset: number;
+}
+
+export type PathGeometryCornerFitKind = "maximal";
+
+export interface PathGeometryCornerFitPolicy {
+	kind: PathGeometryCornerFitKind;
+}
+
+export interface PathGeometryCornerFitInput {
+	offsetEnvelope: PathGeometryOffsetEnvelope;
+	points: Point[];
+	policy?: PathGeometryCornerFitPolicy;
+}
+
+export type PathGeometryCornerFitIssueCode = "corner-fit-radius-unavailable";
+
+export interface PathGeometryCornerFitIssue {
+	code: PathGeometryCornerFitIssueCode;
+	message: string;
+	severity: "warning" | "error";
+	waypointIndex?: number;
+}
+
+export interface PathGeometryCornerFitResult {
+	issues: PathGeometryCornerFitIssue[];
+	points: Waypoint[];
+}
+
 //#endregion
 
 //#region Geometry output
@@ -164,6 +195,147 @@ interface PathProfileSegment {
 interface CenterlineEvaluation {
 	point: Point;
 	tangent: Point;
+}
+
+interface CornerFitState {
+	index: number;
+	minimumTangentDistance: number;
+	tangentDistance: number;
+	tangentFactor: number;
+}
+
+export function fitPathGeometryCorners(input: PathGeometryCornerFitInput): PathGeometryCornerFitResult {
+	const issues: PathGeometryCornerFitIssue[] = [];
+	const points: Waypoint[] = input.points.map((point) => ({ x: point.x, y: point.y }));
+
+	if (input.points.length < 3) {
+		return { issues, points };
+	}
+
+	const cornerStates: Array<CornerFitState | undefined> = new Array(input.points.length);
+
+	for (let waypointIndex = 1; waypointIndex < input.points.length - 1; waypointIndex += 1) {
+		const previousPoint = input.points[waypointIndex - 1];
+		const cornerPoint = input.points[waypointIndex];
+		const nextPoint = input.points[waypointIndex + 1];
+		const incomingVector = subtractPoint(cornerPoint, previousPoint);
+		const outgoingVector = subtractPoint(nextPoint, cornerPoint);
+		const incomingLength = lengthOfPoint(incomingVector);
+		const outgoingLength = lengthOfPoint(outgoingVector);
+
+		if (incomingLength <= GEOMETRY_EPSILON || outgoingLength <= GEOMETRY_EPSILON) {
+			continue;
+		}
+
+		const incomingDirection = normalizePoint(incomingVector);
+		const outgoingDirection = normalizePoint(outgoingVector);
+
+		if (!incomingDirection || !outgoingDirection) {
+			continue;
+		}
+
+		const turnCross = crossProduct(incomingDirection, outgoingDirection);
+		const turnAngle = Math.acos(clampNumber(dotProduct(incomingDirection, outgoingDirection), -1, 1));
+
+		if (Math.abs(turnCross) <= GEOMETRY_EPSILON || turnAngle <= GEOMETRY_EPSILON) {
+			continue;
+		}
+
+		const tangentFactor = Math.tan(turnAngle / 2);
+
+		if (tangentFactor <= GEOMETRY_EPSILON) {
+			continue;
+		}
+
+		const localMaximumTangentDistance = Math.min(incomingLength, outgoingLength);
+		const minimumCenterlineRadius = resolveMinimumCornerFitRadius(turnCross, input.offsetEnvelope);
+		const localMaximumRadius = localMaximumTangentDistance / tangentFactor;
+		const minimumTangentDistance = minimumCenterlineRadius * tangentFactor;
+
+		if (localMaximumRadius + GEOMETRY_EPSILON < minimumCenterlineRadius) {
+			issues.push({
+				code: "corner-fit-radius-unavailable",
+				message: "A corner radius could not fit within the supplied route and visible offset envelope.",
+				severity: "warning",
+				waypointIndex,
+			});
+			continue;
+		}
+
+		cornerStates[waypointIndex] = {
+			index: waypointIndex,
+			minimumTangentDistance,
+			tangentDistance: localMaximumTangentDistance,
+			tangentFactor,
+		};
+	}
+
+	for (let passIndex = 0; passIndex < input.points.length; passIndex += 1) {
+		let changed = false;
+
+		for (let segmentIndex = 1; segmentIndex < input.points.length - 2; segmentIndex += 1) {
+			const segmentLength = distanceBetweenPoints(input.points[segmentIndex], input.points[segmentIndex + 1]);
+			const leftCorner = cornerStates[segmentIndex];
+			const rightCorner = cornerStates[segmentIndex + 1];
+
+			if (!leftCorner || !rightCorner || segmentLength <= GEOMETRY_EPSILON) {
+				continue;
+			}
+
+			const occupiedLength = leftCorner.tangentDistance + rightCorner.tangentDistance;
+
+			if (occupiedLength <= segmentLength + GEOMETRY_EPSILON) {
+				continue;
+			}
+
+			const scale = segmentLength / occupiedLength;
+			const nextLeftTangentDistance = leftCorner.tangentDistance * scale;
+			const nextRightTangentDistance = rightCorner.tangentDistance * scale;
+
+			if (nextLeftTangentDistance + GEOMETRY_EPSILON < leftCorner.tangentDistance) {
+				leftCorner.tangentDistance = nextLeftTangentDistance;
+				changed = true;
+			}
+
+			if (nextRightTangentDistance + GEOMETRY_EPSILON < rightCorner.tangentDistance) {
+				rightCorner.tangentDistance = nextRightTangentDistance;
+				changed = true;
+			}
+		}
+
+		if (!changed) {
+			break;
+		}
+	}
+
+	for (const cornerState of cornerStates) {
+		if (!cornerState) {
+			continue;
+		}
+
+		if (cornerState.tangentDistance + GEOMETRY_EPSILON < cornerState.minimumTangentDistance) {
+			issues.push({
+				code: "corner-fit-radius-unavailable",
+				message: "A corner radius could not fit within the supplied route and visible offset envelope.",
+				severity: "warning",
+				waypointIndex: cornerState.index,
+			});
+			continue;
+		}
+
+		const radius = cornerState.tangentDistance / cornerState.tangentFactor;
+
+		if (radius <= GEOMETRY_EPSILON) {
+			continue;
+		}
+
+		points[cornerState.index] = {
+			...points[cornerState.index],
+			radius,
+		};
+	}
+
+	return { issues, points };
 }
 
 export function buildPathGeometry(input: PathGeometryInput): PathGeometry {
@@ -933,6 +1105,17 @@ function resolveArcDeltaAngle(startAngle: number, endAngle: number, turnSign: nu
 		deltaAngle -= Math.PI * 2;
 	}
 	return deltaAngle;
+}
+
+function resolveMinimumCornerFitRadius(
+	turnCross: number,
+	offsetEnvelope: PathGeometryOffsetEnvelope,
+): number {
+	if (turnCross > 0) {
+		return Math.max(0, offsetEnvelope.maxOffset);
+	}
+
+	return Math.max(0, -offsetEnvelope.minOffset);
 }
 
 function addPoint(a: Point, b: Point): Point {

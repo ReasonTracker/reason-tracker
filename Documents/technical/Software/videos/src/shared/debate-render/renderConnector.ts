@@ -8,7 +8,13 @@ import type {
     VizItem,
 } from "@planner/Snapshot.ts";
 import type { PlannerOptions } from "@planner/contracts.ts";
-import { buildPathGeometry, type PathGeometryInstruction, type Waypoint } from "@reasontracker/components/src/path-geometry/buildPathGeometry";
+import {
+    buildPathGeometry,
+    fitPathGeometryCorners,
+    type PathGeometryCornerFitIssue,
+    type PathGeometryInstruction,
+    type Waypoint,
+} from "@reasontracker/components/src/path-geometry/buildPathGeometry";
 import {
     pathGeometryBoundariesToClosedSvgPathData,
     pathGeometryCommandsToSvgPathData,
@@ -56,18 +62,37 @@ type UnitVector = {
     y: number;
 };
 
+type ConnectorRouteKind = "confidenceConnector" | "deliveryConnector" | "relevanceConnector";
+
+type ConnectorRouteIssueCode =
+    | "connector-route-missing-source-direction"
+    | "connector-route-missing-target-approach"
+    | "connector-route-missing-target-tangent"
+    | "connector-route-no-forward-intersection"
+    | "connector-route-parallel-tangents";
+
+type ConnectorRouteIssue = {
+    code: ConnectorRouteIssueCode;
+    message: string;
+};
+
+type ConnectorAttachment = {
+    departureUnit?: UnitVector;
+    point: { x: number; y: number };
+};
+
+type ConnectorRouteResolution = {
+    cornerFitIssues: PathGeometryCornerFitIssue[];
+    points: Waypoint[];
+    routeIssues: ConnectorRouteIssue[];
+};
+
+// AGENT NOTE: Keep tunable numeric rendering constants grouped here.
 const CONNECTOR_OUTLINE_WIDTH_PX = 4;
 const OUTLINE_WIDTH_SHARE_OF_BASE_CLAIM_HEIGHT = CONNECTOR_OUTLINE_WIDTH_PX / 176;
 const PIPE_INTERIOR_ALPHA = 0.2;
 const CONNECTOR_GEOMETRY_TRANSITION_LENGTH_MULTIPLIER = 1;
-const CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN = 0.2;
-const CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX = 1;
-const MAX_STRAIGHT_CONNECTOR_VERTICAL_DELTA_PX = 1;
-const MIN_CONNECTOR_STRAIGHT_PX = 34;
-const MIN_CONNECTOR_DIAGONAL_PX = 36;
-const MIN_CONNECTOR_BEND_RADIUS_PX = 12;
-const MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO = 0.3;
-const MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX = 0.1;
+const ROUTE_GEOMETRY_EPSILON = 1e-6;
 
 export function renderConnector(
     args: {
@@ -107,16 +132,41 @@ export function renderConnector(
         ? Math.max(currentPipeWidth, pipeWidthEndpoints.from, pipeWidthEndpoints.to)
         : currentPipeWidth;
 
-    const centerlinePoints = buildAngularConnectorCenterlinePoints(
-        connector.source,
-        connector.target,
-        maxRenderablePipeWidth,
-        connector.targetApproachUnit,
-    );
+    const centerlineRoute = buildAngularConnectorCenterlinePoints({
+        kind: args.item.type,
+        pipeWidth: maxRenderablePipeWidth,
+        source: connector.source,
+        sourceDepartureUnit: connector.sourceDepartureUnit,
+        target: connector.target,
+        targetApproachUnit: connector.targetApproachUnit,
+        targetTangentUnit: connector.targetTangentUnit,
+    });
 
-    if (centerlinePoints.length < 2) {
-        return [];
+    if (centerlineRoute.routeIssues.length > 0 || centerlineRoute.cornerFitIssues.length > 0) {
+        console.warn("Connector geometry issues", {
+            connectorId: String(args.item.id),
+            cornerFitIssues: centerlineRoute.cornerFitIssues,
+            routeIssues: centerlineRoute.routeIssues,
+            source: connector.source,
+            sourceDepartureUnit: connector.sourceDepartureUnit,
+            target: connector.target,
+            targetApproachUnit: connector.targetApproachUnit,
+            targetTangentUnit: connector.targetTangentUnit,
+        });
     }
+
+    if (centerlineRoute.points.length < 2) {
+        if (centerlineRoute.routeIssues.length === 0 && centerlineRoute.cornerFitIssues.length === 0) {
+            return [];
+        }
+
+        return [svgElement("g", {
+            attributes: buildConnectorGroupAttributes(String(args.item.id), centerlineRoute),
+            children: [],
+        })];
+    }
+
+    const centerlinePoints = centerlineRoute.points;
 
     const pipeGeometry = buildBandGeometryOrUndefined(
         centerlinePoints,
@@ -149,9 +199,7 @@ export function renderConnector(
     }
 
     return [svgElement("g", {
-        attributes: {
-            "data-connector-id": String(args.item.id),
-        },
+        attributes: buildConnectorGroupAttributes(String(args.item.id), centerlineRoute),
         children: renderConnectorPathNodes(buildConnectorPathDefinitions({
             fluidGeometry,
             outlineWidth: currentOutlineWidth,
@@ -252,6 +300,25 @@ function renderConnectorPathNodes(pathDefinitions: ConnectorPathDefinition[]): R
     }
 
     return children;
+}
+
+function buildConnectorGroupAttributes(
+    connectorId: string,
+    centerlineRoute: ConnectorRouteResolution,
+): Record<string, string> {
+    const attributes: Record<string, string> = {
+        "data-connector-id": connectorId,
+    };
+
+    if (centerlineRoute.routeIssues.length > 0) {
+        attributes["data-route-issues"] = centerlineRoute.routeIssues.map((issue) => issue.code).join(" ");
+    }
+
+    if (centerlineRoute.cornerFitIssues.length > 0) {
+        attributes["data-corner-fit-issues"] = centerlineRoute.cornerFitIssues.map((issue) => issue.code).join(" ");
+    }
+
+    return attributes;
 }
 
 function buildBandGeometry(
@@ -640,187 +707,199 @@ function resolveConnectorBandEnvelope(
 }
 
 function buildAngularConnectorCenterlinePoints(
-    source: { x: number; y: number },
-    target: { x: number; y: number },
-    pipeWidth: number,
-    targetApproachUnit?: UnitVector,
-): Waypoint[] {
-    if (shouldUseStraightAngularConnector(source, target)) {
-        return [source, target];
+    args: {
+        kind: ConnectorRouteKind;
+        pipeWidth: number;
+        source: { x: number; y: number };
+        sourceDepartureUnit?: UnitVector;
+        target: { x: number; y: number };
+        targetApproachUnit?: UnitVector;
+        targetTangentUnit?: UnitVector;
+    },
+): ConnectorRouteResolution {
+    if (args.kind === "confidenceConnector") {
+        return {
+            cornerFitIssues: [],
+            points: [args.source, args.target],
+            routeIssues: [],
+        };
     }
 
-    const bendGeometry = resolveAngularConnectorBendGeometry(source, target, pipeWidth, targetApproachUnit);
+    const targetApproachUnit = tryNormalizeUnitVector(args.targetApproachUnit);
 
-    if (!bendGeometry) {
-        return [source, target];
+    if (!targetApproachUnit) {
+        return {
+            cornerFitIssues: [],
+            points: [],
+            routeIssues: [{
+                code: "connector-route-missing-target-approach",
+                message: "The connector route could not resolve a target approach direction from the target attachment geometry.",
+            }],
+        };
     }
 
-    if (!shouldRoundAngularConnectorBends(bendGeometry)) {
-        return [
-            source,
-            bendGeometry.bendPoints.bendStart,
-            bendGeometry.bendPoints.bendEnd,
-            target,
-        ];
+    const sourceDepartureUnit = tryNormalizeUnitVector(args.sourceDepartureUnit);
+
+    if (!sourceDepartureUnit) {
+        return {
+            cornerFitIssues: [],
+            points: [],
+            routeIssues: [{
+                code: "connector-route-missing-source-direction",
+                message: "The connector route could not resolve a source departure direction from the source attachment geometry.",
+            }],
+        };
     }
 
-    return [
-        source,
-        { ...bendGeometry.bendPoints.bendStart, radius: bendGeometry.bendRadius },
-        { ...bendGeometry.bendPoints.bendEnd, radius: bendGeometry.bendRadius },
-        target,
-    ];
-}
-
-function resolveAngularConnectorBendGeometry(
-    startPoint: { x: number; y: number },
-    endPoint: { x: number; y: number },
-    pipeWidth: number,
-    targetApproachUnit?: UnitVector,
-): {
-    bendPoints: {
-        bendEnd: { x: number; y: number };
-        bendStart: { x: number; y: number };
-        endStraightLength: number;
-        startStraightLength: number;
+    const reverseTargetApproachUnit = {
+        x: -targetApproachUnit.x,
+        y: -targetApproachUnit.y,
     };
-    bendRadius: number;
-    diagonalTurnAngleRadians: number;
-} | undefined {
-    const bendPoints = resolveAngularConnectorBendPoints(startPoint, endPoint, pipeWidth, targetApproachUnit);
 
-    if (!bendPoints) {
-        return undefined;
+    if (args.kind === "deliveryConnector" && areParallelDirections(sourceDepartureUnit, reverseTargetApproachUnit)) {
+        return buildParallelEndpointConnectorRoute({
+            pipeWidth: args.pipeWidth,
+            source: args.source,
+            sourceDepartureUnit,
+            target: args.target,
+            targetTangentUnit: args.targetTangentUnit,
+        });
     }
 
-    const diagonalDeltaX = Math.abs(bendPoints.bendStart.x - bendPoints.bendEnd.x);
-    const diagonalDeltaY = Math.abs(bendPoints.bendStart.y - bendPoints.bendEnd.y);
-    const diagonalTurnAngleRadians = Math.atan2(diagonalDeltaY, diagonalDeltaX);
-
-    return {
-        bendPoints,
-        bendRadius: resolveDiagonalConnectorBendRadius(
-            bendPoints.startStraightLength,
-            bendPoints.endStraightLength,
-            Math.hypot(diagonalDeltaX, diagonalDeltaY),
-            diagonalTurnAngleRadians,
-            getMinimumCenterlineBendRadius(pipeWidth),
-        ),
-        diagonalTurnAngleRadians,
-    };
-}
-
-function resolveAngularConnectorBendPoints(
-    startPoint: { x: number; y: number },
-    endPoint: { x: number; y: number },
-    pipeWidth: number,
-    targetApproachUnit?: UnitVector,
-): {
-    bendEnd: { x: number; y: number };
-    bendStart: { x: number; y: number };
-    endStraightLength: number;
-    startStraightLength: number;
-} | undefined {
-    const straightSegmentLength = resolveConnectorStraightSegmentLength(
-        Math.max(0, startPoint.x - endPoint.x),
-        getMinimumCenterlineBendRadius(pipeWidth),
+    const rayIntersection = resolveForwardRayIntersection(
+        args.source,
+        sourceDepartureUnit,
+        args.target,
+        reverseTargetApproachUnit,
     );
 
-    if (straightSegmentLength <= 1) {
-        return undefined;
+    if (!rayIntersection) {
+        return {
+            cornerFitIssues: [],
+            points: [],
+            routeIssues: [{
+                code: areParallelDirections(sourceDepartureUnit, reverseTargetApproachUnit)
+                    ? "connector-route-parallel-tangents"
+                    : "connector-route-no-forward-intersection",
+                message: areParallelDirections(sourceDepartureUnit, reverseTargetApproachUnit)
+                    ? "The connector source tangent ray and reverse target-approach ray are parallel or nearly parallel."
+                    : "The connector source tangent ray and reverse target-approach ray do not intersect in the forward direction for both endpoints.",
+            }],
+        };
     }
 
-    const normalizedTargetApproachUnit = normalizeUnitVector(targetApproachUnit, { x: -1, y: 0 });
+    if (pointsAlmostEqual(args.source, rayIntersection.point) || pointsAlmostEqual(args.target, rayIntersection.point)) {
+        return {
+            cornerFitIssues: [],
+            points: [args.source, args.target],
+            routeIssues: [],
+        };
+    }
 
-    return {
-        bendEnd: {
-            x: endPoint.x - (normalizedTargetApproachUnit.x * straightSegmentLength),
-            y: endPoint.y - (normalizedTargetApproachUnit.y * straightSegmentLength),
+    const fittedCorners = fitPathGeometryCorners({
+        offsetEnvelope: {
+            maxOffset: Math.max(0, args.pipeWidth) / 2,
+            minOffset: -(Math.max(0, args.pipeWidth) / 2),
         },
-        bendStart: { x: startPoint.x - straightSegmentLength, y: startPoint.y },
-        endStraightLength: straightSegmentLength,
-        startStraightLength: straightSegmentLength,
+        points: [
+            args.source,
+            rayIntersection.point,
+            args.target,
+        ],
+    });
+
+    return {
+        cornerFitIssues: fittedCorners.issues,
+        points: fittedCorners.points,
+        routeIssues: [],
     };
 }
 
-function shouldUseStraightAngularConnector(startPoint: { x: number; y: number }, endPoint: { x: number; y: number }): boolean {
-    return Math.abs(startPoint.y - endPoint.y) <= MAX_STRAIGHT_CONNECTOR_VERTICAL_DELTA_PX;
-}
+function buildParallelEndpointConnectorRoute(
+    args: {
+        pipeWidth: number;
+        source: { x: number; y: number };
+        sourceDepartureUnit: UnitVector;
+        target: { x: number; y: number };
+        targetTangentUnit?: UnitVector;
+    },
+): ConnectorRouteResolution {
+    const routeNormalUnit = tryNormalizeUnitVector(args.targetTangentUnit);
 
-function shouldRoundAngularConnectorBends(args: {
-    bendRadius: number;
-    diagonalTurnAngleRadians: number;
-}): boolean {
-    if (!Number.isFinite(args.bendRadius) || args.bendRadius < 8) {
-        return false;
+    if (!routeNormalUnit) {
+        return {
+            cornerFitIssues: [],
+            points: [],
+            routeIssues: [{
+                code: "connector-route-missing-target-tangent",
+                message: "The delivery connector route could not resolve a target tangent direction from the target attachment geometry.",
+            }],
+        };
     }
 
-    const sagitta = args.bendRadius * (1 - Math.cos(args.diagonalTurnAngleRadians / 2));
-    return sagitta >= MIN_RENDERABLE_ANGULAR_BEND_SAGITTA_PX;
+    const sourceToTarget = subtractPoint(args.target, args.source);
+    const forwardDistancePx = dotProduct(sourceToTarget, args.sourceDepartureUnit);
+    const crossDistancePx = dotProduct(sourceToTarget, routeNormalUnit);
+
+    if (forwardDistancePx <= ROUTE_GEOMETRY_EPSILON) {
+        return {
+            cornerFitIssues: [],
+            points: [],
+            routeIssues: [{
+                code: "connector-route-no-forward-intersection",
+                message: "The delivery connector target is not forward along the source departure direction, so no endpoint-derived routed path could be resolved.",
+            }],
+        };
+    }
+
+    if (Math.abs(crossDistancePx) <= ROUTE_GEOMETRY_EPSILON) {
+        return {
+            cornerFitIssues: [],
+            points: [args.source, args.target],
+            routeIssues: [],
+        };
+    }
+
+    const tangentDistancePx = resolveParallelEndpointCornerTangentDistance(forwardDistancePx, crossDistancePx);
+    const bendStart = addPoint(args.source, scaleUnitVector(args.sourceDepartureUnit, tangentDistancePx));
+    const bendEnd = addPoint(args.target, scaleUnitVector(args.sourceDepartureUnit, -tangentDistancePx));
+    const fittedCorners = fitPathGeometryCorners({
+        offsetEnvelope: {
+            maxOffset: Math.max(0, args.pipeWidth) / 2,
+            minOffset: -(Math.max(0, args.pipeWidth) / 2),
+        },
+        points: [
+            args.source,
+            bendStart,
+            bendEnd,
+            args.target,
+        ],
+    });
+
+    return {
+        cornerFitIssues: fittedCorners.issues,
+        points: fittedCorners.points,
+        routeIssues: [],
+    };
 }
 
-function resolveConnectorStraightSegmentLength(
-    horizontalSpan: number,
-    minimumCenterlineBendRadius: number,
+function resolveParallelEndpointCornerTangentDistance(
+    forwardDistancePx: number,
+    crossDistancePx: number,
 ): number {
-    const maximumStraightSegmentLength = Math.max(0, (horizontalSpan - MIN_CONNECTOR_DIAGONAL_PX) / 2);
+    const safeForwardDistancePx = Math.max(0, forwardDistancePx);
+    const safeCrossDistancePx = Math.abs(crossDistancePx);
 
-    if (maximumStraightSegmentLength <= 0) {
+    if (safeForwardDistancePx <= ROUTE_GEOMETRY_EPSILON) {
         return 0;
     }
 
-    const preferredStraightSegmentLength = Math.max(
-        MIN_CONNECTOR_STRAIGHT_PX,
-        minimumCenterlineBendRadius,
-        horizontalSpan * CONNECTOR_STUB_SHARE_OF_HORIZONTAL_SPAN,
-    );
+    const zeroRemainderTangentDistancePx = (
+        (safeForwardDistancePx * safeForwardDistancePx)
+        + (safeCrossDistancePx * safeCrossDistancePx)
+    ) / (4 * safeForwardDistancePx);
 
-    return Math.min(preferredStraightSegmentLength, maximumStraightSegmentLength);
-}
-
-function resolveDiagonalConnectorBendRadius(
-    startStraightLength: number,
-    endStraightLength: number,
-    diagonalLength: number,
-    diagonalTurnAngleRadians: number,
-    minimumCenterlineBendRadius: number,
-): number {
-    const maximumBendRadius = getMaximumDiagonalCornerBendRadius(
-        startStraightLength,
-        endStraightLength,
-        diagonalLength,
-        diagonalTurnAngleRadians,
-    );
-    const defaultPreferredBendRadius = maximumBendRadius * CONNECTOR_BEND_RADIUS_SHARE_OF_AVAILABLE_MAX;
-
-    return Math.min(
-        Math.max(
-            MIN_CONNECTOR_BEND_RADIUS_PX,
-            minimumCenterlineBendRadius,
-            defaultPreferredBendRadius,
-        ),
-        maximumBendRadius,
-    );
-}
-
-function getMaximumDiagonalCornerBendRadius(
-    startStraightLength: number,
-    endStraightLength: number,
-    diagonalLength: number,
-    diagonalTurnAngleRadians: number,
-): number {
-    const tangentFactor = Math.tan(diagonalTurnAngleRadians / 2);
-
-    if (tangentFactor <= 1e-6) {
-        return 0;
-    }
-
-    return Math.min(startStraightLength, endStraightLength, diagonalLength / 2) / tangentFactor;
-}
-
-function getMinimumCenterlineBendRadius(pipeWidth: number): number {
-    return (Math.max(0, pipeWidth) / 2)
-        + (Math.max(0, pipeWidth) * MIN_CONNECTOR_INNER_BEND_RADIUS_RATIO);
+    return Math.min(safeForwardDistancePx / 2, zeroRemainderTangentDistancePx);
 }
 
 function getPlannerPipeWidth(scale: number, plannerOptions: PlannerOptions): number {
@@ -863,11 +942,13 @@ function resolveConnectorFields(args: {
     scale: number;
     score: number;
     source: { x: number; y: number };
+    sourceDepartureUnit?: UnitVector;
     target: { x: number; y: number };
     targetApproachUnit?: UnitVector;
+    targetTangentUnit?: UnitVector;
     visible: boolean;
 } {
-    const source = resolveConnectorSourcePoint({
+    const sourceAttachment = resolveConnectorSourceAttachment({
         item: args.item,
         plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
@@ -877,7 +958,7 @@ function resolveConnectorFields(args: {
         item: args.item,
         plannerOptions: args.plannerOptions,
         snapshot: args.snapshot,
-        sourcePoint: source,
+        sourcePoint: sourceAttachment.point,
         stepProgress: args.stepProgress,
     });
     let targetSideOffset = 0;
@@ -889,26 +970,28 @@ function resolveConnectorFields(args: {
     return {
         scale: resolveTweenNumber(args.item.scale, args.stepProgress),
         score: resolveTweenNumber(args.item.score, args.stepProgress),
-        source,
+        source: sourceAttachment.point,
+        sourceDepartureUnit: sourceAttachment.departureUnit,
         target: {
             x: targetAttachment.point.x + ((targetAttachment.tangent?.x ?? 0) * targetSideOffset),
             y: targetAttachment.point.y + ((targetAttachment.tangent?.y ?? 1) * targetSideOffset),
         },
         targetApproachUnit: targetAttachment.approachUnit,
+        targetTangentUnit: targetAttachment.tangent,
         visible: args.item.type === "confidenceConnector"
             ? resolveTweenBoolean(args.item.visible, args.stepProgress)
             : true,
     };
 }
 
-function resolveConnectorSourcePoint(args: {
+function resolveConnectorSourceAttachment(args: {
     item: ConfidenceConnectorViz | DeliveryConnectorViz | RelevanceConnectorViz;
     plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
-}): { x: number; y: number } {
+}): ConnectorAttachment {
     if (args.item.type === "deliveryConnector") {
-        return resolveDeliveryConnectorSourcePoint({
+        return resolveDeliveryConnectorSourceAttachment({
             item: args.item,
             plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
@@ -918,12 +1001,12 @@ function resolveConnectorSourcePoint(args: {
 
     const sourceClaimPosition = resolveClaimPositionPoint(args.snapshot, String(args.item.sourceClaimVizId), args.stepProgress);
     const oppositePoint = args.item.type === "confidenceConnector"
-        ? resolveJunctionAttachmentPoint(
+        ? resolveJunctionAttachment(
             args.snapshot,
             String(args.item.targetJunctionVizId),
             args.stepProgress,
             sourceClaimPosition,
-        )
+        ).point
         : resolveRelevanceAggregatorAttachment({
             plannerOptions: args.plannerOptions,
             snapshot: args.snapshot,
@@ -933,7 +1016,7 @@ function resolveConnectorSourcePoint(args: {
             side: args.item.side,
         }).point;
 
-    return resolveClaimAttachmentPoint({
+    return resolveClaimAttachment({
         claimVizId: String(args.item.sourceClaimVizId),
         oppositePoint,
         plannerOptions: args.plannerOptions,
@@ -968,12 +1051,12 @@ function resolveConnectorTargetAttachment(args: {
 
     if (args.item.type === "confidenceConnector") {
         return {
-            point: resolveJunctionAttachmentPoint(
+            point: resolveJunctionAttachment(
                 args.snapshot,
                 targetId,
                 args.stepProgress,
                 args.sourcePoint,
-            ),
+            ).point,
         };
     }
 
@@ -993,26 +1076,30 @@ function resolveConnectorTargetAttachment(args: {
     };
 }
 
-function resolveClaimAttachmentPoint(args: {
+function resolveClaimAttachment(args: {
     claimVizId: string;
     oppositePoint: { x: number; y: number };
     plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
-}): { x: number; y: number } {
+}): ConnectorAttachment {
     const item = getSnapshotItem(args.snapshot, args.claimVizId);
 
     if (!item || item.type !== "claim") {
-        return args.oppositePoint;
+        return { point: args.oppositePoint };
     }
 
     const position = resolveTweenPoint(item.position, args.stepProgress);
     const scale = resolveTweenNumber(item.scale, args.stepProgress);
     const halfWidth = getPlannerClaimWidth(scale, args.plannerOptions) / 2;
+    const attachOnLeft = args.oppositePoint.x <= position.x;
 
     return {
-        x: args.oppositePoint.x <= position.x ? position.x - halfWidth : position.x + halfWidth,
-        y: position.y,
+        departureUnit: attachOnLeft ? { x: -1, y: 0 } : { x: 1, y: 0 },
+        point: {
+            x: attachOnLeft ? position.x - halfWidth : position.x + halfWidth,
+            y: position.y,
+        },
     };
 }
 
@@ -1039,29 +1126,33 @@ function resolveSnapshotPositionPoint(
     return resolveTweenPoint(item.position, stepProgress);
 }
 
-function resolveJunctionAttachmentPoint(
+function resolveJunctionAttachment(
     snapshot: Snapshot,
     itemId: string,
     stepProgress: number,
     oppositePoint: { x: number; y: number },
-): { x: number; y: number } {
+): ConnectorAttachment {
     const item = getSnapshotItem(snapshot, itemId);
 
     if (!item || item.type !== "junction") {
-        return resolveSnapshotPositionPoint(snapshot, itemId, stepProgress, oppositePoint);
+        return { point: resolveSnapshotPositionPoint(snapshot, itemId, stepProgress, oppositePoint) };
     }
 
     if (!resolveTweenBoolean(item.visible, stepProgress)) {
-        return resolveTweenPoint(item.position, stepProgress);
+        return { point: resolveTweenPoint(item.position, stepProgress) };
     }
 
     const position = resolveTweenPoint(item.position, stepProgress);
     const span = resolveNonNegativeDimension(resolveTweenNumber(item.incomingRelevanceScale, stepProgress));
     const halfSpan = span / 2;
+    const attachOnLeft = oppositePoint.x <= position.x;
 
     return {
-        x: oppositePoint.x <= position.x ? position.x - halfSpan : position.x + halfSpan,
-        y: position.y,
+        departureUnit: attachOnLeft ? { x: -1, y: 0 } : { x: 1, y: 0 },
+        point: {
+            x: attachOnLeft ? position.x - halfSpan : position.x + halfSpan,
+            y: position.y,
+        },
     };
 }
 
@@ -1192,12 +1283,12 @@ function resolveRelevanceAggregatorAttachment(args: {
     return resolveRelevanceJunctionAttachment(args);
 }
 
-function resolveDeliveryConnectorSourcePoint(args: {
+function resolveDeliveryConnectorSourceAttachment(args: {
     item: DeliveryConnectorViz;
     plannerOptions: PlannerOptions;
     snapshot: Snapshot;
     stepProgress: number;
-}): { x: number; y: number } {
+}): ConnectorAttachment {
     const targetAttachment = resolveDeliveryAggregatorAttachment({
         deliveryConnectorVizId: String(args.item.id),
         plannerOptions: args.plannerOptions,
@@ -1207,7 +1298,7 @@ function resolveDeliveryConnectorSourcePoint(args: {
     const junctionItem = getSnapshotItem(args.snapshot, String(args.item.sourceJunctionVizId));
 
     if (junctionItem?.type === "junction" && resolveTweenBoolean(junctionItem.visible, args.stepProgress)) {
-        return resolveJunctionAttachmentPoint(
+        return resolveJunctionAttachment(
             args.snapshot,
             String(args.item.sourceJunctionVizId),
             args.stepProgress,
@@ -1218,15 +1309,17 @@ function resolveDeliveryConnectorSourcePoint(args: {
     const sourceClaimVizId = getSourceClaimVizIdForConfidenceConnector(args.snapshot, args.item.confidenceConnectorId);
 
     if (!sourceClaimVizId) {
-        return resolveSnapshotPositionPoint(
-            args.snapshot,
-            String(args.item.sourceJunctionVizId),
-            args.stepProgress,
-            targetAttachment.point,
-        );
+        return {
+            point: resolveSnapshotPositionPoint(
+                args.snapshot,
+                String(args.item.sourceJunctionVizId),
+                args.stepProgress,
+                targetAttachment.point,
+            ),
+        };
     }
 
-    return resolveClaimAttachmentPoint({
+    return resolveClaimAttachment({
         claimVizId: sourceClaimVizId,
         oppositePoint: targetAttachment.point,
         plannerOptions: args.plannerOptions,
@@ -1297,6 +1390,85 @@ function normalizeUnitVector(vector: UnitVector | undefined, fallback: UnitVecto
         x: vector.x / length,
         y: vector.y / length,
     };
+}
+
+function tryNormalizeUnitVector(vector: UnitVector | undefined): UnitVector | undefined {
+    if (!vector) {
+        return undefined;
+    }
+
+    const length = Math.hypot(vector.x, vector.y);
+
+    if (length <= ROUTE_GEOMETRY_EPSILON) {
+        return undefined;
+    }
+
+    return {
+        x: vector.x / length,
+        y: vector.y / length,
+    };
+}
+
+function resolveForwardRayIntersection(
+    source: { x: number; y: number },
+    sourceDirection: UnitVector,
+    target: { x: number; y: number },
+    targetDirection: UnitVector,
+): { point: { x: number; y: number } } | undefined {
+    const denominator = crossProduct(sourceDirection, targetDirection);
+
+    if (Math.abs(denominator) <= ROUTE_GEOMETRY_EPSILON) {
+        return undefined;
+    }
+
+    const sourceToTarget = subtractPoint(target, source);
+    const sourceDistancePx = crossProduct(sourceToTarget, targetDirection) / denominator;
+    const targetDistancePx = crossProduct(sourceToTarget, sourceDirection) / denominator;
+
+    if (sourceDistancePx < -ROUTE_GEOMETRY_EPSILON || targetDistancePx < -ROUTE_GEOMETRY_EPSILON) {
+        return undefined;
+    }
+
+    return {
+        point: addPoint(source, scaleUnitVector(sourceDirection, sourceDistancePx)),
+    };
+}
+
+function areParallelDirections(a: UnitVector, b: UnitVector): boolean {
+    return Math.abs(crossProduct(a, b)) <= ROUTE_GEOMETRY_EPSILON;
+}
+
+function pointsAlmostEqual(a: { x: number; y: number }, b: { x: number; y: number }): boolean {
+    return Math.hypot(a.x - b.x, a.y - b.y) <= ROUTE_GEOMETRY_EPSILON;
+}
+
+function addPoint(point: { x: number; y: number }, offset: { x: number; y: number }): { x: number; y: number } {
+    return {
+        x: point.x + offset.x,
+        y: point.y + offset.y,
+    };
+}
+
+function subtractPoint(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number } {
+    return {
+        x: a.x - b.x,
+        y: a.y - b.y,
+    };
+}
+
+function scaleUnitVector(vector: UnitVector, distance: number): UnitVector {
+    return {
+        x: vector.x * distance,
+        y: vector.y * distance,
+    };
+}
+
+function dotProduct(a: { x: number; y: number }, b: { x: number; y: number }): number {
+    return (a.x * b.x) + (a.y * b.y);
+}
+
+function crossProduct(a: { x: number; y: number }, b: { x: number; y: number }): number {
+    return (a.x * b.y) - (a.y * b.x);
 }
 
 function resolveNonNegativeDimension(value: number): number {
