@@ -6,17 +6,16 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 ## Current Implementation Scope
 
-- The first production planner scope assumes debates are acyclic.
 - The first production planner scope currently covers `confidence/claim/add`.
-- The first production planner sequence currently stops at `firstFill`.
-- The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
+- The first production planner sequence currently stops after the first `wave` from the command target through its outgoing connectors.
+- Input debates may contain cycles and repeated claims.
+- Episode0004 is the canonical planner-driven implementation of this scope.
 
 ## Deferred Scope
 
 - add-relevance animation
-- propagation-wave sequencing after `firstFill`
+- subsequent propagation-wave sequencing after the first outgoing-connector wave
 - command types outside the current `confidence/claim/add` flow
-- cycle handling and any future path-occurrence policy needed beyond the current acyclic scope
 - reversible score and relevance behavior after the math and debate-core contracts are explicitly redesigned for it
 
 ## Command Contract Boundary
@@ -28,10 +27,10 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 ## Math Boundary
 
-- Planner-facing math entrypoints should stay DebateCore-shaped.
-- Math owns score derivation, relevance derivation, side derivation, and source-side scale allocation.
-- The planner should not construct a separate scoring adapter layer.
-- If a future scope requires path-specific internal occurrence handling, keep that inside math unless an exported boundary genuinely needs a separate contract.
+- Math accepts DebateCore and resolves cycles as exact, bounded acyclic variants.
+- Inclusion-minimal connector break sets are scored with the strict acyclic scorer, then claim fields and connector contributions are averaged over the full variant count.
+- Cycle audit data remains separate from ordinary display state.
+- Presentation independently expands DebateCore by path and terminates only after emitting a claim already present on that path.
 
 ## Scale Contract
 
@@ -74,14 +73,25 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Planner**
 
 - Receives the pre-command `DebateCore` state and the command.
-- Builds the settled display snapshot implied by applying that command.
-- Produces a sequence of `GraphRenderState` snapshots and metadata.
+- Resolves opening and post-command occurrence graphs, aggregate math, and deterministic settled layout.
+- Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
+- Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
 
-**Snapshot**
+**Resolved frame**
 
-- Each snapshot (from `graph-render-state.ts`) contains the authored positions, confidence values, and other properties needed for rendering and animation. Some display geometry, including aggregator footprints and connector endpoints, is derived from those snapshot values at render time.
-- Connector end positions are derived from the connected claims, junctions, delivery aggregators, and relevance aggregators in the snapshot. Aggregator geometry is derived from its target plus aggregator state. Optional `targetSideOffset` on delivery and relevance connectors shifts the target attachment along the resolved target edge. When omitted, `targetSideOffset` is zero.
-- The snapshot is the current display state, not the underlying DebateCore state.
+- `resolveAnimationFrame` converts one named step and progress value into a scalar `DebateFrame`.
+- The frame contains occurrence-keyed claims and connectors. It has no tween values and no cycle-variant presentation state.
+- Shared geometry derives claim bounds, typed attachment ports, fixed route topology, connector bands, aggregators, and junctions from that same frame.
+- Connector endpoints and receiving boundaries consume the same port coordinates. The renderer paints resolved geometry and does not independently reconstruct attachment points.
+
+## Connector Transition Direction
+
+- Every connector fill transition is authored as an initial numeric value and a final numeric value. Episode code does not author intermediate fill values or frontier positions.
+- The animation resolver calculates transition progress from the track timing, and shared geometry converts that progress into the visible moving frontier.
+- Connector fill changes travel from the source toward the target. In the current layout, sources are on the right and targets are on the left, so every fill frontier moves right to left.
+- Increasing fill leaves the final fill behind the moving frontier. Decreasing fill is explicitly smaller on the right and larger on the left across the moving transition: the final smaller value follows the frontier while the initial larger value remains ahead of it.
+- A decreasing fill transition is a width transition between those two values, not a reversed-path disappearance extremity and not a uniform width change across the whole connector.
+- A connector must retain its initial fill ahead of the frontier and its final fill behind the frontier until the transition reaches the target boundary.
 
 ## Shared Ordering
 
@@ -103,19 +113,17 @@ Connector stacking is the shared rule for arranging delivery connectors and rele
 - A relevance connector first chooses the top or bottom edge of its target relevance aggregator based on which edge faces the source claim, then stacks on that edge.
 - Stack membership is the set of connectors that land on the same target edge.
 - Stack order comes from the shared ordering rule above rather than from a separate connector-only ordering rule.
-- The thickness contribution of each stacked connector is its rendered fluid-band width, not the full pipe outline width.
-- Carry the old delivery rule forward for both delivery connectors and relevance connectors: fluid-band width is the connector's full pipe width at its current scale multiplied by its clamped current score.
-- The stack is therefore based on current scored fluid, not on a connector's full potential pipe width at that scale.
-- During partial reveal states, stack thickness uses the revealed fluid-band width for that state rather than the fully revealed width.
-- When stack positions are authored from transition endpoints, an unrevealed endpoint contributes zero stack thickness at that endpoint.
-- Convert that fluid-band width into a target-edge attachment envelope by combining it with the connector's full pipe width and its band placement. Because those envelopes can differ, stacking is not regular spacing.
-- That means neighboring connectors can still have overlapping pipe wall or pipe interior regions while the stacked scored-fluid bands remain separated.
+- The thickness contribution of each stacked connector is its full structural pipe width at the authored scale.
+- Score controls fluid-band width inside that structural pipe and never changes the settled attachment position.
+- Reveal controls how much of a connector is visible and never changes the settled attachment position.
+- Neighboring structural pipe mouths tile edge-to-edge in stack order without overlap or gaps.
+- A score or reveal change can alter visible fluid without moving a connector shell, its target port, or any claim.
 - If band placement is not authored explicitly, resolve it from side the same way the old system did: `conMain` uses the upper-side placement and the other side uses the lower-side placement.
-- The total stack thickness is the sum of those attachment-envelope heights, not the sum of raw center offsets.
+- The total stack thickness is the sum of the structural pipe widths.
 - Center the combined envelopes on the midpoint of the resolved target edge. A single connector therefore remains centered on that edge.
 - Author each connector's `targetSideOffset` from that centered arrangement. When siblings are added, removed, or reordered, restack the full set around the same edge center by changing those offsets.
-- A target aggregator can remain collapsed or visually absent even when stacking still resolves a centered attachment position for the connectors that land on its edge.
+- A delivery aggregator is visible whenever at least one confidence connector lands on it. A relevance aggregator may remain collapsed when its display does not need a separate landing surface.
 
 **Planner config**
 
-- a config file that defines how commands are translated into planner logic and snapshots.
+- `PlannerOptions` defines claim dimensions and layout corridors used by both app layout and shared geometry.

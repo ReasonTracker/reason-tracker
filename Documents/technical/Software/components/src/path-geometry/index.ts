@@ -1,4 +1,10 @@
-export { buildPathGeometry } from "./buildPathGeometry";
+export { buildPathGeometry, resolvePathOffsetPointAtDistance } from "./buildPathGeometry";
+export { buildPathVolumeGeometry } from "./buildPathVolumeGeometry";
+export type {
+	PathVolumeGeometryInput,
+	PathVolumePlacement,
+	PathVolumeTransition,
+} from "./buildPathVolumeGeometry";
 export type {
 	OffsetSection,
 	PathCurvedExtremityInstruction,

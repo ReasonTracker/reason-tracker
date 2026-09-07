@@ -43,6 +43,7 @@ export interface PathTransitionInstruction {
 	startPositionPercent: number;
 	lengthPx: number;
 	kind: PathGeometryTransitionKind;
+	allowOverflow?: boolean;
 }
 
 export type PathGeometryExtremityKind = "curved" | "open" | "linear";
@@ -59,6 +60,7 @@ export interface PathLinearExtremityInstruction {
 	startPositionPercent: number;
 	lengthPx: number;
 	collapseOffset: number;
+	allowOverflow?: boolean;
 }
 
 export interface PathCurvedExtremityInstruction {
@@ -67,6 +69,7 @@ export interface PathCurvedExtremityInstruction {
 	startPositionPercent: number;
 	lengthPx: number;
 	collapseOffset: number;
+	allowOverflow?: boolean;
 }
 
 export type PathExtremityInstruction =
@@ -189,6 +192,8 @@ interface PathProfileSegment {
 	endDistance: number;
 	fromSection: OffsetSection;
 	toSection: OffsetSection;
+	interpolationEndDistance?: number;
+	interpolationStartDistance?: number;
 	transitionKind?: PathGeometryTransitionKind;
 }
 
@@ -398,6 +403,21 @@ export function buildPathGeometry(input: PathGeometryInput): PathGeometry {
 	return { boundaryAPathCommands, boundaryBPathCommands, issues };
 }
 
+export function resolvePathOffsetPointAtDistance(
+	points: Waypoint[],
+	distance: number,
+	offset: number,
+): Point | undefined {
+	const centerline = buildCenterlineParts(points, []);
+	if (centerline.parts.length === 0 || centerline.totalLength <= GEOMETRY_EPSILON) {
+		return undefined;
+	}
+
+	const resolvedDistance = clampNumber(distance, 0, centerline.totalLength);
+	const part = findCenterlinePartAtDistance(centerline.parts, resolvedDistance);
+	return part ? evaluateConstantOffsetPoint(part, resolvedDistance, offset) : undefined;
+}
+
 function buildCenterlineParts(
 	points: Waypoint[],
 	issues: PathGeometryIssue[],
@@ -599,16 +619,47 @@ function buildProfileSegments(
 	}
 
 	const segments: PathProfileSegment[] = [];
-	let cursor = clampStartPositionPercent(
-		firstInstruction.startPositionPercent,
-		totalLength,
-		issues,
-		0,
-	);
+	let cursor = firstInstruction.kind !== "open" && firstInstruction.allowOverflow
+		? 0
+		: clampStartPositionPercent(
+			firstInstruction.startPositionPercent,
+			totalLength,
+			issues,
+			0,
+		);
 	let instructionIndex = 1;
 	let activeSection = extractOffsetSection(instructions[1]);
 
-	if (firstInstruction.kind !== "open") {
+	if (firstInstruction.kind !== "open" && firstInstruction.allowOverflow) {
+		const transitionStart = (totalLength * firstInstruction.startPositionPercent) / 100;
+		const transitionLength = Math.max(0, firstInstruction.lengthPx);
+		const transitionEnd = transitionStart + transitionLength;
+
+		if (transitionStart >= totalLength) {
+			return [];
+		}
+		if (transitionEnd > 0) {
+			const visibleStart = clampNumber(transitionStart, 0, totalLength);
+			const visibleEnd = clampNumber(transitionEnd, 0, totalLength);
+			const collapsedSection = {
+				offsetA: firstInstruction.collapseOffset,
+				offsetB: firstInstruction.collapseOffset,
+			};
+			pushProfileSegment(
+				segments,
+				visibleStart,
+				visibleEnd,
+				collapsedSection,
+				activeSection,
+				firstInstruction.kind,
+				transitionStart,
+				transitionEnd,
+			);
+			cursor = visibleEnd;
+		} else {
+			cursor = 0;
+		}
+	} else if (firstInstruction.kind !== "open") {
 		const leadingLength = clampLengthPx(
 			firstInstruction.lengthPx,
 			Math.max(0, totalLength - cursor),
@@ -665,6 +716,41 @@ function buildProfileSegments(
 		}
 
 		const nextSection = extractOffsetSection(nextInstruction);
+		if (instruction.allowOverflow) {
+			const transitionStart = (totalLength * instruction.startPositionPercent) / 100;
+			const transitionLength = Math.max(0, instruction.lengthPx);
+			const transitionEnd = transitionStart + transitionLength;
+
+			if (transitionEnd <= cursor) {
+				activeSection = nextSection;
+				instructionIndex += 2;
+				continue;
+			}
+			if (transitionStart >= totalLength) {
+				instructionIndex += 2;
+				continue;
+			}
+
+			const visibleStart = clampNumber(transitionStart, cursor, totalLength);
+			const visibleEnd = clampNumber(transitionEnd, cursor, totalLength);
+			pushProfileSegment(segments, cursor, visibleStart, activeSection, activeSection);
+			if (visibleEnd > visibleStart) {
+				pushProfileSegment(
+					segments,
+					visibleStart,
+					visibleEnd,
+					activeSection,
+					nextSection,
+					instruction.kind,
+					transitionStart,
+					transitionEnd,
+				);
+			}
+			activeSection = nextSection;
+			cursor = visibleEnd;
+			instructionIndex += 2;
+			continue;
+		}
 		let transitionStart = clampStartPositionPercent(
 			instruction.startPositionPercent,
 			totalLength,
@@ -704,6 +790,33 @@ function buildProfileSegments(
 	}
 
 	const trailingExtremity = lastInstruction;
+	if (trailingExtremity.kind !== "open" && trailingExtremity.allowOverflow) {
+		const transitionStart = (totalLength * trailingExtremity.startPositionPercent) / 100;
+		const transitionLength = Math.max(0, trailingExtremity.lengthPx);
+		const transitionEnd = transitionStart + transitionLength;
+		const visibleStart = clampNumber(transitionStart, cursor, totalLength);
+		const visibleEnd = clampNumber(transitionEnd, cursor, totalLength);
+
+		pushProfileSegment(segments, cursor, visibleStart, activeSection, activeSection);
+		if (visibleEnd > visibleStart) {
+			const collapsedSection = {
+				offsetA: trailingExtremity.collapseOffset,
+				offsetB: trailingExtremity.collapseOffset,
+			};
+			pushProfileSegment(
+				segments,
+				visibleStart,
+				visibleEnd,
+				activeSection,
+				collapsedSection,
+				trailingExtremity.kind,
+				transitionStart,
+				transitionEnd,
+			);
+		}
+
+		return segments;
+	}
 	let trailingStart = clampStartPositionPercent(
 		trailingExtremity.startPositionPercent,
 		totalLength,
@@ -874,8 +987,14 @@ function evaluateBoundaryPoint(
 ): Point {
 	const centerline = evaluateCenterlinePart(part, distance);
 	const left = leftNormal(centerline.tangent);
-	const span = profileSegment.endDistance - profileSegment.startDistance;
-	const interpolation = span <= GEOMETRY_EPSILON ? 0 : (distance - profileSegment.startDistance) / span;
+	const interpolationStart = profileSegment.interpolationStartDistance
+		?? profileSegment.startDistance;
+	const interpolationEnd = profileSegment.interpolationEndDistance
+		?? profileSegment.endDistance;
+	const span = interpolationEnd - interpolationStart;
+	const interpolation = span <= GEOMETRY_EPSILON
+		? 0
+		: (distance - interpolationStart) / span;
 	const fromOffset = selectOffset(profileSegment.fromSection);
 	const toOffset = selectOffset(profileSegment.toSection);
 	const offset = interpolateNumber(
@@ -1039,12 +1158,22 @@ function pushProfileSegment(
 	fromSection: OffsetSection,
 	toSection: OffsetSection,
 	transitionKind?: PathGeometryTransitionKind,
+	interpolationStartDistance?: number,
+	interpolationEndDistance?: number,
 ): void {
 	if (endDistance - startDistance <= GEOMETRY_EPSILON) {
 		return;
 	}
 
-	segments.push({ startDistance, endDistance, fromSection, toSection, transitionKind });
+	segments.push({
+		endDistance,
+		fromSection,
+		interpolationEndDistance,
+		interpolationStartDistance,
+		startDistance,
+		toSection,
+		transitionKind,
+	});
 }
 
 function extractOffsetSection(instruction: PathOffsetsInstruction): OffsetSection {

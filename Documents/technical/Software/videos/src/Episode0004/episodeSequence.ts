@@ -1,25 +1,15 @@
-import type { DebateSnapshotRenderState, RenderStepProgress } from "../shared/debate-render/renderTypes";
+import type { AnimationStepId } from "@planner/DebateAnimationPlan.ts";
 
 import { buildTimelineTimes, type TimelineEntry } from "../shared/timeline";
-import {
-    firstFillRenderState,
-    openingRenderState,
-    scaleRenderState,
-    sproutRenderState,
-    voilaRenderState,
-    waveC1RenderState,
-    waveMainRenderState,
-} from "./plannerRenderStates";
 
 export const EPISODE0004_FPS = 30;
 
-type Episode0004SegmentId = "opening" | "voila" | "sprout" | "firstFill" | "waveC1" | "waveMain" | "scale";
+type Episode0004SegmentId = "opening" | AnimationStepId;
 
 type Episode0004SegmentDefinition = {
     id: Episode0004SegmentId;
     label: string;
     durationSeconds: number;
-    renderState: DebateSnapshotRenderState;
 };
 
 export type Episode0004TimelineSegment = {
@@ -27,7 +17,6 @@ export type Episode0004TimelineSegment = {
     label: string;
     from: number;
     durationInFrames: number;
-    renderState: DebateSnapshotRenderState;
 };
 
 const episode0004SegmentDefinitions: readonly Episode0004SegmentDefinition[] = [
@@ -35,44 +24,27 @@ const episode0004SegmentDefinitions: readonly Episode0004SegmentDefinition[] = [
         id: "opening",
         label: "step0001 - Opening",
         durationSeconds: 1.2,
-        renderState: openingRenderState,
     },
     {
         id: "voila",
         label: "step0002 - Voila",
         durationSeconds: 0.7,
-        renderState: voilaRenderState,
     },
     {
         id: "sprout",
         label: "step0003 - Sprout",
         durationSeconds: 0.8,
-        renderState: sproutRenderState,
     },
     {
         id: "firstFill",
         label: "step0004 - First Fill",
         durationSeconds: 0.65,
-        renderState: firstFillRenderState,
     },
-    {
-        id: "waveC1",
-        label: "step0005 - Wave - C1 Adjust",
-        durationSeconds: 0.5,
-        renderState: waveC1RenderState,
-    },
-    {
-        id: "waveMain",
-        label: "step0006 - Wave - Main Propagate",
-        durationSeconds: 0.5,
-        renderState: waveMainRenderState,
-    },
-    {
-        id: "scale",
-        label: "step0007 - Scale",
-        durationSeconds: 0.5,
-        renderState: scaleRenderState,
-    },
+	{
+		id: "wave",
+		label: "step0005 - Wave",
+		durationSeconds: 0.65,
+	},
 ];
 
 const episode0004TimelineEntries: readonly TimelineEntry<Episode0004SegmentId>[] = episode0004SegmentDefinitions.map(
@@ -90,16 +62,17 @@ export const EPISODE0004_SEGMENTS: readonly Episode0004TimelineSegment[] = episo
 
 export const EPISODE0004_DURATION_IN_FRAMES = episode0004Timeline.totalDurationInFrames;
 
-export function resolveEpisode0004Playback(frame: number): (RenderStepProgress & {
-    renderState: DebateSnapshotRenderState;
+export function resolveEpisode0004Playback(frame: number): {
     segmentId: Episode0004SegmentId;
-}) | undefined {
+    stepId?: AnimationStepId;
+    stepProgress: number;
+} | undefined {
     for (const segment of EPISODE0004_SEGMENTS) {
         const endFrame = segment.from + segment.durationInFrames;
         if (frame >= segment.from && frame < endFrame) {
             return {
-                renderState: segment.renderState,
                 segmentId: segment.id,
+                stepId: segment.id === "opening" ? undefined : segment.id,
                 stepProgress: resolveStepProgress(frame, segment.from, segment.durationInFrames),
             };
         }

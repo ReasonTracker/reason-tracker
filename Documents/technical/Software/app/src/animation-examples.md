@@ -5,8 +5,8 @@ These examples describe the visual sequence of what happens on screen and intent
 ## Current Implementation Scope
 
 - The first production planner implementation currently covers add-confidence claim animation only.
-- The first production planner sequence currently stops at `firstFill`.
-- Add-relevance animation and propagation-wave sequencing are future scope.
+- The first production planner sequence currently stops after the first `wave` from the command target through its outgoing connectors.
+- Add-relevance animation and subsequent propagation-wave sequencing are future scope.
 - The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
 - The planner input boundary is the pre-command DebateCore state plus the command payload.
 - Planner-facing math should stay DebateCore-shaped, so the planner should consume DebateCore-first math entrypoints rather than building a separate scoring adapter layer.
@@ -48,13 +48,12 @@ These examples describe the visual sequence of what happens on screen and intent
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
 - **Sprout**: These stages happen in order across the sprout step.
-  - `0% - 50%`: The new Delivery Connector's pipe wall and pipe interior trace out from the new claim toward the target claim in the `sourceToTarget` direction. During this interval, the new connector grows from zero to its planned post-sprout scale and is already attached to its planned stacked target-side attachment position.
-  - `50% - 70%`: The existing sibling Delivery Connectors make room at the target. Their target-side attachments slide toward their planned stacked target-side attachment positions while their widths shrink toward their planned post-sprout scales, and that width change sweeps in the `targetToSource` direction.
+  - `0% - 50%`: The new Delivery Connector traces out at its full planned width from the new claim toward the target claim in the `sourceToTarget` direction. At the same time, every affected sibling Delivery Connector slides its target-side attachment toward its planned stacked position and adjusts its target-side width. The reveal and target restacking are one simultaneous motion, not consecutive stages.
   - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout. That compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
   - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
   - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
-- **First Fill**: The score fluid progressively fills the new pipe.
-- **Wave**: Start the progression wave at the target Delivery Aggregator Adjust step.
+- **First Fill**: The score fluid progressively fills the new pipe. Its moving frontier uses the path primitive's overflow-preserving curved extremity collapsed toward the bottom edge. The tip enters through the source boundary before the full slant is visible, and the full slant flows beyond the target boundary before the fill becomes flush.
+- **Wave**: After First Fill completes, adjust the target claim to its settled score and animate connectors sourced by that claim to the same settled fill. The planner supplies each connector's initial and final fill numbers; shared animation and geometry move the transition frontier from right to left rather than changing the whole connector uniformly. Subsequent propagation toward the Main Claim remains future scope.
 
 ## Add Relevance Claim To A New Junction
 
@@ -68,7 +67,7 @@ These examples describe the visual sequence of what happens on screen and intent
   - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming Display Confidence Connector side is, and how thick the outgoing Delivery Connector side is.
   - Relevance can make that outgoing Delivery Connector side either wider or narrower than the incoming Display Confidence Connector side.
   - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
-  - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the delivery aggregator on the target claim side, which can look like it is connecting to the claim when there is only one incoming connector because the delivery aggregator is not visible.
+  - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the delivery aggregator on the target claim side. The delivery aggregator remains visible even when it has only one incoming connector.
 - **First Fill**: The score fluid progressively fills the new pipe.
 - **Wave**: Start the update wave at the target Relevance Aggregator Adjust step.
 

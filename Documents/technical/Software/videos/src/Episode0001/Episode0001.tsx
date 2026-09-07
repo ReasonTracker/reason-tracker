@@ -1,6 +1,10 @@
 import { Sequence, useCurrentFrame } from "remotion";
 
-import { DebateRenderSurface } from "../shared/DebateRenderSurface";
+import { DebateAnimationSurface } from "../shared/DebateAnimationSurface";
+import {
+    episode0001AnimationPlan,
+    episode0001DebateCore,
+} from "./animationPlan";
 import {
     EPISODE0001_DURATION_IN_FRAMES,
     EPISODE0001_FPS,
@@ -29,8 +33,10 @@ export const Episode0001 = () => {
             ))}
             {playback
                 ? (
-                    <DebateRenderSurface
-                        renderState={playback.renderState}
+                    <DebateAnimationSurface
+                        debateCore={episode0001DebateCore}
+                        plan={episode0001AnimationPlan}
+                        stepId={playback.stepId}
                         stepProgress={playback.stepProgress}
                     />
                 )

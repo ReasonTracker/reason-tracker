@@ -9,7 +9,11 @@
   "files": [
     "src"
   ],
+  "dependencies": {
+    "@reasontracker/app": "workspace:*"
+  },
   "scripts": {
+    "test": "vp test run",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "peerDependencies": {
@@ -19,6 +23,7 @@
   "devDependencies": {
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "vitest": "^4.1.2",
     "vite-plus": "^0.1.16"
   }
 }

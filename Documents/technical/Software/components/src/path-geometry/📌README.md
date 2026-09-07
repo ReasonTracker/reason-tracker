@@ -52,6 +52,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - Both offsets are signed distances from the reference path and may lie on opposite sides or the same side.
 - An `offsets` instruction defines a stable section state between transitions and extremities.
 - A `transition` instruction uses `startPositionPercent` and `lengthPx` because it occupies a path range that begins at a path-relative position and extends for a pixel length.
+- A transition may set `allowOverflow` when its full span must enter through the start boundary or leave through the end boundary without compressing its interpolation.
 - A `transition` instruction should declare a transition kind such as `linear` or `curved`.
 - A `linear` transition interpolates offsets directly from the earlier section state to the later section state.
 - A `curved` transition uses one continuous bowed interpolation from the earlier section state to the later section state, without flattening into a straight-feeling middle.
@@ -63,6 +64,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - A trailing `linear` extremity collapses toward `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
 - A leading `curved` extremity expands from `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
 - A trailing `curved` extremity collapses toward `collapseOffset` across its `lengthPx` span beginning at `startPositionPercent`.
+- A linear or curved trailing extremity may set `allowOverflow` when its full transition must travel through a route boundary. The transition retains its unclipped start, end, and interpolation phase while only the portion inside the routed path is drawn.
 - A leading `open` begins visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - A trailing `open` ends visible geometry at `startPositionPercent` with no `lengthPx` span or collapse behavior.
 - `startPositionPercent` is measured as a percentage of total path length, and `lengthPx` is measured in pixels along the routed centerline.
@@ -80,7 +82,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - A leading `extremity` may begin after 0% and may consume a `lengthPx` span after its `startPositionPercent` before the first stable offsets state becomes fully active.
 - A trailing `extremity` may begin before 100% and defines where visible geometry ends.
 - `open` does not have a `lengthPx` because it cannot have a span.
-- Out-of-range `startPositionPercent` values and negative or oversized `lengthPx` values are clamped into the routed path length and reported as warnings.
+- Out-of-range `startPositionPercent` values and negative or oversized `lengthPx` values are clamped into the routed path length and reported as warnings unless a transition or eligible trailing extremity sets `allowOverflow`.
 - Terminal behavior should be expressed through an `extremity` instruction.
 
 ## Out Of Scope

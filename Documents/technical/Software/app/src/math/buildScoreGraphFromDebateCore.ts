@@ -1,5 +1,6 @@
 import type { ClaimId } from "../debate-core/Claim.ts";
 import type {
+	ConnectorId,
 	ConfidenceConnectorId,
 	RelevanceConnectorId,
 } from "../debate-core/Connector.ts";
@@ -10,7 +11,14 @@ export interface BuiltScoreGraphFromDebateCore {
 	graph: ScoreGraph
 	rootScoreNodeId: ScoreNodeId
 	scoreNodeIdByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId>>
+	scoreNodeIdsByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId[]>>
 	scoreNodeIdByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId>>
+	scoreNodeIdsByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId[]>>
+}
+
+export interface BuildScoreGraphFromDebateCoreOptions {
+	excludedConnectorIds?: ReadonlySet<ConnectorId>
+	rootClaimId?: ClaimId
 }
 
 /**
@@ -19,37 +27,48 @@ export interface BuiltScoreGraphFromDebateCore {
  * The public app boundary can stay DebateCore-shaped even when math needs one
  * occurrence per scored path through that graph.
  */
-export function buildScoreGraphFromDebateCore(debateCore: DebateCore): BuiltScoreGraphFromDebateCore {
-	const mainClaim = debateCore.claims[debateCore.mainClaimId];
+export function buildScoreGraphFromDebateCore(
+	debateCore: DebateCore,
+	options: BuildScoreGraphFromDebateCoreOptions = {},
+): BuiltScoreGraphFromDebateCore {
+	const rootClaimId = options.rootClaimId ?? debateCore.mainClaimId;
+	const mainClaim = debateCore.claims[rootClaimId];
 
 	if (!mainClaim) {
-		throw new Error(`Missing main claim while building score graph: ${debateCore.mainClaimId}`);
+		throw new Error(`Missing root claim while building score graph: ${rootClaimId}`);
 	}
 
 	const incomingConfidenceConnectorIdsByTargetClaimId = indexIncomingConfidenceConnectorIdsByTargetClaimId(debateCore);
 	const incomingRelevanceConnectorIdsByTargetConfidenceConnectorId = indexIncomingRelevanceConnectorIdsByTargetConfidenceConnectorId(debateCore);
 	const nodes: Record<ScoreNodeId, ScoreNode> = {};
 	const scoreNodeIdByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId>> = {};
+	const scoreNodeIdsByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId[]>> = {};
 	const scoreNodeIdByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId>> = {};
-	const rootScoreNodeId = resolveRootScoreNodeId(debateCore.mainClaimId);
+	const scoreNodeIdsByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId[]>> = {};
+	const rootScoreNodeId = resolveRootScoreNodeId(rootClaimId);
 
 	addClaimOccurrence({
 		ancestorClaimIds: new Set<ClaimId>(),
-		claimId: debateCore.mainClaimId,
+		claimId: rootClaimId,
 		debateCore,
+		excludedConnectorIds: options.excludedConnectorIds ?? new Set<ConnectorId>(),
 		incomingConfidenceConnectorIdsByTargetClaimId,
 		incomingRelevanceConnectorIdsByTargetConfidenceConnectorId,
 		nodes,
 		scoreNodeId: rootScoreNodeId,
 		scoreNodeIdByConfidenceConnectorId,
+		scoreNodeIdsByConfidenceConnectorId,
 		scoreNodeIdByRelevanceConnectorId,
+		scoreNodeIdsByRelevanceConnectorId,
 	});
 
 	return {
 		graph: { nodes },
 		rootScoreNodeId,
 		scoreNodeIdByConfidenceConnectorId,
+		scoreNodeIdsByConfidenceConnectorId,
 		scoreNodeIdByRelevanceConnectorId,
+		scoreNodeIdsByRelevanceConnectorId,
 	};
 }
 
@@ -57,6 +76,7 @@ function addClaimOccurrence(args: {
 	ancestorClaimIds: ReadonlySet<ClaimId>;
 	claimId: ClaimId;
 	debateCore: DebateCore;
+	excludedConnectorIds: ReadonlySet<ConnectorId>;
 	incomingConfidenceConnectorIdsByTargetClaimId: Partial<Record<ClaimId, ConfidenceConnectorId[]>>;
 	incomingRelevanceConnectorIdsByTargetConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, RelevanceConnectorId[]>>;
 	nodes: Record<ScoreNodeId, ScoreNode>;
@@ -66,7 +86,9 @@ function addClaimOccurrence(args: {
 	scoreNodeId: ScoreNodeId;
 	confidenceConnectorId?: ConfidenceConnectorId;
 	scoreNodeIdByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId>>;
+	scoreNodeIdsByConfidenceConnectorId: Partial<Record<ConfidenceConnectorId, ScoreNodeId[]>>;
 	scoreNodeIdByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId>>;
+	scoreNodeIdsByRelevanceConnectorId: Partial<Record<RelevanceConnectorId, ScoreNodeId[]>>;
 }): void {
 	if (args.ancestorClaimIds.has(args.claimId)) {
 		throw new Error(`Cycle found while building score graph for claim: ${args.claimId}`);
@@ -87,7 +109,9 @@ function addClaimOccurrence(args: {
 	};
 
 	if (args.confidenceConnectorId) {
-		args.scoreNodeIdByConfidenceConnectorId[args.confidenceConnectorId] = args.scoreNodeId;
+		args.scoreNodeIdByConfidenceConnectorId[args.confidenceConnectorId] ??= args.scoreNodeId;
+		args.scoreNodeIdsByConfidenceConnectorId[args.confidenceConnectorId] ??= [];
+		args.scoreNodeIdsByConfidenceConnectorId[args.confidenceConnectorId]?.push(args.scoreNodeId);
 	}
 
 	const nextAncestorClaimIds = new Set(args.ancestorClaimIds);
@@ -96,14 +120,20 @@ function addClaimOccurrence(args: {
 	for (const relevanceConnectorId of args.confidenceConnectorId
 		? getSortedIds(args.incomingRelevanceConnectorIdsByTargetConfidenceConnectorId[args.confidenceConnectorId])
 		: []) {
+		if (args.excludedConnectorIds.has(relevanceConnectorId)) {
+			continue;
+		}
+
 		const relevanceConnector = args.debateCore.connectors[relevanceConnectorId];
 
 		if (!relevanceConnector || relevanceConnector.type !== "relevance") {
 			throw new Error(`Missing relevance connector while building score graph: ${relevanceConnectorId}`);
 		}
 
-		const relevanceScoreNodeId = resolveRelevanceScoreNodeId(relevanceConnector.id);
-		args.scoreNodeIdByRelevanceConnectorId[relevanceConnector.id] = relevanceScoreNodeId;
+		const relevanceScoreNodeId = resolveChildScoreNodeId(args.scoreNodeId, "relevance", relevanceConnector.id);
+		args.scoreNodeIdByRelevanceConnectorId[relevanceConnector.id] ??= relevanceScoreNodeId;
+		args.scoreNodeIdsByRelevanceConnectorId[relevanceConnector.id] ??= [];
+		args.scoreNodeIdsByRelevanceConnectorId[relevanceConnector.id]?.push(relevanceScoreNodeId);
 
 		addClaimOccurrence({
 			...args,
@@ -118,6 +148,10 @@ function addClaimOccurrence(args: {
 	}
 
 	for (const confidenceConnectorId of getSortedIds(args.incomingConfidenceConnectorIdsByTargetClaimId[args.claimId])) {
+		if (args.excludedConnectorIds.has(confidenceConnectorId)) {
+			continue;
+		}
+
 		const confidenceConnector = args.debateCore.connectors[confidenceConnectorId];
 
 		if (!confidenceConnector || confidenceConnector.type !== "confidence") {
@@ -132,7 +166,7 @@ function addClaimOccurrence(args: {
 			confidenceConnectorId: confidenceConnector.id,
 			parentId: args.scoreNodeId,
 			proParent: confidenceConnector.targetRelationship === "proTarget",
-			scoreNodeId: resolveConfidenceScoreNodeId(confidenceConnector.id),
+			scoreNodeId: resolveChildScoreNodeId(args.scoreNodeId, "confidence", confidenceConnector.id),
 		});
 	}
 }
@@ -179,10 +213,10 @@ function resolveRootScoreNodeId(claimId: ClaimId): ScoreNodeId {
 	return `score-root:${claimId}` as ScoreNodeId;
 }
 
-function resolveConfidenceScoreNodeId(confidenceConnectorId: ConfidenceConnectorId): ScoreNodeId {
-	return `score-confidence:${confidenceConnectorId}` as ScoreNodeId;
-}
-
-function resolveRelevanceScoreNodeId(relevanceConnectorId: RelevanceConnectorId): ScoreNodeId {
-	return `score-relevance:${relevanceConnectorId}` as ScoreNodeId;
+function resolveChildScoreNodeId(
+	parentScoreNodeId: ScoreNodeId,
+	connectorType: "confidence" | "relevance",
+	connectorId: ConnectorId,
+): ScoreNodeId {
+	return `${parentScoreNodeId}/${connectorType}:${connectorId}` as ScoreNodeId;
 }

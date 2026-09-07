@@ -1,6 +1,5 @@
 import type { DebateCommand } from "../debate-core/Commands.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
-import type { Snapshot } from "./Snapshot.ts";
 
 // #region Planner options
 export interface PlannerOptions {
@@ -22,7 +21,7 @@ export interface PlannerOptions {
 
 export const defaultPlannerOptions: PlannerOptions = {
     claimLaneAxisGap: 50,
-    junctionLaneWidth: 300,
+    junctionLaneWidth: 70,
     connectorCurveLaneWidth: 100,
     connectorDiagonalLaneWidth: 50,
     claimWidth: 360,
@@ -45,9 +44,5 @@ export interface PlannerInput {
     command: DebateCommand
     options?: Partial<PlannerOptions>
 }
-
-export type PlannerOutput = Snapshot[];
-
-export type Planner = (input: PlannerInput) => PlannerOutput;
 
 // #endregion

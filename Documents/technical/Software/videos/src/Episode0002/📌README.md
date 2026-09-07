@@ -1,8 +1,9 @@
 # 📌 Episode 0002
 
-This folder owns the Episode0002 debate scenario and the authored Remotion timeline and snapshot states for the second debate episode.
+This folder owns the Episode0002 debate scenario and planner-driven Remotion timeline.
 
 ## Boundaries
 
-- Keep Episode0002-specific scenario data, timings, and authored snapshot data in this folder.
-- Keep reusable snapshot patch helpers in [Shared](../shared/📌README.md).
+- Keep Episode0002-specific scenario data, timings, and add-claim command setup in this folder.
+- Drive the timeline from the named `opening`, `voila`, `sprout`, and `firstFill` plan states.
+- Keep Remotion responsible only for frame timing. Shared React/SVG rendering and geometry live in `@reasontracker/components`.

@@ -14,6 +14,7 @@
   "scripts": {
     "build": "echo \"Build script pending\"",
     "studio": "remotion studio src/index.ts",
+    "test": "vp test run",
     "typecheck": "tsc --noEmit -p ./tsconfig.json"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "@types/node": "^24.5.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "vitest": "^4.1.2",
     "vite-plus": "^0.1.16"
   }
 }

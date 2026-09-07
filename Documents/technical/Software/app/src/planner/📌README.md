@@ -3,9 +3,11 @@
 ## Current Boundary
 
 - The planner currently works from the pre-command `DebateCore` state plus the command payload.
-- The planner owns settled snapshot generation from `DebateCore`; callers do not pass a snapshot into the planner.
-- For the current first-scope `claim/add` confidence flow, the planner is expected to apply the command before building the settled post-command display state.
-- Planner-facing math should stay DebateCore-shaped. The planner should consume DebateCore-first math entrypoints for score, side, and source-scale derivation rather than constructing a separate scoring adapter layer.
+- `planner` returns a named `DebateAnimationPlan` with an opening scalar frame and `voila`, `sprout`, `firstFill`, and `wave` steps.
+- `resolveAnimationFrame` is the only interpolation boundary. Renderers consume resolved scalar frames and do not interpret planner tweens.
+- `resolvePresentationMath` performs cycle-aware scoring once, builds the deterministic presentation graph, and maps aggregate scores, sides, and scales onto path occurrences.
+- The presentation graph expands the original DebateCore by path. It emits a repeated ancestor claim once as an ordinary terminal occurrence, then stops only that branch.
+- Claim and connector occurrence IDs are path-derived. Reusable domain IDs remain available for content and aggregate-value lookup.
 
 ## Command Contract Status
 
@@ -18,13 +20,13 @@
 ## Current Scope
 
 - first implementation target: `confidence/claim/add`
-- current animation cutoff: `firstFill`
-- The current settled snapshot builder still assumes one visible occurrence per reusable claim id. Multi-occurrence display support needs a separate snapshot and renderer contract update.
+- current animation cutoff: the first propagation `wave` from the command target through its outgoing connectors
+- subsequent propagation waves and final global rescaling remain outside the current plan
 
 ## Current Layout Decisions
 
-- `ClaimViz.scale` is the propagated claim render scale. In a settled state it matches `ClaimViz.sourcesScale`, and during animation it may diverge temporarily.
-- `ClaimViz.sourcesScale` is the owned source-side potential scale budget for that claim occurrence as a target. For direct confidence-child sibling groups, math solves one shared child `sourcesScale` from the target-owned budget and the direct confidence children's current scored delivery demand. Downstream source-side layout from that claim uses this value.
+- A claim frame state's `scale` is its rendered size. In a settled state it matches `sourcesScale`, and an animation track may temporarily diverge.
+- `sourcesScale` is the owned source-side potential-scale budget for that claim occurrence as a target. Direct confidence-child sibling groups share one child `sourcesScale`; downstream layout uses that value.
 - Current `score` changes fluid fill inside that authored scale. Current `score` does not directly shrink an individual pipe or claim diameter, and it also participates in solving the shared base scale for a direct confidence-child sibling group.
 - Display Confidence Connectors, Relevance Connectors, delivery-aggregator edge length, and source-claim boxes use the claim's `sourcesScale` as their settled size basis. Delivery Connectors and the outgoing side of a junction use that same child `sourcesScale` multiplied by the relevant child's continuous relevance multiplier.
 - `claimLaneAxisGap` is an edge-to-edge gap, not a center-to-center distance.
@@ -34,6 +36,7 @@
 - In the current orientation, claim boxes are left-justified within the claim-lane band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
 - Current planner-owned delivery corridor widths do not yet encode larger detours for route-around-line behavior or crossing avoidance. Those routing expansions are deferred rather than hidden in renderer-local stub lengths.
+- The planner owns positions, scales, target-stack offsets, and reveal tracks. `@reasontracker/components` owns attachment ports, route geometry, junctions, aggregators, and SVG rendering from each resolved scalar frame.
 
 <!-- autonav:start -->
 <!-- autonav:end -->
