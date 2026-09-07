@@ -8,6 +8,7 @@ import {
 import { AbsoluteFill } from "remotion";
 
 export type DebateAnimationSurfaceProps = {
+	cameraBounds?: DebateAnimationPlan["bounds"]
 	debateCore: DebateCore
 	plan: DebateAnimationPlan
 	stepId?: AnimationStepId
@@ -15,6 +16,7 @@ export type DebateAnimationSurfaceProps = {
 };
 
 export function DebateAnimationSurface({
+	cameraBounds,
 	debateCore,
 	plan,
 	stepId,
@@ -27,7 +29,7 @@ export function DebateAnimationSurface({
 	return (
 		<AbsoluteFill style={{ background: "#080b10" }}>
 			<DebateGraph
-				bounds={plan.bounds}
+				bounds={cameraBounds ?? plan.bounds}
 				debateCore={debateCore}
 				frame={frame}
 				options={plan.options}

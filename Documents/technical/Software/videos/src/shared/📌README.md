@@ -7,6 +7,7 @@ This folder owns Remotion-only helpers that are reused by episode compositions.
 - timeline segment construction for Remotion frame timing
 - fade wrappers that expose visible Remotion `Sequence` ranges
 - graph animation orchestration through `GraphView`, `GraphEvents`, and `CameraMove`
+- continuous claim-camera scripts that focus additions and follow their target path without resetting the prior view
 - planner-frame playback through the shared `DebateGraph` React/SVG renderer
 - episode frame, template, and brand sequence wrappers
 
