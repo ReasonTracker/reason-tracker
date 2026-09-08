@@ -31,6 +31,28 @@ type TrackAddress = {
 
 type TrackTiming = Partial<Pick<NumberTrack, "easing" | "endProgress" | "startProgress">>;
 
+export function planStaticDebate(
+	input: Omit<PlannerInput, "command">,
+): DebateAnimationPlan {
+	const options = resolvePlannerOptions(input.options);
+	const frame = buildDebateFrame({
+		debateCore: input.debateCore,
+		options,
+		resolvedMath: resolvePresentationMath(input.debateCore),
+	});
+	const firstFill = buildAnimationStep("firstFill", frame, frame, () => ({}));
+	const sprout = buildAnimationStep("sprout", frame, frame, () => ({}));
+	const voila = buildAnimationStep("voila", frame, frame, () => ({}));
+	const wave = buildAnimationStep("wave", frame, frame, () => ({}));
+
+	return {
+		bounds: resolveSceneBounds([frame], options.claimWidth, options.claimHeight),
+		openingFrame: frame,
+		options,
+		steps: { firstFill, sprout, voila, wave },
+	};
+}
+
 export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 	if (input.command.type !== "confidence/claim/add") {
 		throw new Error(`Unsupported animation command: ${input.command.type}`);

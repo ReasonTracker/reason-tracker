@@ -9,7 +9,7 @@
         },
         "defaults": {
             "graph.addClaim": {
-                "durationSeconds": 8
+                "durationSeconds": 5.2
             },
             "camera.move": {
                 "durationSeconds": 2.4
@@ -18,23 +18,71 @@
     },
     "script": [
         {
+            "type": "captions.show",
+            "text": "Many of us dread losing an hour of sleep as we spring forward an hour once a year. Some of us relish gaining an hour of sleep as we fall back. Some of us enjoy the time change to make use of the extra sunlight in the summer, but is that really worth the disruption it causes?",
+            "durationSeconds": 13.0,
+            "label": "Intro captions 1"
+        },
+        {
+            "type": "captions.show",
+            "text": "Since 2018, Congress has introduced five versions of legislation to end the seasonal time change, each called the Sunshine Protection Act. The 2021 version passed the Senate, and the current version passed the House on July 14, 2026 and is now under consideration in the Senate.\n\nIt keeps Daylight Saving Time year-round for most of the United States.\n\nSo should we pass it?",
+            "durationSeconds": 13.0,
+            "label": "Intro captions 2"
+        },
+        {
+            "type": "captions.show",
+            "text": "To answer that, we need to investigate the health, economic, debt and other impacts to determine if the bill would produce a net benefit for the country.\n\nReason Tracker is a video series where you help map out all the reasons for and against controversial decisions.",
+            "durationSeconds": 13.0,
+            "label": "Intro captions 3"
+        },
+        {
+            "type": "captions.show",
+            "text": "Each decision is explored across several videos that compare both sides, make support and uncertainty explicit, and improve over time as you contribute feedback and new evidence.\n\nAs we go, if you notice missing claims, reasons, or piece of evidence, tell us. Useful additions can change the map in later videos.",
+            "durationSeconds": 13.0,
+            "label": "Intro captions 4"
+        },
+        {
             "type": "graph.create",
             "key": "argumentGraph",
             "mainClaim": {
                 "key": "main",
-                "text": "The United States would experience a net benefit from enacting the Sunshine Protection Act of 2025."
+                "text": "The United States would experience a net benefit from enacting the Sunshine Protection Act of 2025 [H.R. 139], to establish permanent Daylight Saving Time."
             },
             "claims": []
+        },
+        {
+            "type": "captions.show",
+            "text": "We start with the main claim of \"The United States would experience a net benefit from enacting the Sunshine Protection Act of 2025, to establish permanent Daylight Saving Time.\" To understand how each piece of information changes we use a simple predictable formula that just takes into account what has been explicitly added so far. It starts at 100%.",
+            "durationSeconds": 10.0,
+            "label": "Formula intro 1"
+        },
+        {
+            "type": "captions.show",
+            "text": "That does not mean Reason Tracker thinks we should pass the bill. It means we have not added anything yet that reduces the case for it.",
+            "durationSeconds": 8.1,
+            "label": "Formula intro 2"
+        },
+        {
+            "type": "captions.show",
+            "text": "The Reason Tracker formula scores based solely on what has been entered. Missing information does not count against either side.",
+            "durationSeconds": 6.4,
+            "label": "Formula intro 3"
+        },
+        {
+            "type": "captions.show",
+            "text": "So as you tell us reasons, evidence, rebuttals, weight the score will change using the same predictable formula each time.\n\nThink of 100% as our starting point, not our conclusion.",
+            "durationSeconds": 9.3,
+            "label": "Formula intro 4"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "cost",
-            "text": "The legislation would have a substantial cost.",
+            "text": "This legislation would have a substantial cost.",
             "target": "main",
             "side": "con-main",
             "label": "Add substantial cost",
-            "durationSeconds": 8
+            "durationSeconds": 5.2
         },
         {
             "type": "camera.move",
@@ -44,26 +92,39 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -8,
+            "offsetSeconds": -5.2,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
             "type": "captions.show",
             "text": "Let's add the claim that this legislation would have a substantial cost.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
+            "durationSeconds": 5.2,
+            "offsetSeconds": -5.2,
+            "blocking": false,
+            "label": "Script caption"
+        },
+        {
+            "type": "captions.show",
+            "text": "With only that claim added, the score drops to 0%.",
+            "durationSeconds": 3.5,
+            "label": "Narration"
+        },
+        {
+            "type": "captions.show",
+            "text": "But remember, all we have so far is one reason not to do it. Let's keep adding information and see how the score changes.",
+            "durationSeconds": 7.8,
+            "label": "Narration"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "daylight",
-            "text": "The Sunshine Protection Act would improve everyday schedule convenience and use of daylight on balance.",
+            "text": "It might improve use of daylight.",
             "target": "main",
             "side": "pro-main",
             "label": "Add useful evening daylight",
-            "durationSeconds": 8
+            "durationSeconds": 5.2
         },
         {
             "type": "camera.move",
@@ -73,153 +134,29 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -8,
+            "offsetSeconds": -5.2,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
             "type": "captions.show",
             "text": "Next, it might improve use of daylight.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "sleepChange",
-            "text": "The twice-yearly clock changes acutely disrupt sleep schedules.",
-            "target": "main",
-            "side": "pro-main",
-            "label": "Add sleep disruption",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.sleepChange",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "durationSeconds": 5.2,
+            "offsetSeconds": -5.2,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "captions.show",
-            "text": "The twice-yearly clock changes acutely disrupt sleep schedules.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "cardiovascular",
-            "text": "The spring clock change is associated with increased acute cardiovascular events.",
-            "target": "main",
-            "side": "pro-main",
-            "label": "Add cardiovascular events",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.cardiovascular",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "text": "With one claim for it and one claim against it, the score goes up to 50%.",
+            "durationSeconds": 5.3,
+            "label": "Narration"
         },
         {
             "type": "captions.show",
-            "text": "The spring clock change is also associated with increased cardiovascular events.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "crashes",
-            "text": "The spring clock change is associated with increased motor-vehicle crashes.",
-            "target": "main",
-            "side": "pro-main",
-            "label": "Add motor-vehicle crashes",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.crashes",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "captions.show",
-            "text": "It is associated with more motor-vehicle crashes.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "injuries",
-            "text": "The spring clock change is associated with increased injuries or workplace accidents.",
-            "target": "main",
-            "side": "pro-main",
-            "label": "Add workplace injuries",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.injuries",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "captions.show",
-            "text": "And it is associated with more injuries and workplace accidents.",
-            "durationSeconds": 8,
-            "offsetSeconds": -8,
-            "blocking": false
-        },
-        {
-            "type": "graph.set",
-            "graph": "argumentGraph",
-            "claims": [
-                {
-                    "key": "main"
-                },
-                {
-                    "key": "cost",
-                    "text": "The legislation would have a substantial cost.",
-                    "target": "main",
-                    "side": "con-main"
-                },
-                {
-                    "key": "daylight",
-                    "text": "The Sunshine Protection Act would improve everyday schedule convenience and use of daylight on balance.",
-                    "target": "main",
-                    "side": "pro-main"
-                }
-            ]
+            "text": "Let's look at health and safety next.",
+            "durationSeconds": 3.0,
+            "label": "Narration"
         },
         {
             "type": "graph.addClaim",
@@ -228,8 +165,8 @@
             "text": "Ending seasonal clock changes would improve acute health and safety on balance.",
             "target": "main",
             "side": "pro-main",
-            "label": "Group acute health and safety",
-            "durationSeconds": 8
+            "label": "Add acute health and safety",
+            "durationSeconds": 8.0
         },
         {
             "type": "camera.move",
@@ -239,97 +176,29 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -8,
+            "offsetSeconds": -8.0,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "sleepChange",
-            "text": "The twice-yearly clock changes acutely disrupt sleep schedules.",
-            "target": "acuteHealth",
-            "side": "pro-main",
-            "label": "Restore sleep disruption under acute health",
-            "durationSeconds": 9.3
+            "type": "captions.show",
+            "text": "Ending the seasonal clock changes would improve acute health and safety on balance. The twice-yearly clock changes disrupt sleep schedules, and the spring change has also been associated with cardiovascular events, motor-vehicle crashes, injuries, and workplace accidents.",
+            "durationSeconds": 8.0,
+            "offsetSeconds": -8.0,
+            "blocking": false,
+            "label": "Health and safety summary"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.sleepChange",
-                    "argumentGraph.acuteHealth"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "Add that as one health-and-safety reason for the bill, and the score moves to about 67%.",
+            "durationSeconds": 5.0,
+            "label": "Narration"
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "cardiovascular",
-            "text": "The spring clock change is associated with increased acute cardiovascular events.",
-            "target": "acuteHealth",
-            "side": "pro-main",
-            "label": "Restore cardiovascular events under acute health",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.cardiovascular",
-                    "argumentGraph.acuteHealth"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "crashes",
-            "text": "The spring clock change is associated with increased motor-vehicle crashes.",
-            "target": "acuteHealth",
-            "side": "pro-main",
-            "label": "Restore crashes under acute health",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.crashes",
-                    "argumentGraph.acuteHealth"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "injuries",
-            "text": "The spring clock change is associated with increased injuries or workplace accidents.",
-            "target": "acuteHealth",
-            "side": "pro-main",
-            "label": "Restore injuries under acute health",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.injuries",
-                    "argumentGraph.acuteHealth"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "But this bill does more than end the clock changes. It specifically chooses permanent Daylight Saving Time.",
+            "durationSeconds": 5.7,
+            "label": "Narration"
         },
         {
             "type": "graph.addClaim",
@@ -339,7 +208,7 @@
             "target": "main",
             "side": "con-main",
             "label": "Add chronic circadian risk",
-            "durationSeconds": 8
+            "durationSeconds": 5.2
         },
         {
             "type": "camera.move",
@@ -349,239 +218,161 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -8,
+            "offsetSeconds": -5.2,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "daylightAccess",
-            "text": "Permanent Daylight Saving Time would improve everyday access to useful evening daylight and recreation on balance.",
-            "target": "daylight",
-            "side": "pro-main",
-            "label": "Add useful evening daylight",
-            "durationSeconds": 9.3
+            "type": "captions.show",
+            "text": "That might worsen circadian alignment and sleep because winter mornings would stay darker and evening light would come later.",
+            "durationSeconds": 5.2,
+            "offsetSeconds": -5.2,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.daylightAccess",
-                    "argumentGraph.daylight"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "Add that, and the score comes back to 50%.",
+            "durationSeconds": 3.2,
+            "label": "Narration"
+        },
+        {
+            "type": "captions.show",
+            "text": "This distinction matters. There can be good reasons to stop changing the clocks without those reasons automatically being good reasons for permanent Daylight Saving Time.",
+            "durationSeconds": 8.0,
+            "label": "Narration"
+        },
+        {
+            "type": "captions.show",
+            "text": "From here, we'll keep the score visible, but we don't need to read every change out loud.",
+            "durationSeconds": 6.0,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "physicalActivity",
             "text": "Permanent Daylight Saving Time would improve physical-activity and recreation opportunities on balance.",
-            "target": "daylightAccess",
+            "target": "daylight",
             "side": "pro-main",
-            "label": "Add exercise and recreation",
-            "durationSeconds": 10.6
+            "label": "Add physical activity evidence",
+            "durationSeconds": 6.9
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.physicalActivity",
-                    "argumentGraph.daylightAccess"
+                    "argumentGraph.daylight"
                 ]
             },
-            "offsetSeconds": -10.6,
+            "offsetSeconds": -6.9,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "childrenActivity",
-            "text": "More evening daylight can increase children's physical activity.",
-            "target": "physicalActivity",
-            "side": "pro-main",
-            "label": "Add children's physical activity",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.childrenActivity",
-                    "argumentGraph.physicalActivity"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "afterWorkActivity",
-            "text": "More evening daylight makes outdoor exercise and recreation after work or school more available.",
-            "target": "physicalActivity",
-            "side": "pro-main",
-            "label": "Add after-work recreation",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.afterWorkActivity",
-                    "argumentGraph.physicalActivity"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "economicOutcomes",
-            "text": "The Sunshine Protection Act would improve economic and operational outcomes on balance.",
-            "target": "main",
-            "side": "pro-main",
-            "label": "Add economic and operational outcomes",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.economicOutcomes",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "More evening daylight might make exercise, recreation, and after-school activities easier. There is evidence that evening daylight can increase children's physical activity, and it can be especially useful for people whose free time is mostly after work or school.",
+            "durationSeconds": 6.9,
+            "offsetSeconds": -6.9,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "economic",
             "text": "Permanent Daylight Saving Time would benefit consumer activity and affected businesses on balance.",
-            "target": "economicOutcomes",
+            "target": "main",
             "side": "pro-main",
-            "label": "Add consumer activity",
-            "durationSeconds": 9.3
+            "label": "Add economic and business benefit",
+            "durationSeconds": 6.0
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.economic",
-                    "argumentGraph.economicOutcomes"
+                    "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -9.3,
+            "offsetSeconds": -6.0,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "consumerSpending",
-            "text": "Permanent Daylight Saving Time would increase consumer spending and general economic activity by extending evening daylight.",
-            "target": "economic",
-            "side": "pro-main",
-            "label": "Add consumer spending",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.consumerSpending",
-                    "argumentGraph.economic"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "It could also help some businesses. More evening light may increase shopping, dining, tourism, golf, and other activity that happens after work.",
+            "durationSeconds": 6.0,
+            "offsetSeconds": -6.0,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "economicWeakness",
             "text": "Evidence for a large national economic boost from permanent Daylight Saving Time is weak.",
-            "target": "consumerSpending",
+            "target": "economic",
             "side": "con-main",
-            "label": "Rebut the economic benefit",
-            "durationSeconds": 11.9
+            "label": "Add economic rebuttal",
+            "durationSeconds": 7.7
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.economicWeakness",
-                    "argumentGraph.consumerSpending"
+                    "argumentGraph.economic"
                 ]
             },
-            "offsetSeconds": -11.9,
+            "offsetSeconds": -7.7,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.patch",
-            "graph": "argumentGraph",
-            "removeConnectionsFrom": [
-                "acuteHealth",
-                "sleepChange",
-                "cardiovascular",
-                "crashes",
-                "injuries",
-                "circadian"
-            ],
-            "claims": [
-                {
-                    "key": "healthOutcomes",
-                    "text": "The Sunshine Protection Act would worsen health and safety outcomes on balance.",
-                    "target": "main",
-                    "side": "con-main"
-                },
-                {
-                    "key": "acuteHealthEffects",
-                    "text": "Seasonal clock changes have net adverse acute-health effects.",
-                    "target": "acuteHealth",
-                    "side": "pro-main"
-                },
-                {
-                    "key": "acuteSafetyEffects",
-                    "text": "Seasonal clock changes have net adverse acute safety and injury effects.",
-                    "target": "acuteHealth",
-                    "side": "pro-main"
-                }
-            ]
+            "type": "captions.show",
+            "text": "But there is a rebuttal to the broader economic claim. The evidence that permanent Daylight Saving Time would create a large national economic boost is weak.",
+            "durationSeconds": 7.7,
+            "offsetSeconds": -7.7,
+            "blocking": false,
+            "label": "Script caption"
+        },
+        {
+            "type": "captions.show",
+            "text": "Notice what happens here. We do not count that as a completely separate reason against the bill. It directly weakens the claim that the bill would create a large economic benefit.",
+            "durationSeconds": 8.0,
+            "label": "Narration"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "roadSafety",
             "text": "Permanent Daylight Saving Time would improve road and travel safety on balance.",
-            "target": "healthOutcomes",
+            "target": "main",
             "side": "pro-main",
-            "label": "Add mixed road-safety evidence",
-            "durationSeconds": 9.3
+            "label": "Add road safety",
+            "durationSeconds": 5.2
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.roadSafety",
-                    "argumentGraph.healthOutcomes"
+                    "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -9.3,
+            "offsetSeconds": -5.2,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "Road safety is also mixed.",
+            "durationSeconds": 5.2,
+            "offsetSeconds": -5.2,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
@@ -590,8 +381,8 @@
             "text": "Permanent Daylight Saving Time may reduce overall fatal crashes by aligning daylight with higher-traffic evening periods.",
             "target": "roadSafety",
             "side": "pro-main",
-            "label": "Add the overall road-safety claim",
-            "durationSeconds": 10.6
+            "label": "Add road-safety support",
+            "durationSeconds": 6.9
         },
         {
             "type": "camera.move",
@@ -601,449 +392,173 @@
                     "argumentGraph.roadSafety"
                 ]
             },
-            "offsetSeconds": -10.6,
+            "offsetSeconds": -6.9,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "pedestrianSafety",
-            "text": "Year-round Daylight Saving Time could reduce pedestrian fatalities by shifting daylight to busier evening travel periods.",
-            "target": "roadShift",
-            "side": "pro-main",
-            "label": "Add pedestrian safety",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.pedestrianSafety",
-                    "argumentGraph.roadShift"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "bicyclistSafety",
-            "text": "Shifting daylight later can reduce bicyclist fatal crashes.",
-            "target": "roadShift",
-            "side": "pro-main",
-            "label": "Add bicyclist safety",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.bicyclistSafety",
-                    "argumentGraph.roadShift"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "occupantSafety",
-            "text": "Year-round Daylight Saving Time could reduce motor-vehicle occupant fatalities.",
-            "target": "roadShift",
-            "side": "pro-main",
-            "label": "Add occupant safety",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.occupantSafety",
-                    "argumentGraph.roadShift"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "occupantRisk",
-            "text": "Recent U.S. data suggest that shifting daylight later can increase motor-vehicle occupant fatal crashes.",
-            "target": "occupantSafety",
-            "side": "con-main",
-            "label": "Rebut occupant safety",
-            "durationSeconds": 13.2
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.occupantRisk",
-                    "argumentGraph.occupantSafety"
-                ]
-            },
-            "offsetSeconds": -13.2,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "Shifting daylight later could reduce pedestrian and bicyclist fatalities because more travel happens in the evening than in the morning.",
+            "durationSeconds": 6.9,
+            "offsetSeconds": -6.9,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "roadReview",
-            "text": "A systematic review found the road-safety evidence insufficient to support or refute a net benefit from permanently shifting daylight later.",
-            "target": "roadShift",
+            "text": "A systematic review found the road-safety evidence insufficient to support or refute a net benefit from permanently shifting daylight from morning to evening.",
+            "target": "roadSafety",
             "side": "con-main",
-            "label": "Add the road-safety review",
-            "durationSeconds": 11.9
+            "label": "Add road-safety rebuttal",
+            "durationSeconds": 8.6
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.roadReview",
-                    "argumentGraph.roadShift"
+                    "argumentGraph.roadSafety"
                 ]
             },
-            "offsetSeconds": -11.9,
+            "offsetSeconds": -8.6,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "cardiovascularEvidence",
-            "text": "A large contemporary study found no significant increase in acute myocardial infarction during daylight-saving-time transition weeks.",
-            "target": "cardiovascular",
-            "side": "con-main",
-            "label": "Rebut cardiovascular events",
-            "durationSeconds": 13.2
+            "type": "captions.show",
+            "text": "But some recent evidence points toward more motor-vehicle occupant fatalities, and a systematic review found the overall road-safety evidence insufficient to say that permanently shifting daylight later produces a net benefit.",
+            "durationSeconds": 8.6,
+            "offsetSeconds": -8.6,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.cardiovascularEvidence",
-                    "argumentGraph.cardiovascular"
-                ]
-            },
-            "offsetSeconds": -13.2,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "Health has a similar complication.",
+            "durationSeconds": 3.0,
+            "label": "Narration"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "acuteEvidence",
             "text": "A large English cohort study found little evidence that the spring clock change increases several acute mental and physical health events.",
-            "target": "cardiovascular",
+            "target": "acuteHealth",
             "side": "con-main",
-            "label": "Rebut acute health effects",
-            "durationSeconds": 13.2
+            "label": "Add acute-health evidence limitation",
+            "durationSeconds": 8.6
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.acuteEvidence",
-                    "argumentGraph.cardiovascular"
+                    "argumentGraph.acuteHealth"
                 ]
             },
-            "offsetSeconds": -13.2,
+            "offsetSeconds": -8.6,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "injuryEvidence",
-            "text": "An Ontario worker-compensation study found no increase in work-injury claims immediately after the spring clock change.",
-            "target": "injuries",
-            "side": "con-main",
-            "label": "Rebut workplace injuries",
-            "durationSeconds": 13.2
+            "type": "captions.show",
+            "text": "There is evidence that the spring clock change causes short-term disruption, but some large recent studies did not find increases in several of the acute health outcomes that are often blamed on the change.",
+            "durationSeconds": 8.6,
+            "offsetSeconds": -8.6,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.injuryEvidence",
-                    "argumentGraph.injuries"
-                ]
-            },
-            "offsetSeconds": -13.2,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "circadianAlignment",
-            "text": "Permanent Daylight Saving Time would worsen circadian alignment and sleep on balance.",
-            "target": "circadian",
-            "side": "con-main",
-            "label": "Add circadian alignment and sleep",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.circadianAlignment",
-                    "argumentGraph.circadian"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "standardAlignment",
-            "text": "Permanent Standard Time aligns better with human circadian biology than permanent Daylight Saving Time.",
-            "target": "circadianAlignment",
-            "side": "con-main",
-            "label": "Add permanent Standard Time alignment",
-            "durationSeconds": 11.9
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.standardAlignment",
-                    "argumentGraph.circadianAlignment"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "At the same time, the concern about permanent Daylight Saving Time is not just the one-hour transition. It is the possibility of chronic circadian misalignment from later winter morning light.",
+            "durationSeconds": 6.9,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "medicalConsensus",
             "text": "A broad set of medical, sleep, safety, and parent organizations endorse permanent Standard Time rather than permanent Daylight Saving Time.",
-            "target": "standardAlignment",
+            "target": "circadian",
             "side": "con-main",
             "label": "Add medical consensus",
-            "durationSeconds": 13.2
+            "durationSeconds": 8.6
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.medicalConsensus",
-                    "argumentGraph.standardAlignment"
+                    "argumentGraph.circadian"
                 ]
             },
-            "offsetSeconds": -13.2,
+            "offsetSeconds": -8.6,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "A broad set of medical and sleep organizations favors permanent Standard Time instead.",
+            "durationSeconds": 8.6,
+            "offsetSeconds": -8.6,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "circadianModel",
-            "text": "A recent circadian model projected that either permanent clock would reduce circadian burden compared with biannual switching.",
-            "target": "circadianAlignment",
+            "text": "A recent circadian model projected that either permanent Standard Time or permanent Daylight Saving Time would reduce circadian burden compared with biannual clock switching.",
+            "target": "circadian",
             "side": "pro-main",
-            "label": "Add the circadian model",
-            "durationSeconds": 11.9
+            "label": "Add circadian model counterpoint",
+            "durationSeconds": 7.7
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.circadianModel",
-                    "argumentGraph.circadianAlignment"
-                ]
-            },
-            "offsetSeconds": -11.9,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "modelComparison",
-            "text": "The same model projected better health outcomes under permanent Standard Time than under permanent Daylight Saving Time.",
-            "target": "circadian",
-            "side": "con-main",
-            "label": "Add the model's Standard Time result",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.modelComparison",
                     "argumentGraph.circadian"
                 ]
             },
-            "offsetSeconds": -10.6,
+            "offsetSeconds": -7.7,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "modelCritique",
-            "text": "Methodological criticism challenges the recent U.S. circadian-health model.",
-            "target": "circadianModel",
-            "side": "con-main",
-            "label": "Challenge the circadian model",
-            "durationSeconds": 13.2
+            "type": "captions.show",
+            "text": "There is also a recent model suggesting either permanent clock could reduce some circadian burden compared with switching twice a year, although that model favored Standard Time on some health outcomes and has itself been challenged on methodology.",
+            "durationSeconds": 7.7,
+            "offsetSeconds": -7.7,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.modelCritique",
-                    "argumentGraph.circadianModel"
-                ]
-            },
-            "offsetSeconds": -13.2,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "So the health branch is not simply \"changing clocks is bad, therefore permanent Daylight Saving Time is good.\"",
+            "durationSeconds": 8.6,
+            "label": "Script caption"
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "implementation",
-            "text": "The Sunshine Protection Act would create net implementation, coordination, and legal-flexibility costs.",
-            "target": "main",
-            "side": "con-main",
-            "label": "Add implementation costs",
-            "durationSeconds": 8
+            "type": "captions.show",
+            "text": "There are also implementation costs.",
+            "durationSeconds": 3.0,
+            "label": "Narration"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.implementation",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "A permanent change could create temporary scheduling and coordination problems for airlines, schools, workplaces, transit systems, and international travel. Advance notice can reduce some of that disruption.",
+            "durationSeconds": 6.0,
+            "label": "Script caption"
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "coordination",
-            "text": "The Sunshine Protection Act would create net implementation and coordination costs.",
-            "target": "implementation",
-            "side": "con-main",
-            "label": "Add coordination costs",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.coordination",
-                    "argumentGraph.implementation"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "airlineCoordination",
-            "text": "A permanent U.S. time-policy change could disrupt airline schedules, passenger travel, and international coordination.",
-            "target": "coordination",
-            "side": "con-main",
-            "label": "Add airline coordination",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.airlineCoordination",
-                    "argumentGraph.coordination"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "patchwork",
-            "text": "A patchwork of neighboring jurisdictions with different clock observances can create scheduling and travel complexity.",
-            "target": "coordination",
-            "side": "con-main",
-            "label": "Add jurisdictional complexity",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.patchwork",
-                    "argumentGraph.coordination"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "flexibility",
-            "text": "The Sunshine Protection Act would reduce future jurisdictional flexibility over time policy on balance.",
-            "target": "implementation",
-            "side": "con-main",
-            "label": "Add reduced state flexibility",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.flexibility",
-                    "argumentGraph.implementation"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "stateChoice",
-            "text": "States may lose the ability to choose permanent Standard Time without another federal-law change.",
-            "target": "flexibility",
-            "side": "con-main",
-            "label": "Add the state-choice restriction",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.stateChoice",
-                    "argumentGraph.flexibility"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "The bill also limits future flexibility. States that currently observe seasonal Daylight Saving Time would not be able to switch to permanent Standard Time on their own later without another change in federal law.",
+            "durationSeconds": 6.0,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
@@ -1052,8 +567,8 @@
             "text": "Permanent Daylight Saving Time would be broadly acceptable to the public on balance.",
             "target": "main",
             "side": "pro-main",
-            "label": "Add public acceptance",
-            "durationSeconds": 8
+            "label": "Add public preference",
+            "durationSeconds": 5.2
         },
         {
             "type": "camera.move",
@@ -1063,9 +578,17 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -8,
+            "offsetSeconds": -5.2,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "Public preference is mixed too.",
+            "durationSeconds": 5.2,
+            "offsetSeconds": -5.2,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
@@ -1074,8 +597,8 @@
             "text": "Historical experiences with permanent Daylight Saving Time or permanent summer time are unfavorable on balance.",
             "target": "publicPreference",
             "side": "con-main",
-            "label": "Add unfavorable historical evidence",
-            "durationSeconds": 9.3
+            "label": "Add historical evidence",
+            "durationSeconds": 6.0
         },
         {
             "type": "camera.move",
@@ -1085,129 +608,99 @@
                     "argumentGraph.publicPreference"
                 ]
             },
-            "offsetSeconds": -9.3,
+            "offsetSeconds": -6.0,
             "durationSeconds": 2.4,
             "blocking": false
         },
         {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "usHistory",
-            "text": "The 1974 U.S. year-round Daylight Saving Time experiment became unpopular largely because of dark winter mornings.",
-            "target": "history",
-            "side": "con-main",
-            "label": "Add the 1974 U.S. experience",
-            "durationSeconds": 10.6
+            "type": "captions.show",
+            "text": "We also have historical evidence.",
+            "durationSeconds": 6.0,
+            "offsetSeconds": -6.0,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.usHistory",
-                    "argumentGraph.history"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
+            "type": "captions.show",
+            "text": "The United States tried year-round Daylight Saving Time in 1974. It became unpopular, largely because of dark winter mornings.",
+            "durationSeconds": 6.9,
+            "label": "Script caption"
+        },
+        {
+            "type": "captions.show",
+            "text": "Russia adopted permanent summer time in 2011 and reversed it in 2014 after similar complaints.",
+            "durationSeconds": 6.9,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "historyLimits",
             "text": "The 1974 U.S. experience may be a weaker guide today because school and commuting patterns have changed.",
-            "target": "history",
+            "target": "publicPreference",
             "side": "pro-main",
-            "label": "Qualify the historical evidence",
-            "durationSeconds": 10.6
+            "label": "Add historical limitation",
+            "durationSeconds": 6.9
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.historyLimits",
-                    "argumentGraph.history"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "russiaHistory",
-            "text": "Russia adopted permanent summer time in 2011 and reversed it in 2014 after the policy became widely unpopular.",
-            "target": "history",
-            "side": "con-main",
-            "label": "Add the Russian experience",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.russiaHistory",
-                    "argumentGraph.history"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "publicSupport",
-            "text": "Support for permanent Daylight Saving Time is broadly distributed across populations and jurisdictions.",
-            "target": "publicPreference",
-            "side": "pro-main",
-            "label": "Add distributed public support",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.publicSupport",
                     "argumentGraph.publicPreference"
                 ]
             },
-            "offsetSeconds": -9.3,
+            "offsetSeconds": -6.9,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "Those examples count against the bill, but they are not perfect experiments. School schedules, commuting patterns, lighting, and other conditions have changed, so we should not treat them as automatic proof of what would happen now.",
+            "durationSeconds": 6.9,
+            "offsetSeconds": -6.9,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "stateSupport",
             "text": "Nineteen states have enacted laws or trigger provisions supporting year-round Daylight Saving Time if federal law permits it.",
-            "target": "publicSupport",
+            "target": "publicPreference",
             "side": "pro-main",
             "label": "Add state support",
-            "durationSeconds": 10.6
+            "durationSeconds": 6.0
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
                     "argumentGraph.stateSupport",
-                    "argumentGraph.publicSupport"
+                    "argumentGraph.publicPreference"
                 ]
             },
-            "offsetSeconds": -10.6,
+            "offsetSeconds": -6.0,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "Some polls show strong support for permanent Daylight Saving Time, and nineteen states have passed laws or trigger provisions supporting it if federal law allows it.",
+            "durationSeconds": 6.0,
+            "offsetSeconds": -6.0,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "pollChoice",
-            "text": "A 2025 three-choice poll preferred permanent Standard Time over permanent Daylight Saving Time.",
+            "text": "A 2025 Gallup poll found that permanent Standard Time was preferred substantially more often than permanent Daylight Saving Time when respondents were offered permanent Standard Time, permanent Daylight Saving Time, or seasonal switching.",
             "target": "publicPreference",
             "side": "con-main",
-            "label": "Rebut public acceptance",
-            "durationSeconds": 9.3
+            "label": "Add Gallup preference rebuttal",
+            "durationSeconds": 6.0
         },
         {
             "type": "camera.move",
@@ -1217,52 +710,27 @@
                     "argumentGraph.publicPreference"
                 ]
             },
-            "offsetSeconds": -9.3,
+            "offsetSeconds": -6.0,
             "durationSeconds": 2.4,
             "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "But a 2025 Gallup poll that gave people three choices found permanent Standard Time was preferred substantially more often than permanent Daylight Saving Time.",
+            "durationSeconds": 6.0,
+            "offsetSeconds": -6.0,
+            "blocking": false,
+            "label": "Script caption"
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "scheduleConvenience",
-            "text": "Ending seasonal clock changes would reduce recurring household and schedule disruption.",
-            "target": "daylight",
+            "text": "Ending seasonal clock changes would reduce recurring household and schedule disruption on balance.",
+            "target": "main",
             "side": "pro-main",
             "label": "Add schedule convenience",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.scheduleConvenience",
-                    "argumentGraph.daylight"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "scheduleConfusion",
-            "text": "Twice-yearly clock changes create recurring schedule confusion and inconvenience.",
-            "target": "scheduleConvenience",
-            "side": "pro-main",
-            "label": "Add schedule confusion",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.scheduleConfusion",
-                    "argumentGraph.scheduleConvenience"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
+            "durationSeconds": 8.0,
             "blocking": false
         },
         {
@@ -1273,62 +741,7 @@
             "target": "main",
             "side": "pro-main",
             "label": "Add energy and emissions",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.energy",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "energySavings",
-            "text": "Permanent Daylight Saving Time would reduce net energy use.",
-            "target": "energy",
-            "side": "pro-main",
-            "label": "Add net energy use",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.energySavings",
-                    "argumentGraph.energy"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "weakEnergyEvidence",
-            "text": "Modern electricity savings from Daylight Saving Time may be negligible.",
-            "target": "energySavings",
-            "side": "con-main",
-            "label": "Rebut energy savings",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.weakEnergyEvidence",
-                    "argumentGraph.energySavings"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
+            "durationSeconds": 8.0,
             "blocking": false
         },
         {
@@ -1336,87 +749,10 @@
             "graph": "argumentGraph",
             "key": "crime",
             "text": "Permanent Daylight Saving Time would improve crime-related public safety on balance.",
-            "target": "healthOutcomes",
+            "target": "main",
             "side": "pro-main",
             "label": "Add crime-related safety",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.crime",
-                    "argumentGraph.healthOutcomes"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "robberies",
-            "text": "Added evening daylight reduces robberies.",
-            "target": "crime",
-            "side": "pro-main",
-            "label": "Add robbery reduction",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.robberies",
-                    "argumentGraph.crime"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "assaults",
-            "text": "Added evening daylight can increase aggravated assaults around sunset.",
-            "target": "crime",
-            "side": "con-main",
-            "label": "Rebut the crime benefit",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.assaults",
-                    "argumentGraph.crime"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "deerCollisions",
-            "text": "Year-round Daylight Saving Time could reduce deer-vehicle collisions.",
-            "target": "roadSafety",
-            "side": "pro-main",
-            "label": "Add deer-collision effects",
-            "durationSeconds": 10.6
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.deerCollisions",
-                    "argumentGraph.roadSafety"
-                ]
-            },
-            "offsetSeconds": -10.6,
-            "durationSeconds": 2.4,
+            "durationSeconds": 8.0,
             "blocking": false
         },
         {
@@ -1427,40 +763,7 @@
             "target": "main",
             "side": "con-main",
             "label": "Add sun-tied work costs",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.agriculture",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "sunTiedWork",
-            "text": "Permanent Daylight Saving Time would worsen sun-tied outdoor work schedules on balance.",
-            "target": "agriculture",
-            "side": "con-main",
-            "label": "Add outdoor work schedules",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.sunTiedWork",
-                    "argumentGraph.agriculture"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
+            "durationSeconds": 8.0,
             "blocking": false
         },
         {
@@ -1471,63 +774,87 @@
             "target": "main",
             "side": "con-main",
             "label": "Add AM broadcasting costs",
-            "durationSeconds": 8
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.broadcasting",
-                    "argumentGraph.main"
-                ]
-            },
-            "offsetSeconds": -8,
-            "durationSeconds": 2.4,
-            "blocking": false
-        },
-        {
-            "type": "graph.addClaim",
-            "graph": "argumentGraph",
-            "key": "radioReach",
-            "text": "Extended reduced-power hours during winter mornings can reduce AM station audience reach and advertising revenue.",
-            "target": "broadcasting",
-            "side": "con-main",
-            "label": "Add AM radio reach",
-            "durationSeconds": 9.3
-        },
-        {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.radioReach",
-                    "argumentGraph.broadcasting"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
+            "durationSeconds": 8.0,
             "blocking": false
         },
         {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
             "key": "religiousSchedules",
-            "text": "Permanent Daylight Saving Time would push sunrise-based morning prayer times later, creating conflicts with work or school schedules.",
-            "target": "daylight",
+            "text": "Permanent Daylight Saving Time would push sunrise-based Orthodox Jewish morning prayer times later, creating conflicts with work or school schedules.",
+            "target": "main",
             "side": "con-main",
             "label": "Add religious schedule costs",
-            "durationSeconds": 9.3
+            "durationSeconds": 8.0,
+            "blocking": false
         },
         {
-            "type": "camera.move",
-            "target": {
-                "objects": [
-                    "argumentGraph.religiousSchedules",
-                    "argumentGraph.daylight"
-                ]
-            },
-            "offsetSeconds": -9.3,
-            "durationSeconds": 2.4,
+            "type": "captions.show",
+            "text": "There are some obvious pros and cons to this that we do not have time to cover one by one here: energy use, crime, deer collisions, agriculture and other sun-tied work, AM radio, religious schedules, household routines, and the simple annoyance of changing clocks twice a year.",
+            "durationSeconds": 8.0,
+            "label": "Other pros and cons"
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "weakEnergyEvidence",
+            "text": "Modern electricity savings from Daylight Saving Time may be negligible.",
+            "target": "energy",
+            "side": "con-main",
+            "label": "Rebut energy savings",
+            "durationSeconds": 8.0,
             "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "robberies",
+            "text": "Added evening daylight reduces robberies.",
+            "target": "crime",
+            "side": "pro-main",
+            "label": "Add robbery reduction",
+            "durationSeconds": 8.0,
+            "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "assaults",
+            "text": "Added evening daylight can increase aggravated assaults around sunset by increasing foot traffic or social interaction.",
+            "target": "crime",
+            "side": "con-main",
+            "label": "Rebut the crime benefit",
+            "durationSeconds": 8.0,
+            "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "deerCollisions",
+            "text": "Year-round Daylight Saving Time would reduce deer-vehicle collisions and associated human, wildlife, and economic costs.",
+            "target": "roadSafety",
+            "side": "pro-main",
+            "label": "Add deer-collision effects",
+            "durationSeconds": 8.0,
+            "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "Those claims are in the map too. In later videos we can go deeper into the strongest ones, the weakest ones, and the places where the evidence conflicts.",
+            "durationSeconds": 8.0,
+            "label": "Closing narration"
+        },
+        {
+            "type": "captions.show",
+            "text": "The score on screen is not a final verdict. It is just what follows from the claims, rebuttals, and relationships we have entered so far.",
+            "durationSeconds": 8.0,
+            "label": "Closing narration"
+        },
+        {
+            "type": "captions.show",
+            "text": "If we missed an important claim, evidence, rebuttal, or a reason one part should matter more or less, tell us specifically what is missing and why.",
+            "durationSeconds": 8.0,
+            "label": "Closing narration"
         },
         {
             "type": "camera.move",
@@ -1536,6 +863,12 @@
             },
             "durationSeconds": 4,
             "label": "Final debate - Zoom out"
+        },
+        {
+            "type": "captions.show",
+            "text": "Useful additions can change the map and the score in the next version.",
+            "durationSeconds": 4.4,
+            "label": "Closing narration"
         }
     ]
 }

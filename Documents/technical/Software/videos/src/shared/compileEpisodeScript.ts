@@ -10,7 +10,7 @@ import type {
 import type { DebateCore } from "@debate-core/Debate.ts";
 import { applyConfidenceClaimAddCommand } from "@planner/applyDebateCommand.ts";
 import type { AnimationStepId, DebateAnimationPlan } from "@planner/DebateAnimationPlan.ts";
-import { planDebateAnimationBatch } from "@planner/planner.ts";
+import { planDebateAnimationBatch, planStaticDebate } from "@planner/planner.ts";
 
 import {
 	episodeScriptSpecSchema,
@@ -258,6 +258,17 @@ function compileGraphActions(
 				action.mainClaim.key,
 			);
 			graphStates.set(action.key, state);
+			animations.push({
+				addedClaimIds: [],
+				debateCore: state.debateCore,
+				durationInFrames: Math.max(1, scheduled.durationInFrames),
+				from: scheduled.from,
+				graph: action.key,
+				label: scheduled.label,
+				plan: planStaticDebate({ debateCore: state.debateCore }),
+				sourceActionIndexes: [scheduled.index],
+			});
+			state.lastAnimationEndFrame = scheduled.endFrame;
 			actionIndex += 1;
 			continue;
 		}

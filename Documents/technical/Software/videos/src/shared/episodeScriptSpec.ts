@@ -110,6 +110,7 @@ const cameraCutActionSchema = z.object({
 const captionsShowActionSchema = z.object({
 	...actionTimingShape,
 	durationSeconds: durationSecondsSchema.positive(),
+	position: z.literal("center").optional(),
 	text: nonEmptyStringSchema,
 	type: z.literal("captions.show"),
 }).strict();

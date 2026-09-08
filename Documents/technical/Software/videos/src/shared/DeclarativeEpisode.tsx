@@ -17,6 +17,12 @@ const CLOSED_CAPTION_STYLE = {
 	padding: "0 160px 80px",
 } as const;
 
+const CENTERED_CAPTION_STYLE = {
+	...CLOSED_CAPTION_STYLE,
+	justifyContent: "center",
+	padding: "0 160px",
+} as const;
+
 const CLOSED_CAPTION_TEXT_STYLE = {
 	backgroundColor: "rgba(0, 0, 0, 0.68)",
 	boxDecorationBreak: "clone",
@@ -75,7 +81,11 @@ export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps)
 						layout="none"
 						name={action.label}
 					>
-						<AbsoluteFill style={CLOSED_CAPTION_STYLE}>
+						<AbsoluteFill
+							style={action.action.position === "center"
+								? CENTERED_CAPTION_STYLE
+								: CLOSED_CAPTION_STYLE}
+						>
 							<span style={CLOSED_CAPTION_TEXT_STYLE}>{action.action.text}</span>
 						</AbsoluteFill>
 					</Sequence>
