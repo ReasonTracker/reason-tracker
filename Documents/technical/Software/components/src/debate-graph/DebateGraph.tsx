@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import type { ClaimId } from "@debate-core/Claim.ts";
 import type { DebateCore } from "@debate-core/Debate.ts";
 import type {
 	DebateAnimationPlan,
@@ -22,6 +23,7 @@ const COLORS = {
 
 export type DebateGraphProps = {
 	bounds: DebateAnimationPlan["bounds"]
+	claimContent?: (claimId: ClaimId, content: string) => ReactNode
 	debateCore: DebateCore
 	diagnostics?: boolean
 	frame: DebateFrame
@@ -30,6 +32,7 @@ export type DebateGraphProps = {
 
 export function DebateGraph({
 	bounds,
+	claimContent,
 	debateCore,
 	diagnostics = false,
 	frame,
@@ -106,10 +109,10 @@ export function DebateGraph({
 											width: options.claimWidth,
 										}}
 									>
-										<div style={claimContentStyle}>{content}</div>
+										<div style={claimContentStyle}>{claimContent?.(claim.claimId, content) ?? content}</div>
 										<div style={scoreGroupStyle}>
 											<div style={scoreStyle}>{Math.round(claim.score * 100)}%</div>
-											<div style={scoreCaptionStyle}>confidence</div>
+											<div style={scoreCaptionStyle}></div>
 										</div>
 									</div>
 								</foreignObject>

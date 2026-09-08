@@ -47,6 +47,7 @@ type ClaimDefinition = {
 	side: ClaimSide
 	target?: ClaimTarget
 	text: string
+	textReveal?: true
 };
 
 type GraphCompilerState = {
@@ -76,6 +77,11 @@ export type CompiledGraphAnimation = {
 	sourceActionIndexes: readonly number[]
 };
 
+export type ClaimTextReveal = {
+	durationInFrames: number
+	from: number
+};
+
 export type GraphPlayback = {
 	animation: CompiledGraphAnimation
 	stepId?: AnimationStepId
@@ -87,6 +93,7 @@ export type CompiledEpisodeScript = {
 	composition: EpisodeScriptSpec["settings"]["composition"]
 	durationInFrames: number
 	graphAnimations: readonly CompiledGraphAnimation[]
+	claimTextReveals: Readonly<Record<ClaimId, ClaimTextReveal>>
 	spec: EpisodeScriptSpec
 };
 
@@ -94,14 +101,49 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 	const spec = episodeScriptSpecSchema.parse(input);
 	const actions = scheduleActions(spec);
 	const graphAnimations = compileGraphActions(spec, actions);
+	const claimTextReveals = compileClaimTextReveals(actions);
 
 	return {
 		actions,
+		claimTextReveals,
 		composition: spec.settings.composition,
 		durationInFrames: Math.max(1, ...actions.map((action) => action.endFrame)),
 		graphAnimations,
 		spec,
 	};
+}
+
+function compileClaimTextReveals(
+	actions: readonly ScheduledEpisodeAction[],
+): Readonly<Record<ClaimId, ClaimTextReveal>> {
+	const reveals: Record<ClaimId, ClaimTextReveal> = {};
+	for (const scheduled of actions) {
+		const action = scheduled.action;
+		if (action.type === "graph.create") {
+			if (action.mainClaim.textReveal) {
+				reveals[claimId(action.key, action.mainClaim.key)] = requireClaimTextReveal(
+					scheduled,
+				);
+			}
+			for (const claim of action.claims ?? []) {
+				if (claim.textReveal) {
+					reveals[claimId(action.key, claim.key)] = requireClaimTextReveal(scheduled);
+				}
+			}
+			continue;
+		}
+		if (action.type === "graph.addClaim" && action.textReveal) {
+			reveals[claimId(action.graph, action.key)] = requireClaimTextReveal(scheduled);
+		}
+	}
+	return reveals;
+}
+
+function requireClaimTextReveal(action: ScheduledEpisodeAction): ClaimTextReveal {
+	if (action.durationInFrames < 1) {
+		throw new Error(`Action ${action.index} enables textReveal but has no duration.`);
+	}
+	return { durationInFrames: action.durationInFrames, from: action.from };
 }
 
 export function resolveGraphPlayback(
@@ -247,6 +289,7 @@ function compileGraphActions(
 				key: action.mainClaim.key,
 				side: "pro-main",
 				text: action.mainClaim.text,
+				textReveal: action.mainClaim.textReveal,
 			});
 			for (const claim of action.claims ?? []) {
 				setClaimDefinition(state, claim, scheduled.index);
@@ -348,6 +391,7 @@ function compileGraphAddBatch(
 			side: action.side,
 			target: action.target,
 			text: action.text,
+			textReveal: action.textReveal,
 		};
 		state.claimDefinitions.set(action.key, definition);
 

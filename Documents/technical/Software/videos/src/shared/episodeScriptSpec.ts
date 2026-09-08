@@ -29,6 +29,7 @@ const newGraphClaimSchema = z.object({
 	side: claimSideSchema,
 	target: claimTargetSchema,
 	text: nonEmptyStringSchema,
+	textReveal: z.literal(true).optional(),
 }).strict();
 
 const graphClaimStateSchema = z.object({
@@ -36,6 +37,7 @@ const graphClaimStateSchema = z.object({
 	side: claimSideSchema.optional(),
 	target: claimTargetSchema.optional(),
 	text: nonEmptyStringSchema.optional(),
+	textReveal: z.literal(true).optional(),
 }).strict();
 
 const graphCreateActionSchema = z.object({
@@ -45,6 +47,7 @@ const graphCreateActionSchema = z.object({
 	mainClaim: z.object({
 		key: authorKeySchema,
 		text: nonEmptyStringSchema,
+		textReveal: z.literal(true).optional(),
 	}).strict(),
 	type: z.literal("graph.create"),
 }).strict();
@@ -56,6 +59,7 @@ const graphAddClaimActionSchema = z.object({
 	side: claimSideSchema,
 	target: confidenceTargetSchema,
 	text: nonEmptyStringSchema,
+	textReveal: z.literal(true).optional(),
 	type: z.literal("graph.addClaim"),
 }).strict();
 

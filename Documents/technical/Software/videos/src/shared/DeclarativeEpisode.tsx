@@ -61,6 +61,7 @@ export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps)
 				? (
 					<DebateAnimationSurface
 						cameraBounds={camera?.resolveBounds(frame)}
+						claimTextReveals={episode.claimTextReveals}
 						debateCore={playback.animation.debateCore}
 						plan={playback.animation.plan}
 						stepId={playback.stepId}

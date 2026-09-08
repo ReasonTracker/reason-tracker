@@ -7,8 +7,12 @@ import {
 } from "@planner/DebateAnimationPlan.ts";
 import { AbsoluteFill } from "remotion";
 
+import { TimedCharacterReveal } from "./TimedCharacterReveal";
+import type { ClaimTextReveal } from "./compileEpisodeScript";
+
 export type DebateAnimationSurfaceProps = {
 	cameraBounds?: DebateAnimationPlan["bounds"]
+	claimTextReveals: Readonly<Record<string, ClaimTextReveal>>
 	debateCore: DebateCore
 	plan: DebateAnimationPlan
 	stepId?: AnimationStepId
@@ -17,6 +21,7 @@ export type DebateAnimationSurfaceProps = {
 
 export function DebateAnimationSurface({
 	cameraBounds,
+	claimTextReveals,
 	debateCore,
 	plan,
 	stepId,
@@ -30,6 +35,12 @@ export function DebateAnimationSurface({
 		<AbsoluteFill style={{ background: "#080b10" }}>
 			<DebateGraph
 				bounds={cameraBounds ?? plan.bounds}
+				claimContent={(claimId, content) => {
+					const reveal = claimTextReveals[claimId];
+					return reveal
+						? <TimedCharacterReveal text={content} {...reveal} />
+						: content;
+				}}
 				debateCore={debateCore}
 				frame={frame}
 				options={plan.options}

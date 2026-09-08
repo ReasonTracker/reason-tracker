@@ -70,6 +70,7 @@ A typical overlapping camera move looks like this:
     "graph": "argumentGraph",
     "key": "cost",
     "text": "The legislation would have a substantial cost.",
+     "textReveal": true,
     "target": "main",
     "side": "con-main",
     "durationSeconds": 4
@@ -138,6 +139,8 @@ Animate one new confidence-linked claim into an existing graph.
 ```
 
 All fields shown above are required. The target must be an existing claim key. This action currently supports only a string confidence target; use `graph.set` or `graph.patch` to introduce relevance-linked graph state.
+
+Set `textReveal` to `true` to reveal a claim's text character by character over that action's duration. The claim's full text participates in layout from the first frame, so line wrapping remains fixed while characters are revealed. A text-reveal action requires a positive duration; use a nonblocking action when the typing should overlap the following action.
 
 `side` is relative to the main claim:
 
