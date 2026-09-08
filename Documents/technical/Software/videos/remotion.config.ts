@@ -4,6 +4,17 @@ import { Config } from "@remotion/cli/config";
 Config.overrideWebpackConfig((currentConfiguration) => {
     return {
         ...currentConfiguration,
+        module: {
+            ...currentConfiguration.module,
+            rules: [
+                ...(currentConfiguration.module?.rules ?? []),
+                {
+                    test: /[\\/]episode\.json$/,
+                    type: "javascript/auto",
+                    use: path.resolve(process.cwd(), "scripts/load-external-episode-json.mjs"),
+                },
+            ],
+        },
         resolve: {
             ...currentConfiguration.resolve,
             alias: {

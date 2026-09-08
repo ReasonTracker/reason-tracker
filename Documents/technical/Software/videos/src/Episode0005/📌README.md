@@ -9,7 +9,7 @@ This folder owns the declarative Sunshine Protection Act episode specification a
 
 ## Boundaries
 
-- Keep claim content, targets, sides, graph changes, relative timing, and explicit camera actions in `episode.json`.
+- Keep claim content, targets, sides, graph changes, relative timing, and explicit camera actions in the episode specification. `episode.json` may instead contain a sole `sourceFile` property that points to an external specification; Remotion watches that source and reloads it when saved.
 - Render the episode only through the shared `DebateAnimationSurface` and `DebateGraph` pipeline.
 - Let the shared episode compiler derive planner commands, graph states, frame timing, and camera movement from the ordered actions.
 - Represent structural regrouping with the bounded declarative graph operations rather than duplicating graph rendering or transition logic.

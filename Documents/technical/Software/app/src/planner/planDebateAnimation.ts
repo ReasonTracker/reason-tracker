@@ -139,12 +139,9 @@ export function planDebateAnimationBatch(
 			connection.score = settledConnection.score;
 		}
 	}
-	const waveFrame = buildTargetScoreWaveFrame({
+	const waveFrame = buildChangedScoreWaveFrame({
 		firstFillFrame,
 		settledFrame,
-		targetClaimIds: new Set(
-			input.commands.map((command) => command.connector.targetClaimId),
-		),
 	});
 
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
@@ -205,19 +202,21 @@ export function planDebateAnimationBatch(
 	};
 }
 
-function buildTargetScoreWaveFrame(args: {
+function buildChangedScoreWaveFrame(args: {
 	firstFillFrame: DebateFrame
 	settledFrame: DebateFrame
-	targetClaimIds: ReadonlySet<ClaimId>
 }): DebateFrame {
 	const frame = cloneFrame(args.firstFillFrame);
-	const targetClaimOccurrenceIds = new Set(
+	const changedClaimOccurrenceIds = new Set(
 		Object.values(args.settledFrame.claims)
-			.filter((claim) => args.targetClaimIds.has(claim.claimId))
+			.filter((settledClaim) => {
+				const firstFillClaim = args.firstFillFrame.claims[settledClaim.id];
+				return firstFillClaim !== undefined && firstFillClaim.score !== settledClaim.score;
+			})
 			.map((claim) => claim.id),
 	);
 
-	for (const occurrenceId of targetClaimOccurrenceIds) {
+	for (const occurrenceId of changedClaimOccurrenceIds) {
 		const claim = frame.claims[occurrenceId];
 		const settledClaim = args.settledFrame.claims[occurrenceId];
 		if (claim && settledClaim) {
@@ -226,7 +225,7 @@ function buildTargetScoreWaveFrame(args: {
 	}
 
 	for (const connection of Object.values(frame.confidenceConnections)) {
-		if (!targetClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
+		if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
 			continue;
 		}
 
@@ -237,7 +236,7 @@ function buildTargetScoreWaveFrame(args: {
 	}
 
 	for (const connection of Object.values(frame.relevanceConnections)) {
-		if (!targetClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
+		if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
 			continue;
 		}
 
