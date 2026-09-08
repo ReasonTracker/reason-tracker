@@ -3,10 +3,17 @@ import { resolveAnimationFrame } from "@planner/DebateAnimationPlan.ts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import {
-	episode0004AnimationPlan,
-	episode0004DebateCore,
-} from "./animationPlan";
+
+import { compileEpisodeScript } from "../shared/compileEpisodeScript";
+import episode0004Spec from "./episode.json";
+
+const episode0004 = compileEpisodeScript(episode0004Spec);
+const episode0004Animation = episode0004.graphAnimations[0];
+if (!episode0004Animation) {
+	throw new Error("Episode0004 requires one graph animation.");
+}
+const episode0004AnimationPlan = episode0004Animation.plan;
+const episode0004DebateCore = episode0004Animation.debateCore;
 
 describe("Episode0004 animation plan", () => {
 	it("resolves finite key frames without geometry errors", () => {

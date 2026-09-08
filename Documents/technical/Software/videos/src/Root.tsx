@@ -3,35 +3,24 @@ import "../../website/site/css/brand-sequence.css";
 import type { ComponentType } from "react";
 import { Composition } from "remotion";
 
-import {
-	Episode0001,
-	EPISODE0001_DURATION_IN_FRAMES,
-	EPISODE0001_FPS,
-} from "./Episode0001/Episode0001";
-import {
-	Episode0002,
-	EPISODE0002_DURATION_IN_FRAMES,
-	EPISODE0002_FPS,
-} from "./Episode0002/Episode0002";
-import {
-	Episode0004,
-	EPISODE0004_DURATION_IN_FRAMES,
-	EPISODE0004_FPS,
-} from "./Episode0004/Episode0004";
-import {
-	Episode0005,
-	EPISODE0005_DURATION_IN_FRAMES,
-	EPISODE0005_FPS,
-} from "./Episode0005/Episode0005";
+import episode0001Spec from "./Episode0001/episode.json";
+import episode0002Spec from "./Episode0002/episode.json";
+import episode0004Spec from "./Episode0004/episode.json";
+import episode0005Spec from "./Episode0005/episode.json";
 import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
+import { createDeclarativeEpisode } from "./shared/DeclarativeEpisode";
 
-const episode0001Composition = Episode0001 as ComponentType<Record<string, unknown>>;
-const episode0002Composition = Episode0002 as ComponentType<Record<string, unknown>>;
-const episode0004Composition = Episode0004 as ComponentType<Record<string, unknown>>;
-const episode0005Composition = Episode0005 as ComponentType<Record<string, unknown>>;
+const episode0001 = createDeclarativeEpisode(episode0001Spec);
+const episode0001Composition = episode0001.component as ComponentType<Record<string, unknown>>;
+const episode0002 = createDeclarativeEpisode(episode0002Spec);
+const episode0002Composition = episode0002.component as ComponentType<Record<string, unknown>>;
+const episode0004 = createDeclarativeEpisode(episode0004Spec);
+const episode0004Composition = episode0004.component as ComponentType<Record<string, unknown>>;
+const episode0005 = createDeclarativeEpisode(episode0005Spec);
+const episode0005Composition = episode0005.component as ComponentType<Record<string, unknown>>;
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
 
@@ -39,36 +28,36 @@ export const RemotionRoot = () => {
 	return (
 		<>
 			<Composition
-				id="Episode0001"
+				id={episode0001.episode.composition.id}
 				component={episode0001Composition}
-				durationInFrames={EPISODE0001_DURATION_IN_FRAMES}
-				fps={EPISODE0001_FPS}
-				height={1080}
-				width={1920}
+				durationInFrames={episode0001.episode.durationInFrames}
+				fps={episode0001.episode.composition.fps}
+				height={episode0001.episode.composition.height}
+				width={episode0001.episode.composition.width}
 			/>
 			<Composition
-				id="Episode0002"
+				id={episode0002.episode.composition.id}
 				component={episode0002Composition}
-				durationInFrames={EPISODE0002_DURATION_IN_FRAMES}
-				fps={EPISODE0002_FPS}
-				height={1080}
-				width={1920}
+				durationInFrames={episode0002.episode.durationInFrames}
+				fps={episode0002.episode.composition.fps}
+				height={episode0002.episode.composition.height}
+				width={episode0002.episode.composition.width}
 			/>
 			<Composition
-				id="Episode0004"
+				id={episode0004.episode.composition.id}
 				component={episode0004Composition}
-				durationInFrames={EPISODE0004_DURATION_IN_FRAMES}
-				fps={EPISODE0004_FPS}
-				height={1080}
-				width={1920}
+				durationInFrames={episode0004.episode.durationInFrames}
+				fps={episode0004.episode.composition.fps}
+				height={episode0004.episode.composition.height}
+				width={episode0004.episode.composition.width}
 			/>
 			<Composition
-				id="Episode0005"
+				id={episode0005.episode.composition.id}
 				component={episode0005Composition}
-				durationInFrames={EPISODE0005_DURATION_IN_FRAMES}
-				fps={EPISODE0005_FPS}
-				height={1080}
-				width={1920}
+				durationInFrames={episode0005.episode.durationInFrames}
+				fps={episode0005.episode.composition.fps}
+				height={episode0005.episode.composition.height}
+				width={episode0005.episode.composition.width}
 			/>
 			<Composition
 				id="ComponentVisualizerPathGeometry"

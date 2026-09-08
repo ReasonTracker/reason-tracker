@@ -19,7 +19,7 @@
 
 ## Current Scope
 
-- first implementation target: `confidence/claim/add`
+- current implementation target: one or more simultaneous `confidence/claim/add` commands
 - current animation cutoff: the first propagation `wave` from the command target through its outgoing connectors
 - subsequent propagation waves and final global rescaling remain outside the current plan
 

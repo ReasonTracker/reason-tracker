@@ -1,6 +1,6 @@
 # Episode 0005
 
-This folder owns the Sunshine Protection Act episode scenario, planner stages, and timing.
+This folder owns the declarative Sunshine Protection Act episode specification and its source material.
 
 ## Sources
 
@@ -9,10 +9,10 @@ This folder owns the Sunshine Protection Act episode scenario, planner stages, a
 
 ## Boundaries
 
+- Keep claim content, targets, sides, graph changes, relative timing, and explicit camera actions in `episode.json`.
 - Render the episode only through the shared `DebateAnimationSurface` and `DebateGraph` pipeline.
-- Build ordinary claim additions with the existing planner and debate-core command contracts.
-- Keep episode-specific scenario data and timeline sequencing in this folder.
-- Represent unsupported structural regrouping as an authored graph-state cut rather than duplicating graph rendering or transition logic.
+- Let the shared episode compiler derive planner commands, graph states, frame timing, and camera movement from the ordered actions.
+- Represent structural regrouping with the bounded declarative graph operations rather than duplicating graph rendering or transition logic.
 
 <!-- autonav:start -->
 

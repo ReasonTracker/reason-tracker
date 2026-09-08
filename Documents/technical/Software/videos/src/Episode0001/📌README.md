@@ -1,12 +1,13 @@
 # 📌 Episode0001
 
-This folder owns the Episode0001 debate scenario and planner-driven Remotion timeline.
+This folder owns Episode0001's declarative episode specification.
 
 ## Boundaries
 
-- Keep Episode0001-specific scenario data, timings, and add-claim command setup in this folder.
-- Drive the timeline from the named `opening`, `voila`, `sprout`, `firstFill`, and `wave` plan states.
-- Keep Remotion responsible only for frame timing. Shared React/SVG rendering and geometry live in `@reasontracker/components`.
+- Keep Episode0001's composition settings and ordered action script in `episode.json`.
+- Keep claim text, target, `pro-main` or `con-main` side, and timing with the action that introduces the claim.
+- Keep executable planner, scheduling, and Remotion behavior in the shared video runtime.
+- Do not put code, expressions, or module paths in the episode specification.
 
 <!-- autonav:start -->
 <!-- autonav:end -->

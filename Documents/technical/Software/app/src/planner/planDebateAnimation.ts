@@ -1,3 +1,4 @@
+import type { AddConfidenceClaimCommand } from "../debate-core/Commands.ts";
 import type { ClaimId } from "../debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../debate-core/Connector.ts";
 import { applyConfidenceClaimAddCommand } from "./applyDebateCommand.ts";
@@ -35,10 +36,31 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 		throw new Error(`Unsupported animation command: ${input.command.type}`);
 	}
 
-	const options = resolvePlannerOptions(input.options);
-	const applied = applyConfidenceClaimAddCommand({
-		command: input.command,
+	return planDebateAnimationBatch({
+		commands: [input.command],
 		debateCore: input.debateCore,
+		options: input.options,
+	});
+}
+
+export function planDebateAnimationBatch(
+	input: Omit<PlannerInput, "command"> & {
+		commands: readonly AddConfidenceClaimCommand[]
+	},
+): DebateAnimationPlan {
+	if (input.commands.length === 0) {
+		throw new Error("Cannot plan an animation without commands.");
+	}
+
+	const options = resolvePlannerOptions(input.options);
+	let settledDebateCore = input.debateCore;
+	const appliedCommands = input.commands.map((command) => {
+		const applied = applyConfidenceClaimAddCommand({
+			command,
+			debateCore: settledDebateCore,
+		});
+		settledDebateCore = applied.debateCore;
+		return applied;
 	});
 	const openingFrame = buildDebateFrame({
 		debateCore: input.debateCore,
@@ -46,14 +68,14 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 		resolvedMath: resolvePresentationMath(input.debateCore),
 	});
 	const settledFrame = buildDebateFrame({
-		debateCore: applied.debateCore,
+		debateCore: settledDebateCore,
 		options,
-		resolvedMath: resolvePresentationMath(applied.debateCore),
+		resolvedMath: resolvePresentationMath(settledDebateCore),
 	});
 	const voilaLayoutFrame = buildDebateFrame({
-		debateCore: applied.debateCore,
+		debateCore: settledDebateCore,
 		options,
-		resolvedMath: resolvePresentationMath(applied.debateCore),
+		resolvedMath: resolvePresentationMath(settledDebateCore),
 		visualScales: Object.fromEntries(
 			Object.values(settledFrame.claims).map((claim) => [
 				claim.id,
@@ -61,9 +83,14 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 			]),
 		),
 	});
+	const newConfidenceConnectorIds = new Set(
+		appliedCommands.map((applied) => applied.confidenceConnectorId),
+	);
 	const newConfidenceOccurrenceIds = new Set(
 		Object.values(settledFrame.confidenceConnections)
-			.filter((connection) => connection.confidenceConnectorId === applied.confidenceConnectorId)
+			.filter((connection) =>
+				newConfidenceConnectorIds.has(connection.confidenceConnectorId)
+			)
 			.map((connection) => connection.id),
 	);
 	const voilaInitialFrame = augmentOpeningFrame({
@@ -93,7 +120,9 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 	const waveFrame = buildTargetScoreWaveFrame({
 		firstFillFrame,
 		settledFrame,
-		targetClaimId: input.command.connector.targetClaimId,
+		targetClaimIds: new Set(
+			input.commands.map((command) => command.connector.targetClaimId),
+		),
 	});
 
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
@@ -157,12 +186,12 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 function buildTargetScoreWaveFrame(args: {
 	firstFillFrame: DebateFrame
 	settledFrame: DebateFrame
-	targetClaimId: ClaimId
+	targetClaimIds: ReadonlySet<ClaimId>
 }): DebateFrame {
 	const frame = cloneFrame(args.firstFillFrame);
 	const targetClaimOccurrenceIds = new Set(
 		Object.values(args.settledFrame.claims)
-			.filter((claim) => claim.claimId === args.targetClaimId)
+			.filter((claim) => args.targetClaimIds.has(claim.claimId))
 			.map((claim) => claim.id),
 	);
 
