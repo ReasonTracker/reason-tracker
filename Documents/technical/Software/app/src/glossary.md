@@ -44,7 +44,12 @@ Relevance claims use the same claim-lane positioning model as the other claim vi
 
 - Main Claim - the claim that is the root (sink) of the graph and is the primary claim being supported or attacked.
 - Potential Scale - the full visual size of a claim or connector if it were showing `100%` score. This is what `scale` and `sourcesScale` represent.
-- Actual Score - the current standing value. In rendering, this changes how much fluid fills the already-authored full pipe size rather than shrinking that pipe size itself.
+- Actual Score - the current standing value. It controls fluid fill and contributes to the shared sibling-base calculation, but does not independently resize one sibling.
+- Sibling Base Scale - the common pre-relevance scale for direct confidence children: `parentCapacity / max(1, totalDeliveryContributionWeight)`.
+- Delivery Contribution Weight - one child's authoritative delivered amount, normally `childScore × relevanceMultiplier`.
+- Parent Fluid Share - `deliveryContributionWeight / max(1, totalDeliveryContributionWeight)`, used as the child's target-edge fluid interval width relative to parent capacity.
+- Target Fluid Interval - one ordered child's positive-width interval or zero-width point in the centered delivery-fluid stack.
+- Natural Zero Position - the ordered cursor point retained by a zero-fluid child; its shell is positioned with the same continuous formula used for a positive interval.
 - Pro Main - purple color indicating this claim/connector eventually would support the main claim.
 - Con Main - orange color indicating this claim/connector eventually would attack the main claim.
 

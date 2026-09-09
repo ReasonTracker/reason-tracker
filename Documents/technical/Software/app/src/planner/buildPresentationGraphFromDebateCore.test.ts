@@ -9,7 +9,7 @@ import type {
 import type { DebateCore, DebateId } from "../debate-core/Debate.ts";
 import { buildPresentationGraphFromDebateCore } from "./buildPresentationGraphFromDebateCore.ts";
 import { resolveAnimationFrame } from "./DebateAnimationPlan.ts";
-import { planDebateAnimation } from "./planDebateAnimation.ts";
+import { planDebateAnimation, planStaticDebate } from "./planDebateAnimation.ts";
 
 describe("buildPresentationGraphFromDebateCore", () => {
 	it("emits a repeated ancestor claim once and stops only that branch", () => {
@@ -47,6 +47,38 @@ describe("buildPresentationGraphFromDebateCore", () => {
 });
 
 describe("planDebateAnimation", () => {
+	it("positions delivery shells from ordered fluid intervals, including zero width", () => {
+		const debate = createDebate({
+			claims: ["a", "b", "c", "d"],
+			connectors: [
+				confidence("ab", "b", "a", "proTarget"),
+				confidence("ac", "c", "a", "conTarget"),
+				confidence("bd", "d", "b", "conTarget"),
+			],
+		});
+
+		const frame = planStaticDebate({ debateCore: debate }).openingFrame;
+		const rootConnections = Object.values(frame.confidenceConnections)
+			.filter((connection) => connection.targetClaimOccurrenceId === "claim:a");
+		const zeroConnection = rootConnections.find(
+			(connection) => connection.confidenceConnectorId === "ab",
+		);
+		const fullConnection = rootConnections.find(
+			(connection) => connection.confidenceConnectorId === "ac",
+		);
+
+		expect(zeroConnection).toMatchObject({
+			deliveryScore: 0,
+			deliveryScale: 1,
+			targetSideOffset: -176,
+		});
+		expect(fullConnection).toMatchObject({
+			deliveryScore: 1,
+			deliveryScale: 1,
+			targetSideOffset: 0,
+		});
+	});
+
 	it("keeps named step boundaries continuous through First Fill", () => {
 		const debate = createDebate({
 			claims: ["a", "b"],
@@ -75,6 +107,43 @@ describe("planDebateAnimation", () => {
 		expect(addedConnection).toMatchObject({ score: 1, shellReveal: 1, volumeTransitions: [
 			expect.objectContaining({ finalValue: 1, initialValue: 0, progress: 1 }),
 		] });
+	});
+
+	it("derives nonlinear Wave layout from the interpolated logical score", () => {
+		const debate = createDebate({
+			claims: ["a", "b", "e"],
+			connectors: [
+				confidence("ab", "b", "a", "proTarget"),
+				confidence("ae", "e", "a", "conTarget"),
+			],
+		});
+		const command: AddConfidenceClaimCommand = {
+			claim: { content: "c", id: claimId("c") },
+			connector: {
+				id: "bc" as ConfidenceConnectorId,
+				targetClaimId: claimId("b"),
+				targetRelationship: "conTarget",
+				type: "confidence",
+			},
+			type: "confidence/claim/add",
+		};
+
+		const midpoint = resolveAnimationFrame(
+			planDebateAnimation({ command, debateCore: debate }),
+			"wave",
+			0.5,
+		);
+		const rootConnections = Object.values(midpoint.confidenceConnections)
+			.filter((connection) => connection.targetClaimOccurrenceId === "claim:a");
+		const changingConnection = rootConnections.find(
+			(connection) => connection.confidenceConnectorId === "ab",
+		);
+
+		expect(changingConnection?.deliveryScore).toBeCloseTo(0.5);
+		for (const connection of rootConnections) {
+			expect(connection.sourceScale).toBeCloseTo(2 / 3);
+			expect(connection.deliveryScale).toBeCloseTo(2 / 3);
+		}
 	});
 });
 

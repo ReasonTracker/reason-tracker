@@ -89,10 +89,11 @@ export function planDebateAnimationBatch(
 		options,
 		resolvedMath: resolvePresentationMath(input.debateCore),
 	});
+	const settledResolvedMath = resolvePresentationMath(settledDebateCore);
 	const settledFrame = buildDebateFrame({
 		debateCore: settledDebateCore,
 		options,
-		resolvedMath: resolvePresentationMath(settledDebateCore),
+		resolvedMath: settledResolvedMath,
 	});
 	const voilaLayoutFrame = buildDebateFrame({
 		debateCore: settledDebateCore,
@@ -136,6 +137,7 @@ export function planDebateAnimationBatch(
 		const connection = firstFillFrame.confidenceConnections[occurrenceId];
 		const settledConnection = settledFrame.confidenceConnections[occurrenceId];
 		if (connection && settledConnection) {
+			connection.deliveryScore = settledConnection.deliveryScore;
 			connection.score = settledConnection.score;
 		}
 	}
@@ -186,6 +188,10 @@ export function planDebateAnimationBatch(
 		waveFrame,
 		() => ({ easing: "linear" }),
 	);
+	wave.waveLayoutDependency = {
+		debateCore: settledDebateCore,
+		resolvedMath: settledResolvedMath,
+	};
 
 	return {
 		bounds: resolveSceneBounds([
@@ -225,12 +231,12 @@ function buildChangedScoreWaveFrame(args: {
 	}
 
 	for (const connection of Object.values(frame.confidenceConnections)) {
-		if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
-			continue;
-		}
-
 		const settledConnection = args.settledFrame.confidenceConnections[connection.id];
 		if (settledConnection) {
+			connection.deliveryScore = settledConnection.deliveryScore;
+			if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
+				continue;
+			}
 			connection.score = settledConnection.score;
 		}
 	}
@@ -309,6 +315,7 @@ function buildVoilaFrame(args: {
 	for (const connection of Object.values(frame.confidenceConnections)) {
 		const openingConnection = args.openingFrame.confidenceConnections[connection.id];
 		if (openingConnection) {
+			connection.deliveryScore = openingConnection.deliveryScore;
 			connection.deliveryScale = openingConnection.deliveryScale;
 			connection.score = openingConnection.score;
 			connection.sourceScale = openingConnection.sourceScale;
@@ -349,6 +356,7 @@ function buildSproutFrame(args: {
 	for (const connection of Object.values(frame.confidenceConnections)) {
 		const openingConnection = args.openingFrame.confidenceConnections[connection.id];
 		if (openingConnection) {
+			connection.deliveryScore = openingConnection.deliveryScore;
 			connection.score = openingConnection.score;
 		}
 
@@ -402,6 +410,7 @@ function buildAnimationStep<TId extends AnimationStepId>(
 		}
 
 		tracks.confidenceConnections[initial.id] = compactTracks({
+			deliveryScore: createTrack(initial.deliveryScore, target.deliveryScore, resolveTiming({ field: "deliveryScore", id: initial.id, kind: "confidence" })),
 			deliveryScale: createTrack(initial.deliveryScale, target.deliveryScale, resolveTiming({ field: "deliveryScale", id: initial.id, kind: "confidence" })),
 			shellReveal: createTrack(initial.shellReveal, target.shellReveal, resolveTiming({ field: "shellReveal", id: initial.id, kind: "confidence" })),
 			sourceScale: createTrack(initial.sourceScale, target.sourceScale, resolveTiming({ field: "sourceScale", id: initial.id, kind: "confidence" })),

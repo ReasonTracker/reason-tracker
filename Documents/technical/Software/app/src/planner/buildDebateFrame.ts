@@ -170,15 +170,24 @@ function buildConnectionStates(args: {
 		const confidenceOccurrences = claimOccurrence.confidenceConnectorOccurrenceIds.map(
 			(connectorOccurrenceId) => getConfidenceOccurrence(args.resolvedMath, connectorOccurrenceId),
 		);
-		const confidenceOffsets = resolveCenteredOffsets(
-			confidenceOccurrences.map((occurrence) => resolveConnectionEnvelope({
-				options: args.options,
-				scale: getRequiredNumber(
+		const confidenceOffsets = resolveDeliveryOffsets({
+			baseClaimHeight: args.options.claimHeight,
+			connections: confidenceOccurrences.map((occurrence) => ({
+				fluidShare: getRequiredNumber(
+					args.resolvedMath.parentFluidShares[occurrence.sourceClaimOccurrenceId],
+					`parent fluid share for ${occurrence.sourceClaimOccurrenceId}`,
+				),
+				shellScale: getRequiredNumber(
 					args.resolvedMath.deliveryScales[occurrence.sourceClaimOccurrenceId],
 					`delivery scale for ${occurrence.sourceClaimOccurrenceId}`,
 				),
+				side: getRequiredSide(args.resolvedMath, occurrence.sourceClaimOccurrenceId),
 			})),
-		);
+			parentHeight: args.options.claimHeight * getRequiredNumber(
+				args.resolvedMath.sourcesScales[claimOccurrence.id],
+				`source scale for ${claimOccurrence.id}`,
+			),
+		});
 
 		confidenceOccurrences.forEach((occurrence, index) => {
 			const sourceScale = getRequiredNumber(
@@ -190,15 +199,18 @@ function buildConnectionStates(args: {
 				`delivery scale for ${occurrence.sourceClaimOccurrenceId}`,
 			);
 			const score = args.resolvedMath.claimScores[occurrence.sourceClaimOccurrenceId];
+			const connectorScore = args.resolvedMath.connectorScores[occurrence.id];
 			const side = args.resolvedMath.sides[occurrence.sourceClaimOccurrenceId];
-			if (!score || !side) {
+			if (!score || !connectorScore || !side) {
 				throw new Error(`Missing resolved connection values for ${occurrence.id}`);
 			}
 
 			const state: ConfidenceConnectionFrameState = {
 				confidenceConnectorId: occurrence.confidenceConnectorId,
+				deliveryScore: connectorScore.deliveryScore,
 				deliveryScale,
 				id: occurrence.id,
+				relevanceMultiplier: connectorScore.relevanceMultiplier,
 				relevanceConnectorOccurrenceIds: occurrence.relevanceConnectorOccurrenceIds,
 				score: score.value,
 				shellReveal: 1,
@@ -380,4 +392,42 @@ function resolveVisualScale(
 			?? args.resolvedMath.sourcesScales[claimOccurrenceId],
 		`visual scale for ${claimOccurrenceId}`,
 	);
+}
+
+function resolveDeliveryOffsets(args: {
+	baseClaimHeight: number
+	connections: Array<{
+		fluidShare: number
+		shellScale: number
+		side: "proMain" | "conMain"
+	}>
+	parentHeight: number
+}): number[] {
+	const fluidWidths = args.connections.map((connection) => (
+		args.parentHeight * connection.fluidShare
+	));
+	const totalFluidWidth = fluidWidths.reduce((sum, width) => sum + width, 0);
+	let intervalStart = -(totalFluidWidth / 2);
+
+	return args.connections.map((connection, index) => {
+		const intervalEnd = intervalStart + (fluidWidths[index] ?? 0);
+		const shellWidth = args.baseClaimHeight * connection.shellScale;
+		const shellCenter = connection.side === "conMain"
+			? intervalStart + (shellWidth / 2)
+			: intervalEnd - (shellWidth / 2);
+		intervalStart = intervalEnd;
+		return shellCenter;
+	});
+}
+
+function getRequiredSide(
+	resolvedMath: ResolvedPresentationMath,
+	claimOccurrenceId: PresentationClaimOccurrenceId,
+): "proMain" | "conMain" {
+	const side = resolvedMath.sides[claimOccurrenceId];
+	if (!side) {
+		throw new Error(`Missing side for ${claimOccurrenceId}`);
+	}
+
+	return side;
 }

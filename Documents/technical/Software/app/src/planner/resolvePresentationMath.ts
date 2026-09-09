@@ -1,5 +1,6 @@
 import type { ConnectorId } from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
+import { calculateSiblingScaleAllocation } from "../math/calculateSourcesScales.ts";
 import {
 	resolveCyclesFromDebateCore,
 	type AggregatedClaimScore,
@@ -24,6 +25,7 @@ export type ResolvedPresentationMath = {
 	>
 	cycleResolution: CycleResolvedScoreResult
 	deliveryScales: Partial<Record<PresentationClaimOccurrenceId, number>>
+	parentFluidShares: Partial<Record<PresentationClaimOccurrenceId, number>>
 	presentationGraph: DebatePresentationGraph
 	sides: Partial<Record<PresentationClaimOccurrenceId, PresentationSide>>
 	sourcesScales: Partial<Record<PresentationClaimOccurrenceId, number>>
@@ -74,7 +76,7 @@ export function resolvePresentationMath(
 	}
 
 	const sides = calculatePresentationSides(presentationGraph);
-	const { deliveryScales, sourcesScales } = calculatePresentationScales({
+	const { deliveryScales, parentFluidShares, sourcesScales } = calculatePresentationScales({
 		connectorScores,
 		presentationGraph,
 		rootSourcesScale: resolveNonNegativeFinite(options.rootSourcesScale ?? 1),
@@ -85,6 +87,7 @@ export function resolvePresentationMath(
 		connectorScores,
 		cycleResolution,
 		deliveryScales,
+		parentFluidShares,
 		presentationGraph,
 		sides,
 		sourcesScales,
@@ -137,12 +140,16 @@ function calculatePresentationSides(
 	return sides;
 }
 
-function calculatePresentationScales(args: {
+export function calculatePresentationScales(args: {
 	connectorScores: ResolvedPresentationMath["connectorScores"]
 	presentationGraph: DebatePresentationGraph
 	rootSourcesScale: number
-}): Pick<ResolvedPresentationMath, "deliveryScales" | "sourcesScales"> {
+}): Pick<
+	ResolvedPresentationMath,
+	"deliveryScales" | "parentFluidShares" | "sourcesScales"
+> {
 	const deliveryScales: ResolvedPresentationMath["deliveryScales"] = {};
+	const parentFluidShares: ResolvedPresentationMath["parentFluidShares"] = {};
 	const sourcesScales: ResolvedPresentationMath["sourcesScales"] = {};
 
 	const assignScales = (
@@ -179,28 +186,33 @@ function calculatePresentationScales(args: {
 			return;
 		}
 
-		const relevanceMultipliers = confidenceOccurrences.map((occurrence) => {
+		const allocation = calculateSiblingScaleAllocation({
+			children: confidenceOccurrences.map((occurrence) => {
 			const score = args.connectorScores[occurrence.id];
 			if (!score) {
 				throw new Error(`Missing presentation connector score: ${occurrence.id}`);
 			}
 
-			return resolveNonNegativeFinite(score.relevanceMultiplier);
+			return {
+				contributionWeight: resolveNonNegativeFinite(score.deliveryScore),
+				id: occurrence.id,
+				relevanceMultiplier: resolveNonNegativeFinite(score.relevanceMultiplier),
+			};
+			}),
+			parentCapacity: sourcesScale,
 		});
-		const totalRelevance = relevanceMultipliers.reduce((sum, value) => sum + value, 0);
-		const denominator = totalRelevance > 0
-			? totalRelevance
-			: confidenceOccurrences.length;
-		const childSourcesScale = Math.min(sourcesScale / denominator, sourcesScale);
 
-		confidenceOccurrences.forEach((occurrence, index) => {
-			const relevanceMultiplier = totalRelevance > 0
-				? relevanceMultipliers[index] ?? 0
-				: 1;
+		confidenceOccurrences.forEach((occurrence) => {
+			const deliveryScale = allocation.deliveryScales[occurrence.id];
+			const parentFluidShare = allocation.parentFluidShares[occurrence.id];
+			if (deliveryScale === undefined || parentFluidShare === undefined) {
+				throw new Error(`Missing presentation scale allocation: ${occurrence.id}`);
+			}
+			parentFluidShares[occurrence.sourceClaimOccurrenceId] = parentFluidShare;
 			assignScales(
 				occurrence.sourceClaimOccurrenceId,
-				childSourcesScale,
-				childSourcesScale * relevanceMultiplier,
+				allocation.sharedChildSourcesScale,
+				deliveryScale,
 			);
 
 			for (const relevanceOccurrenceId of occurrence.relevanceConnectorOccurrenceIds) {
@@ -213,8 +225,8 @@ function calculatePresentationScales(args: {
 
 				assignScales(
 					relevanceOccurrence.sourceClaimOccurrenceId,
-					childSourcesScale,
-					childSourcesScale,
+					allocation.sharedChildSourcesScale,
+					allocation.sharedChildSourcesScale,
 				);
 			}
 		});
@@ -226,7 +238,7 @@ function calculatePresentationScales(args: {
 		args.rootSourcesScale,
 	);
 
-	return { deliveryScales, sourcesScales };
+	return { deliveryScales, parentFluidShares, sourcesScales };
 }
 
 function resolveConnectorId(

@@ -1,4 +1,5 @@
 import type { ClaimId } from "../debate-core/Claim.ts";
+import type { DebateCore } from "../debate-core/Debate.ts";
 import type {
 	ConfidenceConnectorId,
 	RelevanceConnectorId,
@@ -8,7 +9,12 @@ import type {
 	PresentationConnectorOccurrenceId,
 } from "./buildPresentationGraphFromDebateCore.ts";
 import type { PlannerOptions } from "./contracts.ts";
-import type { PresentationSide } from "./resolvePresentationMath.ts";
+import { buildDebateFrame } from "./buildDebateFrame.ts";
+import {
+	calculatePresentationScales,
+	type PresentationSide,
+	type ResolvedPresentationMath,
+} from "./resolvePresentationMath.ts";
 
 export type AnimationStepId = "voila" | "sprout" | "firstFill" | "wave";
 export type AnimationEasing = "linear" | "smooth";
@@ -45,8 +51,10 @@ export type ConnectorVolumeTransition = {
 
 export type ConfidenceConnectionFrameState = {
 	confidenceConnectorId: ConfidenceConnectorId
+	deliveryScore: number
 	deliveryScale: number
 	id: PresentationConnectorOccurrenceId
+	relevanceMultiplier: number
 	relevanceConnectorOccurrenceIds: PresentationConnectorOccurrenceId[]
 	score: number
 	shellReveal: number
@@ -91,7 +99,7 @@ type ClaimTracks = Partial<Record<
 type ConfidenceConnectionTracks = Partial<Record<
 	PresentationConnectorOccurrenceId,
 	Partial<Record<
-		"deliveryScale" | "shellReveal" | "sourceScale" | "targetSideOffset",
+		"deliveryScale" | "deliveryScore" | "shellReveal" | "sourceScale" | "targetSideOffset",
 		NumberTrack
 	>> & { volumeChanges?: NumberTrack[] }
 >>;
@@ -109,6 +117,10 @@ export type DebateAnimationStep<TId extends AnimationStepId = AnimationStepId> =
 		claims: ClaimTracks
 		confidenceConnections: ConfidenceConnectionTracks
 		relevanceConnections: RelevanceConnectionTracks
+	}
+	waveLayoutDependency?: {
+		debateCore: DebateCore
+		resolvedMath: ResolvedPresentationMath
 	}
 };
 
@@ -136,7 +148,7 @@ export function resolveAnimationFrame(
 ): DebateFrame {
 	const step = plan.steps[stepId];
 
-	return {
+	const resolvedFrame: DebateFrame = {
 		claims: mapRecord(step.initialFrame.claims, (item) => {
 			const tracks = step.tracks.claims[item.id];
 			return {
@@ -157,6 +169,11 @@ export function resolveAnimationFrame(
 				const tracks = step.tracks.confidenceConnections[item.id];
 				return {
 					...item,
+					deliveryScore: resolveNumberTrack(
+						tracks?.deliveryScore,
+						progress,
+						item.deliveryScore,
+					),
 					deliveryScale: resolveNumberTrack(
 						tracks?.deliveryScale,
 						progress,
@@ -193,6 +210,78 @@ export function resolveAnimationFrame(
 			},
 		),
 	};
+
+	return stepId === "wave" && step.waveLayoutDependency
+		? resolveWaveLayout({
+			dependency: step.waveLayoutDependency,
+			frame: resolvedFrame,
+			options: plan.options,
+		})
+		: resolvedFrame;
+}
+
+function resolveWaveLayout(args: {
+	dependency: NonNullable<DebateAnimationStep["waveLayoutDependency"]>
+	frame: DebateFrame
+	options: PlannerOptions
+}): DebateFrame {
+	const claimScores = { ...args.dependency.resolvedMath.claimScores };
+	for (const claim of Object.values(args.frame.claims)) {
+		const score = args.dependency.resolvedMath.claimScores[claim.id];
+		if (score) {
+			claimScores[claim.id] = { ...score, value: claim.score };
+		}
+	}
+	const connectorScores = { ...args.dependency.resolvedMath.connectorScores };
+	for (const connection of Object.values(args.frame.confidenceConnections)) {
+		const score = connectorScores[connection.id];
+		if (score) {
+			connectorScores[connection.id] = {
+				...score,
+				deliveryScore: connection.deliveryScore,
+				relevanceMultiplier: connection.relevanceMultiplier,
+			};
+		}
+	}
+	const scales = calculatePresentationScales({
+		connectorScores,
+		presentationGraph: args.dependency.resolvedMath.presentationGraph,
+		rootSourcesScale: args.dependency.resolvedMath.sourcesScales[
+			args.dependency.resolvedMath.presentationGraph.rootClaimOccurrenceId
+		] ?? 1,
+	});
+	const derivedFrame = buildDebateFrame({
+		debateCore: args.dependency.debateCore,
+		options: args.options,
+		resolvedMath: {
+			...args.dependency.resolvedMath,
+			...scales,
+			claimScores,
+			connectorScores,
+		},
+	});
+
+	for (const claim of Object.values(derivedFrame.claims)) {
+		claim.opacity = args.frame.claims[claim.id]?.opacity ?? claim.opacity;
+	}
+	for (const connection of Object.values(derivedFrame.confidenceConnections)) {
+		const visualState = args.frame.confidenceConnections[connection.id];
+		if (visualState) {
+			connection.score = visualState.score;
+			connection.shellReveal = visualState.shellReveal;
+			connection.volumeTransitions = visualState.volumeTransitions;
+		}
+	}
+	for (const connection of Object.values(derivedFrame.relevanceConnections)) {
+		const visualState = args.frame.relevanceConnections[connection.id];
+		if (visualState) {
+			connection.score = visualState.score;
+			connection.shellReveal = visualState.shellReveal;
+			connection.volumeTransitions = visualState.volumeTransitions;
+		}
+	}
+
+	return derivedFrame;
 }
 
 export function numberTrack(

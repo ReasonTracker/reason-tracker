@@ -1,10 +1,11 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
 
 // AGENT NOTE: Keep tunable media motion constants grouped here.
-const TRANSITION_FRAMES = 15;
+const TRANSITION_FRAMES = 20;
 const BOTTOM_OFFSET_PX = 160;
 const MAX_HEIGHT_PX = 720;
 const MAX_WIDTH_PX = 1280;
+const LEAN_IN_DEGREES = 50;
 
 type EpisodeMediaProps = {
     durationInFrames: number
@@ -28,20 +29,19 @@ export function EpisodeMedia({ durationInFrames, source }: EpisodeMediaProps) {
     return (
         <AbsoluteFill
             style={{
-                alignItems: "center",
-                display: "flex",
-                justifyContent: "flex-end",
-                paddingBottom: BOTTOM_OFFSET_PX,
                 pointerEvents: "none",
             }}
         >
             <Img
                 src={source}
                 style={{
+                    bottom: BOTTOM_OFFSET_PX,
                     maxHeight: MAX_HEIGHT_PX,
                     maxWidth: MAX_WIDTH_PX,
-                    opacity: progress,
-                    transform: `translateY(${(1 - progress) * 400}px)`,
+                    position: "absolute",
+                    right: "100%",
+                    transform: `rotate(${progress * LEAN_IN_DEGREES}deg)`,
+                    transformOrigin: "right bottom",
                 }}
             />
         </AbsoluteFill>

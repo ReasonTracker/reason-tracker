@@ -43,11 +43,12 @@ Defines the data models and orchestration for debate graph animation, supporting
 ## Group Scale Contract
 
 - `sourcesScale` is the owned potential scale budget for a claim's own source side.
-- A target claim solves one shared child `sourcesScale` for its direct confidence-child sibling group from that target-owned budget and the direct confidence children's current scored delivery demand.
-- Each direct confidence child's current scored delivery demand is that child's continuous relevance multiplier multiplied by that child's current score value.
+- A target claim solves one sibling base scale for its direct confidence children. For contribution weights `childScore × relevanceMultiplier`, the base is `parentCapacity / max(1, sum(weights))`.
+- A child's parent fluid share is `weight / max(1, sum(weights))`. The shares retain natural size below capacity and fill, but never exceed, the parent edge above capacity.
 - Every direct confidence child claim and source-side confidence path in that sibling group uses that same shared child `sourcesScale`, so the sibling claims stay equal to each other while the whole sibling group grows or shrinks together.
 - Direct relevance children stay on the affected confidence connection's source side and inherit that same shared child `sourcesScale`.
 - Each direct confidence child's outgoing delivery scale and the outgoing side of its junction use that same shared child `sourcesScale` multiplied by that child's continuous relevance multiplier.
+- Relevance is applied after the sibling-base cap. A post-relevance delivery shell is not capped to parent capacity.
 
 ## Layout Contract
 
@@ -76,6 +77,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Resolves opening and post-command occurrence graphs, aggregate math, and deterministic settled layout.
 - Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
 - Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
+- During Wave, interpolates logical claim and authoritative delivery scores first, then derives scales, positions, and target offsets from that one logical state. The moving fluid frontier remains separate visual history.
 
 **Resolved frame**
 
@@ -106,22 +108,18 @@ Sibling claim order and target-edge connector stack order use the same ordered l
 
 ## Connector Stacking
 
-Connector stacking is the shared rule for arranging delivery connectors and relevance connectors when more than one connector lands on the same target edge. Delivery connectors and relevance connectors use the same stacking behavior after the target edge is resolved. The planner authors `targetSideOffset` for each connector in that stack, and the renderer applies that offset along the resolved target edge tangent.
+Connector stacking arranges connectors that land on the same target edge. The planner authors `targetSideOffset`, and the renderer applies that offset along the resolved target edge tangent.
 
 - Resolve the target edge before stacking.
 - A delivery connector stacks on the edge of its target delivery aggregator.
 - A relevance connector first chooses the top or bottom edge of its target relevance aggregator based on which edge faces the source claim, then stacks on that edge.
 - Stack membership is the set of connectors that land on the same target edge.
 - Stack order comes from the shared ordering rule above rather than from a separate connector-only ordering rule.
-- The thickness contribution of each stacked connector is its full structural pipe width at the authored scale.
-- Score controls fluid-band width inside that structural pipe and never changes the settled attachment position.
+- Delivery connectors walk ordered parent-fluid intervals centered as one combined fluid stack. Every child participates: zero fluid creates `[cursor, cursor]` and does not advance the cursor.
+- Delivery shells do not contribute stack spacing and may overlap. For interval `[start, end]`, the shell center is `start + shellWidth / 2` for `conMain` and `end - shellWidth / 2` for `proMain`.
+- Relevance connectors retain structural-shell stacking; their receiving-edge behavior is unchanged.
 - Reveal controls how much of a connector is visible and never changes the settled attachment position.
-- Neighboring structural pipe mouths tile edge-to-edge in stack order without overlap or gaps.
-- A score or reveal change can alter visible fluid without moving a connector shell, its target port, or any claim.
-- If band placement is not authored explicitly, resolve it from side the same way the old system did: `conMain` uses the upper-side placement and the other side uses the lower-side placement.
-- The total stack thickness is the sum of the structural pipe widths.
-- Center the combined envelopes on the midpoint of the resolved target edge. A single connector therefore remains centered on that edge.
-- Author each connector's `targetSideOffset` from that centered arrangement. When siblings are added, removed, or reordered, restack the full set around the same edge center by changing those offsets.
+- Delivery shell paths are painted first across all bands, followed by all fluid paths, so an overlapping wall cannot cover fluid.
 - A delivery aggregator is visible whenever at least one confidence connector lands on it. A relevance aggregator may remain collapsed when its display does not need a separate landing surface.
 
 **Planner config**

@@ -11,18 +11,24 @@ import type { ClaimCameraScript } from "./graphCameraBounds";
 import { EpisodeMedia } from "./EpisodeMedia";
 import { compileSceneCamera } from "./sceneCamera";
 
-const CLOSED_CAPTION_STYLE = {
+const CAPTION_CONTAINER_STYLE = {
 	alignItems: "center",
 	boxSizing: "border-box",
 	display: "flex",
-	justifyContent: "flex-end",
-	padding: "0 160px 80px",
+	left: "50%",
+	position: "absolute",
+	transform: "translateX(-50%)",
+} as const;
+
+const CLOSED_CAPTION_STYLE = {
+	...CAPTION_CONTAINER_STYLE,
+	bottom: 80,
 } as const;
 
 const CENTERED_CAPTION_STYLE = {
-	...CLOSED_CAPTION_STYLE,
-	justifyContent: "center",
-	padding: "0 160px",
+	...CAPTION_CONTAINER_STYLE,
+	top: "50%",
+	transform: "translate(-50%, -50%)",
 } as const;
 
 const CLOSED_CAPTION_TEXT_STYLE = {
@@ -33,6 +39,7 @@ const CLOSED_CAPTION_TEXT_STYLE = {
 	fontSize: 42,
 	fontWeight: 700,
 	lineHeight: 1.3,
+	maxWidth: "calc(100vw - 320px)",
 	padding: "8px 14px",
 	textAlign: "center",
 } as const;
@@ -141,13 +148,13 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 						layout="none"
 						name={action.label}
 					>
-						<AbsoluteFill
+						<div
 							style={action.action.position === "center"
 								? CENTERED_CAPTION_STYLE
 								: CLOSED_CAPTION_STYLE}
 						>
 							<span style={CLOSED_CAPTION_TEXT_STYLE}>{action.action.text}</span>
-						</AbsoluteFill>
+						</div>
 					</Sequence>
 				);
 			})}

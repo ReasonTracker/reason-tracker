@@ -15,7 +15,5 @@ This folder owns the declarative Sunshine Protection Act episode specification a
 - Represent structural regrouping with the bounded declarative graph operations rather than duplicating graph rendering or transition logic.
 
 <!-- autonav:start -->
-
-- [Data - U.S. Daylight Saving Time](./Data%20-%20U.S.%20Daylight%20Saving%20Time.md)
-- [Script - Flat - Sunshine Protection Act](./Script%20-%20Flat%20-%20Sunshine%20Protection%20Act.md)
+- [Media](./media/📌README.md)
 <!-- autonav:end -->

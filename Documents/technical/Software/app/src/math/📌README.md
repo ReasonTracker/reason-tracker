@@ -29,6 +29,8 @@ New information changes the score only when it is added as a claim and connected
 - Each direct confidence child's current scored delivery demand is that child's continuous relevance multiplier multiplied by that child's current score value.
 - Direct relevance children inherit the affected confidence connection's solved child `sourcesScale` unchanged.
 - Each direct confidence child's outgoing Delivery Connector scale is that solved child `sourcesScale` multiplied by that child's continuous relevance multiplier.
+- `calculateSourcesScales.ts` owns the canonical sibling allocation: base scale is `parentCapacity / max(1, totalDeliveryContributionWeight)`, and parent fluid shares use the same denominator.
+- Cycle-resolved presentation allocation consumes authoritative averaged `deliveryScore`; it does not multiply separately averaged score and relevance values.
 - Missing information has no hidden score effect.
 
 ## Deferred math issue

@@ -12,7 +12,7 @@ This folder owns the shared source entrypoints for the components package.
 ---
 
 <!-- autonav:start -->
-
 - [Claim Connector](./claim-connector/📌README.md)
 - [Path Geometry](./path-geometry/📌README.md)
+- [Debate Graph](./debate-graph/📌README.md)
 <!-- autonav:end -->

@@ -15,22 +15,23 @@ These examples describe the visual sequence of what happens on screen and intent
 
 - `sourcesScale` is the size factor applied uniformly to every structural element in a local area: claim boxes, confidence connectors, and all layout distances.
 - Scale is self-similar — zooming into a scaled-down area produces geometry identical to the same area at full size.
-- A claim's own score never affects `sourcesScale`. Score only controls fluid fill inside a structurally fixed pipe.
+- A claim's score controls fluid fill and contributes to its sibling group's shared base scale. It never makes that claim alone structurally smaller than a sibling.
 
 ## Group Scale Rule
 
 **Terms:**
 
 - `relevanceMultiplier`: the combined effect of all relevance connectors on one confidence connection. Equals 1 when no relevance connectors are attached.
-- `deliveryScore`: what a source claim delivers to its target = `relevanceMultiplier × sourceScore`. Controls fluid fill, not structural size.
+- `deliveryScore`: the authoritative contribution weight delivered to the target.
 
 **Rules:**
 
-- All source claims connecting to the same target share one `sourcesScale` = `targetSourcesScale / sum(relevanceMultipliers)`, clamped to not exceed `targetSourcesScale`.
-- When all `relevanceMultipliers` are zero the budget is split equally among children.
-- Every claim in the group and its confidence connector use this same `sourcesScale`. Adding any new source claim shrinks all siblings uniformly, regardless of what score it has or what it does to any claim's score.
+- All source claims connecting to the same target share one sibling base scale: `targetSourcesScale / max(1, sum(deliveryScores))`.
+- Every claim in the group and its confidence connector use this base. Scores indirectly shrink the whole group only when total delivered contribution exceeds capacity.
 - Each source's delivery connector scale = `sourcesScale × relevanceMultiplier`, making it wider or narrower than the confidence connector when relevance is not 1.
-- Fluid fill inside each delivery connector = `deliveryScore` as a fraction of the delivery connector's full pipe diameter.
+- Parent fluid share is `deliveryScore / max(1, sum(deliveryScores))`. Zero shares retain their ordered point and visible empty shell.
+- Examples without relevance: `100/0/0/0` keeps parent-sized siblings; `100/100/0/0` makes every sibling base `50%`; `20/30` keeps parent-sized siblings and leaves half the target empty; `60/80` gives base `1/1.4`; all-zero groups retain parent-sized empty shells.
+- With score `100%`, relevance `2`, and a zero-score sibling at relevance `1`, both sibling bases are `50%`; the first delivery shell becomes parent-sized after relevance and owns the full parent fluid interval.
 
 ## Layout Rule
 
@@ -53,7 +54,7 @@ These examples describe the visual sequence of what happens on screen and intent
   - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
   - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
 - **First Fill**: The score fluid progressively fills the new pipe. Its moving frontier uses the path primitive's overflow-preserving curved extremity collapsed toward the bottom edge. The tip enters through the source boundary before the full slant is visible, and the full slant flows beyond the target boundary before the fill becomes flush.
-- **Wave**: After First Fill completes, adjust the target claim to its settled score and animate connectors sourced by that claim to the same settled fill. The planner supplies each connector's initial and final fill numbers; shared animation and geometry move the transition frontier from right to left rather than changing the whole connector uniformly. Subsequent propagation toward the Main Claim remains future scope.
+- **Wave**: After First Fill completes, interpolate logical scores, then derive all dependent group scales, claim positions, delivery scales, and fluid-stack offsets from that state. The separate moving frontier still carries old fluid ahead and new fluid behind while traveling right to left. Subsequent propagation toward the Main Claim remains future scope.
 
 ## Add Relevance Claim To A New Junction
 

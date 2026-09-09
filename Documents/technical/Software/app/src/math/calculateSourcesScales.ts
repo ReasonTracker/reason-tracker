@@ -4,19 +4,64 @@ import type { ScoreGraph, ScoreNodeId, Scores } from "./scoreTypes.ts";
 
 export type SourcesScales = Partial<Record<ScoreNodeId, number>>;
 
-type DirectScoreChildScalePlan = {
+export type SiblingScaleAllocation<TId extends string> = {
+    contributionWeights: Partial<Record<TId, number>>;
+    deliveryScales: Partial<Record<TId, number>>;
+    parentFluidShares: Partial<Record<TId, number>>;
+    sharedChildSourcesScale: number;
+};
+
+export type DirectScoreChildScalePlan = {
+    contributionWeights: SourcesScales;
     deliveryScales: SourcesScales;
+    parentFluidShares: SourcesScales;
     scoreChildIds: ScoreNodeId[];
     sharedChildSourcesScale: number;
 };
 
+export function calculateSiblingScaleAllocation<TId extends string>(args: {
+    children: ReadonlyArray<{
+        contributionWeight: number;
+        id: TId;
+        relevanceMultiplier: number;
+    }>;
+    parentCapacity: number;
+}): SiblingScaleAllocation<TId> {
+    const parentCapacity = resolveSourcesScale(args.parentCapacity);
+    const contributionWeights: Partial<Record<TId, number>> = {};
+    let totalContributionWeight = 0;
+
+    for (const child of args.children) {
+        const contributionWeight = resolveSourcesScale(child.contributionWeight);
+        resolveSourcesScale(child.relevanceMultiplier);
+        contributionWeights[child.id] = contributionWeight;
+        totalContributionWeight += contributionWeight;
+    }
+
+    const denominator = Math.max(1, totalContributionWeight);
+    const sharedChildSourcesScale = parentCapacity / denominator;
+    const deliveryScales: Partial<Record<TId, number>> = {};
+    const parentFluidShares: Partial<Record<TId, number>> = {};
+
+    for (const child of args.children) {
+        deliveryScales[child.id] = sharedChildSourcesScale * child.relevanceMultiplier;
+        parentFluidShares[child.id] = (contributionWeights[child.id] ?? 0) / denominator;
+    }
+
+    return {
+        contributionWeights,
+        deliveryScales,
+        parentFluidShares,
+        sharedChildSourcesScale,
+    };
+}
+
 /**
  * Recursively assigns each ScoreNode's source-side potential scale.
  *
- * All confidence children of the same target share one `sourcesScale`.
- * That shared value = `targetSourcesScale / sum(relevanceMultipliers)`,
- * clamped to not exceed `targetSourcesScale`. If all relevance multipliers
- * are zero the target budget is split equally among children.
+ * All confidence children of the same target share one sibling base scale.
+ * That shared value is the target scale divided by the greater of one or
+ * the children's total delivered contribution weight.
  * Relevance children inherit the same `sourcesScale` as their sibling
  * confidence child.
  */
@@ -81,6 +126,18 @@ export function calculateDirectScoreChildDeliveryScales(args: {
     scores: Scores;
 }): SourcesScales {
     return resolveDirectScoreChildScalePlan(args).deliveryScales;
+}
+
+/**
+ * Resolves the complete allocation for one target's direct confidence children.
+ */
+export function calculateDirectScoreChildScalePlan(args: {
+    targetScoreNodeId: ScoreNodeId;
+    targetSourcesScale: number;
+    graph: ScoreGraph;
+    scores: Scores;
+}): DirectScoreChildScalePlan {
+    return resolveDirectScoreChildScalePlan(args);
 }
 
 /**
@@ -251,7 +308,9 @@ function resolveDirectScoreChildScalePlan(args: {
 
     if (scoreChildIds.length === 0) {
         return {
+            contributionWeights: {},
             deliveryScales: {},
+            parentFluidShares: {},
             scoreChildIds,
             sharedChildSourcesScale: 0,
         };
@@ -259,31 +318,34 @@ function resolveDirectScoreChildScalePlan(args: {
 
     const targetSourcesScale = resolveSourcesScale(args.targetSourcesScale);
     const relevanceByScoreNodeId: SourcesScales = {};
-    let totalRelevance = 0;
 
     for (const scoreChildId of scoreChildIds) {
         const relevanceMultiplier = resolveSourcesScale(calculateRelevance(scoreChildId, graphWithChildren, args.scores));
+        const childScore = args.scores[scoreChildId];
+        if (!childScore) {
+            throw new Error(`Missing score while assigning source scale: ${scoreChildId}`);
+        }
+        resolveSourcesScale(childScore.value);
 
         relevanceByScoreNodeId[scoreChildId] = relevanceMultiplier;
-        totalRelevance += relevanceMultiplier;
     }
 
-    const denominator = totalRelevance > 0 ? totalRelevance : scoreChildIds.length;
-    const sharedChildSourcesScale = Math.min(targetSourcesScale / denominator, targetSourcesScale);
-    const deliveryScales: SourcesScales = {};
-
-    for (const scoreChildId of scoreChildIds) {
-        const relevanceMultiplier = totalRelevance > 0
-            ? (relevanceByScoreNodeId[scoreChildId] ?? 0)
-            : 1;
-
-        deliveryScales[scoreChildId] = resolveSourcesScale(sharedChildSourcesScale * relevanceMultiplier);
-    }
+    const allocation = calculateSiblingScaleAllocation({
+        children: scoreChildIds.map((scoreChildId) => ({
+            contributionWeight: resolveSourcesScale(args.scores[scoreChildId]?.value ?? 0)
+                * (relevanceByScoreNodeId[scoreChildId] ?? 0),
+            id: scoreChildId,
+            relevanceMultiplier: relevanceByScoreNodeId[scoreChildId] ?? 0,
+        })),
+        parentCapacity: targetSourcesScale,
+    });
 
     return {
-        deliveryScales,
+        contributionWeights: allocation.contributionWeights,
+        deliveryScales: allocation.deliveryScales,
+        parentFluidShares: allocation.parentFluidShares,
         scoreChildIds,
-        sharedChildSourcesScale,
+        sharedChildSourcesScale: allocation.sharedChildSourcesScale,
     };
 }
 

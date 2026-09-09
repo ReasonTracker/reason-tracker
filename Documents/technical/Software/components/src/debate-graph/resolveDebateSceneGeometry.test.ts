@@ -42,8 +42,10 @@ describe("resolveDebateSceneGeometry", () => {
 			confidenceConnections: {
 				[connectionId]: {
 					confidenceConnectorId: "c1" as ConfidenceConnectorId,
+					deliveryScore: 1,
 					deliveryScale: 0.5,
 					id: connectionId,
+					relevanceMultiplier: 1,
 					relevanceConnectorOccurrenceIds: [],
 					score: 1,
 					shellReveal: 1,

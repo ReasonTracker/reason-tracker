@@ -58,7 +58,12 @@ export function DebateGraph({
 					y={bounds.minY}
 				/>
 				<g data-layer="connectors">
-					{geometry.bands.map((band) => <ConnectorBand band={band} key={band.id} />)}
+					{geometry.bands.map((band) => (
+						<ConnectorBand band={band} key={`${band.id}:shell`} layer="shell" />
+					))}
+					{geometry.bands.map((band) => (
+						<ConnectorBand band={band} key={`${band.id}:fluid`} layer="fluid" />
+					))}
 				</g>
 				<g data-layer="aggregators">
 					{geometry.deliveryAggregators.map((polygon) => (
@@ -141,18 +146,33 @@ export function DebateGraph({
 	);
 }
 
-function ConnectorBand({ band }: { band: SceneBandGeometry }) {
+function ConnectorBand({
+	band,
+	layer,
+}: {
+	band: SceneBandGeometry
+	layer: "shell" | "fluid"
+}) {
 	const color = sideColor(band.side);
 	const issueCodes = band.diagnosticIssues.map((issue) => issue.code).join(" ") || undefined;
+	const pathData = layer === "shell" ? band.shellPathData : band.fluidPathData;
+	if (!pathData) {
+		return null;
+	}
 
 	return (
-		<g data-geometry-issues={issueCodes} data-kind={band.kind} data-occurrence-id={band.id}>
-			{band.shellPathData
-				? <path d={band.shellPathData} fill={COLORS.shell} stroke={color} strokeWidth={band.outlineWidth} />
-				: null}
-			{band.fluidPathData
-				? <path d={band.fluidPathData} fill={color} />
-				: null}
+		<g
+			data-band-layer={layer}
+			data-geometry-issues={issueCodes}
+			data-kind={band.kind}
+			data-occurrence-id={band.id}
+		>
+			<path
+				d={pathData}
+				fill={layer === "shell" ? COLORS.shell : color}
+				stroke={layer === "shell" ? color : undefined}
+				strokeWidth={layer === "shell" ? band.outlineWidth : undefined}
+			/>
 		</g>
 	);
 }
