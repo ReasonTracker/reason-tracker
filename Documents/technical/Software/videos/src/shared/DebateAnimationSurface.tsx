@@ -12,6 +12,7 @@ import type { ClaimTextReveal } from "./compileEpisodeScript";
 
 export type DebateAnimationSurfaceProps = {
 	cameraBounds?: DebateAnimationPlan["bounds"]
+	claimScoreVisibility: Readonly<Record<string, boolean>>
 	claimTextReveals: Readonly<Record<string, ClaimTextReveal>>
 	debateCore: DebateCore
 	plan: DebateAnimationPlan
@@ -21,6 +22,7 @@ export type DebateAnimationSurfaceProps = {
 
 export function DebateAnimationSurface({
 	cameraBounds,
+	claimScoreVisibility,
 	claimTextReveals,
 	debateCore,
 	plan,
@@ -41,6 +43,7 @@ export function DebateAnimationSurface({
 						? <TimedCharacterReveal text={content} {...reveal} />
 						: content;
 				}}
+				showClaimScore={(claimId) => claimScoreVisibility[claimId] ?? true}
 				debateCore={debateCore}
 				frame={frame}
 				options={plan.options}

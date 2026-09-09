@@ -7,6 +7,7 @@ import {
 	type CompiledEpisodeScript,
 } from "./compileEpisodeScript";
 import type { ClaimCameraScript } from "./graphCameraBounds";
+import { EpisodeMedia } from "./EpisodeMedia";
 import { compileSceneCamera } from "./sceneCamera";
 
 const CLOSED_CAPTION_STYLE = {
@@ -38,9 +39,10 @@ const CLOSED_CAPTION_TEXT_STYLE = {
 export type DeclarativeEpisodeProps = {
 	camera?: ClaimCameraScript
 	episode: CompiledEpisodeScript
+	mediaSources?: Readonly<Record<string, string>>
 };
 
-export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps) {
+export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: DeclarativeEpisodeProps) {
 	const frame = useCurrentFrame();
 	const playback = resolveGraphPlayback(episode, frame);
 
@@ -61,6 +63,7 @@ export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps)
 				? (
 					<DebateAnimationSurface
 						cameraBounds={camera?.resolveBounds(frame)}
+						claimScoreVisibility={playback.animation.claimScoreVisibility}
 						claimTextReveals={episode.claimTextReveals}
 						debateCore={playback.animation.debateCore}
 						plan={playback.animation.plan}
@@ -69,6 +72,31 @@ export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps)
 					/>
 				)
 				: null}
+			{episode.actions.map((action) => {
+				if (action.action.type !== "media.show") {
+					return null;
+				}
+
+				const source = mediaSources[action.action.source];
+				if (!source) {
+					throw new Error(`Unable to resolve episode media source: ${action.action.source}`);
+				}
+
+				return (
+					<Sequence
+						durationInFrames={action.durationInFrames}
+						from={action.from}
+						key={action.index}
+						layout="none"
+						name={action.label}
+					>
+						<EpisodeMedia
+							durationInFrames={action.durationInFrames}
+							source={source}
+						/>
+					</Sequence>
+				);
+			})}
 			{episode.actions.map((action) => {
 				if (action.action.type !== "captions.show") {
 					return null;
@@ -96,11 +124,16 @@ export function DeclarativeEpisode({ camera, episode }: DeclarativeEpisodeProps)
 	);
 }
 
-export function createDeclarativeEpisode(input: unknown) {
+export function createDeclarativeEpisode(
+	input: unknown,
+	mediaSources?: Readonly<Record<string, string>>,
+) {
 	const episode = compileEpisodeScript(input);
 	const camera = compileSceneCamera(episode);
 	return {
-		component: () => <DeclarativeEpisode camera={camera} episode={episode} />,
+		component: () => (
+			<DeclarativeEpisode camera={camera} episode={episode} mediaSources={mediaSources} />
+		),
 		episode,
 	};
 }

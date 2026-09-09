@@ -12,6 +12,10 @@ export function TimedCharacterReveal({
 	text,
 }: TimedCharacterRevealProps) {
 	const frame = useCurrentFrame();
+	if (frame - from >= durationInFrames) {
+		return text;
+	}
+
 	const characters = Array.from(text);
 	const elapsedFrames = Math.max(0, Math.min(durationInFrames, frame - from));
 	const revealedCharacterCount = Math.floor(

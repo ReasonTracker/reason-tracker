@@ -25,6 +25,7 @@ const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> 
 	"camera.follow": 0.65,
 	"camera.move": 1.2,
 	"captions.show": 0,
+	"media.show": 0,
 	"graph.addClaim": 4,
 	"graph.create": 0,
 	"graph.patch": 0,
@@ -45,9 +46,10 @@ type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
 type ClaimDefinition = {
 	key: string
 	side: ClaimSide
+	showScore?: boolean
 	target?: ClaimTarget
 	text: string
-	textReveal?: true
+	textReveal?: boolean
 };
 
 type GraphCompilerState = {
@@ -68,6 +70,7 @@ export type ScheduledEpisodeAction = {
 
 export type CompiledGraphAnimation = {
 	addedClaimIds: readonly ClaimId[]
+	claimScoreVisibility: Readonly<Record<ClaimId, boolean>>
 	debateCore: DebateCore
 	durationInFrames: number
 	from: number
@@ -259,6 +262,8 @@ function describeAction(action: EpisodeAction): string {
 			return `Camera follow ${action.routeFrom}`;
 		case "captions.show":
 			return "Show closed captions";
+		case "media.show":
+			return `Show ${action.source}`;
 	}
 }
 
@@ -288,6 +293,7 @@ function compileGraphActions(
 			state.claimDefinitions.set(action.mainClaim.key, {
 				key: action.mainClaim.key,
 				side: "pro-main",
+				showScore: action.mainClaim.showScore,
 				text: action.mainClaim.text,
 				textReveal: action.mainClaim.textReveal,
 			});
@@ -303,6 +309,7 @@ function compileGraphActions(
 			graphStates.set(action.key, state);
 			animations.push({
 				addedClaimIds: [],
+				claimScoreVisibility: resolveClaimScoreVisibility(state),
 				debateCore: state.debateCore,
 				durationInFrames: Math.max(1, scheduled.durationInFrames),
 				from: scheduled.from,
@@ -320,11 +327,13 @@ function compileGraphActions(
 		const state = requireGraphState(graphStates, graphKey, scheduled.index);
 		if (action.type === "graph.set") {
 			applyGraphSet(spec, state, action.claims, scheduled.index);
+			animations.push(createStaticGraphAnimation(state, scheduled));
 			actionIndex += 1;
 			continue;
 		}
 		if (action.type === "graph.patch") {
 			applyGraphPatch(state, action.claims, action.removeConnectionsFrom, scheduled.index);
+			animations.push(createStaticGraphAnimation(state, scheduled));
 			actionIndex += 1;
 			continue;
 		}
@@ -389,6 +398,7 @@ function compileGraphAddBatch(
 		const definition: ClaimDefinition = {
 			key: action.key,
 			side: action.side,
+			showScore: action.showScore,
 			target: action.target,
 			text: action.text,
 			textReveal: action.textReveal,
@@ -413,6 +423,7 @@ function compileGraphAddBatch(
 	state.lastAnimationEndFrame = first.endFrame;
 	animations.push({
 		addedClaimIds,
+		claimScoreVisibility: resolveClaimScoreVisibility(state),
 		debateCore: state.debateCore,
 		durationInFrames: Math.max(1, first.durationInFrames),
 		from: first.from,
@@ -421,6 +432,37 @@ function compileGraphAddBatch(
 		plan,
 		sourceActionIndexes: batch.map((item) => item.index),
 	});
+}
+
+function createStaticGraphAnimation(
+	state: GraphCompilerState,
+	scheduled: ScheduledEpisodeAction,
+): CompiledGraphAnimation {
+	if (!state.debateCore) {
+		throw new Error(`Graph ${state.key} must be created before it is displayed.`);
+	}
+	return {
+		addedClaimIds: [],
+		claimScoreVisibility: resolveClaimScoreVisibility(state),
+		debateCore: state.debateCore,
+		durationInFrames: 1,
+		from: scheduled.from,
+		graph: state.key,
+		label: scheduled.label,
+		plan: planStaticDebate({ debateCore: state.debateCore }),
+		sourceActionIndexes: [scheduled.index],
+	};
+}
+
+function resolveClaimScoreVisibility(
+	state: GraphCompilerState,
+): Readonly<Record<ClaimId, boolean>> {
+	return Object.fromEntries(
+		[...state.claimDefinitions.values()].map((definition) => [
+			claimId(state.key, definition.key),
+			definition.showScore ?? true,
+		]),
+	) as Record<ClaimId, boolean>;
 }
 
 function applyGraphSet(
@@ -575,7 +617,7 @@ function createConnector(
 
 function setClaimDefinition(
 	state: GraphCompilerState,
-	claim: { key: string; side: ClaimSide; target: ClaimTarget; text: string },
+	claim: ClaimDefinition,
 	actionIndex: number,
 ): void {
 	if (state.claimDefinitions.has(claim.key)) {
@@ -598,8 +640,10 @@ function mergeClaimDefinition(
 	state.claimDefinitions.set(claim.key, {
 		key: claim.key,
 		side: claim.side ?? existing!.side,
+		showScore: claim.showScore ?? existing?.showScore,
 		target: claim.target ?? existing?.target,
 		text: claim.text ?? existing!.text,
+		textReveal: claim.textReveal ?? existing?.textReveal,
 	});
 }
 

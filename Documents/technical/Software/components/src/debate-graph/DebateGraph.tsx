@@ -28,6 +28,7 @@ export type DebateGraphProps = {
 	diagnostics?: boolean
 	frame: DebateFrame
 	options: PlannerOptions
+	showClaimScore?: (claimId: ClaimId) => boolean
 };
 
 export function DebateGraph({
@@ -37,6 +38,7 @@ export function DebateGraph({
 	diagnostics = false,
 	frame,
 	options,
+	showClaimScore,
 }: DebateGraphProps) {
 	const geometry = resolveDebateSceneGeometry({ frame, options });
 
@@ -110,10 +112,14 @@ export function DebateGraph({
 										}}
 									>
 										<div style={claimContentStyle}>{claimContent?.(claim.claimId, content) ?? content}</div>
-										<div style={scoreGroupStyle}>
-											<div style={scoreStyle}>{Math.round(claim.score * 100)}%</div>
-											<div style={scoreCaptionStyle}></div>
-										</div>
+										{showClaimScore?.(claim.claimId) ?? true
+											? (
+												<div style={scoreGroupStyle}>
+													<div style={scoreStyle}>{Math.round(claim.score * 100)}%</div>
+													<div style={scoreCaptionStyle}></div>
+												</div>
+											)
+											: null}
 									</div>
 								</foreignObject>
 							</g>
@@ -201,7 +207,7 @@ const claimContentStyle: CSSProperties = {
 	fontWeight: 600,
 	overflow: "hidden",
 	WebkitBoxOrient: "vertical",
-	WebkitLineClamp: 4,
+	WebkitLineClamp: 5,
 };
 
 const scoreGroupStyle: CSSProperties = {

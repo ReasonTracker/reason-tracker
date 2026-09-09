@@ -1,0 +1,38 @@
+{
+    "schemaVersion": 2,
+    "settings": {
+        "composition": {
+            "id": "MathExplainer",
+            "fps": 30,
+            "width": 1920,
+            "height": 1080
+        }
+    },
+    "script": [
+        {
+            "type": "graph.create",
+            "key": "argumentGraph",
+            "mainClaim": {
+                "key": "main",
+                "text": "The main claim",
+                "showScore": false
+            },
+            "claims": [
+                {
+                    "key": "pro",
+                    "text": "A supporting reason",
+                    "target": "main",
+                    "side": "pro-main",
+                    "showScore": false
+                },
+                {
+                    "key": "con",
+                    "text": "An opposing reason",
+                    "target": "main",
+                    "side": "con-main",
+                    "showScore": false
+                }
+            ]
+        }
+    ]
+}

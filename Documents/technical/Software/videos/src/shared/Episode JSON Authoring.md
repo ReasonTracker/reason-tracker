@@ -88,6 +88,21 @@ A typical overlapping camera move looks like this:
 
 The camera move starts at the same cursor position as the preceding claim addition and does not delay the next action.
 
+## Media Actions
+
+### `media.show`
+
+Display an image from an episode's `media` folder. Media rises from below the frame at the start of the action, remains visible, and exits downward as the action ends. Set `blocking` to `false` when it should overlap the following action, such as a caption.
+
+```json
+{
+  "type": "media.show",
+  "source": "Episode0005/media/example.png",
+  "durationSeconds": 5,
+  "blocking": false
+}
+```
+
 ## Graph Actions
 
 ### `graph.create`
@@ -100,7 +115,8 @@ Create a graph before any other action references it. The main claim is always `
   "key": "argumentGraph",
   "mainClaim": {
     "key": "main",
-    "text": "Permanent daylight saving time would have a net benefit."
+    "text": "Permanent daylight saving time would have a net benefit.",
+    "showScore": false
   },
   "claims": [
     {
@@ -119,7 +135,7 @@ Create a graph before any other action references it. The main claim is always `
 }
 ```
 
-`claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`.
+`claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`. Set `showScore` to `false` on any claim to hide its score; omit it or set it to `true` to show the score.
 
 A string `target` creates a confidence relationship to that claim. `{ "relevanceOf": "claimKey" }` creates a relevance relationship to the confidence relationship sourced by `claimKey`.
 
@@ -139,6 +155,8 @@ Animate one new confidence-linked claim into an existing graph.
 ```
 
 All fields shown above are required. The target must be an existing claim key. This action currently supports only a string confidence target; use `graph.set` or `graph.patch` to introduce relevance-linked graph state.
+
+`showScore` is optional and defaults to `true`.
 
 Set `textReveal` to `true` to reveal a claim's text character by character over that action's duration. The claim's full text participates in layout from the first frame, so line wrapping remains fixed while characters are revealed. A text-reveal action requires a positive duration; use a nonblocking action when the typing should overlap the following action.
 
@@ -193,7 +211,7 @@ Keep the current graph and alter only named claim definitions or connections. Th
 }
 ```
 
-`removeConnectionsFrom` removes outgoing connections from the named claims but does not remove the claims themselves. `claims` may be empty. Existing claims can update any subset of `text`, `target`, and `side`; new claims must be complete.
+`removeConnectionsFrom` removes outgoing connections from the named claims but does not remove the claims themselves. `claims` may be empty. Existing claims can update any subset of `text`, `target`, `side`, `textReveal`, and `showScore`; new claims must be complete.
 
 ## Camera Actions
 

@@ -7,6 +7,8 @@ import episode0001Spec from "./Episode0001/episode.json";
 import episode0002Spec from "./Episode0002/episode.json";
 import episode0004Spec from "./Episode0004/episode.json";
 import episode0005Spec from "./Episode0005/episode.json";
+import episode0005SunshineProtectionAct from "./Episode0005/media/sunshine-protection-act.png";
+import mathExplainerSpec from "./math-explainer/episode.json";
 import {
 	PathGeometryVisualizer,
 	pathGeometryVisualizerSchema,
@@ -19,8 +21,12 @@ const episode0002 = createDeclarativeEpisode(episode0002Spec);
 const episode0002Composition = episode0002.component as ComponentType<Record<string, unknown>>;
 const episode0004 = createDeclarativeEpisode(episode0004Spec);
 const episode0004Composition = episode0004.component as ComponentType<Record<string, unknown>>;
-const episode0005 = createDeclarativeEpisode(episode0005Spec);
+const episode0005 = createDeclarativeEpisode(episode0005Spec, {
+	"Episode0005/media/sunshine-protection-act.png": episode0005SunshineProtectionAct,
+});
 const episode0005Composition = episode0005.component as ComponentType<Record<string, unknown>>;
+const mathExplainer = createDeclarativeEpisode(mathExplainerSpec);
+const mathExplainerComposition = mathExplainer.component as ComponentType<Record<string, unknown>>;
 const pathGeometryVisualizerComposition =
 	PathGeometryVisualizer as ComponentType<Record<string, unknown>>;
 
@@ -58,6 +64,14 @@ export const RemotionRoot = () => {
 				fps={episode0005.episode.composition.fps}
 				height={episode0005.episode.composition.height}
 				width={episode0005.episode.composition.width}
+			/>
+			<Composition
+				id={mathExplainer.episode.composition.id}
+				component={mathExplainerComposition}
+				durationInFrames={mathExplainer.episode.durationInFrames}
+				fps={mathExplainer.episode.composition.fps}
+				height={mathExplainer.episode.composition.height}
+				width={mathExplainer.episode.composition.width}
 			/>
 			<Composition
 				id="ComponentVisualizerPathGeometry"

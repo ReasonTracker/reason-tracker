@@ -24,12 +24,17 @@ const claimTargetSchema = z.union([
 	relevanceTargetSchema,
 ]);
 
+const graphClaimPresentationShape = {
+	showScore: z.boolean().optional(),
+	textReveal: z.boolean().optional(),
+};
+
 const newGraphClaimSchema = z.object({
 	key: authorKeySchema,
 	side: claimSideSchema,
 	target: claimTargetSchema,
 	text: nonEmptyStringSchema,
-	textReveal: z.literal(true).optional(),
+	...graphClaimPresentationShape,
 }).strict();
 
 const graphClaimStateSchema = z.object({
@@ -37,7 +42,7 @@ const graphClaimStateSchema = z.object({
 	side: claimSideSchema.optional(),
 	target: claimTargetSchema.optional(),
 	text: nonEmptyStringSchema.optional(),
-	textReveal: z.literal(true).optional(),
+	...graphClaimPresentationShape,
 }).strict();
 
 const graphCreateActionSchema = z.object({
@@ -47,7 +52,7 @@ const graphCreateActionSchema = z.object({
 	mainClaim: z.object({
 		key: authorKeySchema,
 		text: nonEmptyStringSchema,
-		textReveal: z.literal(true).optional(),
+		...graphClaimPresentationShape,
 	}).strict(),
 	type: z.literal("graph.create"),
 }).strict();
@@ -59,7 +64,7 @@ const graphAddClaimActionSchema = z.object({
 	side: claimSideSchema,
 	target: confidenceTargetSchema,
 	text: nonEmptyStringSchema,
-	textReveal: z.literal(true).optional(),
+	...graphClaimPresentationShape,
 	type: z.literal("graph.addClaim"),
 }).strict();
 
@@ -119,6 +124,16 @@ const captionsShowActionSchema = z.object({
 	type: z.literal("captions.show"),
 }).strict();
 
+const mediaShowActionSchema = z.object({
+	...actionTimingShape,
+	durationSeconds: durationSecondsSchema.positive(),
+	source: z.string().regex(
+		/^Episode[A-Za-z0-9_-]+\/media\/[A-Za-z0-9_.-]+$/,
+		"Use an Episode folder media path, such as Episode0005/media/example.png.",
+	),
+	type: z.literal("media.show"),
+}).strict();
+
 export const episodeActionSchema = z.discriminatedUnion("type", [
 	graphCreateActionSchema,
 	graphAddClaimActionSchema,
@@ -128,6 +143,7 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	cameraFollowActionSchema,
 	cameraCutActionSchema,
 	captionsShowActionSchema,
+	mediaShowActionSchema,
 ]);
 
 const defaultsSchema = z.object({
