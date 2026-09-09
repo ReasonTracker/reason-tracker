@@ -1,4 +1,5 @@
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
+import { BalanceScale } from "@reasontracker/components";
 
 import { DebateAnimationSurface } from "./DebateAnimationSurface";
 import {
@@ -94,6 +95,36 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 							durationInFrames={action.durationInFrames}
 							source={source}
 						/>
+					</Sequence>
+				);
+			})}
+			{episode.actions.map((action) => {
+				if (action.action.type !== "balance.show") {
+					return null;
+				}
+				const actionProgress = action.durationInFrames <= 1
+					? 1
+					: Math.min(1, Math.max(0, (frame - action.from) / (action.durationInFrames - 1)));
+				const startScorePercent = action.action.startScorePercent ?? 0;
+				const scorePercent = startScorePercent
+					+ (action.action.scorePercent - startScorePercent) * actionProgress;
+
+				return (
+					<Sequence
+						durationInFrames={action.durationInFrames}
+						from={action.from}
+						key={action.index}
+						layout="none"
+						name={action.label}
+					>
+						<AbsoluteFill>
+							<BalanceScale
+								scale={action.action.scale}
+								scorePercent={scorePercent}
+								x={action.action.x}
+								y={action.action.y}
+							/>
+						</AbsoluteFill>
 					</Sequence>
 				);
 			})}

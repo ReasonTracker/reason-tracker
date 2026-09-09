@@ -21,6 +21,7 @@ import {
 } from "./episodeScriptSpec";
 
 const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> = {
+	"balance.show": 0,
 	"camera.cut": 0,
 	"camera.follow": 0.65,
 	"camera.move": 1.2,
@@ -264,6 +265,8 @@ function describeAction(action: EpisodeAction): string {
 			return "Show closed captions";
 		case "media.show":
 			return `Show ${action.source}`;
+		case "balance.show":
+			return `Show balance at ${action.scorePercent}%`;
 	}
 }
 

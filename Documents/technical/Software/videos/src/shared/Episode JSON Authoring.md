@@ -103,6 +103,25 @@ Display an image from an episode's `media` folder. Media rises from below the fr
 }
 ```
 
+## Balance Actions
+
+### `balance.show`
+
+Display a pivoting balance scale. `scorePercent` ranges from `-100` through `100`: a positive score lowers the purple left tray, while a negative score lowers the orange right tray. `startScorePercent` is optional and defaults to `0`; when supplied, the scale animates from that score to `scorePercent` over the action duration. At `0`, both blocks are one unit high. At either extreme, the heavier side is two units high and the other block has zero height. Optional `x` and `y` place the calculated visual center in composition pixels, following Remotion's top-left coordinate system. When omitted, the center is the composition center. Positive `scale` resizes the visual around its calculated center.
+
+```json
+{
+  "type": "balance.show",
+  "startScorePercent": -100,
+  "scorePercent": 100,
+  "x": 960,
+  "y": 540,
+  "scale": 1,
+  "durationSeconds": 4,
+  "blocking": false
+}
+```
+
 ## Graph Actions
 
 ### `graph.create`

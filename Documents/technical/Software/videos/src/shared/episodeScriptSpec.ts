@@ -134,6 +134,17 @@ const mediaShowActionSchema = z.object({
 	type: z.literal("media.show"),
 }).strict();
 
+const balanceShowActionSchema = z.object({
+	...actionTimingShape,
+	durationSeconds: durationSecondsSchema.positive(),
+	scale: z.number().finite().positive().optional(),
+	scorePercent: z.number().finite().min(-100).max(100),
+	startScorePercent: z.number().finite().min(-100).max(100).optional(),
+	type: z.literal("balance.show"),
+	x: z.number().finite().optional(),
+	y: z.number().finite().optional(),
+}).strict();
+
 export const episodeActionSchema = z.discriminatedUnion("type", [
 	graphCreateActionSchema,
 	graphAddClaimActionSchema,
@@ -144,6 +155,7 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	cameraCutActionSchema,
 	captionsShowActionSchema,
 	mediaShowActionSchema,
+	balanceShowActionSchema,
 ]);
 
 const defaultsSchema = z.object({

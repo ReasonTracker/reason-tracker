@@ -33,6 +33,16 @@
                     "showScore": false
                 }
             ]
+        },
+        {
+            "type": "balance.show",
+            "startScorePercent": -100,
+            "scorePercent": 100,
+            "x": 960,
+            "y": 540,
+            "scale": 0.5,
+            "durationSeconds": 4,
+            "blocking": false
         }
     ]
 }
