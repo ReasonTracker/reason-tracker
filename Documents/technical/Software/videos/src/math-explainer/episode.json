@@ -40,7 +40,7 @@
             "scorePercent": 100,
             "x": 960,
             "y": 540,
-            "scale": 0.5,
+            "scale": 1,
             "durationSeconds": 4,
             "blocking": false
         }

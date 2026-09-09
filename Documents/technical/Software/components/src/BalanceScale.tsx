@@ -4,7 +4,7 @@ const PIVOT_X = VIEW_WIDTH / 2;
 const PIVOT_Y = 570;
 const BAR_LENGTH = 500;
 const HANGING_TRAY_LENGTH = 0;
-const TRAY_WIDTH = 300;
+const TRAY_WIDTH = 150;
 const RECTANGLE_WIDTH = 150;
 const BLOCK_UNIT_HEIGHT = 110;
 const MAX_BEAM_ANGLE_DEGREES = 60;
@@ -13,12 +13,12 @@ const ARROW_READOUT_OFFSET = 24;
 const READOUT_TICK_VALUES = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
 const READOUT_TICK_LENGTH = 28;
 
-const READOUT_SCORE_RADIUS = READOUT_RADIUS + 24;
-const READOUT_LABEL_DISTANCE = 200;
+const READOUT_SCORE_RADIUS = READOUT_RADIUS + 16;
+const READOUT_LABEL_DISTANCE = 100;
 const READOUT_LABEL_FONT_SIZE = 20;
 const READOUT_SCORE_FONT_SIZE = 22;
 const READOUT_LABEL_WRAP_WIDTH = 200;
-const READOUT_LABEL_PADDING = 12;
+const READOUT_LABEL_PADDING = 6;
 const READOUT_LABELS: readonly ReadoutLabelProps[] = [
     { scorePercent: 100, text: "The reasoning comes out completely in favor." },
     { scorePercent: 50, text: "The reasons in favor carry about twice as much weight as the reasons against." },
@@ -121,12 +121,9 @@ export function BalanceScale({
 function calculateBalanceCenter() {
     const horizontalReach = Math.max(
         BEAM_HALF_WIDTH + TRAY_WIDTH / 2,
-        ...READOUT_LABELS.map((label) => Math.abs(readoutPointForScore(label.scorePercent, calculateLabelRadius(label.distancePercent)).x - PIVOT_X) + READOUT_LABEL_WRAP_WIDTH / 2 + READOUT_LABEL_PADDING),
+        ...READOUT_LABELS.map((label) => Math.abs(calculateLabelCenter(label).x - PIVOT_X) + READOUT_LABEL_WRAP_WIDTH / 2 + READOUT_LABEL_PADDING),
     );
-    const labelTop = Math.min(...READOUT_LABELS.map((label) => {
-        const labelPoint = readoutPointForScore(label.scorePercent, calculateLabelRadius(label.distancePercent));
-        return labelPoint.y - READOUT_LABEL_FONT_SIZE - READOUT_LABEL_PADDING - 10;
-    }));
+    const labelTop = Math.min(...READOUT_LABELS.map(calculateLabelTop));
     const trayBottom = PIVOT_Y
         + Math.sin(MAX_BEAM_ANGLE_DEGREES * Math.PI / 180) * BEAM_HALF_WIDTH
         + HANGING_TRAY_LENGTH;
@@ -166,12 +163,23 @@ type ReadoutLabelProps = {
 
 function ReadoutLabel({ distancePercent, scorePercent, text }: ReadoutLabelProps) {
     const readoutPoint = readoutPointForScore(scorePercent);
-    const labelPoint = readoutPointForScore(scorePercent, calculateLabelRadius(distancePercent));
-    const scorePoint = readoutPointForScore(scorePercent, READOUT_SCORE_RADIUS);
+    const labelPosition = calculateReadoutTextPosition(
+        scorePercent,
+        calculateLabelRadius(distancePercent),
+        READOUT_LABEL_WRAP_WIDTH,
+    );
+    const scorePoint = calculateReadoutTextPosition(
+        scorePercent,
+        READOUT_SCORE_RADIUS,
+        calculateScoreLabelWidth(scorePercent),
+    );
+    const scoreLabelWidth = formatScoreLabel(scorePercent).length * READOUT_SCORE_FONT_SIZE * 0.7 + READOUT_LABEL_PADDING * 2;
     const lines = wrapReadoutLabel(text);
     const lineHeight = READOUT_LABEL_FONT_SIZE * 1.2;
     const labelHeight = READOUT_LABEL_FONT_SIZE + (lines.length - 1) * lineHeight + READOUT_LABEL_PADDING * 2;
-    const labelTop = labelPoint.y - READOUT_LABEL_FONT_SIZE - READOUT_LABEL_PADDING - 10;
+    const labelBottom = labelPosition.anchor.y;
+    const labelTop = labelBottom - labelHeight;
+    const labelTextBaseline = labelBottom - READOUT_LABEL_PADDING - (lines.length - 1) * lineHeight;
     return (
         <g>
             <line
@@ -179,23 +187,23 @@ function ReadoutLabel({ distancePercent, scorePercent, text }: ReadoutLabelProps
                 strokeLinecap="round"
                 strokeWidth="4"
                 x1={readoutPoint.x}
-                x2={labelPoint.x}
+                x2={labelPosition.anchor.x}
                 y1={readoutPoint.y}
-                y2={labelPoint.y}
+                y2={labelBottom}
             />
             <rect
                 fill="#000000"
                 height={labelHeight}
                 width={READOUT_LABEL_WRAP_WIDTH + READOUT_LABEL_PADDING * 2}
-                x={labelPoint.x - READOUT_LABEL_WRAP_WIDTH / 2 - READOUT_LABEL_PADDING}
+                x={labelPosition.point.x - READOUT_LABEL_WRAP_WIDTH / 2 - READOUT_LABEL_PADDING}
                 y={labelTop}
             />
             <rect
                 fill="#000000"
                 height={READOUT_SCORE_FONT_SIZE + READOUT_LABEL_PADDING}
-                width={formatScoreLabel(scorePercent).length * READOUT_SCORE_FONT_SIZE * 0.7 + READOUT_LABEL_PADDING * 2}
-                x={scorePoint.x - (formatScoreLabel(scorePercent).length * READOUT_SCORE_FONT_SIZE * 0.7 + READOUT_LABEL_PADDING * 2) / 2}
-                y={scorePoint.y - READOUT_SCORE_FONT_SIZE - READOUT_LABEL_PADDING - 8}
+                width={scoreLabelWidth}
+                x={scorePoint.point.x - scoreLabelWidth / 2}
+                y={scorePoint.point.y - READOUT_SCORE_FONT_SIZE - READOUT_LABEL_PADDING}
             />
             <text
                 fill={COLORS.beam}
@@ -203,8 +211,8 @@ function ReadoutLabel({ distancePercent, scorePercent, text }: ReadoutLabelProps
                 fontSize={READOUT_SCORE_FONT_SIZE}
                 fontWeight="700"
                 textAnchor="middle"
-                x={scorePoint.x}
-                y={scorePoint.y - 8}
+                x={scorePoint.point.x}
+                y={scorePoint.point.y - READOUT_LABEL_PADDING / 2}
             >
                 {formatScoreLabel(scorePercent)}
             </text>
@@ -213,14 +221,14 @@ function ReadoutLabel({ distancePercent, scorePercent, text }: ReadoutLabelProps
                 fontFamily="Arial, sans-serif"
                 fontSize={READOUT_LABEL_FONT_SIZE}
                 textAnchor="middle"
-                x={labelPoint.x}
-                y={labelPoint.y - 10}
+                x={labelPosition.point.x}
+                y={labelTextBaseline}
             >
                 {lines.map((line, index) => (
                     <tspan
                         dy={index === 0 ? 0 : lineHeight}
                         key={line}
-                        x={labelPoint.x}
+                        x={labelPosition.point.x}
                     >
                         {line}
                     </tspan>
@@ -232,6 +240,42 @@ function ReadoutLabel({ distancePercent, scorePercent, text }: ReadoutLabelProps
 
 function calculateLabelRadius(distancePercent = 100): number {
     return READOUT_RADIUS + READOUT_LABEL_DISTANCE * distancePercent / 100;
+}
+
+function calculateLabelCenter(label: ReadoutLabelProps) {
+    return calculateReadoutTextPosition(
+        label.scorePercent,
+        calculateLabelRadius(label.distancePercent),
+        READOUT_LABEL_WRAP_WIDTH,
+    ).point;
+}
+
+function calculateLabelTop(label: ReadoutLabelProps): number {
+    const lines = wrapReadoutLabel(label.text);
+    const labelHeight = READOUT_LABEL_FONT_SIZE
+        + (lines.length - 1) * READOUT_LABEL_FONT_SIZE * 1.2
+        + READOUT_LABEL_PADDING * 2;
+    const labelAnchorPoint = readoutPointForScore(label.scorePercent, calculateLabelRadius(label.distancePercent));
+    return labelAnchorPoint.y - labelHeight;
+}
+
+function calculateScoreLabelWidth(scorePercent: number): number {
+    return formatScoreLabel(scorePercent).length * READOUT_SCORE_FONT_SIZE * 0.7 + READOUT_LABEL_PADDING * 2;
+}
+
+function calculateReadoutTextPosition(
+    scorePercent: number,
+    radius: number,
+    width: number,
+) {
+    const anchor = readoutPointForScore(scorePercent, radius);
+    return {
+        anchor,
+        point: {
+            x: anchor.x - scorePercent / 100 * width / 2,
+            y: anchor.y,
+        },
+    };
 }
 
 function formatScoreLabel(scorePercent: number): string {
@@ -275,8 +319,14 @@ type ScaleTrayProps = {
 function ScaleTray({ beamAngle, color, rectangleHeight, x }: ScaleTrayProps) {
     return (
         <g transform={`rotate(${-beamAngle} ${x} ${PIVOT_Y})`}>
-            <line stroke={COLORS.frame} strokeWidth="10" x1={x} x2={x - 90} y1={PIVOT_Y} y2={TRAY_Y} />
-            <line stroke={COLORS.frame} strokeWidth="10" x1={x} x2={x + 90} y1={PIVOT_Y} y2={TRAY_Y} />
+            {HANGING_TRAY_LENGTH > 0
+                ? (
+                    <>
+                        <line stroke={COLORS.frame} strokeWidth="10" x1={x} x2={x - 90} y1={PIVOT_Y} y2={TRAY_Y} />
+                        <line stroke={COLORS.frame} strokeWidth="10" x1={x} x2={x + 90} y1={PIVOT_Y} y2={TRAY_Y} />
+                    </>
+                )
+                : null}
             <line
                 stroke={COLORS.beam}
                 strokeLinecap="round"
@@ -292,7 +342,7 @@ function ScaleTray({ beamAngle, color, rectangleHeight, x }: ScaleTrayProps) {
                 rx="8"
                 width={RECTANGLE_WIDTH}
                 x={x - RECTANGLE_WIDTH / 2}
-                y={TRAY_Y - rectangleHeight - 14}
+                y={TRAY_Y - rectangleHeight}
             />
         </g>
     );
