@@ -57,6 +57,7 @@ const graphClaimStateSchema = z.object({
 const graphCreateActionSchema = z.object({
 	...actionTimingShape,
 	claims: z.array(newGraphClaimSchema).optional(),
+	hideScores: z.boolean().optional(),
 	key: authorKeySchema,
 	mainClaim: z.object({
 		key: authorKeySchema,

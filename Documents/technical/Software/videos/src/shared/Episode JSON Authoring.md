@@ -149,6 +149,7 @@ Create a graph before any other action references it. The main claim is always `
 {
   "type": "graph.create",
   "key": "argumentGraph",
+  "hideScores": true,
   "mainClaim": {
     "key": "main",
     "text": "Permanent daylight saving time would have a net benefit.",
@@ -171,7 +172,7 @@ Create a graph before any other action references it. The main claim is always `
 }
 ```
 
-`claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`. Set `showScore` to `false` on any claim to hide its score; omit it or set it to `true` to show the score.
+`claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`. Set `hideScores` to `true` on `graph.create` to hide scores for every claim in that graph, leaving the full claim card for text at twice its normal size. Otherwise, main-claim scores are hidden by default; set the main claim's `showScore` to `true` to show one. Other claim scores are shown by default; set `showScore` to `false` on any claim to hide its score.
 
 Set `scoreboard` on `graph.create` to show a live main-claim balance for that graph. The display shares the same planner frame as the graph, so it updates during each graph animation. It converts the signed raw claim balance from `-1` through `1` into complementary orange/con and purple/pro shares: `-1` renders `01 / 99`, `0` renders `50 / 50`, and `1` renders `99 / 01`. This does not change the graph claim-card display. `x` and `y` are the top-left placement in Remotion composition pixels; `height`, `thermometerWidth`, and `numberWidth` are pixels.
 

@@ -17,6 +17,7 @@ export type DebateAnimationSurfaceProps = {
 	claimTextReveals: Readonly<Record<string, ClaimTextReveal>>
 	debateCore: DebateCore
 	graphId: string
+	hideScores: boolean
 	plan: DebateAnimationPlan
 	scoreboard?: ScoreboardLayout
 	stepId?: AnimationStepId
@@ -29,6 +30,7 @@ export function DebateAnimationSurface({
 	claimTextReveals,
 	debateCore,
 	graphId,
+	hideScores,
 	plan,
 	scoreboard,
 	stepId,
@@ -51,6 +53,7 @@ export function DebateAnimationSurface({
 						? <TimedCharacterReveal text={content} {...reveal} />
 						: content;
 				}}
+				scoreless={hideScores}
 				showClaimScore={(claimId) => claimScoreVisibility[claimId] ?? true}
 				debateCore={debateCore}
 				frame={frame}

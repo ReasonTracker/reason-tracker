@@ -58,6 +58,7 @@ type ClaimDefinition = {
 type GraphCompilerState = {
 	claimDefinitions: Map<string, ClaimDefinition>
 	debateCore?: DebateCore
+	hideScores: boolean
 	key: string
 	lastAnimationAction?: ScheduledEpisodeAction
 	lastAnimationEndFrame: number
@@ -80,6 +81,7 @@ export type CompiledGraphAnimation = {
 	durationInFrames: number
 	from: number
 	graph: string
+	hideScores: boolean
 	label: string
 	plan: DebateAnimationPlan
 	scoreboard?: ScoreboardLayout
@@ -297,6 +299,7 @@ function compileGraphActions(
 			}
 			const state: GraphCompilerState = {
 				claimDefinitions: new Map(),
+				hideScores: action.hideScores ?? false,
 				key: action.key,
 				lastAnimationEndFrame: 0,
 				scoreboard: action.scoreboard,
@@ -304,7 +307,7 @@ function compileGraphActions(
 			state.claimDefinitions.set(action.mainClaim.key, {
 				key: action.mainClaim.key,
 				side: "pro-main",
-				showScore: action.mainClaim.showScore,
+				showScore: action.mainClaim.showScore ?? false,
 				text: action.mainClaim.text,
 				textReveal: action.mainClaim.textReveal,
 			});
@@ -325,6 +328,7 @@ function compileGraphActions(
 				durationInFrames: Math.max(1, scheduled.durationInFrames),
 				from: scheduled.from,
 				graph: action.key,
+				hideScores: state.hideScores,
 				label: scheduled.label,
 				plan: planStaticDebate({ debateCore: state.debateCore }),
 				scoreboard: state.scoreboard,
@@ -444,6 +448,7 @@ function compileGraphAddBatch(
 		durationInFrames: Math.max(1, first.durationInFrames),
 		from: first.from,
 		graph: state.key,
+		hideScores: state.hideScores,
 		label: batch.map((item) => item.label).join(" + "),
 		plan,
 		scoreboard: state.scoreboard,
@@ -483,6 +488,7 @@ function createStaticGraphAnimation(
 		durationInFrames: 1,
 		from: scheduled.from,
 		graph: state.key,
+		hideScores: state.hideScores,
 		label: scheduled.label,
 		plan: planStaticDebate({ debateCore: state.debateCore }),
 		scoreboard: state.scoreboard,
@@ -496,7 +502,7 @@ function resolveClaimScoreVisibility(
 	return Object.fromEntries(
 		[...state.claimDefinitions.values()].map((definition) => [
 			claimId(state.key, definition.key),
-			definition.showScore ?? true,
+			!state.hideScores && (definition.showScore ?? true),
 		]),
 	) as Record<ClaimId, boolean>;
 }

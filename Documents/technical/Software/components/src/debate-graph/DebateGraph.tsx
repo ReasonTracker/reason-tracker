@@ -19,6 +19,8 @@ const COLORS = {
 	shell: "#151b24",
 	text: "#f8fafc",
 };
+const CLAIM_TEXT_FONT_SIZE = 18;
+const SCORELESS_CLAIM_TEXT_SCALE = 1.3;
 
 export type DebateGraphProps = {
 	bounds: DebateAnimationPlan["bounds"]
@@ -27,6 +29,7 @@ export type DebateGraphProps = {
 	diagnostics?: boolean
 	frame: DebateFrame
 	options: PlannerOptions
+	scoreless?: boolean
 	showClaimScore?: (claimId: ClaimId) => boolean
 };
 
@@ -37,6 +40,7 @@ export function DebateGraph({
 	diagnostics = false,
 	frame,
 	options,
+	scoreless = false,
 	showClaimScore,
 }: DebateGraphProps) {
 	const geometry = resolveDebateSceneGeometry({ frame, options });
@@ -108,7 +112,16 @@ export function DebateGraph({
 											width: options.claimWidth,
 										}}
 									>
-										<div style={claimContentStyle}>{claimContent?.(claim.claimId, content) ?? content}</div>
+										<div
+											style={{
+												...claimContentStyle,
+												fontSize: scoreless
+													? CLAIM_TEXT_FONT_SIZE * SCORELESS_CLAIM_TEXT_SCALE
+													: CLAIM_TEXT_FONT_SIZE,
+											}}
+										>
+											{claimContent?.(claim.claimId, content) ?? content}
+										</div>
 										{showClaimScore?.(claim.claimId) ?? true
 											? (
 												<div style={scoreGroupStyle}>
@@ -214,7 +227,7 @@ const claimCardStyle: CSSProperties = {
 
 const claimContentStyle: CSSProperties = {
 	display: "-webkit-box",
-	fontSize: 18,
+	fontSize: CLAIM_TEXT_FONT_SIZE,
 	fontWeight: 600,
 	overflow: "hidden",
 	WebkitBoxOrient: "vertical",
