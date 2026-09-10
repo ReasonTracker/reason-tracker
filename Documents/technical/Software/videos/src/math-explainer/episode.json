@@ -22,14 +22,14 @@
                     "key": "pro",
                     "text": "A supporting reason",
                     "target": "main",
-                    "side": "pro-main",
+                    "side": "pro",
                     "showScore": false
                 },
                 {
                     "key": "con",
                     "text": "An opposing reason",
                     "target": "main",
-                    "side": "con-main",
+                    "side": "con",
                     "showScore": false
                 }
             ]

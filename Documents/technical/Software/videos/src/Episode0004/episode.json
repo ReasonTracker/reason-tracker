@@ -21,13 +21,13 @@
                     "key": "c1",
                     "text": "C1",
                     "target": "main",
-                    "side": "pro-main"
+                    "side": "pro"
                 },
                 {
                     "key": "c2",
                     "text": "C2",
                     "target": "main",
-                    "side": "con-main"
+                    "side": "con"
                 },
                 {
                     "key": "c3",
@@ -35,25 +35,25 @@
                     "target": {
                         "relevanceOf": "c2"
                     },
-                    "side": "con-main"
+                    "side": "con"
                 },
                 {
                     "key": "c4",
                     "text": "C4",
                     "target": "c1",
-                    "side": "pro-main"
+                    "side": "pro"
                 },
                 {
                     "key": "c5",
                     "text": "C5",
                     "target": "c1",
-                    "side": "pro-main"
+                    "side": "pro"
                 },
                 {
                     "key": "c6",
                     "text": "C6",
                     "target": "c1",
-                    "side": "con-main"
+                    "side": "con"
                 }
             ]
         },
@@ -63,7 +63,7 @@
             "key": "c7",
             "text": "C7",
             "target": "c1",
-            "side": "con-main",
+            "side": "con",
             "label": "Add C7",
             "durationSeconds": 4
         }

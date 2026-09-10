@@ -21,7 +21,7 @@
                     "key": "c1",
                     "text": "C1",
                     "target": "main",
-                    "side": "pro-main"
+                    "side": "pro"
                 }
             ]
         },
@@ -31,7 +31,7 @@
             "key": "c2",
             "text": "C2",
             "target": "main",
-            "side": "con-main",
+            "side": "con",
             "label": "Add C2",
             "durationSeconds": 3.85
         }

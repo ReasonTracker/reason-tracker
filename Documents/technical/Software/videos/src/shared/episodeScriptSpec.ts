@@ -6,7 +6,8 @@ const nonEmptyStringSchema = z.string().trim().min(1);
 const secondsSchema = z.number().finite();
 const durationSecondsSchema = secondsSchema.nonnegative();
 
-export const claimSideSchema = z.enum(["pro-main", "con-main"]);
+export const claimSideSchema = z.enum(["pro", "con"])
+	.transform((side) => side === "pro" ? "pro-main" as const : "con-main" as const);
 
 const actionTimingShape = {
 	blocking: z.boolean().optional(),

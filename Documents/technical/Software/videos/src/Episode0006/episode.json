@@ -43,25 +43,58 @@
             "durationSeconds": 7
         },
         {
+            "type": "camera.move",
+            "target": {
+                "objects": [
+                    "argumentGraph.disruptsleep",
+                    "argumentGraph.main"
+                ]
+            },
+            "blocking": false
+        },
+        {
             "type": "graph.addClaim",
             "graph": "argumentGraph",
-            "key": "cost",
-            "text": "Permanent Daylight Saving Time could impose economic costs.",
+            "key": "disruptsleep",
+            "text": "The twice-yearly clock changes disrupt sleep schedules.",
             "target": "main",
-            "side": "con-main",
-            "offsetSeconds": 1,
-            "durationSeconds": 5
+            "side": "pro"
         },
         {
             "type": "camera.move",
             "target": {
                 "objects": [
-                    "argumentGraph.cost",
+                    "argumentGraph.implementationCosts",
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -5,
             "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "implementationCosts",
+            "text": "$500 million to $1 billion to implement the change was projected for the comparable 2007 U.S. daylight saving time rule change.",
+            "target": "main",
+            "side": "con"
+        },
+        {
+            "type": "camera.move",
+            "target": {
+                "objects": [
+                    "argumentGraph.annualSavings",
+                    "argumentGraph.main"
+                ]
+            },
+            "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "annualSavings",
+            "text": "Saves Americans “hundreds of millions of dollars in value annually.",
+            "target": "main",
+            "side": "pro"
         }
     ]
 }
