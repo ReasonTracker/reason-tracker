@@ -127,9 +127,11 @@ const captionsShowActionSchema = z.object({
 const mediaShowActionSchema = z.object({
 	...actionTimingShape,
 	durationSeconds: durationSecondsSchema.positive(),
-	source: z.string().regex(
-		/^Episode[A-Za-z0-9_-]+\/media\/[A-Za-z0-9_.-]+$/,
-		"Use an Episode folder media path, such as Episode0005/media/example.png.",
+	source: z.string().refine(
+		(source) => source.startsWith("media/")
+			&& source.length > "media/".length
+			&& !source.split("/").includes(".."),
+		"Use a media path relative to the episode JSON file, such as media/example.png.",
 	),
 	type: z.literal("media.show"),
 }).strict();
@@ -145,6 +147,12 @@ const balanceShowActionSchema = z.object({
 	y: z.number().finite().optional(),
 }).strict();
 
+const waitActionSchema = z.object({
+	...actionTimingShape,
+	durationSeconds: durationSecondsSchema.positive(),
+	type: z.literal("wait"),
+}).strict();
+
 export const episodeActionSchema = z.discriminatedUnion("type", [
 	graphCreateActionSchema,
 	graphAddClaimActionSchema,
@@ -156,6 +164,7 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	captionsShowActionSchema,
 	mediaShowActionSchema,
 	balanceShowActionSchema,
+	waitActionSchema,
 ]);
 
 const defaultsSchema = z.object({

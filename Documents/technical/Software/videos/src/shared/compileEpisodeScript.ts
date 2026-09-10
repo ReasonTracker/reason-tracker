@@ -31,6 +31,7 @@ const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> 
 	"graph.create": 0,
 	"graph.patch": 0,
 	"graph.set": 0,
+	"wait": 0,
 };
 
 const GRAPH_PHASES = [
@@ -267,6 +268,8 @@ function describeAction(action: EpisodeAction): string {
 			return `Show ${action.source}`;
 		case "balance.show":
 			return `Show balance at ${action.scorePercent}%`;
+		case "wait":
+			return "Wait";
 	}
 }
 

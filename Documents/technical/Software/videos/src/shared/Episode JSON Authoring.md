@@ -46,7 +46,7 @@ Use claim keys for references, never claim text. The compiler creates internal c
 
 Every action accepts these optional fields:
 
-- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, `camera.move`, and `camera.follow`. `captions.show` always requires an explicit positive duration.
+- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, `camera.move`, and `camera.follow`. `captions.show`, `media.show`, `balance.show`, and `wait` require an explicit positive duration.
 - `offsetSeconds`: Signed decimal-second offset from the current timeline cursor. Omitted means `0`.
 - `blocking`: Omitted means `true`. A blocking action advances the cursor to the later of its current position or that action's end. A nonblocking action leaves the cursor where it is.
 
@@ -88,16 +88,31 @@ A typical overlapping camera move looks like this:
 
 The camera move starts at the same cursor position as the preceding claim addition and does not delay the next action.
 
+## Wait Action
+
+### `wait`
+
+Advance the timeline without rendering anything. `durationSeconds` is required and must be positive. It blocks by default, so use it to create a gap before the following action.
+
+```json
+{
+  "type": "wait",
+  "durationSeconds": 2
+}
+```
+
 ## Media Actions
 
 ### `media.show`
 
 Display an image from an episode's `media` folder. Media rises from below the frame at the start of the action, remains visible, and exits downward as the action ends. Set `blocking` to `false` when it should overlap the following action, such as a caption.
 
+`source` is relative to the folder containing the episode JSON file.
+
 ```json
 {
   "type": "media.show",
-  "source": "Episode0005/media/example.png",
+  "source": "media/example.png",
   "durationSeconds": 5,
   "blocking": false
 }

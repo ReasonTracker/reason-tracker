@@ -1,0 +1,66 @@
+{
+    "schemaVersion": 2,
+    "settings": {
+        "composition": {
+            "id": "Episode0006",
+            "fps": 30,
+            "width": 1920,
+            "height": 1080
+        },
+        "defaults": {
+            "graph.addClaim": {
+                "durationSeconds": 5.2
+            },
+            "camera.move": {
+                "durationSeconds": 2.4
+            }
+        }
+    },
+    "script": [
+        {
+            "type": "graph.create",
+            "key": "argumentGraph",
+            "mainClaim": {
+                "key": "main",
+                "text": "The United States would benefit overall from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
+                "textReveal": true
+            },
+            "claims": [],
+            "durationSeconds": 7,
+            "blocking": false
+        },
+        {
+            "type": "captions.show",
+            "text": "The claim we are investigating is [reads claim aloud].",
+            "durationSeconds": 6
+        },
+        {
+            "type": "media.show",
+            "source": "media/sunshine-protection-act.png",
+            "durationSeconds": 7,
+            "blocking": false
+        },
+        {
+            "type": "graph.addClaim",
+            "graph": "argumentGraph",
+            "key": "cost",
+            "text": "Permanent Daylight Saving Time could impose economic costs.",
+            "target": "main",
+            "side": "con-main",
+            "offsetSeconds": 1,
+            "durationSeconds": 5.2
+        },
+        {
+            "type": "camera.move",
+            "target": {
+                "objects": [
+                    "argumentGraph.cost",
+                    "argumentGraph.main"
+                ]
+            },
+            "offsetSeconds": -5.2,
+            "durationSeconds": 2.4,
+            "blocking": false
+        }
+    ]
+}
