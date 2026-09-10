@@ -32,8 +32,8 @@ const TRAY_Y = PIVOT_Y + HANGING_TRAY_LENGTH;
 const COLORS = {
     beam: "#e2e8f0",
     frame: "#64748b",
-    orange: "#f28c28",
-    purple: "#ad6cff",
+    orange: "var(--con)",
+    purple: "var(--pro)",
 };
 
 export type BalanceScaleProps = {

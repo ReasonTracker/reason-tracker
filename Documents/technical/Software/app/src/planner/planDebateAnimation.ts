@@ -217,7 +217,11 @@ function buildChangedScoreWaveFrame(args: {
 		Object.values(args.settledFrame.claims)
 			.filter((settledClaim) => {
 				const firstFillClaim = args.firstFillFrame.claims[settledClaim.id];
-				return firstFillClaim !== undefined && firstFillClaim.score !== settledClaim.score;
+				return firstFillClaim !== undefined
+					&& (
+						firstFillClaim.rawScore !== settledClaim.rawScore
+						|| firstFillClaim.score !== settledClaim.score
+					);
 			})
 			.map((claim) => claim.id),
 	);
@@ -226,6 +230,7 @@ function buildChangedScoreWaveFrame(args: {
 		const claim = frame.claims[occurrenceId];
 		const settledClaim = args.settledFrame.claims[occurrenceId];
 		if (claim && settledClaim) {
+			claim.rawScore = settledClaim.rawScore;
 			claim.score = settledClaim.score;
 		}
 	}
@@ -309,6 +314,7 @@ function buildVoilaFrame(args: {
 			continue;
 		}
 
+		claim.rawScore = openingClaim.rawScore;
 		claim.score = openingClaim.score;
 	}
 
@@ -349,6 +355,7 @@ function buildSproutFrame(args: {
 	for (const claim of Object.values(frame.claims)) {
 		const openingClaim = args.openingFrame.claims[claim.id];
 		if (openingClaim) {
+			claim.rawScore = openingClaim.rawScore;
 			claim.score = openingClaim.score;
 		}
 	}
@@ -397,6 +404,7 @@ function buildAnimationStep<TId extends AnimationStepId>(
 			opacity: createTrack(initial.opacity, target.opacity, resolveTiming({ field: "opacity", id: initial.id, kind: "claim" })),
 			positionX: createTrack(initial.position.x, target.position.x, resolveTiming({ field: "positionX", id: initial.id, kind: "claim" })),
 			positionY: createTrack(initial.position.y, target.position.y, resolveTiming({ field: "positionY", id: initial.id, kind: "claim" })),
+			rawScore: createTrack(initial.rawScore, target.rawScore, resolveTiming({ field: "rawScore", id: initial.id, kind: "claim" })),
 			scale: createTrack(initial.scale, target.scale, resolveTiming({ field: "scale", id: initial.id, kind: "claim" })),
 			score: createTrack(initial.score, target.score, resolveTiming({ field: "score", id: initial.id, kind: "claim" })),
 			sourcesScale: createTrack(initial.sourcesScale, target.sourcesScale, resolveTiming({ field: "sourcesScale", id: initial.id, kind: "claim" })),

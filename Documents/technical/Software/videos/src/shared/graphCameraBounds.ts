@@ -10,9 +10,9 @@ import type { PresentationClaimOccurrenceId } from "@planner/buildPresentationGr
 /** Matches the 1920 by 1080 episode composition. */
 const CAMERA_ASPECT_RATIO = 16 / 9;
 /** Adds breathing room around the claims selected for the camera. */
-const CAMERA_PADDING_RATIO = 0.22;
+const CAMERA_PADDING_RATIO = 0.01;
 /** Prevents camera padding from disappearing around deeply scaled claims. */
-const MINIMUM_CAMERA_PADDING = 12;
+const MINIMUM_CAMERA_PADDING = 1;
 
 export type CameraBounds = DebateAnimationPlan["bounds"];
 

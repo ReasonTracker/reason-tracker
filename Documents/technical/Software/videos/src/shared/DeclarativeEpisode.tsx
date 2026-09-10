@@ -105,7 +105,9 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 						claimScoreVisibility={playback.animation.claimScoreVisibility}
 						claimTextReveals={episode.claimTextReveals}
 						debateCore={playback.animation.debateCore}
+						graphId={playback.animation.graph}
 						plan={playback.animation.plan}
+						scoreboard={playback.animation.scoreboard}
 						stepId={playback.stepId}
 						stepProgress={playback.stepProgress}
 					/>

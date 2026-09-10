@@ -14,8 +14,8 @@ import {
 import { resolveDebateGraphOutlineWidth } from "./visualConstants";
 
 const COLORS = {
-	con: "#f28c28",
-	pro: "#ad6cff",
+	con: "var(--con)",
+	pro: "var(--pro)",
 	shell: "#151b24",
 	text: "#f8fafc",
 };

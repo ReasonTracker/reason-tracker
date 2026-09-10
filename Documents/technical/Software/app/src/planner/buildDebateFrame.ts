@@ -82,6 +82,7 @@ export function buildDebateFrame(args: {
 				x: claimLeftEdgeX + ((args.options.claimWidth * sourcesScale) / 2),
 				y: claimCenterY,
 			},
+			rawScore: score.rawValue,
 			scale: sourcesScale,
 			score: score.value,
 			side,

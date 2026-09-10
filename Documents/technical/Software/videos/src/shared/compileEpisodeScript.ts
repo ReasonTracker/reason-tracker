@@ -18,6 +18,7 @@ import {
 	type EpisodeAction,
 	type EpisodeScriptSpec,
 	type GraphClaimState,
+	type ScoreboardLayout,
 } from "./episodeScriptSpec";
 
 const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> = {
@@ -60,6 +61,7 @@ type GraphCompilerState = {
 	key: string
 	lastAnimationAction?: ScheduledEpisodeAction
 	lastAnimationEndFrame: number
+	scoreboard?: ScoreboardLayout
 };
 
 export type ScheduledEpisodeAction = {
@@ -80,6 +82,7 @@ export type CompiledGraphAnimation = {
 	graph: string
 	label: string
 	plan: DebateAnimationPlan
+	scoreboard?: ScoreboardLayout
 	sourceActionIndexes: readonly number[]
 };
 
@@ -296,6 +299,7 @@ function compileGraphActions(
 				claimDefinitions: new Map(),
 				key: action.key,
 				lastAnimationEndFrame: 0,
+				scoreboard: action.scoreboard,
 			};
 			state.claimDefinitions.set(action.mainClaim.key, {
 				key: action.mainClaim.key,
@@ -323,6 +327,7 @@ function compileGraphActions(
 				graph: action.key,
 				label: scheduled.label,
 				plan: planStaticDebate({ debateCore: state.debateCore }),
+				scoreboard: state.scoreboard,
 				sourceActionIndexes: [scheduled.index],
 			});
 			state.lastAnimationEndFrame = scheduled.endFrame;
@@ -441,6 +446,7 @@ function compileGraphAddBatch(
 		graph: state.key,
 		label: batch.map((item) => item.label).join(" + "),
 		plan,
+		scoreboard: state.scoreboard,
 		sourceActionIndexes: batch.map((item) => item.index),
 	});
 }
@@ -453,7 +459,10 @@ function describeScheduledGraphAction(scheduled: ScheduledEpisodeAction): string
 	if (action.type === "graph.addClaim") {
 		return `${scheduled.index} (graph.addClaim ${action.key})`;
 	}
-	return `${scheduled.index} (${action.type} ${action.graph})`;
+	if (action.type === "graph.set" || action.type === "graph.patch") {
+		return `${scheduled.index} (${action.type} ${action.graph})`;
+	}
+	throw new Error(`Expected graph action, received ${action.type}.`);
 }
 
 function formatFrameTime(frame: number, fps: number): string {
@@ -476,6 +485,7 @@ function createStaticGraphAnimation(
 		graph: state.key,
 		label: scheduled.label,
 		plan: planStaticDebate({ debateCore: state.debateCore }),
+		scoreboard: state.scoreboard,
 		sourceActionIndexes: [scheduled.index],
 	};
 }

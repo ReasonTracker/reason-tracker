@@ -30,6 +30,14 @@ const graphClaimPresentationShape = {
 	textReveal: z.boolean().optional(),
 };
 
+const scoreboardSchema = z.object({
+	height: z.number().finite().positive(),
+	numberWidth: z.number().finite().positive(),
+	thermometerWidth: z.number().finite().positive(),
+	x: z.number().finite(),
+	y: z.number().finite(),
+}).strict();
+
 const newGraphClaimSchema = z.object({
 	key: authorKeySchema,
 	side: claimSideSchema,
@@ -55,6 +63,7 @@ const graphCreateActionSchema = z.object({
 		text: nonEmptyStringSchema,
 		...graphClaimPresentationShape,
 	}).strict(),
+	scoreboard: scoreboardSchema.optional(),
 	type: z.literal("graph.create"),
 }).strict();
 
@@ -206,3 +215,4 @@ export type GraphClaimState = z.infer<typeof graphClaimStateSchema>;
 export type GraphCreateAction = z.infer<typeof graphCreateActionSchema>;
 export type GraphPatchAction = z.infer<typeof graphPatchActionSchema>;
 export type GraphSetAction = z.infer<typeof graphSetActionSchema>;
+export type ScoreboardLayout = z.infer<typeof scoreboardSchema>;

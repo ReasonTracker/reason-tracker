@@ -173,6 +173,18 @@ Create a graph before any other action references it. The main claim is always `
 
 `claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`. Set `showScore` to `false` on any claim to hide its score; omit it or set it to `true` to show the score.
 
+Set `scoreboard` on `graph.create` to show a live main-claim balance for that graph. The display shares the same planner frame as the graph, so it updates during each graph animation. It converts the signed raw claim balance from `-1` through `1` into complementary orange/con and purple/pro shares: `-1` renders `01 / 99`, `0` renders `50 / 50`, and `1` renders `99 / 01`. This does not change the graph claim-card display. `x` and `y` are the top-left placement in Remotion composition pixels; `height`, `thermometerWidth`, and `numberWidth` are pixels.
+
+```json
+"scoreboard": {
+  "x": 48,
+  "y": 48,
+  "height": 400,
+  "thermometerWidth": 165,
+  "numberWidth": 220
+}
+```
+
 A string `target` creates a confidence relationship to that claim. `{ "relevanceOf": "claimKey" }` creates a relevance relationship to the confidence relationship sourced by `claimKey`.
 
 ### `graph.addClaim`

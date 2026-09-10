@@ -37,6 +37,7 @@ export type ClaimFrameState = {
 	id: PresentationClaimOccurrenceId
 	opacity: number
 	position: Point
+	rawScore: number
 	scale: number
 	score: number
 	side: PresentationSide
@@ -93,7 +94,7 @@ export type DebateFrame = {
 
 type ClaimTracks = Partial<Record<
 	PresentationClaimOccurrenceId,
-	Partial<Record<"opacity" | "positionX" | "positionY" | "scale" | "score" | "sourcesScale", NumberTrack>>
+	Partial<Record<"opacity" | "positionX" | "positionY" | "rawScore" | "scale" | "score" | "sourcesScale", NumberTrack>>
 >>;
 
 type ConfidenceConnectionTracks = Partial<Record<
@@ -158,6 +159,7 @@ export function resolveAnimationFrame(
 					x: resolveNumberTrack(tracks?.positionX, progress, item.position.x),
 					y: resolveNumberTrack(tracks?.positionY, progress, item.position.y),
 				},
+				rawScore: resolveNumberTrack(tracks?.rawScore, progress, item.rawScore),
 				scale: resolveNumberTrack(tracks?.scale, progress, item.scale),
 				score: resolveNumberTrack(tracks?.score, progress, item.score),
 				sourcesScale: resolveNumberTrack(tracks?.sourcesScale, progress, item.sourcesScale),
@@ -229,7 +231,11 @@ function resolveWaveLayout(args: {
 	for (const claim of Object.values(args.frame.claims)) {
 		const score = args.dependency.resolvedMath.claimScores[claim.id];
 		if (score) {
-			claimScores[claim.id] = { ...score, value: claim.score };
+			claimScores[claim.id] = {
+				...score,
+				rawValue: claim.rawScore,
+				value: claim.score,
+			};
 		}
 	}
 	const connectorScores = { ...args.dependency.resolvedMath.connectorScores };

@@ -34,6 +34,13 @@
         {
             "type": "graph.create",
             "key": "argumentGraph",
+            "scoreboard": {
+                "x": 5,
+                "y": 5,
+                "height": 300,
+                "thermometerWidth": 100,
+                "numberWidth": 170
+            },
             "mainClaim": {
                 "key": "main",
                 "text": "The United States would benefit overall from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
