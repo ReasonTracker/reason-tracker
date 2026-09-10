@@ -21,7 +21,8 @@ export const episodes = episodeFiles.keys().map((specPath) => {
 	try {
 		episode = createDeclarativeEpisode(episodeModule.default, mediaSources);
 	} catch (error) {
-		throw new Error(`Unable to load episode specification ${specPath}`, { cause: error });
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`${message}\n\nUnable to load episode specification ${specPath}`, { cause: error });
 	}
 
 	return {

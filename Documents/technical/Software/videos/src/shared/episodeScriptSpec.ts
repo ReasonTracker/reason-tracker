@@ -127,6 +127,7 @@ const captionsShowActionSchema = z.object({
 const mediaShowActionSchema = z.object({
 	...actionTimingShape,
 	durationSeconds: durationSecondsSchema.positive(),
+	layer: z.enum(["front", "back"]).optional(),
 	source: z.string().refine(
 		(source) => source.startsWith("media/")
 			&& source.length > "media/".length

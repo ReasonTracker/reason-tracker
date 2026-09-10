@@ -58,6 +58,7 @@ type GraphCompilerState = {
 	claimDefinitions: Map<string, ClaimDefinition>
 	debateCore?: DebateCore
 	key: string
+	lastAnimationAction?: ScheduledEpisodeAction
 	lastAnimationEndFrame: number
 };
 
@@ -325,6 +326,7 @@ function compileGraphActions(
 				sourceActionIndexes: [scheduled.index],
 			});
 			state.lastAnimationEndFrame = scheduled.endFrame;
+			state.lastAnimationAction = scheduled;
 			actionIndex += 1;
 			continue;
 		}
@@ -361,7 +363,7 @@ function compileGraphActions(
 			batch.push(next);
 			nextIndex += 1;
 		}
-		compileGraphAddBatch(state, batch, animations);
+		compileGraphAddBatch(state, batch, animations, spec.settings.composition.fps);
 		actionIndex = nextIndex;
 	}
 
@@ -378,11 +380,13 @@ function compileGraphAddBatch(
 	state: GraphCompilerState,
 	batch: readonly ScheduledEpisodeAction[],
 	animations: CompiledGraphAnimation[],
+	fps: number,
 ): void {
 	const first = batch[0]!;
-	if (first.from < state.lastAnimationEndFrame) {
+	const previous = state.lastAnimationAction;
+	if (previous && first.from < state.lastAnimationEndFrame) {
 		throw new Error(
-			`Graph ${state.key} action ${first.index} overlaps a graph mutation already in progress.`,
+			`Graph ${state.key}: action ${describeScheduledGraphAction(first)} starts at ${formatFrameTime(first.from, fps)}, but action ${describeScheduledGraphAction(previous)} is still running until ${formatFrameTime(state.lastAnimationEndFrame, fps)}. Graph mutations cannot overlap; let the earlier graph action block or start this action at or after that time.`,
 		);
 	}
 	if (batch.some((item) => item.durationInFrames !== first.durationInFrames)) {
@@ -427,6 +431,7 @@ function compileGraphAddBatch(
 		addedClaimIds.push(applied.claimId);
 	}
 	state.lastAnimationEndFrame = first.endFrame;
+	state.lastAnimationAction = first;
 	animations.push({
 		addedClaimIds,
 		claimScoreVisibility: resolveClaimScoreVisibility(state),
@@ -438,6 +443,21 @@ function compileGraphAddBatch(
 		plan,
 		sourceActionIndexes: batch.map((item) => item.index),
 	});
+}
+
+function describeScheduledGraphAction(scheduled: ScheduledEpisodeAction): string {
+	const action = scheduled.action;
+	if (action.type === "graph.create") {
+		return `${scheduled.index} (graph.create ${action.key})`;
+	}
+	if (action.type === "graph.addClaim") {
+		return `${scheduled.index} (graph.addClaim ${action.key})`;
+	}
+	return `${scheduled.index} (${action.type} ${action.graph})`;
+}
+
+function formatFrameTime(frame: number, fps: number): string {
+	return `${(frame / fps).toFixed(2)}s`;
 }
 
 function createStaticGraphAnimation(

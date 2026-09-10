@@ -44,6 +44,10 @@ const CLOSED_CAPTION_TEXT_STYLE = {
 	textAlign: "center",
 } as const;
 
+const SCENE_BACKGROUND_STYLE = {
+	background: "#080b10",
+} as const;
+
 export type DeclarativeEpisodeProps = {
 	camera?: ClaimCameraScript
 	episode: CompiledEpisodeScript
@@ -53,6 +57,31 @@ export type DeclarativeEpisodeProps = {
 export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: DeclarativeEpisodeProps) {
 	const frame = useCurrentFrame();
 	const playback = resolveGraphPlayback(episode, frame);
+	const renderMedia = (layer: "back" | "front") => episode.actions.map((action) => {
+		if (action.action.type !== "media.show" || (action.action.layer ?? "front") !== layer) {
+			return null;
+		}
+
+		const source = mediaSources[action.action.source];
+		if (!source) {
+			throw new Error(`Unable to resolve episode media source: ${action.action.source}`);
+		}
+
+		return (
+			<Sequence
+				durationInFrames={action.durationInFrames}
+				from={action.from}
+				key={action.index}
+				layout="none"
+				name={action.label}
+			>
+				<EpisodeMedia
+					durationInFrames={action.durationInFrames}
+					source={source}
+				/>
+			</Sequence>
+		);
+	});
 
 	return (
 		<>
@@ -67,6 +96,8 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 					<span style={{ display: "none" }} />
 				</Sequence>
 			))}
+			<AbsoluteFill style={SCENE_BACKGROUND_STYLE} />
+			{renderMedia("back")}
 			{playback
 				? (
 					<DebateAnimationSurface
@@ -80,31 +111,6 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 					/>
 				)
 				: null}
-			{episode.actions.map((action) => {
-				if (action.action.type !== "media.show") {
-					return null;
-				}
-
-				const source = mediaSources[action.action.source];
-				if (!source) {
-					throw new Error(`Unable to resolve episode media source: ${action.action.source}`);
-				}
-
-				return (
-					<Sequence
-						durationInFrames={action.durationInFrames}
-						from={action.from}
-						key={action.index}
-						layout="none"
-						name={action.label}
-					>
-						<EpisodeMedia
-							durationInFrames={action.durationInFrames}
-							source={source}
-						/>
-					</Sequence>
-				);
-			})}
 			{episode.actions.map((action) => {
 				if (action.action.type !== "balance.show") {
 					return null;
@@ -158,6 +164,7 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 					</Sequence>
 				);
 			})}
+			{renderMedia("front")}
 		</>
 	);
 }

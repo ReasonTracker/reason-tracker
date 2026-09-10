@@ -108,11 +108,13 @@ Advance the timeline without rendering anything. `durationSeconds` is required a
 Display an image from an episode's `media` folder. Media rises from below the frame at the start of the action, remains visible, and exits downward as the action ends. Set `blocking` to `false` when it should overlap the following action, such as a caption.
 
 `source` is relative to the folder containing the episode JSON file.
+`layer` controls the visual stack: omit it or use `"front"` to place media above every other visual; use `"back"` to place it beneath the graph, scale, and captions.
 
 ```json
 {
   "type": "media.show",
   "source": "media/example.png",
+  "layer": "front",
   "durationSeconds": 5,
   "blocking": false
 }

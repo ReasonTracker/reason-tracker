@@ -9,14 +9,28 @@
         },
         "defaults": {
             "graph.addClaim": {
-                "durationSeconds": 5.2
+                "durationSeconds": 5
             },
             "camera.move": {
-                "durationSeconds": 2.4
+                "durationSeconds": 2
             }
         }
     },
     "script": [
+        {
+            "type": "captions.show",
+            "text": "The claim we are investigating is [reads claim aloud].",
+            "durationSeconds": 7,
+            "blocking": false
+        },
+        {
+            "type": "media.show",
+            "source": "media/sunshine-protection-act.png",
+            "layer": "back",
+            "offsetSeconds": 3,
+            "durationSeconds": 3,
+            "blocking": false
+        },
         {
             "type": "graph.create",
             "key": "argumentGraph",
@@ -26,19 +40,7 @@
                 "textReveal": true
             },
             "claims": [],
-            "durationSeconds": 7,
-            "blocking": false
-        },
-        {
-            "type": "captions.show",
-            "text": "The claim we are investigating is [reads claim aloud].",
-            "durationSeconds": 6
-        },
-        {
-            "type": "media.show",
-            "source": "media/sunshine-protection-act.png",
-            "durationSeconds": 7,
-            "blocking": false
+            "durationSeconds": 7
         },
         {
             "type": "graph.addClaim",
@@ -48,7 +50,7 @@
             "target": "main",
             "side": "con-main",
             "offsetSeconds": 1,
-            "durationSeconds": 5.2
+            "durationSeconds": 5
         },
         {
             "type": "camera.move",
@@ -58,8 +60,7 @@
                     "argumentGraph.main"
                 ]
             },
-            "offsetSeconds": -5.2,
-            "durationSeconds": 2.4,
+            "offsetSeconds": -5,
             "blocking": false
         }
     ]

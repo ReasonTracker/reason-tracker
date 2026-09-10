@@ -34,7 +34,7 @@ export function DebateAnimationSurface({
 		: plan.openingFrame;
 
 	return (
-		<AbsoluteFill style={{ background: "#080b10" }}>
+		<AbsoluteFill>
 			<DebateGraph
 				bounds={cameraBounds ?? plan.bounds}
 				claimContent={(claimId, content) => {

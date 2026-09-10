@@ -14,7 +14,6 @@ import {
 import { resolveDebateGraphOutlineWidth } from "./visualConstants";
 
 const COLORS = {
-	background: "#080b10",
 	con: "#f28c28",
 	pro: "#ad6cff",
 	shell: "#151b24",
@@ -50,13 +49,6 @@ export function DebateGraph({
 				style={svgStyle}
 				viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
 			>
-				<rect
-					fill={COLORS.background}
-					height={bounds.height}
-					width={bounds.width}
-					x={bounds.minX}
-					y={bounds.minY}
-				/>
 				<g data-layer="connectors">
 					{geometry.bands.map((band) => (
 						<ConnectorBand band={band} key={`${band.id}:shell`} layer="shell" />
@@ -92,8 +84,8 @@ export function DebateGraph({
 							>
 								<rect
 									fill={color === COLORS.pro
-										? "rgb(173 108 255 / 0.28)"
-										: "rgb(242 140 40 / 0.28)"}
+										? "rgb(54 38 83)"
+										: "rgb(74 47 23)"}
 									height={Math.max(0, claimGeometry.height - outlineWidth)}
 									stroke={color}
 									strokeWidth={outlineWidth}
@@ -195,7 +187,6 @@ function sideColor(side: "proMain" | "conMain"): string {
 }
 
 const rootStyle: CSSProperties = {
-	background: COLORS.background,
 	height: "100%",
 	overflow: "hidden",
 	width: "100%",
