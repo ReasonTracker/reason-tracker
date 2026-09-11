@@ -5,6 +5,7 @@ const authorKeySchema = z.string()
 const nonEmptyStringSchema = z.string().trim().min(1);
 const secondsSchema = z.number().finite();
 const durationSecondsSchema = secondsSchema.nonnegative();
+const anchorSchema = z.enum(["canvas", "camera"]);
 
 export const claimSideSchema = z.enum(["pro", "con"])
 	.transform((side) => side === "pro" ? "pro-main" as const : "con-main" as const);
@@ -30,6 +31,7 @@ const mediaSourceSchema = z.string().refine(
 
 const objectAddShape = {
 	...actionTimingShape,
+	anchor: anchorSchema.default("canvas"),
 	durationSeconds: z.literal(0).optional(),
 	key: authorKeySchema,
 	style: cssStyleSchema.optional(),
@@ -59,6 +61,7 @@ const graphClaimPresentationShape = {
 };
 
 const scoreboardSchema = z.object({
+	anchor: anchorSchema.default("camera"),
 	height: z.number().finite().positive(),
 	numberWidth: z.number().finite().positive(),
 	thermometerWidth: z.number().finite().positive(),
@@ -84,6 +87,7 @@ const graphClaimStateSchema = z.object({
 
 const graphCreateActionSchema = z.object({
 	...actionTimingShape,
+	anchor: anchorSchema.default("canvas"),
 	claims: z.array(newGraphClaimSchema).optional(),
 	hideScores: z.boolean().optional(),
 	key: authorKeySchema,
@@ -194,6 +198,7 @@ const balanceUpdateActionSchema = z.object({
 
 const captionsShowActionSchema = z.object({
 	...actionTimingShape,
+	anchor: anchorSchema.default("camera"),
 	durationSeconds: durationSecondsSchema.positive(),
 	position: z.literal("center").optional(),
 	text: nonEmptyStringSchema,
@@ -238,7 +243,7 @@ const defaultsSchema = z.object({
 }).strict();
 
 export const episodeScriptSpecSchema = z.object({
-	schemaVersion: z.literal(2),
+	schemaVersion: z.literal(3),
 	script: z.array(episodeActionSchema).min(1),
 	settings: z.object({
 		composition: z.object({
@@ -252,6 +257,7 @@ export const episodeScriptSpecSchema = z.object({
 }).strict();
 
 export type ClaimSide = z.infer<typeof claimSideSchema>;
+export type Anchor = z.infer<typeof anchorSchema>;
 export type EpisodeAction = z.infer<typeof episodeActionSchema>;
 export type EpisodeScriptSpec = z.infer<typeof episodeScriptSpecSchema>;
 export type GraphAddClaimAction = z.infer<typeof graphAddClaimActionSchema>;

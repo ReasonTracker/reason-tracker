@@ -108,7 +108,7 @@ type ConfidenceConnectionTracks = Partial<Record<
 type RelevanceConnectionTracks = Partial<Record<
 	PresentationConnectorOccurrenceId,
 	Partial<Record<"scale" | "shellReveal" | "targetSideOffset", NumberTrack>>
-		& { volumeChanges?: NumberTrack[] }
+	& { volumeChanges?: NumberTrack[] }
 >>;
 
 export type DebateAnimationStep<TId extends AnimationStepId = AnimationStepId> = {
@@ -326,10 +326,10 @@ function resolveVolumeTransitions(
 	}
 
 	return tracks.map((track) => ({
-			finalValue: track.to,
-			initialValue: track.from,
-			progress: resolveNumberTrackProgress(track, progress),
-		}));
+		finalValue: track.to,
+		initialValue: track.from,
+		progress: resolveNumberTrackProgress(track, progress),
+	}));
 }
 
 function resolveNumberTrackProgress(track: NumberTrack, progress: number): number {

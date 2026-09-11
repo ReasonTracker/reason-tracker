@@ -19,6 +19,7 @@ import {
 	type EpisodeScriptSpec,
 	type GraphClaimState,
 	type ScoreboardLayout,
+	type Anchor,
 	type CssStyle,
 	type ObjectAdd,
 	type ObjectUpdate,
@@ -69,14 +70,14 @@ const DEFAULT_SCREEN_OBJECT_STYLE: CssStyle = {
 
 type ClaimTarget = string | { relevanceOf: string };
 type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
-type ScreenObjectAddAction = Extract<EpisodeAction, {
+type SceneObjectAddAction = Extract<EpisodeAction, {
 	type: "media.add" | "balance.add"
 }> & ObjectAdd;
-type ScreenObjectUpdateAction = Extract<EpisodeAction, {
+type SceneObjectUpdateAction = Extract<EpisodeAction, {
 	type: "media.update" | "balance.update"
 }> & ObjectUpdate;
-type ScreenObjectAction = ScreenObjectAddAction | ScreenObjectUpdateAction;
-type ScreenObject =
+type SceneObjectAction = SceneObjectAddAction | SceneObjectUpdateAction;
+type SceneObject =
 	| { source: string; type: "media" }
 	| { scorePercent: number; type: "balance" };
 
@@ -90,6 +91,7 @@ type ClaimDefinition = {
 };
 
 type GraphCompilerState = {
+	anchor: Anchor
 	claimDefinitions: Map<string, ClaimDefinition>
 	debateCore?: DebateCore
 	hideScores: boolean
@@ -110,6 +112,7 @@ export type ScheduledEpisodeAction = {
 
 export type CompiledGraphAnimation = {
 	addedClaimIds: readonly ClaimId[]
+	anchor: Anchor
 	claimScoreVisibility: Readonly<Record<ClaimId, boolean>>
 	debateCore: DebateCore
 	durationInFrames: number
@@ -127,23 +130,24 @@ export type ClaimTextReveal = {
 	from: number
 };
 
-export type ResolvedScreenObjectState = {
-	object: ScreenObject
+export type ResolvedSceneObjectState = {
+	anchor: Anchor
+	object: SceneObject
 	style: CssStyle
 };
 
-export type CompiledScreenObjectTransition = {
+export type CompiledSceneObjectTransition = {
 	durationInFrames: number
 	from: number
-	initialState: ResolvedScreenObjectState
-	targetState: ResolvedScreenObjectState
+	initialState: ResolvedSceneObjectState
+	targetState: ResolvedSceneObjectState
 };
 
-export type CompiledScreenObject = {
+export type CompiledSceneObject = {
 	from: number
-	initialState: ResolvedScreenObjectState
+	initialState: ResolvedSceneObjectState
 	key: string
-	transitions: readonly CompiledScreenObjectTransition[]
+	transitions: readonly CompiledSceneObjectTransition[]
 };
 
 export type GraphPlayback = {
@@ -158,7 +162,7 @@ export type CompiledEpisodeScript = {
 	durationInFrames: number
 	graphAnimations: readonly CompiledGraphAnimation[]
 	claimTextReveals: Readonly<Record<ClaimId, ClaimTextReveal>>
-	screenObjects: readonly CompiledScreenObject[]
+	sceneObjects: readonly CompiledSceneObject[]
 	spec: EpisodeScriptSpec
 };
 
@@ -171,7 +175,7 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 	const actions = scheduleActions(spec);
 	const graphAnimations = compileGraphActions(spec, actions);
 	const claimTextReveals = compileClaimTextReveals(actions);
-	const screenObjects = compileScreenObjects(actions);
+	const sceneObjects = compileSceneObjects(actions);
 
 	return {
 		actions,
@@ -179,7 +183,7 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 		composition: spec.settings.composition,
 		durationInFrames: Math.max(1, ...actions.map((action) => action.endFrame)),
 		graphAnimations,
-		screenObjects,
+		sceneObjects,
 		spec,
 	};
 }
@@ -217,44 +221,44 @@ function getEpisodeActionType(input: unknown, actionIndex: number): unknown {
 	return action && typeof action === "object" ? (action as { type?: unknown }).type : undefined;
 }
 
-export function resolveScreenObjectStates(
+export function resolveSceneObjectStates(
 	episode: CompiledEpisodeScript,
 	frame: number,
-): readonly (ResolvedScreenObjectState & Pick<CompiledScreenObject, "key">)[] {
-	return episode.screenObjects
-		.filter((screenObject) => screenObject.from <= frame)
-		.map((screenObject) => ({
-			...resolveScreenObjectState(screenObject, frame),
-			key: screenObject.key,
+): readonly (ResolvedSceneObjectState & Pick<CompiledSceneObject, "key">)[] {
+	return episode.sceneObjects
+		.filter((sceneObject) => sceneObject.from <= frame)
+		.map((sceneObject) => ({
+			...resolveSceneObjectState(sceneObject, frame),
+			key: sceneObject.key,
 		}));
 }
 
-function compileScreenObjects(
+function compileSceneObjects(
 	actions: readonly ScheduledEpisodeAction[],
-): readonly CompiledScreenObject[] {
-	type ScreenObjectCompilerState = {
+): readonly CompiledSceneObject[] {
+	type SceneObjectCompilerState = {
 		compiled: {
 			from: number
-			initialState: ResolvedScreenObjectState
+			initialState: ResolvedSceneObjectState
 			key: string
-			transitions: CompiledScreenObjectTransition[]
+			transitions: CompiledSceneObjectTransition[]
 		}
 		lastTransitionEndFrame: number
-		state: ResolvedScreenObjectState
+		state: ResolvedSceneObjectState
 	};
 
-	const states = new Map<string, ScreenObjectCompilerState>();
+	const states = new Map<string, SceneObjectCompilerState>();
 	const objectActions = actions
-		.filter(isScheduledScreenObjectAction)
+		.filter(isScheduledSceneObjectAction)
 		.sort((left, right) => left.from - right.from || left.index - right.index);
 
 	for (const scheduled of objectActions) {
 		const action = scheduled.action;
-		if (isScreenObjectAddAction(action)) {
+		if (isSceneObjectAddAction(action)) {
 			if (states.has(action.key)) {
 				throw new Error(`Action ${scheduled.index} creates duplicate object key: ${action.key}`);
 			}
-			const initialState = createScreenObjectState(action);
+			const initialState = createSceneObjectState(action);
 			states.set(action.key, {
 				compiled: {
 					from: scheduled.from,
@@ -277,7 +281,7 @@ function compileScreenObjects(
 				`Object ${action.key}: action ${scheduled.index} starts before its prior transition ends. Object patches cannot overlap.`,
 			);
 		}
-		const targetState = mergeScreenObjectState(state.state, action, scheduled.index);
+		const targetState = mergeSceneObjectState(state.state, action, scheduled.index);
 		state.compiled.transitions.push({
 			durationInFrames: scheduled.durationInFrames,
 			from: scheduled.from,
@@ -291,89 +295,91 @@ function compileScreenObjects(
 	return [...states.values()].map((state) => state.compiled);
 }
 
-function createScreenObjectState(action: ScreenObjectAddAction): ResolvedScreenObjectState {
+function createSceneObjectState(action: SceneObjectAddAction): ResolvedSceneObjectState {
 	const style = { ...DEFAULT_SCREEN_OBJECT_STYLE, ...action.style };
 	switch (action.type) {
 		case "media.add":
-			return { object: { source: action.source, type: "media" }, style };
+			return { anchor: action.anchor, object: { source: action.source, type: "media" }, style };
 		case "balance.add":
-			return { object: { scorePercent: action.scorePercent, type: "balance" }, style };
+			return { anchor: action.anchor, object: { scorePercent: action.scorePercent, type: "balance" }, style };
 	}
 }
 
-function mergeScreenObjectState(
-	state: ResolvedScreenObjectState,
-	action: ScreenObjectUpdateAction,
+function mergeSceneObjectState(
+	state: ResolvedSceneObjectState,
+	action: SceneObjectUpdateAction,
 	actionIndex: number,
-): ResolvedScreenObjectState {
+): ResolvedSceneObjectState {
 	return {
-		object: updateScreenObject(state.object, action, actionIndex),
+		anchor: state.anchor,
+		object: updateSceneObject(state.object, action, actionIndex),
 		style: { ...state.style, ...action.style },
 	};
 }
 
-function updateScreenObject(
-	object: ScreenObject,
-	action: ScreenObjectUpdateAction,
+function updateSceneObject(
+	object: SceneObject,
+	action: SceneObjectUpdateAction,
 	actionIndex: number,
-): ScreenObject {
+): SceneObject {
 	switch (action.type) {
 		case "media.update":
 			if (object.type !== "media") {
-				throwScreenObjectKindMismatch(actionIndex, object, action);
+				throwSceneObjectKindMismatch(actionIndex, object, action);
 			}
 			return { ...object, source: action.source ?? object.source };
 		case "balance.update":
 			if (object.type !== "balance") {
-				throwScreenObjectKindMismatch(actionIndex, object, action);
+				throwSceneObjectKindMismatch(actionIndex, object, action);
 			}
 			return { ...object, scorePercent: action.scorePercent ?? object.scorePercent };
 	}
 }
 
-function throwScreenObjectKindMismatch(
+function throwSceneObjectKindMismatch(
 	actionIndex: number,
-	object: ScreenObject,
-	action: ScreenObjectUpdateAction,
+	object: SceneObject,
+	action: SceneObjectUpdateAction,
 ): never {
 	throw new Error(
 		`Action ${actionIndex} updates a ${object.type} object with ${action.type} changes. Object kinds cannot change.`,
 	);
 }
 
-function resolveScreenObjectState(
-	screenObject: CompiledScreenObject,
+function resolveSceneObjectState(
+	sceneObject: CompiledSceneObject,
 	frame: number,
-): ResolvedScreenObjectState {
-	let state = screenObject.initialState;
-	for (const transition of screenObject.transitions) {
+): ResolvedSceneObjectState {
+	let state = sceneObject.initialState;
+	for (const transition of sceneObject.transitions) {
 		if (frame < transition.from) {
 			break;
 		}
 		const progress = transition.durationInFrames <= 1
 			? 1
 			: Math.min(1, (frame - transition.from) / (transition.durationInFrames - 1));
-		state = interpolateScreenObjectState(transition.initialState, transition.targetState, progress);
+		state = interpolateSceneObjectState(transition.initialState, transition.targetState, progress);
 	}
 	return state;
 }
 
-function interpolateScreenObjectState(
-	initialState: ResolvedScreenObjectState,
-	targetState: ResolvedScreenObjectState,
+function interpolateSceneObjectState(
+	initialState: ResolvedSceneObjectState,
+	targetState: ResolvedSceneObjectState,
 	progress: number,
-): ResolvedScreenObjectState {
+): ResolvedSceneObjectState {
 	return {
-		object: interpolateScreenObject(initialState.object, targetState.object, progress),
+		anchor: initialState.anchor,
+		object: interpolateSceneObject(initialState.object, targetState.object, progress),
 		style: interpolateCssStyle(initialState.style, targetState.style, progress),
 	};
 }
 
-function interpolateScreenObject(
-	initialObject: ScreenObject,
-	targetObject: ScreenObject,
+function interpolateSceneObject(
+	initialObject: SceneObject,
+	targetObject: SceneObject,
 	progress: number,
-): ScreenObject {
+): SceneObject {
 	if (initialObject.type !== targetObject.type) {
 		throw new Error("Screen object kinds cannot change during a transition.");
 	}
@@ -613,6 +619,7 @@ function compileGraphActions(
 				throw new Error(`Action ${scheduled.index} creates duplicate graph: ${action.key}`);
 			}
 			const state: GraphCompilerState = {
+				anchor: action.anchor,
 				claimDefinitions: new Map(),
 				hideScores: action.hideScores ?? false,
 				key: action.key,
@@ -638,6 +645,7 @@ function compileGraphActions(
 			graphStates.set(action.key, state);
 			animations.push({
 				addedClaimIds: [],
+				anchor: state.anchor,
 				claimScoreVisibility: resolveClaimScoreVisibility(state),
 				debateCore: state.debateCore,
 				durationInFrames: Math.max(1, scheduled.durationInFrames),
@@ -700,17 +708,17 @@ function isScheduledGraphAction(
 	return action.action.type.startsWith("graph.");
 }
 
-function isScheduledScreenObjectAction(
+function isScheduledSceneObjectAction(
 	action: ScheduledEpisodeAction,
-): action is ScheduledEpisodeAction & { action: ScreenObjectAction } {
-	return isScreenObjectAddAction(action.action) || isScreenObjectUpdateAction(action.action);
+): action is ScheduledEpisodeAction & { action: SceneObjectAction } {
+	return isSceneObjectAddAction(action.action) || isSceneObjectUpdateAction(action.action);
 }
 
-function isScreenObjectAddAction(action: EpisodeAction): action is ScreenObjectAddAction {
+function isSceneObjectAddAction(action: EpisodeAction): action is SceneObjectAddAction {
 	return action.type === "media.add" || action.type === "balance.add";
 }
 
-function isScreenObjectUpdateAction(action: EpisodeAction): action is ScreenObjectUpdateAction {
+function isSceneObjectUpdateAction(action: EpisodeAction): action is SceneObjectUpdateAction {
 	return action.type === "media.update" || action.type === "balance.update";
 }
 
@@ -772,6 +780,7 @@ function compileGraphAddBatch(
 	state.lastAnimationAction = first;
 	animations.push({
 		addedClaimIds,
+		anchor: state.anchor,
 		claimScoreVisibility: resolveClaimScoreVisibility(state),
 		debateCore: state.debateCore,
 		durationInFrames: Math.max(1, first.durationInFrames),
@@ -812,6 +821,7 @@ function createStaticGraphAnimation(
 	}
 	return {
 		addedClaimIds: [],
+		anchor: state.anchor,
 		claimScoreVisibility: resolveClaimScoreVisibility(state),
 		debateCore: state.debateCore,
 		durationInFrames: 1,

@@ -17,12 +17,6 @@ import {
 import type { EpisodeAction } from "./episodeScriptSpec";
 
 const CAMERA_EASING = Easing.bezier(0.42, 0, 0.2, 1);
-const FALLBACK_BOUNDS: CameraBounds = {
-	height: 1080,
-	minX: 0,
-	minY: 0,
-	width: 1920,
-};
 
 type CameraAction = Extract<EpisodeAction, { type: `camera.${string}` }>;
 type ScheduledCameraAction = ScheduledEpisodeAction & { action: CameraAction };
@@ -33,6 +27,24 @@ type CameraTransition = {
 	from: number
 	type: CameraAction["type"]
 };
+
+export type CanvasCameraTransform = {
+	scale: number
+	translateX: number
+	translateY: number
+};
+
+export function resolveCanvasCameraTransform(
+	bounds: CameraBounds,
+	composition: CompiledEpisodeScript["composition"],
+): CanvasCameraTransform {
+	const scale = composition.width / bounds.width;
+	return {
+		scale,
+		translateX: -bounds.minX * scale,
+		translateY: -bounds.minY * scale,
+	};
+}
 
 export function compileSceneCamera(episode: CompiledEpisodeScript): ClaimCameraScript | undefined {
 	const cameraActions = episode.actions
@@ -96,7 +108,10 @@ function resolveInitialBounds(
 	transitions: readonly CameraTransition[],
 ): CameraBounds {
 	const firstAnimation = episode.graphAnimations[0];
-	return firstAnimation?.plan.bounds ?? transitions[0]?.bounds[0] ?? FALLBACK_BOUNDS;
+	return fitBoundsToAspectRatio(
+		firstAnimation?.plan.bounds ?? transitions[0]?.bounds[0] ?? fallbackBounds(episode),
+		compositionAspectRatio(episode),
+	);
 }
 
 function resolveTargetBounds(
@@ -112,11 +127,15 @@ function resolveTargetBounds(
 		episode.composition.fps,
 	);
 	if ("component" in target) {
-		return requireGraphAnimation(episode, target.component, scheduled, targetFrame).plan.bounds;
+		return canvasGraphPlanBounds(requireGraphAnimation(episode, target.component, scheduled, targetFrame), episode, scheduled);
 	}
 	if ("scene" in target) {
 		const visibleAnimations = resolveVisibleGraphAnimations(episode, scheduled, targetFrame);
-		return combineBounds(visibleAnimations.map((animation) => animation.plan.bounds));
+		const canvasAnimations = visibleAnimations.filter((animation) => animation.anchor === "canvas");
+		if (canvasAnimations.length === 0) {
+			throw new Error(`Camera action ${scheduled.index} cannot frame a scene without canvas-anchored graphs.`);
+		}
+		return combineBounds(canvasAnimations.map((animation) => animation.plan.bounds), compositionAspectRatio(episode));
 	}
 
 	return resolveObjectsBounds(episode, scheduled, target.objects, targetFrame);
@@ -138,8 +157,10 @@ function resolveObjectsBounds(
 			};
 	});
 	const graphKey = parsedReferences[0]?.graphKey;
+	const aspectRatio = compositionAspectRatio(episode);
 	if (graphKey && parsedReferences.every((reference) => reference?.graphKey === graphKey)) {
 		const animation = requireGraphAnimation(episode, graphKey, scheduled, targetFrame);
+		requireCanvasGraphAnimation(animation, scheduled);
 		const frame = resolveAnimationFrame(animation.plan, "wave", 1);
 		const domainClaimIds = new Set(parsedReferences.map((reference) =>
 			`${graphKey}:claim:${reference!.claimKey}` as ClaimId
@@ -148,13 +169,13 @@ function resolveObjectsBounds(
 			.filter((claim) => domainClaimIds.has(claim.claimId))
 			.map((claim) => claim.id);
 		if (occurrenceIds.length === domainClaimIds.size) {
-			return resolveClaimsBounds({ claimOccurrenceIds: occurrenceIds, frame, plan: animation.plan });
+			return resolveClaimsBounds({ aspectRatio, claimOccurrenceIds: occurrenceIds, frame, plan: animation.plan });
 		}
 	}
 
 	return combineBounds(references.map((reference) =>
 		resolveObjectBounds(episode, scheduled, reference, targetFrame)
-	));
+	), aspectRatio);
 }
 
 function resolveObjectBounds(
@@ -165,11 +186,16 @@ function resolveObjectBounds(
 ): CameraBounds {
 	const separatorIndex = reference.indexOf(".");
 	if (separatorIndex < 0) {
-		return requireGraphAnimation(episode, reference, scheduled, targetFrame).plan.bounds;
+		return canvasGraphPlanBounds(
+			requireGraphAnimation(episode, reference, scheduled, targetFrame),
+			episode,
+			scheduled,
+		);
 	}
 	const graphKey = reference.slice(0, separatorIndex);
 	const claimKey = reference.slice(separatorIndex + 1);
 	const animation = requireGraphAnimation(episode, graphKey, scheduled, targetFrame);
+	requireCanvasGraphAnimation(animation, scheduled);
 	const frame = resolveAnimationFrame(animation.plan, "wave", 1);
 	const domainClaimId = `${graphKey}:claim:${claimKey}` as ClaimId;
 	const occurrenceIds = Object.values(frame.claims)
@@ -177,13 +203,18 @@ function resolveObjectBounds(
 		.map((claim) => claim.id);
 	if (occurrenceIds.length === 0) {
 		if (animation.debateCore.claims[domainClaimId]) {
-			return animation.plan.bounds;
+			return canvasGraphPlanBounds(animation, episode, scheduled);
 		}
 		throw new Error(
 			`Camera action ${scheduled.index} references missing object: ${reference}`,
 		);
 	}
-	return resolveClaimsBounds({ claimOccurrenceIds: occurrenceIds, frame, plan: animation.plan });
+	return resolveClaimsBounds({
+		aspectRatio: compositionAspectRatio(episode),
+		claimOccurrenceIds: occurrenceIds,
+		frame,
+		plan: animation.plan,
+	});
 }
 
 function resolveFollowBounds(
@@ -211,11 +242,30 @@ function resolveFollowBounds(
 			`Camera action ${scheduled.index} cannot follow claim not added by an earlier action: ${reference}`,
 		);
 	}
+	requireCanvasGraphAnimation(animation, scheduled);
 	const settledFrame = resolveAnimationFrame(animation.plan, "wave", 1);
 	if (!Object.values(settledFrame.claims).some((item) => item.claimId === claim)) {
-		return [animation.plan.bounds];
+		return [canvasGraphPlanBounds(animation, episode, scheduled)];
 	}
-	return resolveClaimRouteBounds(animation.plan, claim);
+	return resolveClaimRouteBounds(animation.plan, claim, compositionAspectRatio(episode));
+}
+
+function requireCanvasGraphAnimation(
+	animation: CompiledGraphAnimation,
+	scheduled: ScheduledCameraAction,
+): void {
+	if (animation.anchor !== "canvas") {
+		throw new Error(`Camera action ${scheduled.index} cannot target camera-anchored graph: ${animation.graph}`);
+	}
+}
+
+function canvasGraphPlanBounds(
+	animation: CompiledGraphAnimation,
+	episode: CompiledEpisodeScript,
+	scheduled: ScheduledCameraAction,
+): CameraBounds {
+	requireCanvasGraphAnimation(animation, scheduled);
+	return fitBoundsToAspectRatio(animation.plan.bounds, compositionAspectRatio(episode));
 }
 
 function requireGraphAnimation(
@@ -256,9 +306,9 @@ function signedSecondsToFrames(seconds: number, fps: number): number {
 	return Math.sign(seconds) * Math.round(Math.abs(seconds) * fps);
 }
 
-function combineBounds(bounds: readonly CameraBounds[]): CameraBounds {
+function combineBounds(bounds: readonly CameraBounds[], aspectRatio: number): CameraBounds {
 	if (bounds.length === 0) {
-		return FALLBACK_BOUNDS;
+		throw new Error("Cannot combine an empty camera target.");
 	}
 	const minX = Math.min(...bounds.map((item) => item.minX));
 	const minY = Math.min(...bounds.map((item) => item.minY));
@@ -269,7 +319,20 @@ function combineBounds(bounds: readonly CameraBounds[]): CameraBounds {
 		minX,
 		minY,
 		width: maxX - minX,
-	});
+	}, aspectRatio);
+}
+
+function fallbackBounds(episode: CompiledEpisodeScript): CameraBounds {
+	return {
+		height: episode.composition.height,
+		minX: 0,
+		minY: 0,
+		width: episode.composition.width,
+	};
+}
+
+function compositionAspectRatio(episode: CompiledEpisodeScript): number {
+	return episode.composition.width / episode.composition.height;
 }
 
 function interpolateRouteBounds(

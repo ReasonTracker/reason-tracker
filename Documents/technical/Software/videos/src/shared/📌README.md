@@ -10,7 +10,8 @@ This folder owns Remotion-only helpers that are reused by episode compositions.
 - generic Remotion playback for planner-backed declarative episodes
 - fade wrappers that expose visible Remotion `Sequence` ranges
 - graph animation orchestration through `GraphView`, `GraphEvents`, and `CameraMove`
-- explicit scene-camera actions that frame components or stable scene-object keys
+- transparent canvas and fixed camera layers for declarative episode visuals
+- explicit scene-camera actions that frame canvas-anchored graphs or stable claim keys
 - planner-frame playback through the shared `DebateGraph` React/SVG renderer
 - episode frame, template, and brand sequence wrappers
 

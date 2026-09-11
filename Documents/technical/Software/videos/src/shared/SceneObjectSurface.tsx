@@ -1,7 +1,7 @@
 import { BalanceScale } from "@reasontracker/components";
 import type { CSSProperties } from "react";
 
-import type { CompiledScreenObject, ResolvedScreenObjectState } from "./compileEpisodeScript";
+import type { CompiledSceneObject, ResolvedSceneObjectState } from "./compileEpisodeScript";
 import { EpisodeMedia } from "./EpisodeMedia";
 
 const BALANCE_VIEW_STYLE = {
@@ -9,22 +9,22 @@ const BALANCE_VIEW_STYLE = {
     width: 1920,
 } as const;
 
-export type ScreenObjectSurfaceProps = {
+export type SceneObjectSurfaceProps = {
     mediaSources: Readonly<Record<string, string>>
-    screenObject: ResolvedScreenObjectState & Pick<CompiledScreenObject, "key">
+    sceneObject: ResolvedSceneObjectState & Pick<CompiledSceneObject, "key">
 };
 
-export function ScreenObjectSurface({ mediaSources, screenObject }: ScreenObjectSurfaceProps) {
-    const { object } = screenObject;
+export function SceneObjectSurface({ mediaSources, sceneObject }: SceneObjectSurfaceProps) {
+    const { object } = sceneObject;
 
     if (object.type === "media") {
-        return <EpisodeMedia source={requireMediaSource(mediaSources, object.source)} style={screenObject.style} />;
+        return <EpisodeMedia source={requireMediaSource(mediaSources, object.source)} style={sceneObject.style} />;
     }
 
     return (
         <div
-            data-object-key={screenObject.key}
-            style={{ pointerEvents: "none", position: "absolute", ...screenObject.style } as CSSProperties}
+            data-object-key={sceneObject.key}
+            style={{ pointerEvents: "none", position: "absolute", ...sceneObject.style } as CSSProperties}
         >
             <div style={BALANCE_VIEW_STYLE}>
                 <BalanceScale scorePercent={object.scorePercent} />

@@ -7,8 +7,6 @@ import {
 import type { PresentationClaimOccurrenceId } from "@planner/buildPresentationGraphFromDebateCore.ts";
 
 // AGENT NOTE: Keep camera framing and motion tuning values together.
-/** Matches the 1920 by 1080 episode composition. */
-const CAMERA_ASPECT_RATIO = 16 / 9;
 /** Adds breathing room around the claims selected for the camera. */
 const CAMERA_PADDING_RATIO = 0.01;
 /** Prevents camera padding from disappearing around deeply scaled claims. */
@@ -23,6 +21,7 @@ export type ClaimCameraScript = {
 export function resolveClaimRouteBounds(
 	plan: DebateAnimationPlan,
 	addedClaimId: ClaimId,
+	aspectRatio: number,
 ): readonly CameraBounds[] {
 	const settledFrame = resolveAnimationFrame(plan, "wave", 1);
 	const addedOccurrenceId = resolveAddedClaimOccurrenceId({
@@ -33,6 +32,7 @@ export function resolveClaimRouteBounds(
 	const route = resolveTargetRoute(settledFrame, addedOccurrenceId);
 
 	return route.map((occurrenceId, index) => resolveClaimsBounds({
+		aspectRatio,
 		claimOccurrenceIds: route[index + 1]
 			? [occurrenceId, route[index + 1]!]
 			: [occurrenceId],
@@ -81,6 +81,7 @@ function resolveTargetRoute(
 }
 
 export function resolveClaimsBounds(args: {
+	aspectRatio: number
 	claimOccurrenceIds: readonly PresentationClaimOccurrenceId[]
 	frame: DebateFrame
 	plan: DebateAnimationPlan
@@ -114,18 +115,18 @@ export function resolveClaimsBounds(args: {
 		minX: minX - padding,
 		minY: minY - padding,
 		width: (maxX - minX) + (padding * 2),
-	});
+	}, args.aspectRatio);
 }
 
-export function fitBoundsToAspectRatio(bounds: CameraBounds): CameraBounds {
+export function fitBoundsToAspectRatio(bounds: CameraBounds, aspectRatio: number): CameraBounds {
 	const centerX = bounds.minX + (bounds.width / 2);
 	const centerY = bounds.minY + (bounds.height / 2);
 	const currentAspectRatio = bounds.width / bounds.height;
-	const width = currentAspectRatio < CAMERA_ASPECT_RATIO
-		? bounds.height * CAMERA_ASPECT_RATIO
+	const width = currentAspectRatio < aspectRatio
+		? bounds.height * aspectRatio
 		: bounds.width;
-	const height = currentAspectRatio > CAMERA_ASPECT_RATIO
-		? bounds.width / CAMERA_ASPECT_RATIO
+	const height = currentAspectRatio > aspectRatio
+		? bounds.width / aspectRatio
 		: bounds.height;
 
 	return {

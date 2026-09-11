@@ -1,5 +1,5 @@
 {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "settings": {
         "composition": {
             "id": "Episode0006",
@@ -29,9 +29,9 @@
             "offsetSeconds": 2,
             "source": "media/sunshine-protection-act.png",
             "style": {
-                "left": "800px",
-                "top": "300px",
-                "height": "500px",
+                "left": "200px",
+                "top": "-80px",
+                "height": "150px",
                 "zIndex": -1
             },
             "blocking": false
@@ -41,7 +41,7 @@
             "key": "sunshineProtectionAct",
             "offsetSeconds": 3,
             "style": {
-                "top": "100px"
+                "top": "-150px"
             },
             "durationSeconds": 0.75,
             "blocking": false
@@ -49,9 +49,9 @@
         {
             "type": "media.update",
             "key": "sunshineProtectionAct",
-            "offsetSeconds": 20,
+            "offsetSeconds": 6,
             "style": {
-                "top": "300px",
+                "top": "-80px",
                 "opacity": "0"
             },
             "durationSeconds": 0.75,

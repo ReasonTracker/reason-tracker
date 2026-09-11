@@ -8,7 +8,7 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "settings": {
     "composition": {
       "id": "Episode0006",
@@ -26,7 +26,7 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
 }
 ```
 
-- `schemaVersion` must be `2`.
+- `schemaVersion` must be `3`.
 - `settings.composition` is required and defines the Remotion composition.
 - `script` is a required ordered list of actions. Actions do not have IDs.
 - A custom `label` is optional. It names the action in Remotion Studio and diagnostics only.
@@ -93,13 +93,39 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
 
 The camera move starts two seconds before the current cursor and resolves the target at the cursor. Because it is nonblocking, the following claim addition starts at the cursor without delay.
 
+## Anchors
+
+Every rendered object is anchored either to the movable `canvas` or the fixed `camera` viewport. The canvas is transparent and has no authored size or background color. It accepts world-positioned children beyond the composition bounds; the composition viewport clips the final view.
+
+| Object                    | Default anchor | Coordinates               |
+| ------------------------- | -------------- | ------------------------- |
+| `graph.create`            | `canvas`       | Planner world coordinates |
+| `media.add`               | `canvas`       | Canvas CSS pixels         |
+| `balance.add`             | `canvas`       | Canvas CSS pixels         |
+| `captions.show`           | `camera`       | Composition CSS pixels    |
+| `graph.create.scoreboard` | `camera`       | Composition CSS pixels    |
+
+Set `anchor` to `"canvas"` or `"camera"` only when the default is not suitable. Canvas-anchored content pans and zooms with camera actions. Camera-anchored content stays fixed to the composition while the camera moves.
+
+```json
+{
+  "type": "media.add",
+  "key": "cornerLogo",
+  "anchor": "camera",
+  "source": "media/logo.png",
+  "style": { "right": "48px", "top": "48px", "width": "180px" }
+}
+```
+
+`media.update` and `balance.update` retain the anchor selected when their object was added; updates cannot move an object between anchors. A canvas-anchored media item can provide a background when its CSS stacking order places it below the graph.
+
 ## Positioned Visuals
 
 Media and balances are retained visuals. Add a visual once; it stays in the scene until the episode ends or an update makes it invisible or moves it out of view. Use the same key in a later update to change only the values that differ.
 
 Each visual action accepts an optional `style` object containing direct CSS property values. CSS property names and values pass through without property-specific validation; every value must be a JSON string or finite number. Visual elements default to absolute positioning, so use normal CSS such as `left`, `top`, `bottom`, `width`, `height`, `transformOrigin`, `scale`, and `opacity` to place and transform them. Use `rotation` to define an object's orientation; the renderer passes it to the browser's `rotate` property.
 
-The scene background uses `zIndex: -100`, and the graph uses `zIndex: 0`. Retained visuals render after the graph in action-add order. Use CSS `zIndex` to set their stacking order when retained visuals overlap; for example, `zIndex: -1` places a visual above the background and below the graph.
+Within either anchor layer, retained visuals render before the graph, whose stacking order is `zIndex: 0`. Use CSS `zIndex` to control overlaps; for example, `zIndex: -1` places canvas media behind the graph without assigning a background color to the scene.
 
 When an update has a positive `durationSeconds`, matching numeric values interpolate, including numbers and numeric CSS strings with the same unit such as `"2700px"` to `"960px"` or `"50deg"` to `"0deg"`. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
 
@@ -218,10 +244,11 @@ Create a graph before any other action references it. The main claim is always `
 
 `claims` is optional. Each supplied claim must include `key`, `text`, `target`, and `side`. Set `hideScores` to `true` on `graph.create` to hide scores for every claim in that graph, leaving the full claim card for text at twice its normal size. Otherwise, main-claim scores are hidden by default; set the main claim's `showScore` to `true` to show one. Other claim scores are shown by default; set `showScore` to `false` on any claim to hide its score.
 
-Set `scoreboard` on `graph.create` to show a live main-claim balance for that graph. The display shares the same planner frame as the graph, so it updates during each graph animation. It converts the signed raw claim balance from `-1` through `1` into complementary orange/con and purple/pro shares: `-1` renders `01 / 99`, `0` renders `50 / 50`, and `1` renders `99 / 01`. This does not change the graph claim-card display. `x` and `y` are the top-left placement in Remotion composition pixels; `height`, `thermometerWidth`, and `numberWidth` are pixels.
+Set `scoreboard` on `graph.create` to show a live main-claim balance for that graph. The display shares the same planner frame as the graph, so it updates during each graph animation. It converts the signed raw claim balance from `-1` through `1` into complementary orange/con and purple/pro shares: `-1` renders `01 / 99`, `0` renders `50 / 50`, and `1` renders `99 / 01`. This does not change the graph claim-card display. A scoreboard is camera-anchored by default, so `x` and `y` are top-left composition pixels. Set its `anchor` to `"canvas"` when it should use canvas CSS pixels and move with the graph; `height`, `thermometerWidth`, and `numberWidth` are pixels.
 
 ```json
 "scoreboard": {
+  "anchor": "camera",
   "x": 48,
   "y": 48,
   "height": 400,
@@ -359,13 +386,13 @@ Camera targets are one of:
 { "scene": true }
 ```
 
-Object references within one graph are fitted as one view. A known but currently disconnected graph claim falls back to framing the containing graph. Unknown graph or object references are errors.
+Camera targets may reference only canvas-anchored graphs and their claims. `target.scene` combines only canvas-anchored graphs. A known but currently disconnected graph claim falls back to framing the containing graph. Unknown graph or object references are errors.
 
 ## Closed Captions
 
 ### `captions.show`
 
-Display spoken text for the specified duration. Captions are fixed to the composition and remain in place while the scene camera moves. Use a nonblocking action with a negative offset to align a caption with a preceding graph animation without advancing the timeline.
+Display spoken text for the specified duration. Captions are camera-anchored by default, so they remain in place while the scene camera moves. Set `anchor` to `"canvas"` only when caption text should move with the world. Use a nonblocking action with a negative offset to align a caption with a preceding graph animation without advancing the timeline.
 
 ```json
 {
