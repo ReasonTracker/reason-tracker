@@ -62,31 +62,33 @@ $$
 
 The episode duration is the latest action end, including nonblocking actions. An action may not start before frame zero after conversion to frames.
 
-A typical overlapping camera move looks like this:
+Camera targets accept `offsetSeconds`, which defaults to `0` and shifts only the timeline position used to resolve the target's geometry. It does not affect the camera action's scheduled start time.
+
+Use it with the action's `offsetSeconds` to preframe a claim before it becomes visible:
 
 ```json
 {
-    "type": "graph.addClaim",
-    "graph": "argumentGraph",
-    "key": "cost",
-    "text": "The legislation would have a substantial cost.",
-     "textReveal": true,
-    "target": "main",
-    "side": "con-main",
-    "durationSeconds": 4
-},
-{
     "type": "camera.move",
     "target": {
+        "offsetSeconds": 2,
         "objects": ["argumentGraph.cost", "argumentGraph.main"]
     },
-    "offsetSeconds": -4,
-    "durationSeconds": 1.2,
+    "offsetSeconds": -2,
+    "durationSeconds": 2,
     "blocking": false
+},
+{
+  "type": "graph.addClaim",
+  "graph": "argumentGraph",
+  "key": "cost",
+  "text": "The legislation would have a substantial cost.",
+  "target": "main",
+  "side": "con-main",
+  "durationSeconds": 4
 }
 ```
 
-The camera move starts at the same cursor position as the preceding claim addition and does not delay the next action.
+The camera move starts two seconds before the current cursor and resolves the target at the cursor. Because it is nonblocking, the following claim addition starts at the cursor without delay.
 
 ## Wait Action
 
@@ -191,6 +193,8 @@ A string `target` creates a confidence relationship to that claim. `{ "relevance
 ### `graph.addClaim`
 
 Animate one new confidence-linked claim into an existing graph.
+
+The visual transition begins on the action's first frame. Its duration is divided among the `voila`, `sprout`, `firstFill`, and `wave` phases; no static opening interval is reserved.
 
 ```json
 {

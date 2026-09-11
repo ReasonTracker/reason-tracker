@@ -36,12 +36,11 @@ const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> 
 };
 
 const GRAPH_PHASES = [
-	["opening", 0.3],
-	["voila", 0.175],
-	["sprout", 0.2],
-	["firstFill", 0.1625],
-	["wave", 0.1625],
-] as const;
+	["voila", 1 / 4],
+	["sprout", 2 / 7],
+	["firstFill", 13 / 56],
+	["wave", 13 / 56],
+] as const satisfies readonly (readonly [AnimationStepId, number])[];
 
 type ClaimTarget = string | { relevanceOf: string };
 type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
@@ -184,10 +183,8 @@ export function resolveGraphPlayback(
 		if (progress < phaseEnd || step === "wave") {
 			return {
 				animation,
-				stepId: step === "opening" ? undefined : step,
-				stepProgress: step === "opening"
-					? 0
-					: Math.min(1, Math.max(0, (progress - phaseStart) / weight)),
+				stepId: step,
+				stepProgress: Math.min(1, Math.max(0, (progress - phaseStart) / weight)),
 			};
 		}
 		phaseStart = phaseEnd;

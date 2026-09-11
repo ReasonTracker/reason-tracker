@@ -94,13 +94,20 @@ const graphPatchActionSchema = z.object({
 	type: z.literal("graph.patch"),
 }).strict();
 
+const cameraTargetTimingShape = {
+	offsetSeconds: secondsSchema.default(0),
+};
+
 const cameraObjectsTargetSchema = z.object({
+	...cameraTargetTimingShape,
 	objects: z.array(nonEmptyStringSchema).min(1),
 }).strict();
 const cameraComponentTargetSchema = z.object({
 	component: authorKeySchema,
+	...cameraTargetTimingShape,
 }).strict();
 const cameraSceneTargetSchema = z.object({
+	...cameraTargetTimingShape,
 	scene: z.literal(true),
 }).strict();
 const cameraTargetSchema = z.union([

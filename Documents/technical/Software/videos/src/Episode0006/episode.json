@@ -34,7 +34,7 @@
         {
             "type": "graph.create",
             "key": "argumentGraph",
-			"hideScores": true,
+            "hideScores": true,
             "scoreboard": {
                 "x": 5,
                 "y": 5,
@@ -53,12 +53,13 @@
         {
             "type": "camera.move",
             "target": {
+                "offsetSeconds": 2,
                 "objects": [
                     "argumentGraph.disruptsleep",
                     "argumentGraph.main"
                 ]
             },
-            "blocking": false
+            "blocking": true
         },
         {
             "type": "graph.addClaim",
