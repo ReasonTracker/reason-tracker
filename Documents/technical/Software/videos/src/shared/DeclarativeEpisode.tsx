@@ -1,15 +1,15 @@
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
-import { BalanceScale } from "@reasontracker/components";
 
 import { DebateAnimationSurface } from "./DebateAnimationSurface";
 import {
 	compileEpisodeScript,
 	resolveGraphPlayback,
+	resolveScreenObjectStates,
 	type CompiledEpisodeScript,
 } from "./compileEpisodeScript";
 import type { ClaimCameraScript } from "./graphCameraBounds";
-import { EpisodeMedia } from "./EpisodeMedia";
 import { compileSceneCamera } from "./sceneCamera";
+import { ScreenObjectSurface } from "./ScreenObjectSurface";
 
 const CAPTION_CONTAINER_STYLE = {
 	alignItems: "center",
@@ -46,6 +46,13 @@ const CLOSED_CAPTION_TEXT_STYLE = {
 
 const SCENE_BACKGROUND_STYLE = {
 	background: "#080b10",
+	zIndex: -100,
+} as const;
+
+const SCENE_GRAPH_STYLE = {
+	inset: 0,
+	position: "absolute",
+	zIndex: 0,
 } as const;
 
 export type DeclarativeEpisodeProps = {
@@ -57,31 +64,15 @@ export type DeclarativeEpisodeProps = {
 export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: DeclarativeEpisodeProps) {
 	const frame = useCurrentFrame();
 	const playback = resolveGraphPlayback(episode, frame);
-	const renderMedia = (layer: "back" | "front") => episode.actions.map((action) => {
-		if (action.action.type !== "media.show" || (action.action.layer ?? "front") !== layer) {
-			return null;
-		}
-
-		const source = mediaSources[action.action.source];
-		if (!source) {
-			throw new Error(`Unable to resolve episode media source: ${action.action.source}`);
-		}
-
-		return (
-			<Sequence
-				durationInFrames={action.durationInFrames}
-				from={action.from}
-				key={action.index}
-				layout="none"
-				name={action.label}
-			>
-				<EpisodeMedia
-					durationInFrames={action.durationInFrames}
-					source={source}
-				/>
-			</Sequence>
-		);
-	});
+	const screenObjects = resolveScreenObjectStates(episode, frame);
+	const renderScreenObjects = () => screenObjects
+		.map((screenObject) => (
+			<ScreenObjectSurface
+				key={screenObject.key}
+				mediaSources={mediaSources}
+				screenObject={screenObject}
+			/>
+		));
 
 	return (
 		<>
@@ -97,53 +88,25 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 				</Sequence>
 			))}
 			<AbsoluteFill style={SCENE_BACKGROUND_STYLE} />
-			{renderMedia("back")}
 			{playback
 				? (
-					<DebateAnimationSurface
-						cameraBounds={camera?.resolveBounds(frame)}
-						claimScoreVisibility={playback.animation.claimScoreVisibility}
-						claimTextReveals={episode.claimTextReveals}
-						debateCore={playback.animation.debateCore}
-						graphId={playback.animation.graph}
-						hideScores={playback.animation.hideScores}
-						plan={playback.animation.plan}
-						scoreboard={playback.animation.scoreboard}
-						stepId={playback.stepId}
-						stepProgress={playback.stepProgress}
-					/>
+					<div style={SCENE_GRAPH_STYLE}>
+						<DebateAnimationSurface
+							cameraBounds={camera?.resolveBounds(frame)}
+							claimScoreVisibility={playback.animation.claimScoreVisibility}
+							claimTextReveals={episode.claimTextReveals}
+							debateCore={playback.animation.debateCore}
+							graphId={playback.animation.graph}
+							hideScores={playback.animation.hideScores}
+							plan={playback.animation.plan}
+							scoreboard={playback.animation.scoreboard}
+							stepId={playback.stepId}
+							stepProgress={playback.stepProgress}
+						/>
+					</div>
 				)
 				: null}
-			{episode.actions.map((action) => {
-				if (action.action.type !== "balance.show") {
-					return null;
-				}
-				const actionProgress = action.durationInFrames <= 1
-					? 1
-					: Math.min(1, Math.max(0, (frame - action.from) / (action.durationInFrames - 1)));
-				const startScorePercent = action.action.startScorePercent ?? 0;
-				const scorePercent = startScorePercent
-					+ (action.action.scorePercent - startScorePercent) * actionProgress;
-
-				return (
-					<Sequence
-						durationInFrames={action.durationInFrames}
-						from={action.from}
-						key={action.index}
-						layout="none"
-						name={action.label}
-					>
-						<AbsoluteFill>
-							<BalanceScale
-								scale={action.action.scale}
-								scorePercent={scorePercent}
-								x={action.action.x}
-								y={action.action.y}
-							/>
-						</AbsoluteFill>
-					</Sequence>
-				);
-			})}
+			{renderScreenObjects()}
 			{episode.actions.map((action) => {
 				if (action.action.type !== "captions.show") {
 					return null;
@@ -157,17 +120,12 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 						layout="none"
 						name={action.label}
 					>
-						<div
-							style={action.action.position === "center"
-								? CENTERED_CAPTION_STYLE
-								: CLOSED_CAPTION_STYLE}
-						>
+						<div style={action.action.position === "center" ? CENTERED_CAPTION_STYLE : CLOSED_CAPTION_STYLE}>
 							<span style={CLOSED_CAPTION_TEXT_STYLE}>{action.action.text}</span>
 						</div>
 					</Sequence>
 				);
 			})}
-			{renderMedia("front")}
 		</>
 	);
 }

@@ -19,15 +19,20 @@ import {
 	type EpisodeScriptSpec,
 	type GraphClaimState,
 	type ScoreboardLayout,
+	type CssStyle,
+	type ObjectAdd,
+	type ObjectUpdate,
 } from "./episodeScriptSpec";
 
 const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> = {
-	"balance.show": 0,
 	"camera.cut": 0,
 	"camera.follow": 0.65,
 	"camera.move": 1.2,
+	"media.add": 0,
+	"media.update": 0,
+	"balance.add": 0,
+	"balance.update": 0,
 	"captions.show": 0,
-	"media.show": 0,
 	"graph.addClaim": 4,
 	"graph.create": 0,
 	"graph.patch": 0,
@@ -42,8 +47,38 @@ const GRAPH_PHASES = [
 	["wave", 13 / 56],
 ] as const satisfies readonly (readonly [AnimationStepId, number])[];
 
+const SUPPORTED_ACTION_TYPES = [
+	"balance.add",
+	"balance.update",
+	"camera.cut",
+	"camera.follow",
+	"camera.move",
+	"captions.show",
+	"graph.addClaim",
+	"graph.create",
+	"graph.patch",
+	"graph.set",
+	"media.add",
+	"media.update",
+	"wait",
+] as const;
+
+const DEFAULT_SCREEN_OBJECT_STYLE: CssStyle = {
+	opacity: 1,
+};
+
 type ClaimTarget = string | { relevanceOf: string };
 type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
+type ScreenObjectAddAction = Extract<EpisodeAction, {
+	type: "media.add" | "balance.add"
+}> & ObjectAdd;
+type ScreenObjectUpdateAction = Extract<EpisodeAction, {
+	type: "media.update" | "balance.update"
+}> & ObjectUpdate;
+type ScreenObjectAction = ScreenObjectAddAction | ScreenObjectUpdateAction;
+type ScreenObject =
+	| { source: string; type: "media" }
+	| { scorePercent: number; type: "balance" };
 
 type ClaimDefinition = {
 	key: string
@@ -92,6 +127,25 @@ export type ClaimTextReveal = {
 	from: number
 };
 
+export type ResolvedScreenObjectState = {
+	object: ScreenObject
+	style: CssStyle
+};
+
+export type CompiledScreenObjectTransition = {
+	durationInFrames: number
+	from: number
+	initialState: ResolvedScreenObjectState
+	targetState: ResolvedScreenObjectState
+};
+
+export type CompiledScreenObject = {
+	from: number
+	initialState: ResolvedScreenObjectState
+	key: string
+	transitions: readonly CompiledScreenObjectTransition[]
+};
+
 export type GraphPlayback = {
 	animation: CompiledGraphAnimation
 	stepId?: AnimationStepId
@@ -104,14 +158,20 @@ export type CompiledEpisodeScript = {
 	durationInFrames: number
 	graphAnimations: readonly CompiledGraphAnimation[]
 	claimTextReveals: Readonly<Record<ClaimId, ClaimTextReveal>>
+	screenObjects: readonly CompiledScreenObject[]
 	spec: EpisodeScriptSpec
 };
 
 export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
-	const spec = episodeScriptSpecSchema.parse(input);
+	const result = episodeScriptSpecSchema.safeParse(input);
+	if (!result.success) {
+		throw new Error(formatEpisodeScriptValidationError(input, result.error.issues));
+	}
+	const spec = result.data;
 	const actions = scheduleActions(spec);
 	const graphAnimations = compileGraphActions(spec, actions);
 	const claimTextReveals = compileClaimTextReveals(actions);
+	const screenObjects = compileScreenObjects(actions);
 
 	return {
 		actions,
@@ -119,8 +179,264 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 		composition: spec.settings.composition,
 		durationInFrames: Math.max(1, ...actions.map((action) => action.endFrame)),
 		graphAnimations,
+		screenObjects,
 		spec,
 	};
+}
+
+function formatEpisodeScriptValidationError(
+	input: unknown,
+	issues: readonly { message: string; path: readonly PropertyKey[] }[],
+): string {
+	return ["Invalid episode script:", ...issues.map((issue) => formatEpisodeScriptIssue(input, issue))]
+		.join("\n");
+}
+
+function formatEpisodeScriptIssue(
+	input: unknown,
+	issue: { message: string; path: readonly PropertyKey[] },
+): string {
+	const [root, actionIndex, field] = issue.path;
+	if (root === "script" && typeof actionIndex === "number" && field === "type") {
+		const actionType = getEpisodeActionType(input, actionIndex);
+		return `- script[${actionIndex}].type is ${JSON.stringify(actionType)}. Expected one of: ${SUPPORTED_ACTION_TYPES.join(", ")}.`;
+	}
+	const path = issue.path.length > 0 ? issue.path.join(".") : "root";
+	return `- ${path}: ${issue.message}`;
+}
+
+function getEpisodeActionType(input: unknown, actionIndex: number): unknown {
+	if (!input || typeof input !== "object") {
+		return undefined;
+	}
+	const script = (input as { script?: unknown }).script;
+	if (!Array.isArray(script)) {
+		return undefined;
+	}
+	const action = script[actionIndex];
+	return action && typeof action === "object" ? (action as { type?: unknown }).type : undefined;
+}
+
+export function resolveScreenObjectStates(
+	episode: CompiledEpisodeScript,
+	frame: number,
+): readonly (ResolvedScreenObjectState & Pick<CompiledScreenObject, "key">)[] {
+	return episode.screenObjects
+		.filter((screenObject) => screenObject.from <= frame)
+		.map((screenObject) => ({
+			...resolveScreenObjectState(screenObject, frame),
+			key: screenObject.key,
+		}));
+}
+
+function compileScreenObjects(
+	actions: readonly ScheduledEpisodeAction[],
+): readonly CompiledScreenObject[] {
+	type ScreenObjectCompilerState = {
+		compiled: {
+			from: number
+			initialState: ResolvedScreenObjectState
+			key: string
+			transitions: CompiledScreenObjectTransition[]
+		}
+		lastTransitionEndFrame: number
+		state: ResolvedScreenObjectState
+	};
+
+	const states = new Map<string, ScreenObjectCompilerState>();
+	const objectActions = actions
+		.filter(isScheduledScreenObjectAction)
+		.sort((left, right) => left.from - right.from || left.index - right.index);
+
+	for (const scheduled of objectActions) {
+		const action = scheduled.action;
+		if (isScreenObjectAddAction(action)) {
+			if (states.has(action.key)) {
+				throw new Error(`Action ${scheduled.index} creates duplicate object key: ${action.key}`);
+			}
+			const initialState = createScreenObjectState(action);
+			states.set(action.key, {
+				compiled: {
+					from: scheduled.from,
+					initialState,
+					key: action.key,
+					transitions: [],
+				},
+				lastTransitionEndFrame: scheduled.from,
+				state: initialState,
+			});
+			continue;
+		}
+
+		const state = states.get(action.key);
+		if (!state) {
+			throw new Error(`Action ${scheduled.index} patches unknown object key: ${action.key}`);
+		}
+		if (scheduled.from < state.lastTransitionEndFrame) {
+			throw new Error(
+				`Object ${action.key}: action ${scheduled.index} starts before its prior transition ends. Object patches cannot overlap.`,
+			);
+		}
+		const targetState = mergeScreenObjectState(state.state, action, scheduled.index);
+		state.compiled.transitions.push({
+			durationInFrames: scheduled.durationInFrames,
+			from: scheduled.from,
+			initialState: state.state,
+			targetState,
+		});
+		state.lastTransitionEndFrame = scheduled.endFrame;
+		state.state = targetState;
+	}
+
+	return [...states.values()].map((state) => state.compiled);
+}
+
+function createScreenObjectState(action: ScreenObjectAddAction): ResolvedScreenObjectState {
+	const style = { ...DEFAULT_SCREEN_OBJECT_STYLE, ...action.style };
+	switch (action.type) {
+		case "media.add":
+			return { object: { source: action.source, type: "media" }, style };
+		case "balance.add":
+			return { object: { scorePercent: action.scorePercent, type: "balance" }, style };
+	}
+}
+
+function mergeScreenObjectState(
+	state: ResolvedScreenObjectState,
+	action: ScreenObjectUpdateAction,
+	actionIndex: number,
+): ResolvedScreenObjectState {
+	return {
+		object: updateScreenObject(state.object, action, actionIndex),
+		style: { ...state.style, ...action.style },
+	};
+}
+
+function updateScreenObject(
+	object: ScreenObject,
+	action: ScreenObjectUpdateAction,
+	actionIndex: number,
+): ScreenObject {
+	switch (action.type) {
+		case "media.update":
+			if (object.type !== "media") {
+				throwScreenObjectKindMismatch(actionIndex, object, action);
+			}
+			return { ...object, source: action.source ?? object.source };
+		case "balance.update":
+			if (object.type !== "balance") {
+				throwScreenObjectKindMismatch(actionIndex, object, action);
+			}
+			return { ...object, scorePercent: action.scorePercent ?? object.scorePercent };
+	}
+}
+
+function throwScreenObjectKindMismatch(
+	actionIndex: number,
+	object: ScreenObject,
+	action: ScreenObjectUpdateAction,
+): never {
+	throw new Error(
+		`Action ${actionIndex} updates a ${object.type} object with ${action.type} changes. Object kinds cannot change.`,
+	);
+}
+
+function resolveScreenObjectState(
+	screenObject: CompiledScreenObject,
+	frame: number,
+): ResolvedScreenObjectState {
+	let state = screenObject.initialState;
+	for (const transition of screenObject.transitions) {
+		if (frame < transition.from) {
+			break;
+		}
+		const progress = transition.durationInFrames <= 1
+			? 1
+			: Math.min(1, (frame - transition.from) / (transition.durationInFrames - 1));
+		state = interpolateScreenObjectState(transition.initialState, transition.targetState, progress);
+	}
+	return state;
+}
+
+function interpolateScreenObjectState(
+	initialState: ResolvedScreenObjectState,
+	targetState: ResolvedScreenObjectState,
+	progress: number,
+): ResolvedScreenObjectState {
+	return {
+		object: interpolateScreenObject(initialState.object, targetState.object, progress),
+		style: interpolateCssStyle(initialState.style, targetState.style, progress),
+	};
+}
+
+function interpolateScreenObject(
+	initialObject: ScreenObject,
+	targetObject: ScreenObject,
+	progress: number,
+): ScreenObject {
+	if (initialObject.type !== targetObject.type) {
+		throw new Error("Screen object kinds cannot change during a transition.");
+	}
+	if (initialObject.type !== "balance" || targetObject.type !== "balance") {
+		return targetObject;
+	}
+	return {
+		...targetObject,
+		scorePercent: interpolateNumber(initialObject.scorePercent, targetObject.scorePercent, progress),
+	};
+}
+
+function interpolateNumber(from: number, to: number, progress: number): number {
+	return from + (to - from) * progress;
+}
+
+function interpolateCssStyle(
+	initialStyle: CssStyle,
+	targetStyle: CssStyle,
+	progress: number,
+): CssStyle {
+	const style: CssStyle = {};
+	for (const property of new Set([...Object.keys(initialStyle), ...Object.keys(targetStyle)])) {
+		style[property] = interpolateCssStyleValue(
+			initialStyle[property],
+			targetStyle[property],
+			progress,
+		);
+	}
+	return style;
+}
+
+function interpolateCssStyleValue(
+	initialValue: CssStyle[string] | undefined,
+	targetValue: CssStyle[string] | undefined,
+	progress: number,
+): CssStyle[string] {
+	if (initialValue === undefined || targetValue === undefined) {
+		return targetValue ?? initialValue ?? "";
+	}
+	if (typeof initialValue === "number" && typeof targetValue === "number") {
+		return interpolateNumber(initialValue, targetValue, progress);
+	}
+	const initialNumber = parseCssNumber(initialValue);
+	const targetNumber = parseCssNumber(targetValue);
+	if (!initialNumber || !targetNumber || initialNumber.unit !== targetNumber.unit) {
+		return targetValue;
+	}
+	return `${interpolateNumber(initialNumber.value, targetNumber.value, progress)}${targetNumber.unit}`;
+}
+
+function parseCssNumber(value: CssStyle[string]): { unit: string; value: number } | undefined {
+	if (typeof value === "number") {
+		return { unit: "", value };
+	}
+	const match = /^(-?(?:\d+\.?\d*|\.\d+))(.*)$/.exec(value);
+	if (!match) {
+		return undefined;
+	}
+	const numericValue = Number(match[1]);
+	return Number.isFinite(numericValue)
+		? { unit: match[2] ?? "", value: numericValue }
+		: undefined;
 }
 
 function compileClaimTextReveals(
@@ -265,12 +581,14 @@ function describeAction(action: EpisodeAction): string {
 			return "Camera move";
 		case "camera.follow":
 			return `Camera follow ${action.routeFrom}`;
+		case "media.add":
+		case "balance.add":
+			return `Add ${action.key}`;
+		case "media.update":
+		case "balance.update":
+			return `Patch ${action.key}`;
 		case "captions.show":
 			return "Show closed captions";
-		case "media.show":
-			return `Show ${action.source}`;
-		case "balance.show":
-			return `Show balance at ${action.scorePercent}%`;
 		case "wait":
 			return "Wait";
 	}
@@ -380,6 +698,20 @@ function isScheduledGraphAction(
 	action: ScheduledEpisodeAction,
 ): action is ScheduledEpisodeAction & { action: GraphAction } {
 	return action.action.type.startsWith("graph.");
+}
+
+function isScheduledScreenObjectAction(
+	action: ScheduledEpisodeAction,
+): action is ScheduledEpisodeAction & { action: ScreenObjectAction } {
+	return isScreenObjectAddAction(action.action) || isScreenObjectUpdateAction(action.action);
+}
+
+function isScreenObjectAddAction(action: EpisodeAction): action is ScreenObjectAddAction {
+	return action.type === "media.add" || action.type === "balance.add";
+}
+
+function isScreenObjectUpdateAction(action: EpisodeAction): action is ScreenObjectUpdateAction {
+	return action.type === "media.update" || action.type === "balance.update";
 }
 
 function compileGraphAddBatch(

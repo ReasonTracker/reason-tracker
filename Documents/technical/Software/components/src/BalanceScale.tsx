@@ -38,23 +38,15 @@ const COLORS = {
 
 export type BalanceScaleProps = {
     scorePercent: number
-    scale?: number
-    x?: number
-    y?: number
 };
 
 export function BalanceScale({
     scorePercent,
-    scale = 1,
-    x = VIEW_WIDTH / 2,
-    y = VIEW_HEIGHT / 2,
 }: BalanceScaleProps) {
     const normalizedScore = Math.max(-100, Math.min(100, scorePercent));
     const beamAngle = -(normalizedScore / 100) * MAX_BEAM_ANGLE_DEGREES;
     const purpleHeight = BLOCK_UNIT_HEIGHT * (1 + normalizedScore / 100);
     const orangeHeight = BLOCK_UNIT_HEIGHT * (1 - normalizedScore / 100);
-    const center = calculateBalanceCenter();
-    const placementTransform = `translate(${x - center.x} ${y - center.y}) translate(${center.x} ${center.y}) scale(${scale}) translate(${-center.x} ${-center.y})`;
 
     return (
         <svg
@@ -63,8 +55,7 @@ export function BalanceScale({
             style={{ height: "100%", width: "100%" }}
             viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
         >
-            <rect fill="#080b10" height={VIEW_HEIGHT} width={VIEW_WIDTH} />
-            <g transform={placementTransform}>
+            <g>
                 <g transform={`rotate(${beamAngle} ${PIVOT_X} ${PIVOT_Y})`}>
                     <line
                         stroke={COLORS.beam}
@@ -116,21 +107,6 @@ export function BalanceScale({
             </g>
         </svg>
     );
-}
-
-function calculateBalanceCenter() {
-    const horizontalReach = Math.max(
-        BEAM_HALF_WIDTH + TRAY_WIDTH / 2,
-        ...READOUT_LABELS.map((label) => Math.abs(calculateLabelCenter(label).x - PIVOT_X) + READOUT_LABEL_WRAP_WIDTH / 2 + READOUT_LABEL_PADDING),
-    );
-    const labelTop = Math.min(...READOUT_LABELS.map(calculateLabelTop));
-    const trayBottom = PIVOT_Y
-        + Math.sin(MAX_BEAM_ANGLE_DEGREES * Math.PI / 180) * BEAM_HALF_WIDTH
-        + HANGING_TRAY_LENGTH;
-    return {
-        x: (PIVOT_X - horizontalReach + PIVOT_X + horizontalReach) / 2,
-        y: (labelTop + trayBottom) / 2,
-    };
 }
 
 function buildReadoutArcPath(): string {

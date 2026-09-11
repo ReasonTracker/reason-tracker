@@ -39,14 +39,17 @@ A `key` is an author-facing stable reference, not a generated domain ID. It must
 - Graph component key: `argumentGraph`
 - Claim key within that graph: `cost`
 - Claim object reference: `argumentGraph.cost`
+- Media key: `sunshineProtectionAct`
 
 Use claim keys for references, never claim text. The compiler creates internal claim and connector IDs. Text can therefore change without changing references.
+
+Media, balance, and captions keys share the same key rules but belong to a separate namespace from graph and claim keys. Add each visual once, then use that same key in its later `.update` actions.
 
 ## Timing
 
 Every action accepts these optional fields:
 
-- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, `camera.move`, and `camera.follow`. `captions.show`, `media.show`, `balance.show`, and `wait` require an explicit positive duration.
+- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, `camera.move`, and `camera.follow`. `wait` requires an explicit positive duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
 - `offsetSeconds`: Signed decimal-second offset from the current timeline cursor. Omitted means `0`.
 - `blocking`: Omitted means `true`. A blocking action advances the cursor to the later of its current position or that action's end. A nonblocking action leaves the cursor where it is.
 
@@ -90,6 +93,83 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
 
 The camera move starts two seconds before the current cursor and resolves the target at the cursor. Because it is nonblocking, the following claim addition starts at the cursor without delay.
 
+## Positioned Visuals
+
+Media and balances are retained visuals. Add a visual once; it stays in the scene until the episode ends or an update makes it invisible or moves it out of view. Use the same key in a later update to change only the values that differ.
+
+Each visual action accepts an optional `style` object containing direct CSS property values. CSS property names and values pass through without property-specific validation; every value must be a JSON string or finite number. Visual elements default to absolute positioning, so use normal CSS such as `left`, `top`, `bottom`, `width`, `height`, `transformOrigin`, `scale`, and `opacity` to place and transform them. Use `rotation` to define an object's orientation; the renderer passes it to the browser's `rotate` property.
+
+The scene background uses `zIndex: -100`, and the graph uses `zIndex: 0`. Retained visuals render after the graph in action-add order. Use CSS `zIndex` to set their stacking order when retained visuals overlap; for example, `zIndex: -1` places a visual above the background and below the graph.
+
+When an update has a positive `durationSeconds`, matching numeric values interpolate, including numbers and numeric CSS strings with the same unit such as `"2700px"` to `"960px"` or `"50deg"` to `"0deg"`. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
+
+Patches for different keys may overlap. Updates for one key may not overlap, and each update must name an already-added key of the same visual kind. An update must change at least one supported value.
+
+### `media.add` And `media.update`
+
+`source` is relative to the folder containing the episode JSON file. A `media.add` action requires `source`; a `media.update` action may replace it. Media contains no implicit entrance or exit motion.
+
+This image enters while leaning around its bottom-right pivot, holds in place, and then exits with the opposite lean. `transformOrigin` remains unchanged, so no compensating coordinates are needed as `rotation` changes. Media styles are applied directly to the image, so `width` and `height` set its actual rendered size. Use `scale` only when a transform scale is intended.
+
+```json
+{
+  "type": "media.add",
+  "key": "sunshineProtectionAct",
+  "source": "media/sunshine-protection-act.png",
+  "offsetSeconds": 3,
+  "style": {
+    "left": "2700px",
+    "top": "1000px",
+    "transformOrigin": "bottom right",
+    "rotation": "50deg"
+  }
+},
+{
+  "type": "media.update",
+  "key": "sunshineProtectionAct",
+  "offsetSeconds": 3,
+  "durationSeconds": 0.75,
+  "blocking": false,
+  "style": {
+    "left": "960px",
+    "top": "650px",
+    "rotation": "0deg"
+  }
+},
+{
+  "type": "media.update",
+  "key": "sunshineProtectionAct",
+  "offsetSeconds": 5.25,
+  "durationSeconds": 0.75,
+  "blocking": false,
+  "style": {
+    "left": "2700px",
+    "top": "1000px",
+    "rotation": "-50deg"
+  }
+}
+```
+
+### `balance.add` And `balance.update`
+
+`scorePercent` ranges from `-100` through `100`: a positive score lowers the purple left tray, and a negative score lowers the orange right tray. Supply it when adding a balance and optionally update it later. It interpolates over a positive update duration.
+
+```json
+{
+  "type": "balance.add",
+  "key": "argumentBalance",
+  "scorePercent": -100,
+  "style": { "left": "480px", "top": "80px", "scale": 0.5 }
+},
+{
+  "type": "balance.update",
+  "key": "argumentBalance",
+  "scorePercent": 100,
+  "durationSeconds": 4,
+  "blocking": false
+}
+```
+
 ## Wait Action
 
 ### `wait`
@@ -100,44 +180,6 @@ Advance the timeline without rendering anything. `durationSeconds` is required a
 {
   "type": "wait",
   "durationSeconds": 2
-}
-```
-
-## Media Actions
-
-### `media.show`
-
-Display an image from an episode's `media` folder. Media rises from below the frame at the start of the action, remains visible, and exits downward as the action ends. Set `blocking` to `false` when it should overlap the following action, such as a caption.
-
-`source` is relative to the folder containing the episode JSON file.
-`layer` controls the visual stack: omit it or use `"front"` to place media above every other visual; use `"back"` to place it beneath the graph, scale, and captions.
-
-```json
-{
-  "type": "media.show",
-  "source": "media/example.png",
-  "layer": "front",
-  "durationSeconds": 5,
-  "blocking": false
-}
-```
-
-## Balance Actions
-
-### `balance.show`
-
-Display a pivoting balance scale. `scorePercent` ranges from `-100` through `100`: a positive score lowers the purple left tray, while a negative score lowers the orange right tray. `startScorePercent` is optional and defaults to `0`; when supplied, the scale animates from that score to `scorePercent` over the action duration. At `0`, both blocks are one unit high. At either extreme, the heavier side is two units high and the other block has zero height. Optional `x` and `y` place the calculated visual center in composition pixels, following Remotion's top-left coordinate system. When omitted, the center is the composition center. Positive `scale` resizes the visual around its calculated center.
-
-```json
-{
-  "type": "balance.show",
-  "startScorePercent": -100,
-  "scorePercent": 100,
-  "x": 960,
-  "y": 540,
-  "scale": 1,
-  "durationSeconds": 4,
-  "blocking": false
 }
 ```
 
@@ -340,8 +382,9 @@ Display spoken text for the specified duration. Captions are fixed to the compos
 1. Start with one `graph.create` per graph component.
 2. Add or modify claim content near the action that introduces or changes it.
 3. Use `pro-main` and `con-main`; do not author internal `proTarget` or `conTarget` values.
-4. Use decimal seconds. Omit timing fields unless overriding the default cursor behavior.
-5. Add explicit camera actions only where the episode should move or focus.
-6. Keep camera actions non-overlapping after offsets and durations resolve.
-7. For simultaneous graph additions, use the same start and duration.
-8. Validate with `vp run typecheck` from `Documents/technical/Software/videos`. Do not run Remotion unless the task calls for visual review.
+4. Add each positioned visual once, then use its matching `.update` action with the same key for later partial visual changes.
+5. Use decimal seconds. Omit timing fields unless overriding the default cursor behavior; give each animated object patch a positive duration.
+6. Add explicit camera actions only where the episode should move or focus.
+7. Keep camera actions and same-key object patches non-overlapping after offsets and durations resolve.
+8. For simultaneous graph additions, use the same start and duration.
+9. Validate with `vp run typecheck` from `Documents/technical/Software/videos`. Do not run Remotion unless the task calls for visual review.

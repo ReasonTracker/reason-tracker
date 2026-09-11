@@ -35,12 +35,14 @@
             ]
         },
         {
-            "type": "balance.show",
-            "startScorePercent": -100,
+            "type": "balance.add",
+            "key": "argumentBalance",
+            "scorePercent": -100
+        },
+        {
+            "type": "balance.update",
+            "key": "argumentBalance",
             "scorePercent": 100,
-            "x": 960,
-            "y": 540,
-            "scale": 1,
             "durationSeconds": 4,
             "blocking": false
         }

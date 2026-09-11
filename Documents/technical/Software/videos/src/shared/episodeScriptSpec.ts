@@ -16,6 +16,34 @@ const actionTimingShape = {
 	offsetSeconds: secondsSchema.optional(),
 };
 
+const cssStyleValueSchema = z.union([z.string(), z.number().finite()]);
+const cssStyleSchema = z.record(z.string(), cssStyleValueSchema).refine(
+	(style) => !("rotate" in style),
+	"Use 'rotation' instead of 'rotate' to define an object's orientation.",
+);
+const mediaSourceSchema = z.string().refine(
+	(source) => source.startsWith("media/")
+		&& source.length > "media/".length
+		&& !source.split("/").includes(".."),
+	"Use a media path relative to the episode JSON file, such as media/example.png.",
+);
+
+const objectAddShape = {
+	...actionTimingShape,
+	durationSeconds: z.literal(0).optional(),
+	key: authorKeySchema,
+	style: cssStyleSchema.optional(),
+};
+
+const objectUpdateShape = {
+	...actionTimingShape,
+	key: authorKeySchema,
+	style: cssStyleSchema.optional(),
+};
+
+const objectAddBaseSchema = z.object(objectAddShape).strict();
+const objectUpdateBaseSchema = z.object(objectUpdateShape).strict();
+
 const confidenceTargetSchema = authorKeySchema;
 const relevanceTargetSchema = z.object({
 	relevanceOf: authorKeySchema,
@@ -134,36 +162,42 @@ const cameraCutActionSchema = z.object({
 	type: z.literal("camera.cut"),
 }).strict();
 
+const mediaAddActionSchema = z.object({
+	...objectAddShape,
+	source: mediaSourceSchema,
+	type: z.literal("media.add"),
+}).strict();
+
+const mediaUpdateActionSchema = z.object({
+	...objectUpdateShape,
+	source: mediaSourceSchema.optional(),
+	type: z.literal("media.update"),
+}).strict().refine(
+	(action) => action.source !== undefined || Object.keys(action.style ?? {}).length > 0,
+	"Provide a source or at least one style change.",
+);
+
+const balanceAddActionSchema = z.object({
+	...objectAddShape,
+	scorePercent: z.number().finite().min(-100).max(100),
+	type: z.literal("balance.add"),
+}).strict();
+
+const balanceUpdateActionSchema = z.object({
+	...objectUpdateShape,
+	scorePercent: z.number().finite().min(-100).max(100).optional(),
+	type: z.literal("balance.update"),
+}).strict().refine(
+	(action) => action.scorePercent !== undefined || Object.keys(action.style ?? {}).length > 0,
+	"Provide a scorePercent or at least one style change.",
+);
+
 const captionsShowActionSchema = z.object({
 	...actionTimingShape,
 	durationSeconds: durationSecondsSchema.positive(),
 	position: z.literal("center").optional(),
 	text: nonEmptyStringSchema,
 	type: z.literal("captions.show"),
-}).strict();
-
-const mediaShowActionSchema = z.object({
-	...actionTimingShape,
-	durationSeconds: durationSecondsSchema.positive(),
-	layer: z.enum(["front", "back"]).optional(),
-	source: z.string().refine(
-		(source) => source.startsWith("media/")
-			&& source.length > "media/".length
-			&& !source.split("/").includes(".."),
-		"Use a media path relative to the episode JSON file, such as media/example.png.",
-	),
-	type: z.literal("media.show"),
-}).strict();
-
-const balanceShowActionSchema = z.object({
-	...actionTimingShape,
-	durationSeconds: durationSecondsSchema.positive(),
-	scale: z.number().finite().positive().optional(),
-	scorePercent: z.number().finite().min(-100).max(100),
-	startScorePercent: z.number().finite().min(-100).max(100).optional(),
-	type: z.literal("balance.show"),
-	x: z.number().finite().optional(),
-	y: z.number().finite().optional(),
 }).strict();
 
 const waitActionSchema = z.object({
@@ -180,9 +214,11 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	cameraMoveActionSchema,
 	cameraFollowActionSchema,
 	cameraCutActionSchema,
+	mediaAddActionSchema,
+	mediaUpdateActionSchema,
+	balanceAddActionSchema,
+	balanceUpdateActionSchema,
 	captionsShowActionSchema,
-	mediaShowActionSchema,
-	balanceShowActionSchema,
 	waitActionSchema,
 ]);
 
@@ -223,4 +259,7 @@ export type GraphClaimState = z.infer<typeof graphClaimStateSchema>;
 export type GraphCreateAction = z.infer<typeof graphCreateActionSchema>;
 export type GraphPatchAction = z.infer<typeof graphPatchActionSchema>;
 export type GraphSetAction = z.infer<typeof graphSetActionSchema>;
+export type CssStyle = z.infer<typeof cssStyleSchema>;
+export type ObjectAdd = z.infer<typeof objectAddBaseSchema>;
+export type ObjectUpdate = z.infer<typeof objectUpdateBaseSchema>;
 export type ScoreboardLayout = z.infer<typeof scoreboardSchema>;

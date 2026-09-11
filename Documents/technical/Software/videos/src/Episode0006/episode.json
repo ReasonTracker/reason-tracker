@@ -24,11 +24,37 @@
             "blocking": false
         },
         {
-            "type": "media.show",
+            "type": "media.add",
+            "key": "sunshineProtectionAct",
+            "offsetSeconds": 2,
             "source": "media/sunshine-protection-act.png",
-            "layer": "back",
+            "style": {
+                "left": "800px",
+                "top": "300px",
+                "height": "500px",
+                "zIndex": -1
+            },
+            "blocking": false
+        },
+        {
+            "type": "media.update",
+            "key": "sunshineProtectionAct",
             "offsetSeconds": 3,
-            "durationSeconds": 3,
+            "style": {
+                "top": "100px"
+            },
+            "durationSeconds": 0.75,
+            "blocking": false
+        },
+        {
+            "type": "media.update",
+            "key": "sunshineProtectionAct",
+            "offsetSeconds": 20,
+            "style": {
+                "top": "300px",
+                "opacity": "0"
+            },
+            "durationSeconds": 0.75,
             "blocking": false
         },
         {
