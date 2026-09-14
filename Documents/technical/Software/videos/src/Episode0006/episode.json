@@ -18,12 +18,6 @@
     },
     "script": [
         {
-            "type": "captions.show",
-            "text": "The claim we are investigating is [reads claim aloud].",
-            "durationSeconds": 7,
-            "blocking": false
-        },
-        {
             "type": "media.add",
             "key": "sunshineProtectionAct",
             "offsetSeconds": 2,
@@ -43,7 +37,7 @@
             "key": "sunshineProtectionAct",
             "offsetSeconds": 3,
             "layout": {
-                "y": 360
+                "y": 370
             },
             "durationSeconds": 0.75,
             "blocking": false
@@ -62,13 +56,15 @@
             "blocking": false
         },
         {
-            "type": "camera.move",
+            "type": "camera.cut",
             "target": {
                 "offsetSeconds": 7,
                 "objects": [
                     "argumentGraph/main"
                 ],
-                "zoom%": 50
+                "zoom%": 70,
+                "x%": 0,
+                "y%": -10
             },
             "blocking": false
         },

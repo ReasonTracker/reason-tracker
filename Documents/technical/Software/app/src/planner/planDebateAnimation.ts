@@ -154,33 +154,9 @@ export function planDebateAnimationBatch(
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
 		easing: "smooth",
 	}));
-	const sprout = buildAnimationStep("sprout", voilaFrame, sproutFrame, (address) => {
-		if (address.kind === "claim") {
-			return { easing: "smooth", endProgress: 1, startProgress: 0.7 };
-		}
-
-		if (address.kind === "confidence" && newConfidenceOccurrenceIds.has(
-			address.id as PresentationConnectorOccurrenceId,
-		)) {
-			return { easing: "smooth", endProgress: 0.5, startProgress: 0 };
-		}
-
-		if (
-			(address.kind === "confidence" && address.field === "sourceScale")
-			|| (address.kind === "relevance" && address.field === "scale")
-		) {
-			return { easing: "smooth", endProgress: 1, startProgress: 0.7 };
-		}
-
-		if (
-			address.kind === "confidence"
-			&& (address.field === "deliveryScale" || address.field === "targetSideOffset")
-		) {
-			return { easing: "smooth", endProgress: 0.5, startProgress: 0 };
-		}
-
-		return { easing: "smooth", endProgress: 0.7, startProgress: 0.5 };
-	});
+	const sprout = buildAnimationStep("sprout", voilaFrame, sproutFrame, () => ({
+		easing: "smooth",
+	}));
 	const firstFill = buildAnimationStep(
 		"firstFill",
 		sproutFrame,
@@ -193,10 +169,6 @@ export function planDebateAnimationBatch(
 		waveFrame,
 		() => ({ easing: "linear" }),
 	);
-	wave.waveLayoutDependency = {
-		debateCore: settledDebateCore,
-		resolvedMath: settledResolvedMath,
-	};
 
 	return {
 		bounds: resolveSceneBounds([
@@ -320,6 +292,7 @@ function buildVoilaFrame(args: {
 			continue;
 		}
 
+		claim.position = { ...openingClaim.position };
 		claim.rawScore = openingClaim.rawScore;
 		claim.score = openingClaim.score;
 	}

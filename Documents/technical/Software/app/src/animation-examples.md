@@ -42,24 +42,21 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Add Confidence Claim to Existing Debate Example
 
-- **Voila**: The new claim scales in from zero to its calculated size in its calculated position while the existing claims move out of the way.
+- **Voila**: The new claim scales in from zero to its calculated size at its settled position.
   - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
   - That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from current scored delivery demand. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
   - Add in the connectors, junctions and agregators for the new claim.
     - visible is false for the ones that support that.
     - Delivery Connector scale and score is set to zero
-- **Sprout**: These stages happen in order across the sprout step.
-  - `0% - 50%`: The new Delivery Connector traces out at its full planned width from the new claim toward the target claim in the `sourceToTarget` direction. At the same time, every affected sibling Delivery Connector slides its target-side attachment toward its planned stacked position and adjusts its target-side width. The reveal and target restacking are one simultaneous motion, not consecutive stages.
-  - `70% - 100%`: The existing sibling claims move into their planned compact positions while scaling toward their planned post-sprout sizes so their claim edges stay aligned with the narrower layout. That compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
-  - No sibling source-side connector, junction, or delivery aggregator animation happens during Episode0001's sprout step.
+- **Sprout**: All affected claims and their connectors transition together throughout the step. The claims move once into their planned compact positions and scales while each connector remains attached to its source and target, adjusts to its planned width and target stack position, and the new Delivery Connector traces from the new claim toward the target claim in the `sourceToTarget` direction. The compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
   - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
 - **First Fill**: The score fluid progressively fills the new pipe. Its moving frontier uses the path primitive's overflow-preserving curved extremity collapsed toward the bottom edge. The tip enters through the source boundary before the full slant is visible, and the full slant flows beyond the target boundary before the fill becomes flush.
-- **Wave**: After First Fill completes, interpolate logical scores, then derive all dependent group scales, claim positions, delivery scales, and fluid-stack offsets from that state. The separate moving frontier still carries old fluid ahead and new fluid behind while traveling right to left. Subsequent propagation toward the Main Claim remains future scope.
+- **Wave**: After First Fill completes, interpolate logical scores through the settled layout. The separate moving frontier carries old fluid ahead and new fluid behind while traveling right to left. Subsequent propagation toward the Main Claim remains future scope.
 
 ## Add Relevance Claim To A New Junction
 
-- **Voila**: The new claim scales in from zero to its calculated size in its calculated claim-lane position while the existing claims in that source claim cluster move out of the way.
-- **Sprout**: These all happen at the same time.
+- **Voila**: The new claim scales in from zero to its calculated size at its settled position.
+- **Sprout**: All affected claims and connectors transition together throughout the step while remaining attached to their connected geometry.
   - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
   - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.

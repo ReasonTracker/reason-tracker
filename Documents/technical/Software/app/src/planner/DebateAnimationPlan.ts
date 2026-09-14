@@ -1,5 +1,4 @@
 import type { ClaimId } from "../debate-core/Claim.ts";
-import type { DebateCore } from "../debate-core/Debate.ts";
 import type {
 	ConfidenceConnectorId,
 	RelevanceConnectorId,
@@ -9,12 +8,7 @@ import type {
 	PresentationConnectorOccurrenceId,
 } from "./buildPresentationGraphFromDebateCore.ts";
 import type { PlannerOptions } from "./contracts.ts";
-import { buildDebateFrame } from "./buildDebateFrame.ts";
-import {
-	calculatePresentationScales,
-	type PresentationSide,
-	type ResolvedPresentationMath,
-} from "./resolvePresentationMath.ts";
+import type { PresentationSide } from "./resolvePresentationMath.ts";
 
 export type AnimationStepId = "voila" | "sprout" | "firstFill" | "wave";
 export type AnimationEasing = "linear" | "smooth";
@@ -119,10 +113,6 @@ export type DebateAnimationStep<TId extends AnimationStepId = AnimationStepId> =
 		confidenceConnections: ConfidenceConnectionTracks
 		relevanceConnections: RelevanceConnectionTracks
 	}
-	waveLayoutDependency?: {
-		debateCore: DebateCore
-		resolvedMath: ResolvedPresentationMath
-	}
 };
 
 export type DebateAnimationPlan = {
@@ -214,84 +204,7 @@ export function resolveAnimationFrame(
 		),
 	};
 
-	return stepId === "wave" && step.waveLayoutDependency
-		? resolveWaveLayout({
-			dependency: step.waveLayoutDependency,
-			frame: resolvedFrame,
-			origin: plan.origin,
-			options: plan.options,
-		})
-		: resolvedFrame;
-}
-
-function resolveWaveLayout(args: {
-	dependency: NonNullable<DebateAnimationStep["waveLayoutDependency"]>
-	frame: DebateFrame
-	origin?: Point
-	options: PlannerOptions
-}): DebateFrame {
-	const claimScores = { ...args.dependency.resolvedMath.claimScores };
-	for (const claim of Object.values(args.frame.claims)) {
-		const score = args.dependency.resolvedMath.claimScores[claim.id];
-		if (score) {
-			claimScores[claim.id] = {
-				...score,
-				rawValue: claim.rawScore,
-				value: claim.score,
-			};
-		}
-	}
-	const connectorScores = { ...args.dependency.resolvedMath.connectorScores };
-	for (const connection of Object.values(args.frame.confidenceConnections)) {
-		const score = connectorScores[connection.id];
-		if (score) {
-			connectorScores[connection.id] = {
-				...score,
-				deliveryScore: connection.deliveryScore,
-				relevanceMultiplier: connection.relevanceMultiplier,
-			};
-		}
-	}
-	const scales = calculatePresentationScales({
-		connectorScores,
-		presentationGraph: args.dependency.resolvedMath.presentationGraph,
-		rootSourcesScale: args.dependency.resolvedMath.sourcesScales[
-			args.dependency.resolvedMath.presentationGraph.rootClaimOccurrenceId
-		] ?? 1,
-	});
-	const derivedFrame = buildDebateFrame({
-		debateCore: args.dependency.debateCore,
-		origin: args.origin,
-		options: args.options,
-		resolvedMath: {
-			...args.dependency.resolvedMath,
-			...scales,
-			claimScores,
-			connectorScores,
-		},
-	});
-
-	for (const claim of Object.values(derivedFrame.claims)) {
-		claim.opacity = args.frame.claims[claim.id]?.opacity ?? claim.opacity;
-	}
-	for (const connection of Object.values(derivedFrame.confidenceConnections)) {
-		const visualState = args.frame.confidenceConnections[connection.id];
-		if (visualState) {
-			connection.score = visualState.score;
-			connection.shellReveal = visualState.shellReveal;
-			connection.volumeTransitions = visualState.volumeTransitions;
-		}
-	}
-	for (const connection of Object.values(derivedFrame.relevanceConnections)) {
-		const visualState = args.frame.relevanceConnections[connection.id];
-		if (visualState) {
-			connection.score = visualState.score;
-			connection.shellReveal = visualState.shellReveal;
-			connection.volumeTransitions = visualState.volumeTransitions;
-		}
-	}
-
-	return derivedFrame;
+	return resolvedFrame;
 }
 
 export function numberTrack(

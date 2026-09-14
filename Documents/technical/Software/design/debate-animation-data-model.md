@@ -77,7 +77,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Resolves opening and post-command occurrence graphs, aggregate math, and deterministic settled layout.
 - Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
 - Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
-- During Wave, interpolates logical claim and authoritative delivery scores first, then derives scales, positions, and target offsets from that one logical state. The moving fluid frontier remains separate visual history.
+- Places the new claim at its settled position during Voila, then transitions all affected claims and their connectors together throughout Sprout. Claims move once into their settled positions and scales while connector endpoints remain attached and connector widths and target stack positions resolve continuously.
+- During Wave, keeps the settled layout while interpolating logical claim and authoritative delivery scores. The moving fluid frontier remains separate visual history.
 
 **Resolved frame**
 

@@ -38,7 +38,7 @@
 - Current planner-owned delivery corridor widths do not yet encode larger detours for route-around-line behavior or crossing avoidance. Those routing expansions are deferred rather than hidden in renderer-local stub lengths.
 - The planner owns positions, scales, target-stack offsets, and reveal tracks. `@reasontracker/components` owns attachment ports, route geometry, junctions, aggregators, and SVG rendering from each resolved scalar frame.
 - Delivery `targetSideOffset` comes from ordered parent-fluid intervals, including zero-width points. Full delivery shells are side-anchored around those intervals and may overlap.
-- Wave resolution interpolates logical claim and delivery scores first, then rebuilds all dependent presentation scales and frame layout from the settled topology. Fluid-frontier transitions remain visual history rather than layout input.
+- Affected claims and their connectors transition together throughout Sprout. Claims move once into their settled positions and scales while connector endpoints remain attached and connector widths and target stack positions resolve continuously. Wave resolution keeps that settled layout while interpolating logical claim and delivery scores. Fluid-frontier transitions remain visual history rather than layout input.
 
 <!-- autonav:start -->
 <!-- autonav:end -->
