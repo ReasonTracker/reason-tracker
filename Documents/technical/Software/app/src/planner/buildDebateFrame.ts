@@ -9,6 +9,7 @@ import type {
 import type {
 	ConfidenceConnectionFrameState,
 	DebateFrame,
+	Point,
 	RelevanceConnectionFrameState,
 } from "./DebateAnimationPlan.ts";
 import type { PlannerOptions } from "./contracts.ts";
@@ -23,6 +24,7 @@ type ClaimLaneMember = {
 export function buildDebateFrame(args: {
 	debateCore: DebateCore
 	options: PlannerOptions
+	origin?: Point
 	resolvedMath: ResolvedPresentationMath
 	visualScales?: Partial<Record<PresentationClaimOccurrenceId, number>>
 }): DebateFrame {
@@ -151,11 +153,13 @@ export function buildDebateFrame(args: {
 		});
 	};
 
-	measureClaim(args.resolvedMath.presentationGraph.rootClaimOccurrenceId);
+	const rootClaimOccurrenceId = args.resolvedMath.presentationGraph.rootClaimOccurrenceId;
+	const rootScale = resolveVisualScale(args, rootClaimOccurrenceId);
+	measureClaim(rootClaimOccurrenceId);
 	layoutClaim(
-		args.resolvedMath.presentationGraph.rootClaimOccurrenceId,
-		0,
-		0,
+		rootClaimOccurrenceId,
+		(args.origin?.x ?? (args.options.claimWidth * rootScale) / 2) - ((args.options.claimWidth * rootScale) / 2),
+		args.origin?.y ?? 0,
 	);
 	buildConnectionStates({ frame, options: args.options, resolvedMath: args.resolvedMath });
 
@@ -390,7 +394,7 @@ function resolveVisualScale(
 ): number {
 	return getRequiredNumber(
 		args.visualScales?.[claimOccurrenceId]
-			?? args.resolvedMath.sourcesScales[claimOccurrenceId],
+		?? args.resolvedMath.sourcesScales[claimOccurrenceId],
 		`visual scale for ${claimOccurrenceId}`,
 	);
 }

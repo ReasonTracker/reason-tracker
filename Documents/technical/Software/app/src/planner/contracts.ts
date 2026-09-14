@@ -1,5 +1,6 @@
 import type { DebateCommand } from "../debate-core/Commands.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
+import type { Point } from "./DebateAnimationPlan.ts";
 
 // #region Planner options
 export interface PlannerOptions {
@@ -42,6 +43,7 @@ export function resolvePlannerOptions(options?: Partial<PlannerOptions>): Planne
 export interface PlannerInput {
     debateCore: DebateCore
     command: DebateCommand
+    origin?: Point
     options?: Partial<PlannerOptions>
 }
 

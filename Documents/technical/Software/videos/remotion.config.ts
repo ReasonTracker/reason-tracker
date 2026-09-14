@@ -7,12 +7,12 @@ Config.overrideWebpackConfig((currentConfiguration) => {
         module: {
             ...currentConfiguration.module,
             rules: [
-                ...(currentConfiguration.module?.rules ?? []),
                 {
                     test: /[\\/]episode\.json$/,
                     type: "javascript/auto",
                     use: path.resolve(process.cwd(), "scripts/load-external-episode-json.mjs"),
                 },
+                ...(currentConfiguration.module?.rules ?? []),
             ],
         },
         resolve: {

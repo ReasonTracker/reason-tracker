@@ -28,10 +28,12 @@
             "key": "sunshineProtectionAct",
             "offsetSeconds": 2,
             "source": "media/sunshine-protection-act.png",
+            "layout": {
+                "x": 1020,
+                "y": 460,
+                "width": 100
+            },
             "style": {
-                "left": "200px",
-                "top": "-80px",
-                "height": "150px",
                 "zIndex": -1
             },
             "blocking": false
@@ -40,8 +42,8 @@
             "type": "media.update",
             "key": "sunshineProtectionAct",
             "offsetSeconds": 3,
-            "style": {
-                "top": "-150px"
+            "layout": {
+                "y": 360
             },
             "durationSeconds": 0.75,
             "blocking": false
@@ -50,16 +52,33 @@
             "type": "media.update",
             "key": "sunshineProtectionAct",
             "offsetSeconds": 8,
+            "layout": {
+                "y": 460
+            },
             "style": {
-                "top": "-80px",
                 "opacity": "0"
             },
             "durationSeconds": 0.75,
             "blocking": false
         },
         {
+            "type": "camera.move",
+            "target": {
+                "offsetSeconds": 7,
+                "objects": [
+                    "argumentGraph/main"
+                ],
+                "zoom%": 50
+            },
+            "blocking": false
+        },
+        {
             "type": "graph.create",
             "key": "argumentGraph",
+            "layout": {
+                "x": 960,
+                "y": 540
+            },
             "hideScores": true,
             "scoreboard": {
                 "x": 5,
@@ -79,10 +98,10 @@
         {
             "type": "camera.move",
             "target": {
-                "offsetSeconds": 2,
+                "offsetSeconds": 4,
                 "objects": [
-                    "argumentGraph.disruptsleep",
-                    "argumentGraph.main"
+                    "argumentGraph/disruptsleep",
+                    "argumentGraph/main"
                 ]
             },
             "blocking": true
@@ -98,9 +117,10 @@
         {
             "type": "camera.move",
             "target": {
+                "offsetSeconds": 4,
                 "objects": [
-                    "argumentGraph.implementationCosts",
-                    "argumentGraph.main"
+                    "argumentGraph/implementationCosts",
+                    "argumentGraph/main"
                 ]
             },
             "blocking": false
@@ -116,9 +136,10 @@
         {
             "type": "camera.move",
             "target": {
+                "offsetSeconds": 4,
                 "objects": [
-                    "argumentGraph.annualSavings",
-                    "argumentGraph.main"
+                    "argumentGraph/annualSavings",
+                    "argumentGraph/main"
                 ]
             },
             "blocking": false

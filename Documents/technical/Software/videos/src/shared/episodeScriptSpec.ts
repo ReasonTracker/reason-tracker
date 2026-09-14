@@ -7,6 +7,75 @@ const secondsSchema = z.number().finite();
 const durationSecondsSchema = secondsSchema.nonnegative();
 const anchorSchema = z.enum(["canvas", "camera"]);
 
+const objectLayoutShape = {
+	height: z.number().finite().positive(),
+	originX: z.number().finite().optional(),
+	originY: z.number().finite().optional(),
+	rotation: z.number().finite().default(0),
+	scale: z.number().finite().positive().default(1),
+	width: z.number().finite().positive(),
+	x: z.number().finite(),
+	y: z.number().finite(),
+};
+const objectLayoutSchema = z.object(objectLayoutShape).strict();
+const objectLayoutUpdateSchema = objectLayoutSchema.partial().refine(
+	(layout) => Object.keys(layout).length > 0,
+	"Provide at least one layout change.",
+);
+const mediaLayoutSchema = z.object({
+	height: z.number().finite().positive().optional(),
+	originX: z.number().finite().optional(),
+	originY: z.number().finite().optional(),
+	rotation: z.number().finite().default(0),
+	scale: z.number().finite().positive().default(1),
+	width: z.number().finite().positive().optional(),
+	x: z.number().finite(),
+	y: z.number().finite(),
+}).strict().superRefine((layout, context) => {
+	if (layout.width === undefined && layout.height === undefined) {
+		context.addIssue({
+			code: "custom",
+			message: "Provide exactly one media dimension: layout.width or layout.height.",
+		});
+	}
+	if (layout.width !== undefined && layout.height !== undefined) {
+		context.addIssue({
+			code: "custom",
+			message: "Provide only one media dimension: layout.width or layout.height, not both.",
+		});
+	}
+});
+const mediaLayoutUpdateSchema = z.object({
+	height: z.number().finite().positive().optional(),
+	originX: z.number().finite().optional(),
+	originY: z.number().finite().optional(),
+	rotation: z.number().finite().optional(),
+	scale: z.number().finite().positive().optional(),
+	width: z.number().finite().positive().optional(),
+	x: z.number().finite().optional(),
+	y: z.number().finite().optional(),
+}).strict().superRefine((layout, context) => {
+	if (Object.keys(layout).length === 0) {
+		context.addIssue({ code: "custom", message: "Provide at least one media layout change." });
+	}
+	if (layout.width !== undefined && layout.height !== undefined) {
+		context.addIssue({
+			code: "custom",
+			message: "Provide only one media dimension: layout.width or layout.height, not both.",
+		});
+	}
+});
+const graphLayoutSchema = z.object({
+	x: z.number().finite(),
+	y: z.number().finite(),
+}).strict();
+const cameraLayoutSchema = z.object({
+	height: z.number().finite().positive(),
+	width: z.number().finite().positive(),
+	x: z.number().finite(),
+	y: z.number().finite(),
+}).strict();
+
 export const claimSideSchema = z.enum(["pro", "con"])
 	.transform((side) => side === "pro" ? "pro-main" as const : "con-main" as const);
 
@@ -19,8 +88,19 @@ const actionTimingShape = {
 
 const cssStyleValueSchema = z.union([z.string(), z.number().finite()]);
 const cssStyleSchema = z.record(z.string(), cssStyleValueSchema).refine(
-	(style) => !("rotate" in style),
-	"Use 'rotation' instead of 'rotate' to define an object's orientation.",
+	(style) => ![
+		"bottom",
+		"height",
+		"left",
+		"right",
+		"rotate",
+		"rotation",
+		"scale",
+		"top",
+		"transformOrigin",
+		"width",
+	].some((property) => property in style),
+	"Use numeric layout fields for object position, size, scale, rotation, and transform origin.",
 );
 const mediaSourceSchema = z.string().refine(
 	(source) => source.startsWith("media/")
@@ -34,12 +114,14 @@ const objectAddShape = {
 	anchor: anchorSchema.default("canvas"),
 	durationSeconds: z.literal(0).optional(),
 	key: authorKeySchema,
+	layout: objectLayoutSchema,
 	style: cssStyleSchema.optional(),
 };
 
 const objectUpdateShape = {
 	...actionTimingShape,
 	key: authorKeySchema,
+	layout: objectLayoutUpdateSchema.optional(),
 	style: cssStyleSchema.optional(),
 };
 
@@ -91,6 +173,7 @@ const graphCreateActionSchema = z.object({
 	claims: z.array(newGraphClaimSchema).optional(),
 	hideScores: z.boolean().optional(),
 	key: authorKeySchema,
+	layout: graphLayoutSchema,
 	mainClaim: z.object({
 		key: authorKeySchema,
 		text: nonEmptyStringSchema,
@@ -133,31 +216,20 @@ const cameraTargetTimingShape = {
 const cameraObjectsTargetSchema = z.object({
 	...cameraTargetTimingShape,
 	objects: z.array(nonEmptyStringSchema).min(1),
+	"x%": z.number().finite().optional(),
+	"y%": z.number().finite().optional(),
+	"zoom%": z.number().finite().positive().optional(),
 }).strict();
-const cameraComponentTargetSchema = z.object({
-	component: authorKeySchema,
+const cameraLayoutTargetSchema = z.object({
 	...cameraTargetTimingShape,
+	layout: cameraLayoutSchema,
 }).strict();
-const cameraSceneTargetSchema = z.object({
-	...cameraTargetTimingShape,
-	scene: z.literal(true),
-}).strict();
-const cameraTargetSchema = z.union([
-	cameraObjectsTargetSchema,
-	cameraComponentTargetSchema,
-	cameraSceneTargetSchema,
-]);
+const cameraTargetSchema = z.union([cameraObjectsTargetSchema, cameraLayoutTargetSchema]);
 
 const cameraMoveActionSchema = z.object({
 	...actionTimingShape,
 	target: cameraTargetSchema,
 	type: z.literal("camera.move"),
-}).strict();
-
-const cameraFollowActionSchema = z.object({
-	...actionTimingShape,
-	routeFrom: nonEmptyStringSchema,
-	type: z.literal("camera.follow"),
 }).strict();
 
 const cameraCutActionSchema = z.object({
@@ -168,17 +240,19 @@ const cameraCutActionSchema = z.object({
 
 const mediaAddActionSchema = z.object({
 	...objectAddShape,
+	layout: mediaLayoutSchema,
 	source: mediaSourceSchema,
 	type: z.literal("media.add"),
 }).strict();
 
 const mediaUpdateActionSchema = z.object({
 	...objectUpdateShape,
+	layout: mediaLayoutUpdateSchema.optional(),
 	source: mediaSourceSchema.optional(),
 	type: z.literal("media.update"),
 }).strict().refine(
-	(action) => action.source !== undefined || Object.keys(action.style ?? {}).length > 0,
-	"Provide a source or at least one style change.",
+	(action) => action.source !== undefined || action.layout !== undefined || Object.keys(action.style ?? {}).length > 0,
+	"Provide a source, layout change, or at least one style change.",
 );
 
 const balanceAddActionSchema = z.object({
@@ -192,8 +266,8 @@ const balanceUpdateActionSchema = z.object({
 	scorePercent: z.number().finite().min(-100).max(100).optional(),
 	type: z.literal("balance.update"),
 }).strict().refine(
-	(action) => action.scorePercent !== undefined || Object.keys(action.style ?? {}).length > 0,
-	"Provide a scorePercent or at least one style change.",
+	(action) => action.scorePercent !== undefined || action.layout !== undefined || Object.keys(action.style ?? {}).length > 0,
+	"Provide a scorePercent, layout change, or at least one style change.",
 );
 
 const captionsShowActionSchema = z.object({
@@ -217,7 +291,6 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	graphSetActionSchema,
 	graphPatchActionSchema,
 	cameraMoveActionSchema,
-	cameraFollowActionSchema,
 	cameraCutActionSchema,
 	mediaAddActionSchema,
 	mediaUpdateActionSchema,
@@ -228,9 +301,6 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 ]);
 
 const defaultsSchema = z.object({
-	"camera.follow": z.object({
-		durationSeconds: durationSecondsSchema.positive().optional(),
-	}).strict().optional(),
 	"camera.move": z.object({
 		durationSeconds: durationSecondsSchema.positive().optional(),
 	}).strict().optional(),
@@ -266,6 +336,10 @@ export type GraphCreateAction = z.infer<typeof graphCreateActionSchema>;
 export type GraphPatchAction = z.infer<typeof graphPatchActionSchema>;
 export type GraphSetAction = z.infer<typeof graphSetActionSchema>;
 export type CssStyle = z.infer<typeof cssStyleSchema>;
+export type GraphLayout = z.infer<typeof graphLayoutSchema>;
+export type MediaLayout = z.infer<typeof mediaLayoutSchema>;
+export type MediaLayoutUpdate = z.infer<typeof mediaLayoutUpdateSchema>;
+export type ObjectLayout = z.infer<typeof objectLayoutSchema>;
 export type ObjectAdd = z.infer<typeof objectAddBaseSchema>;
 export type ObjectUpdate = z.infer<typeof objectUpdateBaseSchema>;
 export type ScoreboardLayout = z.infer<typeof scoreboardSchema>;

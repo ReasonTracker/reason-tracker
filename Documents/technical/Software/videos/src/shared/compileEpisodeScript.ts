@@ -18,16 +18,18 @@ import {
 	type EpisodeAction,
 	type EpisodeScriptSpec,
 	type GraphClaimState,
+	type GraphLayout,
+	type MediaLayout,
+	type MediaLayoutUpdate,
 	type ScoreboardLayout,
 	type Anchor,
 	type CssStyle,
-	type ObjectAdd,
-	type ObjectUpdate,
+	type ObjectLayout,
 } from "./episodeScriptSpec";
+import { resolveGraphSceneTargets } from "./graphSceneTargets";
 
 const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> = {
 	"camera.cut": 0,
-	"camera.follow": 0.65,
 	"camera.move": 1.2,
 	"media.add": 0,
 	"media.update": 0,
@@ -52,7 +54,6 @@ const SUPPORTED_ACTION_TYPES = [
 	"balance.add",
 	"balance.update",
 	"camera.cut",
-	"camera.follow",
 	"camera.move",
 	"captions.show",
 	"graph.addClaim",
@@ -70,16 +71,17 @@ const DEFAULT_SCREEN_OBJECT_STYLE: CssStyle = {
 
 type ClaimTarget = string | { relevanceOf: string };
 type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
-type SceneObjectAddAction = Extract<EpisodeAction, {
-	type: "media.add" | "balance.add"
-}> & ObjectAdd;
-type SceneObjectUpdateAction = Extract<EpisodeAction, {
-	type: "media.update" | "balance.update"
-}> & ObjectUpdate;
+type SceneObjectAddAction = Extract<EpisodeAction, { type: "media.add" | "balance.add" }>;
+type SceneObjectUpdateAction = Extract<EpisodeAction, { type: "media.update" | "balance.update" }>;
 type SceneObjectAction = SceneObjectAddAction | SceneObjectUpdateAction;
 type SceneObject =
-	| { source: string; type: "media" }
+	| { aspectRatio: number; source: string; type: "media" }
 	| { scorePercent: number; type: "balance" };
+
+export type EpisodeMediaAsset = {
+	aspectRatio: number
+	src: string
+};
 
 type ClaimDefinition = {
 	key: string
@@ -98,6 +100,7 @@ type GraphCompilerState = {
 	key: string
 	lastAnimationAction?: ScheduledEpisodeAction
 	lastAnimationEndFrame: number
+	layout: GraphLayout
 	scoreboard?: ScoreboardLayout
 };
 
@@ -132,8 +135,16 @@ export type ClaimTextReveal = {
 
 export type ResolvedSceneObjectState = {
 	anchor: Anchor
+	layout: ObjectLayout
 	object: SceneObject
 	style: CssStyle
+};
+
+export type SceneTarget = {
+	id: string
+	parentId?: string
+	anchor: Anchor
+	bounds: { minX: number; minY: number; width: number; height: number }
 };
 
 export type CompiledSceneObjectTransition = {
@@ -166,7 +177,10 @@ export type CompiledEpisodeScript = {
 	spec: EpisodeScriptSpec
 };
 
-export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
+export function compileEpisodeScript(
+	input: unknown,
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>> = {},
+): CompiledEpisodeScript {
 	const result = episodeScriptSpecSchema.safeParse(input);
 	if (!result.success) {
 		throw new Error(formatEpisodeScriptValidationError(input, result.error.issues));
@@ -175,7 +189,8 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 	const actions = scheduleActions(spec);
 	const graphAnimations = compileGraphActions(spec, actions);
 	const claimTextReveals = compileClaimTextReveals(actions);
-	const sceneObjects = compileSceneObjects(actions);
+	const sceneObjects = compileSceneObjects(actions, mediaAssets);
+	assertUniqueSceneTargetRoots(graphAnimations, sceneObjects);
 
 	return {
 		actions,
@@ -188,9 +203,20 @@ export function compileEpisodeScript(input: unknown): CompiledEpisodeScript {
 	};
 }
 
+function assertUniqueSceneTargetRoots(
+	graphAnimations: readonly CompiledGraphAnimation[],
+	sceneObjects: readonly CompiledSceneObject[],
+): void {
+	const graphKeys = new Set(graphAnimations.map((animation) => animation.graph));
+	const duplicate = sceneObjects.find((sceneObject) => graphKeys.has(sceneObject.key));
+	if (duplicate) {
+		throw new Error(`Graph and retained object keys share the scene target namespace: ${duplicate.key}`);
+	}
+}
+
 function formatEpisodeScriptValidationError(
 	input: unknown,
-	issues: readonly { message: string; path: readonly PropertyKey[] }[],
+	issues: readonly EpisodeScriptValidationIssue[],
 ): string {
 	return ["Invalid episode script:", ...issues.map((issue) => formatEpisodeScriptIssue(input, issue))]
 		.join("\n");
@@ -198,15 +224,54 @@ function formatEpisodeScriptValidationError(
 
 function formatEpisodeScriptIssue(
 	input: unknown,
-	issue: { message: string; path: readonly PropertyKey[] },
+	issue: EpisodeScriptValidationIssue,
 ): string {
-	const [root, actionIndex, field] = issue.path;
-	if (root === "script" && typeof actionIndex === "number" && field === "type") {
+	const [root, actionIndex, field, ...nestedPath] = issue.path;
+	if (root === "script" && typeof actionIndex === "number") {
 		const actionType = getEpisodeActionType(input, actionIndex);
-		return `- script[${actionIndex}].type is ${JSON.stringify(actionType)}. Expected one of: ${SUPPORTED_ACTION_TYPES.join(", ")}.`;
+		if (field === "type") {
+			return `- script[${actionIndex}] (${String(actionType)}): type must be one of ${SUPPORTED_ACTION_TYPES.join(", ")}.`;
+		}
+		const property = [field, ...nestedPath].filter((part) => part !== undefined).join(".");
+		return `- script[${actionIndex}] (${String(actionType)})${property ? `.${property}` : ""}: ${describeEpisodeScriptIssue(issue)}`;
 	}
 	const path = issue.path.length > 0 ? issue.path.join(".") : "root";
-	return `- ${path}: ${issue.message}`;
+	return `- ${path}: ${describeEpisodeScriptIssue(issue)}`;
+}
+
+type EpisodeScriptValidationIssue = {
+	code?: string
+	expected?: string
+	input?: unknown
+	maximum?: number | bigint
+	minimum?: number | bigint
+	keys?: readonly string[]
+	message: string
+	origin?: string
+	path: readonly PropertyKey[]
+};
+
+function describeEpisodeScriptIssue(issue: EpisodeScriptValidationIssue): string {
+	if (issue.code === "invalid_type") {
+		return issue.input === undefined
+			? "is required."
+			: `must be ${issue.expected ?? "the required type"}; received ${JSON.stringify(issue.input)}.`;
+	}
+	if (issue.code === "unrecognized_keys") {
+		return `does not allow ${issue.keys?.map((key) => JSON.stringify(key)).join(", ") ?? "these fields"}.`;
+	}
+	if (issue.code === "invalid_union") {
+		return "must use exactly one supported object shape.";
+	}
+	if (issue.code === "too_small") {
+		const unit = issue.origin === "array" ? " item(s)" : " character(s)";
+		return `must contain at least ${String(issue.minimum)}${unit}.`;
+	}
+	if (issue.code === "too_big") {
+		const unit = issue.origin === "array" ? " item(s)" : " character(s)";
+		return `must contain no more than ${String(issue.maximum)}${unit}.`;
+	}
+	return issue.message;
 }
 
 function getEpisodeActionType(input: unknown, actionIndex: number): unknown {
@@ -233,8 +298,52 @@ export function resolveSceneObjectStates(
 		}));
 }
 
+export function resolveSceneTargets(
+	episode: CompiledEpisodeScript,
+	frame: number,
+): readonly SceneTarget[] {
+	const sceneObjectTargets = resolveSceneObjectStates(episode, frame).map((sceneObject): SceneTarget => {
+		return {
+			anchor: sceneObject.anchor,
+			bounds: resolveObjectLayoutBounds(sceneObject.layout),
+			id: sceneObject.key,
+		};
+	});
+	const playback = resolveGraphPlayback(episode, frame);
+	return playback
+		? [...sceneObjectTargets, ...resolveGraphSceneTargets(playback)]
+		: sceneObjectTargets;
+}
+
+function resolveObjectLayoutBounds(layout: ObjectLayout): SceneTarget["bounds"] {
+	const originX = layout.originX ?? layout.width / 2;
+	const originY = layout.originY ?? layout.height / 2;
+	const radians = layout.rotation * (Math.PI / 180);
+	const cosine = Math.cos(radians);
+	const sine = Math.sin(radians);
+	const corners = [
+		[0, 0],
+		[layout.width, 0],
+		[layout.width, layout.height],
+		[0, layout.height],
+	].map(([x, y]) => {
+		const scaledX = (x! - originX) * layout.scale;
+		const scaledY = (y! - originY) * layout.scale;
+		return {
+			x: layout.x + originX + (scaledX * cosine) - (scaledY * sine),
+			y: layout.y + originY + (scaledX * sine) + (scaledY * cosine),
+		};
+	});
+	const minX = Math.min(...corners.map((corner) => corner.x));
+	const minY = Math.min(...corners.map((corner) => corner.y));
+	const maxX = Math.max(...corners.map((corner) => corner.x));
+	const maxY = Math.max(...corners.map((corner) => corner.y));
+	return { height: maxY - minY, minX, minY, width: maxX - minX };
+}
+
 function compileSceneObjects(
 	actions: readonly ScheduledEpisodeAction[],
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>>,
 ): readonly CompiledSceneObject[] {
 	type SceneObjectCompilerState = {
 		compiled: {
@@ -258,7 +367,7 @@ function compileSceneObjects(
 			if (states.has(action.key)) {
 				throw new Error(`Action ${scheduled.index} creates duplicate object key: ${action.key}`);
 			}
-			const initialState = createSceneObjectState(action);
+			const initialState = createSceneObjectState(action, mediaAssets, scheduled.index);
 			states.set(action.key, {
 				compiled: {
 					from: scheduled.from,
@@ -281,7 +390,7 @@ function compileSceneObjects(
 				`Object ${action.key}: action ${scheduled.index} starts before its prior transition ends. Object patches cannot overlap.`,
 			);
 		}
-		const targetState = mergeSceneObjectState(state.state, action, scheduled.index);
+		const targetState = mergeSceneObjectState(state.state, action, scheduled.index, mediaAssets);
 		state.compiled.transitions.push({
 			durationInFrames: scheduled.durationInFrames,
 			from: scheduled.from,
@@ -295,13 +404,24 @@ function compileSceneObjects(
 	return [...states.values()].map((state) => state.compiled);
 }
 
-function createSceneObjectState(action: SceneObjectAddAction): ResolvedSceneObjectState {
+function createSceneObjectState(
+	action: SceneObjectAddAction,
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>>,
+	actionIndex: number,
+): ResolvedSceneObjectState {
 	const style = { ...DEFAULT_SCREEN_OBJECT_STYLE, ...action.style };
 	switch (action.type) {
-		case "media.add":
-			return { anchor: action.anchor, object: { source: action.source, type: "media" }, style };
+		case "media.add": {
+			const mediaAsset = requireMediaAsset(mediaAssets, action.source, actionIndex);
+			return {
+				anchor: action.anchor,
+				layout: resolveMediaLayout(action.layout, mediaAsset.aspectRatio),
+				object: { aspectRatio: mediaAsset.aspectRatio, source: action.source, type: "media" },
+				style,
+			};
+		}
 		case "balance.add":
-			return { anchor: action.anchor, object: { scorePercent: action.scorePercent, type: "balance" }, style };
+			return { anchor: action.anchor, layout: action.layout, object: { scorePercent: action.scorePercent, type: "balance" }, style };
 	}
 }
 
@@ -309,10 +429,15 @@ function mergeSceneObjectState(
 	state: ResolvedSceneObjectState,
 	action: SceneObjectUpdateAction,
 	actionIndex: number,
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>>,
 ): ResolvedSceneObjectState {
+	const object = updateSceneObject(state.object, action, actionIndex, mediaAssets);
 	return {
 		anchor: state.anchor,
-		object: updateSceneObject(state.object, action, actionIndex),
+		layout: object.type === "media" && action.type === "media.update"
+			? resolveMediaLayout(action.layout, object.aspectRatio, state.layout)
+			: { ...state.layout, ...action.layout },
+		object,
 		style: { ...state.style, ...action.style },
 	};
 }
@@ -321,19 +446,60 @@ function updateSceneObject(
 	object: SceneObject,
 	action: SceneObjectUpdateAction,
 	actionIndex: number,
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>>,
 ): SceneObject {
 	switch (action.type) {
 		case "media.update":
 			if (object.type !== "media") {
 				throwSceneObjectKindMismatch(actionIndex, object, action);
 			}
-			return { ...object, source: action.source ?? object.source };
+			if (!action.source) {
+				return object;
+			}
+			const mediaAsset = requireMediaAsset(mediaAssets, action.source, actionIndex);
+			return { aspectRatio: mediaAsset.aspectRatio, source: action.source, type: "media" };
 		case "balance.update":
 			if (object.type !== "balance") {
 				throwSceneObjectKindMismatch(actionIndex, object, action);
 			}
 			return { ...object, scorePercent: action.scorePercent ?? object.scorePercent };
 	}
+}
+
+function requireMediaAsset(
+	mediaAssets: Readonly<Record<string, EpisodeMediaAsset>>,
+	source: string,
+	actionIndex: number,
+): EpisodeMediaAsset {
+	const mediaAsset = mediaAssets[source];
+	if (!mediaAsset || !Number.isFinite(mediaAsset.aspectRatio) || mediaAsset.aspectRatio <= 0) {
+		throw new Error(`Action ${actionIndex} references media source without a valid intrinsic aspect ratio: ${source}`);
+	}
+	return mediaAsset;
+}
+
+function resolveMediaLayout(
+	layout: MediaLayout | MediaLayoutUpdate | undefined,
+	aspectRatio: number,
+	previousLayout?: ObjectLayout,
+): ObjectLayout {
+	const width = layout?.width ?? (layout?.height === undefined
+		? previousLayout?.width
+		: layout.height * aspectRatio);
+	if (width === undefined) {
+		throw new Error("Media layout requires a width or height.");
+	}
+	const height = layout?.height ?? width / aspectRatio;
+	return {
+		height,
+		originX: layout?.originX ?? previousLayout?.originX ?? width / 2,
+		originY: layout?.originY ?? previousLayout?.originY ?? height / 2,
+		rotation: layout?.rotation ?? previousLayout?.rotation ?? 0,
+		scale: layout?.scale ?? previousLayout?.scale ?? 1,
+		width,
+		x: layout?.x ?? previousLayout?.x ?? 0,
+		y: layout?.y ?? previousLayout?.y ?? 0,
+	};
 }
 
 function throwSceneObjectKindMismatch(
@@ -370,8 +536,34 @@ function interpolateSceneObjectState(
 ): ResolvedSceneObjectState {
 	return {
 		anchor: initialState.anchor,
+		layout: interpolateObjectLayout(initialState.layout, targetState.layout, progress),
 		object: interpolateSceneObject(initialState.object, targetState.object, progress),
 		style: interpolateCssStyle(initialState.style, targetState.style, progress),
+	};
+}
+
+function interpolateObjectLayout(
+	initialLayout: ObjectLayout,
+	targetLayout: ObjectLayout,
+	progress: number,
+): ObjectLayout {
+	return {
+		height: interpolateNumber(initialLayout.height, targetLayout.height, progress),
+		originX: interpolateNumber(
+			initialLayout.originX ?? initialLayout.width / 2,
+			targetLayout.originX ?? targetLayout.width / 2,
+			progress,
+		),
+		originY: interpolateNumber(
+			initialLayout.originY ?? initialLayout.height / 2,
+			targetLayout.originY ?? targetLayout.height / 2,
+			progress,
+		),
+		rotation: interpolateNumber(initialLayout.rotation, targetLayout.rotation, progress),
+		scale: interpolateNumber(initialLayout.scale, targetLayout.scale, progress),
+		width: interpolateNumber(initialLayout.width, targetLayout.width, progress),
+		x: interpolateNumber(initialLayout.x, targetLayout.x, progress),
+		y: interpolateNumber(initialLayout.y, targetLayout.y, progress),
 	};
 }
 
@@ -563,9 +755,6 @@ function resolveDurationSeconds(spec: EpisodeScriptSpec, action: EpisodeAction):
 		case "camera.move":
 			return defaults?.["camera.move"]?.durationSeconds
 				?? DEFAULT_DURATION_SECONDS[action.type];
-		case "camera.follow":
-			return defaults?.["camera.follow"]?.durationSeconds
-				?? DEFAULT_DURATION_SECONDS[action.type];
 		default:
 			return DEFAULT_DURATION_SECONDS[action.type];
 	}
@@ -585,8 +774,6 @@ function describeAction(action: EpisodeAction): string {
 			return "Camera cut";
 		case "camera.move":
 			return "Camera move";
-		case "camera.follow":
-			return `Camera follow ${action.routeFrom}`;
 		case "media.add":
 		case "balance.add":
 			return `Add ${action.key}`;
@@ -624,6 +811,7 @@ function compileGraphActions(
 				hideScores: action.hideScores ?? false,
 				key: action.key,
 				lastAnimationEndFrame: 0,
+				layout: action.layout,
 				scoreboard: action.scoreboard,
 			};
 			state.claimDefinitions.set(action.mainClaim.key, {
@@ -653,7 +841,10 @@ function compileGraphActions(
 				graph: action.key,
 				hideScores: state.hideScores,
 				label: scheduled.label,
-				plan: planStaticDebate({ debateCore: state.debateCore }),
+				plan: planStaticDebate({
+					debateCore: state.debateCore,
+					origin: state.layout,
+				}),
 				scoreboard: state.scoreboard,
 				sourceActionIndexes: [scheduled.index],
 			});
@@ -766,6 +957,7 @@ function compileGraphAddBatch(
 	const plan = planDebateAnimationBatch({
 		commands,
 		debateCore: state.debateCore,
+		origin: state.layout,
 	});
 	const addedClaimIds: ClaimId[] = [];
 	for (const command of commands) {
@@ -829,7 +1021,10 @@ function createStaticGraphAnimation(
 		graph: state.key,
 		hideScores: state.hideScores,
 		label: scheduled.label,
-		plan: planStaticDebate({ debateCore: state.debateCore }),
+		plan: planStaticDebate({
+			debateCore: state.debateCore,
+			origin: state.layout,
+		}),
 		scoreboard: state.scoreboard,
 		sourceActionIndexes: [scheduled.index],
 	};

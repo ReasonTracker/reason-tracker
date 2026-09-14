@@ -132,6 +132,7 @@ export type DebateAnimationPlan = {
 		minY: number
 		width: number
 	}
+	origin?: Point
 	openingFrame: DebateFrame
 	options: PlannerOptions
 	steps: {
@@ -217,6 +218,7 @@ export function resolveAnimationFrame(
 		? resolveWaveLayout({
 			dependency: step.waveLayoutDependency,
 			frame: resolvedFrame,
+			origin: plan.origin,
 			options: plan.options,
 		})
 		: resolvedFrame;
@@ -225,6 +227,7 @@ export function resolveAnimationFrame(
 function resolveWaveLayout(args: {
 	dependency: NonNullable<DebateAnimationStep["waveLayoutDependency"]>
 	frame: DebateFrame
+	origin?: Point
 	options: PlannerOptions
 }): DebateFrame {
 	const claimScores = { ...args.dependency.resolvedMath.claimScores };
@@ -258,6 +261,7 @@ function resolveWaveLayout(args: {
 	});
 	const derivedFrame = buildDebateFrame({
 		debateCore: args.dependency.debateCore,
+		origin: args.origin,
 		options: args.options,
 		resolvedMath: {
 			...args.dependency.resolvedMath,

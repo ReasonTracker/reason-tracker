@@ -37,6 +37,7 @@ export function planStaticDebate(
 	const options = resolvePlannerOptions(input.options);
 	const frame = buildDebateFrame({
 		debateCore: input.debateCore,
+		origin: input.origin,
 		options,
 		resolvedMath: resolvePresentationMath(input.debateCore),
 	});
@@ -47,6 +48,7 @@ export function planStaticDebate(
 
 	return {
 		bounds: resolveSceneBounds([frame], options.claimWidth, options.claimHeight),
+		origin: input.origin,
 		openingFrame: frame,
 		options,
 		steps: { firstFill, sprout, voila, wave },
@@ -86,17 +88,20 @@ export function planDebateAnimationBatch(
 	});
 	const openingFrame = buildDebateFrame({
 		debateCore: input.debateCore,
+		origin: input.origin,
 		options,
 		resolvedMath: resolvePresentationMath(input.debateCore),
 	});
 	const settledResolvedMath = resolvePresentationMath(settledDebateCore);
 	const settledFrame = buildDebateFrame({
 		debateCore: settledDebateCore,
+		origin: input.origin,
 		options,
 		resolvedMath: settledResolvedMath,
 	});
 	const voilaLayoutFrame = buildDebateFrame({
 		debateCore: settledDebateCore,
+		origin: input.origin,
 		options,
 		resolvedMath: resolvePresentationMath(settledDebateCore),
 		visualScales: Object.fromEntries(
@@ -202,6 +207,7 @@ export function planDebateAnimationBatch(
 			firstFillFrame,
 			waveFrame,
 		], options.claimWidth, options.claimHeight),
+		origin: input.origin,
 		openingFrame,
 		options,
 		steps: { firstFill, sprout, voila, wave },

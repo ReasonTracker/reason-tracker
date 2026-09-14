@@ -18,8 +18,7 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
     },
     "defaults": {
       "graph.addClaim": { "durationSeconds": 4 },
-      "camera.move": { "durationSeconds": 1.2 },
-      "camera.follow": { "durationSeconds": 0.65 }
+      "camera.move": { "durationSeconds": 1.2 }
     }
   },
   "script": []
@@ -31,6 +30,7 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
 - `script` is a required ordered list of actions. Actions do not have IDs.
 - A custom `label` is optional. It names the action in Remotion Studio and diagnostics only.
 - JSON objects are strict: do not add unsupported fields.
+- Validation errors name the action index, action type, and field. For example: `script[1] (media.add).layout.x: is required.`
 
 ## Keys And References
 
@@ -38,18 +38,18 @@ A `key` is an author-facing stable reference, not a generated domain ID. It must
 
 - Graph component key: `argumentGraph`
 - Claim key within that graph: `cost`
-- Claim object reference: `argumentGraph.cost`
+- Claim scene target ID: `argumentGraph/cost`
 - Media key: `sunshineProtectionAct`
 
 Use claim keys for references, never claim text. The compiler creates internal claim and connector IDs. Text can therefore change without changing references.
 
-Media, balance, and captions keys share the same key rules but belong to a separate namespace from graph and claim keys. Add each visual once, then use that same key in its later `.update` actions.
+Graph, media, and balance keys share one top-level scene target namespace. Add each visual once, then use that same key in its later `.update` actions. A graph's claim targets use the graph key as their parent path, such as `argumentGraph/cost`.
 
 ## Timing
 
 Every action accepts these optional fields:
 
-- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, `camera.move`, and `camera.follow`. `wait` requires an explicit positive duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
+- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, and `camera.move`. `wait` requires an explicit positive duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
 - `offsetSeconds`: Signed decimal-second offset from the current timeline cursor. Omitted means `0`.
 - `blocking`: Omitted means `true`. A blocking action advances the cursor to the later of its current position or that action's end. A nonblocking action leaves the cursor where it is.
 
@@ -74,7 +74,7 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
     "type": "camera.move",
     "target": {
         "offsetSeconds": 2,
-        "objects": ["argumentGraph.cost", "argumentGraph.main"]
+		"objects": ["argumentGraph/cost", "argumentGraph/main"]
     },
     "offsetSeconds": -2,
     "durationSeconds": 2,
@@ -107,13 +107,15 @@ Every rendered object is anchored either to the movable `canvas` or the fixed `c
 
 Set `anchor` to `"canvas"` or `"camera"` only when the default is not suitable. Canvas-anchored content pans and zooms with camera actions. Camera-anchored content stays fixed to the composition while the camera moves.
 
+At frame zero, the canvas world matches the composition rectangle: its visible bounds are `x: 0` through `1920` and `y: 0` through `1080` for a `1920x1080` composition. A graph's `layout.x` and `layout.y` place its main claim in that same direct coordinate system as a canvas object's numeric layout. The camera does not translate or scale the world until a camera action changes its viewport.
+
 ```json
 {
   "type": "media.add",
   "key": "cornerLogo",
   "anchor": "camera",
   "source": "media/logo.png",
-  "style": { "right": "48px", "top": "48px", "width": "180px" }
+  "layout": { "x": 1692, "y": 48, "width": 180 }
 }
 ```
 
@@ -123,11 +125,15 @@ Set `anchor` to `"canvas"` or `"camera"` only when the default is not suitable. 
 
 Media and balances are retained visuals. Add a visual once; it stays in the scene until the episode ends or an update makes it invisible or moves it out of view. Use the same key in a later update to change only the values that differ.
 
-Each visual action accepts an optional `style` object containing direct CSS property values. CSS property names and values pass through without property-specific validation; every value must be a JSON string or finite number. Visual elements default to absolute positioning, so use normal CSS such as `left`, `top`, `bottom`, `width`, `height`, `transformOrigin`, `scale`, and `opacity` to place and transform them. Use `rotation` to define an object's orientation; the renderer passes it to the browser's `rotate` property.
+Each media add action requires numeric `layout.x`, `layout.y`, and exactly one display dimension: `layout.width` or `layout.height`. The renderer preserves the source image's intrinsic aspect ratio and derives the other dimension for rendering and camera geometry. Media updates may change either one dimension, never both. A balance layout requires both `width` and `height`.
+
+`scale` defaults to `1`, `rotation` defaults to `0` degrees, and `originX` and `originY` default to the resolved object's center. Updates may patch any layout field. Layout values interpolate during positive-duration updates, and the renderer derives its positioning and transforms from the resolved layout.
+
+Each visual action may also include a `style` object for appearance-only CSS such as `opacity` and `zIndex`. Position, size, scale, rotation, and transform-origin CSS properties are rejected because `layout` is authoritative for both rendering and camera geometry.
 
 Within either anchor layer, retained visuals render before the graph, whose stacking order is `zIndex: 0`. Use CSS `zIndex` to control overlaps; for example, `zIndex: -1` places canvas media behind the graph without assigning a background color to the scene.
 
-When an update has a positive `durationSeconds`, matching numeric values interpolate, including numbers and numeric CSS strings with the same unit such as `"2700px"` to `"960px"` or `"50deg"` to `"0deg"`. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
+When an update has a positive `durationSeconds`, numeric layout values and matching numeric style values interpolate. Numeric CSS strings with the same unit also interpolate. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
 
 Patches for different keys may overlap. Updates for one key may not overlap, and each update must name an already-added key of the same visual kind. An update must change at least one supported value.
 
@@ -135,7 +141,7 @@ Patches for different keys may overlap. Updates for one key may not overlap, and
 
 `source` is relative to the folder containing the episode JSON file. A `media.add` action requires `source`; a `media.update` action may replace it. Media contains no implicit entrance or exit motion.
 
-This image enters while leaning around its bottom-right pivot, holds in place, and then exits with the opposite lean. `transformOrigin` remains unchanged, so no compensating coordinates are needed as `rotation` changes. Media styles are applied directly to the image, so `width` and `height` set its actual rendered size. Use `scale` only when a transform scale is intended.
+This image enters while leaning around its bottom-right pivot, holds in place, and then exits with the opposite lean. The numeric layout drives both the rendered transform and the axis-aligned bounds exposed to the scene camera.
 
 ```json
 {
@@ -143,11 +149,11 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "key": "sunshineProtectionAct",
   "source": "media/sunshine-protection-act.png",
   "offsetSeconds": 3,
-  "style": {
-    "left": "2700px",
-    "top": "1000px",
-    "transformOrigin": "bottom right",
-    "rotation": "50deg"
+  "layout": {
+  "x": 2700,
+  "y": 1000,
+  "width": 600,
+  "rotation": 50
   }
 },
 {
@@ -156,10 +162,10 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "offsetSeconds": 3,
   "durationSeconds": 0.75,
   "blocking": false,
-  "style": {
-    "left": "960px",
-    "top": "650px",
-    "rotation": "0deg"
+  "layout": {
+  "x": 960,
+  "y": 650,
+  "rotation": 0
   }
 },
 {
@@ -168,10 +174,10 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "offsetSeconds": 5.25,
   "durationSeconds": 0.75,
   "blocking": false,
-  "style": {
-    "left": "2700px",
-    "top": "1000px",
-    "rotation": "-50deg"
+  "layout": {
+  "x": 2700,
+  "y": 1000,
+  "rotation": -50
   }
 }
 ```
@@ -185,7 +191,7 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "type": "balance.add",
   "key": "argumentBalance",
   "scorePercent": -100,
-  "style": { "left": "480px", "top": "80px", "scale": 0.5 }
+	"layout": { "x": 480, "y": 80, "width": 1920, "height": 1080, "scale": 0.5 }
 },
 {
   "type": "balance.update",
@@ -213,12 +219,13 @@ Advance the timeline without rendering anything. `durationSeconds` is required a
 
 ### `graph.create`
 
-Create a graph before any other action references it. The main claim is always `pro-main` and has no target.
+Create a graph before any other action references it. The main claim is always `pro-main` and has no target. `layout` is required and positions the main claim's center in the shared canvas coordinate system. Later graph cards retain this origin, so their emitted scene target bounds align directly with media and balance layouts.
 
 ```json
 {
   "type": "graph.create",
   "key": "argumentGraph",
+  "layout": { "x": 960, "y": 540 },
   "hideScores": true,
   "mainClaim": {
     "key": "main",
@@ -346,7 +353,7 @@ Immediately frame a target. Its default duration is zero.
 ```json
 {
   "type": "camera.cut",
-  "target": { "component": "argumentGraph" }
+  "target": { "objects": ["argumentGraph"] }
 }
 ```
 
@@ -358,35 +365,43 @@ Smoothly move to a target.
 {
   "type": "camera.move",
   "target": {
-    "objects": ["argumentGraph.cost", "argumentGraph.main"]
+    "objects": ["argumentGraph/cost", "argumentGraph/main"]
   },
   "durationSeconds": 1.2,
   "blocking": false
 }
 ```
 
-### `camera.follow`
+Both camera actions use the same target shape:
 
-Follow the confidence route from a claim introduced by a prior or same-time `graph.addClaim` action.
+```json
+{ "objects": ["argumentGraph/cost", "argumentGraph/main"] }
+```
+
+Add percentage controls directly to an object target to adjust the automatic fit:
 
 ```json
 {
-  "type": "camera.follow",
-  "routeFrom": "argumentGraph.cost",
-  "durationSeconds": 0.65,
-  "blocking": false
+  "objects": ["argumentGraph/main"],
+  "x%": -12,
+  "y%": 8,
+  "zoom%": 180
 }
 ```
 
-Camera targets are one of:
+`zoom%` defaults to `100`; larger values zoom in and smaller positive values zoom out. `x%` and `y%` default to `0`; they pan the final camera viewport right and down respectively by that percentage of its final width and height. Negative values pan left and up. These controls may appear only with `objects`.
+
+Use an explicit viewport layout when an action should not target scene objects:
 
 ```json
-{ "objects": ["argumentGraph.cost", "argumentGraph.main"] }
-{ "component": "argumentGraph" }
-{ "scene": true }
+{
+  "layout": { "x": 0, "y": 0, "width": 1920, "height": 1080 }
+}
 ```
 
-Camera targets may reference only canvas-anchored graphs and their claims. `target.scene` combines only canvas-anchored graphs. A known but currently disconnected graph claim falls back to framing the containing graph. Unknown graph or object references are errors.
+An object target resolves each ID at the target frame, requires visible canvas-anchored scene targets, combines their rectangles, adds padding, and fits the composition aspect ratio. A graph contributes its graph key and one child target per rendered claim key; media and balance objects contribute their keys. Missing targets and camera-anchored targets are errors. A layout target uses its authored rectangle directly, without target padding or aspect-ratio fitting.
+
+To follow a graph route, author successive `camera.move` actions whose object lists name each desired pair or card along that route. The graph exposes every rendered claim as a target, so route motion uses the same camera contract as every other scene object.
 
 ## Closed Captions
 

@@ -12,6 +12,10 @@
         {
             "type": "graph.create",
             "key": "argumentGraph",
+            "layout": {
+                "x": 960,
+                "y": 540
+            },
             "mainClaim": {
                 "key": "main",
                 "text": "The main claim",
@@ -37,6 +41,12 @@
         {
             "type": "balance.add",
             "key": "argumentBalance",
+            "layout": {
+                "x": 0,
+                "y": 0,
+                "width": 1920,
+                "height": 1080
+            },
             "scorePercent": -100
         },
         {

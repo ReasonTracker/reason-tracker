@@ -7,11 +7,15 @@ import {
 	compileEpisodeScript,
 	resolveGraphPlayback,
 	type CompiledEpisodeScript,
+	type EpisodeMediaAsset,
 	type GraphPlayback,
 	resolveSceneObjectStates,
 } from "./compileEpisodeScript";
-import type { ClaimCameraScript } from "./graphCameraBounds";
-import { compileSceneCamera, resolveCanvasCameraTransform } from "./sceneCamera";
+import {
+	compileSceneCamera,
+	resolveCanvasCameraTransform,
+	type SceneCameraScript,
+} from "./sceneCamera";
 import { SceneObjectSurface } from "./SceneObjectSurface";
 
 const CAPTION_CONTAINER_STYLE = {
@@ -83,16 +87,21 @@ const SCOREBOARD_STYLE = {
 } as const;
 
 export type DeclarativeEpisodeProps = {
-	camera?: ClaimCameraScript
+	camera?: SceneCameraScript
 	episode: CompiledEpisodeScript
-	mediaSources?: Readonly<Record<string, string>>
+	mediaAssets?: Readonly<Record<string, EpisodeMediaAsset>>
 };
 
-export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: DeclarativeEpisodeProps) {
+export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: DeclarativeEpisodeProps) {
 	const frame = useCurrentFrame();
 	const playback = resolveGraphPlayback(episode, frame);
 	const sceneObjects = resolveSceneObjectStates(episode, frame);
-	const cameraBounds = camera?.resolveBounds(frame) ?? playback?.animation.plan.bounds;
+	const cameraBounds = camera?.resolveBounds(frame) ?? {
+		height: episode.composition.height,
+		minX: 0,
+		minY: 0,
+		width: episode.composition.width,
+	};
 	const canvasTransform = cameraBounds
 		? resolveCanvasCameraTransform(cameraBounds, episode.composition)
 		: undefined;
@@ -101,7 +110,7 @@ export function DeclarativeEpisode({ camera, episode, mediaSources = {} }: Decla
 		.map((sceneObject) => (
 			<SceneObjectSurface
 				key={sceneObject.key}
-				mediaSources={mediaSources}
+				mediaAssets={mediaAssets}
 				sceneObject={sceneObject}
 			/>
 		));
@@ -224,13 +233,13 @@ function resolveGraphFrame(playback: GraphPlayback) {
 
 export function createDeclarativeEpisode(
 	input: unknown,
-	mediaSources?: Readonly<Record<string, string>>,
+	mediaAssets?: Readonly<Record<string, EpisodeMediaAsset>>,
 ) {
-	const episode = compileEpisodeScript(input);
+	const episode = compileEpisodeScript(input, mediaAssets);
 	const camera = compileSceneCamera(episode);
 	return {
 		component: () => (
-			<DeclarativeEpisode camera={camera} episode={episode} mediaSources={mediaSources} />
+			<DeclarativeEpisode camera={camera} episode={episode} mediaAssets={mediaAssets} />
 		),
 		episode,
 	};

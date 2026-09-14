@@ -9,16 +9,13 @@ type EpisodeMediaProps = {
 };
 
 export function EpisodeMedia({ source, style }: EpisodeMediaProps) {
-    const { rotation, ...cssStyle } = style;
-
     return (
         <Img
             src={source}
             style={{
                 display: "block",
                 position: "absolute",
-                ...cssStyle,
-                ...(rotation === undefined ? {} : { rotate: rotation }),
+                ...style,
             } as CSSProperties}
         />
     );
