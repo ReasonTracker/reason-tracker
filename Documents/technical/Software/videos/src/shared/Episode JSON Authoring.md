@@ -1,6 +1,6 @@
 # Episode JSON authoring
 
-This guide is the authoring contract for `episode.json` files. Use it to create or revise an episode script without writing TypeScript.
+This guide is the complete authoring contract for `episode.json` files. It is intended to be usable on its own by a human or external AI without a TypeScript development environment or any other episode-authoring guide.
 
 The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts), with scheduling and graph compilation in [compileEpisodeScript.ts](./compileEpisodeScript.ts). Update this guide in the same change whenever either file changes the JSON format, defaults, or action behavior.
 
@@ -86,7 +86,7 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
   "key": "cost",
   "text": "The legislation would have a substantial cost.",
   "target": "main",
-  "side": "con-main",
+  "side": "con",
   "durationSeconds": 4
 }
 ```
@@ -219,7 +219,7 @@ Advance the timeline without rendering anything. `durationSeconds` is required a
 
 ### `graph.create`
 
-Create a graph before any other action references it. The main claim is always `pro-main` and has no target. `layout` is required and positions the main claim's center in the shared canvas coordinate system. Later graph cards retain this origin, so their emitted scene target bounds align directly with media and balance layouts.
+Create a graph before any other action references it. The main claim supports the graph's proposition and has no target. `layout` is required and positions the main claim's center in the shared canvas coordinate system. Later graph cards retain this origin, so their emitted scene target bounds align directly with media and balance layouts.
 
 ```json
 {
@@ -237,13 +237,13 @@ Create a graph before any other action references it. The main claim is always `
       "key": "daylight",
       "text": "More useful evening daylight would improve daily schedules.",
       "target": "main",
-      "side": "pro-main"
+      "side": "pro"
     },
     {
       "key": "costEvidence",
       "text": "Cost estimates weaken the claimed benefit.",
       "target": { "relevanceOf": "daylight" },
-      "side": "con-main"
+      "side": "con"
     }
   ]
 }
@@ -279,7 +279,7 @@ The visual transition begins on the action's first frame. Its duration is divide
   "key": "cost",
   "text": "The legislation would have a substantial cost.",
   "target": "main",
-  "side": "con-main"
+  "side": "con"
 }
 ```
 
@@ -291,8 +291,8 @@ Set `textReveal` to `true` to reveal a claim's text character by character over 
 
 `side` is relative to the main claim:
 
-- `pro-main`: supports the main claim overall.
-- `con-main`: opposes the main claim overall.
+- `pro`: supports the main claim overall.
+- `con`: opposes the main claim overall.
 
 The compiler derives the internal target-relative relationship. A source and target on the same side support each other; opposite sides oppose each other.
 
@@ -312,7 +312,7 @@ Replace the rendered graph state with the listed claims. The main claim must be 
       "key": "cost",
       "text": "The legislation would have a substantial cost.",
       "target": "main",
-      "side": "con-main"
+      "side": "con"
     }
   ]
 }
@@ -334,7 +334,7 @@ Keep the current graph and alter only named claim definitions or connections. Th
       "key": "economicWeakness",
       "text": "Evidence for a large economic benefit is weak.",
       "target": "main",
-      "side": "con-main"
+      "side": "con"
     }
   ]
 }
@@ -423,7 +423,7 @@ Display spoken text for the specified duration. Captions are camera-anchored by 
 
 1. Start with one `graph.create` per graph component.
 2. Add or modify claim content near the action that introduces or changes it.
-3. Use `pro-main` and `con-main`; do not author internal `proTarget` or `conTarget` values.
+3. Use `pro` and `con`; do not author internal `pro-main`, `con-main`, `proTarget`, or `conTarget` values.
 4. Add each positioned visual once, then use its matching `.update` action with the same key for later partial visual changes.
 5. Use decimal seconds. Omit timing fields unless overriding the default cursor behavior; give each animated object patch a positive duration.
 6. Add explicit camera actions only where the episode should move or focus.

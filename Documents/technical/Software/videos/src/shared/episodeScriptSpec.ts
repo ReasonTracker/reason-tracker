@@ -329,6 +329,7 @@ export const episodeScriptSpecSchema = z.object({
 export type ClaimSide = z.infer<typeof claimSideSchema>;
 export type Anchor = z.infer<typeof anchorSchema>;
 export type EpisodeAction = z.infer<typeof episodeActionSchema>;
+export type EpisodeScriptSpecInput = z.input<typeof episodeScriptSpecSchema>;
 export type EpisodeScriptSpec = z.infer<typeof episodeScriptSpecSchema>;
 export type GraphAddClaimAction = z.infer<typeof graphAddClaimActionSchema>;
 export type GraphClaimState = z.infer<typeof graphClaimStateSchema>;

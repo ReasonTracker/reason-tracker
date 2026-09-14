@@ -2,6 +2,7 @@ import path from "node:path";
 import { Config } from "@remotion/cli/config";
 
 Config.overrideWebpackConfig((currentConfiguration) => {
+    const episodeDefinitionLoader = path.resolve(process.cwd(), "scripts/load-episode-definition.mjs");
     return {
         ...currentConfiguration,
         module: {
@@ -10,7 +11,12 @@ Config.overrideWebpackConfig((currentConfiguration) => {
                 {
                     test: /[\\/]episode\.json$/,
                     type: "javascript/auto",
-                    use: path.resolve(process.cwd(), "scripts/load-external-episode-json.mjs"),
+                    use: episodeDefinitionLoader,
+                },
+                {
+                    enforce: "post",
+                    test: /[\\/]episode\.ts$/,
+                    use: episodeDefinitionLoader,
                 },
                 ...(currentConfiguration.module?.rules ?? []),
             ],

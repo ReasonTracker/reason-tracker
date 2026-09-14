@@ -250,7 +250,6 @@ function augmentOpeningFrame(args: {
 		if (openingClaim) {
 			frame.claims[claim.id] = { ...openingClaim, position: { ...openingClaim.position } };
 		} else {
-			claim.opacity = 0;
 			claim.scale = 0;
 		}
 	}

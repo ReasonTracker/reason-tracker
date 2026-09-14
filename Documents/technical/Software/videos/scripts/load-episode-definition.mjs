@@ -1,7 +1,21 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-export default function loadExternalEpisodeJson(source) {
+const MEDIA_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
+
+export default function loadEpisodeDefinition(source) {
+	if (path.extname(this.resourcePath).toLowerCase() === ".json") {
+		return loadEpisodeJson.call(this, source);
+	}
+
+	const mediaAspectRatios = resolveDirectoryMediaAspectRatios(
+		path.dirname(this.resourcePath),
+		(sourceFile) => this.addDependency(sourceFile),
+	);
+	return `export const __mediaAspectRatios = ${JSON.stringify(mediaAspectRatios)};\n${source.toString()}`;
+}
+
+function loadEpisodeJson(source) {
 	const pointerFile = JSON.parse(source.toString());
 	let episode = pointerFile;
 	let episodeFile = this.resourcePath;
@@ -20,15 +34,35 @@ export default function loadExternalEpisodeJson(source) {
 		episodeFile = sourceFile;
 	}
 
-	const mediaAspectRatios = resolveMediaAspectRatios(
+	const mediaAspectRatios = resolveReferencedMediaAspectRatios(
 		episode,
 		path.dirname(episodeFile),
 		(sourceFile) => this.addDependency(sourceFile),
 	);
-	return `export default { ...${JSON.stringify(episode)}, __mediaAspectRatios: ${JSON.stringify(mediaAspectRatios)} };`;
+	return [
+		`const episode = ${JSON.stringify(episode)};`,
+		"export default episode;",
+		`export const __mediaAspectRatios = ${JSON.stringify(mediaAspectRatios)};`,
+	].join("\n");
 }
 
-function resolveMediaAspectRatios(episode, episodeDirectory, addDependency) {
+function resolveDirectoryMediaAspectRatios(episodeDirectory, addDependency) {
+	const mediaDirectory = path.join(episodeDirectory, "media");
+	if (!existsSync(mediaDirectory)) {
+		return {};
+	}
+
+	return Object.fromEntries(
+		readdirSync(mediaDirectory, { withFileTypes: true })
+			.filter((entry) => entry.isFile() && MEDIA_EXTENSION_PATTERN.test(entry.name))
+			.map((entry) => {
+				const source = `media/${entry.name}`;
+				return [source, resolveMediaAspectRatio(path.join(mediaDirectory, entry.name), addDependency)];
+			}),
+	);
+}
+
+function resolveReferencedMediaAspectRatios(episode, episodeDirectory, addDependency) {
 	const mediaSources = new Set(
 		Array.isArray(episode.script)
 			? episode.script
@@ -36,12 +70,16 @@ function resolveMediaAspectRatios(episode, episodeDirectory, addDependency) {
 				.map((action) => action.source)
 			: [],
 	);
-	return Object.fromEntries([...mediaSources].map((source) => {
-		const sourceFile = path.resolve(episodeDirectory, source);
-		addDependency(sourceFile);
-		const { height, width } = readImageDimensions(readFileSync(sourceFile), sourceFile);
-		return [source, width / height];
-	}));
+	return Object.fromEntries([...mediaSources].map((source) => [
+		source,
+		resolveMediaAspectRatio(path.resolve(episodeDirectory, source), addDependency),
+	]));
+}
+
+function resolveMediaAspectRatio(sourceFile, addDependency) {
+	addDependency(sourceFile);
+	const { height, width } = readImageDimensions(readFileSync(sourceFile), sourceFile);
+	return width / height;
 }
 
 function readImageDimensions(file, sourceFile) {

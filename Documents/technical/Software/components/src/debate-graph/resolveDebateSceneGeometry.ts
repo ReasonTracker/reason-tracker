@@ -38,6 +38,7 @@ export type SceneBandGeometry = {
 	outlineWidth: number
 	shellPathData: string
 	side: "proMain" | "conMain"
+	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
 	sourcePort: AttachmentPort
 	targetPort: AttachmentPort
 };
@@ -136,6 +137,7 @@ export function resolveDebateSceneGeometry(args: {
 				shellReveal: connection.shellReveal,
 				shellWidth: targetPort.shellWidth,
 				side: connection.side,
+				sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 				sourcePort,
 				sourceShellWidth: sourcePort.shellWidth,
 				targetPort,
@@ -179,6 +181,7 @@ export function resolveDebateSceneGeometry(args: {
 			shellReveal: connection.shellReveal,
 			shellWidth: sourcePort.shellWidth,
 			side: connection.side,
+			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort,
 			targetPort: confidenceTargetPort,
 			volumeTransitions: connection.volumeTransitions,
@@ -192,6 +195,7 @@ export function resolveDebateSceneGeometry(args: {
 			shellReveal: connection.shellReveal,
 			shellWidth: targetPort.shellWidth,
 			side: connection.side,
+			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort: deliverySourcePort,
 			targetPort,
 			volumeTransitions: connection.volumeTransitions,
@@ -266,6 +270,7 @@ function buildRelevanceBand(args: {
 		shellReveal: args.relevance.shellReveal,
 		shellWidth,
 		side: args.relevance.side,
+		sourceClaimOccurrenceId: args.relevance.sourceClaimOccurrenceId,
 		sourcePort,
 		targetPort,
 		volumeTransitions: args.relevance.volumeTransitions,
@@ -281,6 +286,7 @@ function buildSceneBand(args: {
 	shellReveal: number
 	shellWidth: number
 	side: SceneBandGeometry["side"]
+	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
 	sourcePort: AttachmentPort
 	sourceShellWidth?: number
 	targetPort: AttachmentPort
@@ -331,6 +337,7 @@ function buildSceneBand(args: {
 		outlineWidth: args.outlineWidth,
 		shellPathData: shell.pathData,
 		side: args.side,
+		sourceClaimOccurrenceId: args.sourceClaimOccurrenceId,
 		sourcePort: args.sourcePort,
 		targetPort: args.targetPort,
 	};
@@ -354,9 +361,9 @@ function buildMovingVolumeBand(args: {
 	return {
 		issues: geometries.flatMap((geometry) => geometry.issues),
 		pathData: geometries.map((geometry) => pathGeometryBoundariesToClosedSvgPathData(
-				geometry.boundaryAPathCommands,
-				geometry.boundaryBPathCommands,
-			)).join(" "),
+			geometry.boundaryAPathCommands,
+			geometry.boundaryBPathCommands,
+		)).join(" "),
 	};
 }
 

@@ -3,15 +3,25 @@ import type { ComponentType } from "react";
 import { createDeclarativeEpisode } from "./shared/DeclarativeEpisode";
 import type { EpisodeMediaAsset } from "./shared/compileEpisodeScript";
 
-const episodeFiles = require.context("./", true, /\/episode\.json$/);
+const episodeFiles = require.context("./", true, /\/episode\.(json|ts)$/);
 const mediaFiles = require.context("./", true, /\/media\/[^/]+\.(avif|gif|jpe?g|png|webp)$/i);
+const episodePaths = episodeFiles.keys();
+const episodeDirectories = new Set<string>();
 
-export const episodes = episodeFiles.keys().map((specPath) => {
-	const episodeDirectory = specPath.slice(0, -"/episode.json".length);
+for (const episodePath of episodePaths) {
+	const episodeDirectory = episodePath.replace(/\/episode\.(json|ts)$/, "");
+	if (episodeDirectories.has(episodeDirectory)) {
+		throw new Error(`Episode directory must contain exactly one episode.json or episode.ts: ${episodeDirectory}`);
+	}
+	episodeDirectories.add(episodeDirectory);
+}
+
+export const episodes = episodePaths.map((specPath) => {
+	const episodeDirectory = specPath.replace(/\/episode\.(json|ts)$/, "");
 	const episodeModule = episodeFiles(specPath) as {
-		default: { __mediaAspectRatios: Readonly<Record<string, number>> }
+		__mediaAspectRatios: Readonly<Record<string, number>>
+		default: unknown
 	};
-	const { __mediaAspectRatios: mediaAspectRatios, ...episodeSpec } = episodeModule.default;
 	const mediaAssets = Object.fromEntries(
 		mediaFiles
 			.keys()
@@ -19,14 +29,14 @@ export const episodes = episodeFiles.keys().map((specPath) => {
 			.map((mediaPath) => [
 				mediaPath.slice(episodeDirectory.length + 1),
 				{
-					aspectRatio: mediaAspectRatios[mediaPath.slice(episodeDirectory.length + 1)],
+					aspectRatio: episodeModule.__mediaAspectRatios[mediaPath.slice(episodeDirectory.length + 1)],
 					src: mediaFiles(mediaPath) as string,
 				},
 			]),
 	) as Record<string, EpisodeMediaAsset>;
 	let episode: ReturnType<typeof createDeclarativeEpisode>;
 	try {
-		episode = createDeclarativeEpisode(episodeSpec, mediaAssets);
+		episode = createDeclarativeEpisode(episodeModule.default, mediaAssets);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		throw new Error(`Unable to load episode specification ${specPath}\n${message}`, { cause: error });

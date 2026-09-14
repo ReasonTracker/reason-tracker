@@ -42,7 +42,7 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Add Confidence Claim to Existing Debate Example
 
-- **Voila**: The new claim scales in from zero to its calculated size at its settled position.
+- **Voila**: The new claim scales in from zero to its calculated size at its settled position and remains in the foreground throughout the animation sequence.
   - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
   - That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from current scored delivery demand. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
   - Add in the connectors, junctions and agregators for the new claim.

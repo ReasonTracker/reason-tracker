@@ -27,6 +27,7 @@ export type DebateGraphProps = {
 	claimContent?: (claimId: ClaimId, content: string) => ReactNode
 	debateCore: DebateCore
 	diagnostics?: boolean
+	foregroundClaimIds?: ReadonlySet<ClaimId>
 	frame: DebateFrame
 	options: PlannerOptions
 	scoreless?: boolean
@@ -38,12 +39,23 @@ export function DebateGraph({
 	claimContent,
 	debateCore,
 	diagnostics = false,
+	foregroundClaimIds,
 	frame,
 	options,
 	scoreless = false,
 	showClaimScore,
 }: DebateGraphProps) {
 	const geometry = resolveDebateSceneGeometry({ frame, options });
+	const claims = Object.values(frame.claims).sort((left, right) =>
+		Number(foregroundClaimIds?.has(left.claimId) ?? false)
+		- Number(foregroundClaimIds?.has(right.claimId) ?? false)
+	);
+	const foregroundBands = geometry.bands.filter((band) => {
+		const sourceClaim = frame.claims[band.sourceClaimOccurrenceId];
+		return sourceClaim !== undefined
+			&& (foregroundClaimIds?.has(sourceClaim.claimId) ?? false);
+	});
+	const regularBands = geometry.bands.filter((band) => !foregroundBands.includes(band));
 
 	return (
 		<div style={rootStyle}>
@@ -54,12 +66,8 @@ export function DebateGraph({
 				viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
 			>
 				<g data-layer="connectors">
-					{geometry.bands.map((band) => (
-						<ConnectorBand band={band} key={`${band.id}:shell`} layer="shell" />
-					))}
-					{geometry.bands.map((band) => (
-						<ConnectorBand band={band} key={`${band.id}:fluid`} layer="fluid" />
-					))}
+					<ConnectorBands bands={regularBands} />
+					<ConnectorBands bands={foregroundBands} />
 				</g>
 				<g data-layer="aggregators">
 					{geometry.deliveryAggregators.map((polygon) => (
@@ -70,7 +78,7 @@ export function DebateGraph({
 					))}
 				</g>
 				<g data-layer="claims">
-					{Object.values(frame.claims).map((claim) => {
+					{claims.map((claim) => {
 						const claimGeometry = geometry.claims[claim.id];
 						const content = debateCore.claims[claim.claimId]?.content ?? String(claim.claimId);
 						if (!claimGeometry || claimGeometry.width <= 0 || claimGeometry.height <= 0) {
@@ -148,6 +156,19 @@ export function DebateGraph({
 					: null}
 			</svg>
 		</div>
+	);
+}
+
+function ConnectorBands({ bands }: { bands: readonly SceneBandGeometry[] }) {
+	return (
+		<>
+			{bands.map((band) => (
+				<ConnectorBand band={band} key={`${band.id}:shell`} layer="shell" />
+			))}
+			{bands.map((band) => (
+				<ConnectorBand band={band} key={`${band.id}:fluid`} layer="fluid" />
+			))}
+		</>
 	);
 }
 

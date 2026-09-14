@@ -13,7 +13,7 @@ This folder owns the Remotion root, episode definitions, and Remotion-only share
 ---
 
 <!-- autonav:start -->
-
 - [Component Visualizers](./component-visualizers/📌README.md)
 - [Math Explainer](./math-explainer/📌README.md)
+- [Episode0006](./Episode0006/📌README.md)
 <!-- autonav:end -->
