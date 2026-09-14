@@ -4,7 +4,7 @@ const episode = {
 	schemaVersion: 3,
 	settings: {
 		composition: {
-			id: "Episode0006",
+			id: "Episode0001",
 			fps: 30,
 			width: 1920,
 			height: 1080,

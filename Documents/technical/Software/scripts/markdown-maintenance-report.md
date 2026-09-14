@@ -53,7 +53,7 @@ Run type: Markdown maintenance
 
 ## Auto-Added Links
 
-- Source: Documents/technical/Software/videos/src/Episode0006/📌README.md
-  - [Media](./media/📌README.md) -> Documents/technical/Software/videos/src/Episode0006/media/📌README.md
+- Source: Documents/technical/Software/videos/src/Episode0001/📌README.md
+  - [Media](./media/📌README.md) -> Documents/technical/Software/videos/src/Episode0001/media/📌README.md
 - Source: Documents/technical/Software/videos/src/📌README.md
-  - [Episode0006](./Episode0006/📌README.md) -> Documents/technical/Software/videos/src/Episode0006/📌README.md
+  - [Episode0001](./Episode0001/📌README.md) -> Documents/technical/Software/videos/src/Episode0001/📌README.md
