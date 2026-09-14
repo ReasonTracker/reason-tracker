@@ -7,7 +7,10 @@ import {
 	type Waypoint,
 } from "./buildPathGeometry";
 
+// AGENT NOTE: Keep tunable path-volume geometry constants grouped here.
 const GEOMETRY_EPSILON = 1e-6;
+/** Multiplier for the path length occupied by animated fill transitions. */
+const VOLUME_TRANSITION_LENGTH_SCALE = 2;
 
 export type PathVolumePlacement = "center" | "negativeEdge" | "positiveEdge";
 
@@ -43,7 +46,11 @@ export function buildPathVolumeGeometry(input: PathVolumeGeometryInput): PathGeo
 
 	const transitions = input.transitions
 		.filter((transition) => Math.abs(transition.initialValue - transition.finalValue) > GEOMETRY_EPSILON)
-		.map((transition) => positionTransition(transition, routeLength, shellWidth))
+		.map((transition) => positionTransition(
+			transition,
+			routeLength,
+			shellWidth * VOLUME_TRANSITION_LENGTH_SCALE,
+		))
 		.sort((left, right) => left.startPositionPercent - right.startPositionPercent);
 	if (transitions.length === 0) {
 		const value = clamp01(input.stableValue);
