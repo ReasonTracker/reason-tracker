@@ -135,6 +135,11 @@ export function planDebateAnimationBatch(
 			.filter((connection) => newRelevanceConnectorIds.has(connection.relevanceConnectorId))
 			.map((connection) => connection.id),
 	);
+	const relevanceAffectedConfidenceOccurrenceIds = new Set(
+		Object.values(settledFrame.relevanceConnections)
+			.filter((connection) => newRelevanceOccurrenceIds.has(connection.id))
+			.map((connection) => connection.targetConfidenceConnectorOccurrenceId),
+	);
 	const voilaInitialFrame = augmentOpeningFrame({
 		newConfidenceOccurrenceIds,
 		newRelevanceOccurrenceIds,
@@ -150,7 +155,8 @@ export function planDebateAnimationBatch(
 	const sproutFrame = buildSproutFrame({
 		newConfidenceOccurrenceIds,
 		newRelevanceOccurrenceIds,
-		openingFrame,
+		relevanceAffectedConfidenceOccurrenceIds,
+		voilaFrame,
 		settledFrame,
 	});
 	const firstFillFrame = cloneFrame(sproutFrame);
@@ -163,17 +169,28 @@ export function planDebateAnimationBatch(
 			connection.score = settledConnection.score;
 		}
 	}
-	const waveFrame = buildChangedScoreWaveFrame({
-		firstFillFrame,
-		settledFrame,
-	});
+	for (const occurrenceId of newRelevanceOccurrenceIds) {
+		const connection = firstFillFrame.relevanceConnections[occurrenceId];
+		const settledConnection = settledFrame.relevanceConnections[occurrenceId];
+		if (connection && settledConnection) {
+			connection.score = settledConnection.score;
+		}
+	}
+	const waveFrame = cloneFrame(settledFrame);
 
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
 		easing: "smooth",
 	}));
-	const sprout = buildAnimationStep("sprout", voilaFrame, sproutFrame, () => ({
-		easing: "smooth",
-	}));
+	const sprout = buildAnimationStep("sprout", voilaFrame, sproutFrame, (address) => {
+		if (
+			address.kind === "relevance"
+			&& address.field === "shellReveal"
+			&& newRelevanceOccurrenceIds.has(address.id as PresentationConnectorOccurrenceId)
+		) {
+			return { easing: "smooth", startProgress: 0.25 };
+		}
+		return { easing: "smooth" };
+	});
 	const firstFill = buildAnimationStep(
 		"firstFill",
 		sproutFrame,
@@ -184,7 +201,7 @@ export function planDebateAnimationBatch(
 		"wave",
 		firstFillFrame,
 		waveFrame,
-		() => ({ easing: "linear" }),
+		() => ({ easing: "smooth" }),
 	);
 
 	return {
@@ -201,58 +218,6 @@ export function planDebateAnimationBatch(
 		options,
 		steps: { firstFill, sprout, voila, wave },
 	};
-}
-
-function buildChangedScoreWaveFrame(args: {
-	firstFillFrame: DebateFrame
-	settledFrame: DebateFrame
-}): DebateFrame {
-	const frame = cloneFrame(args.firstFillFrame);
-	const changedClaimOccurrenceIds = new Set(
-		Object.values(args.settledFrame.claims)
-			.filter((settledClaim) => {
-				const firstFillClaim = args.firstFillFrame.claims[settledClaim.id];
-				return firstFillClaim !== undefined
-					&& (
-						firstFillClaim.rawScore !== settledClaim.rawScore
-						|| firstFillClaim.score !== settledClaim.score
-					);
-			})
-			.map((claim) => claim.id),
-	);
-
-	for (const occurrenceId of changedClaimOccurrenceIds) {
-		const claim = frame.claims[occurrenceId];
-		const settledClaim = args.settledFrame.claims[occurrenceId];
-		if (claim && settledClaim) {
-			claim.rawScore = settledClaim.rawScore;
-			claim.score = settledClaim.score;
-		}
-	}
-
-	for (const connection of Object.values(frame.confidenceConnections)) {
-		const settledConnection = args.settledFrame.confidenceConnections[connection.id];
-		if (settledConnection) {
-			connection.deliveryScore = settledConnection.deliveryScore;
-			if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
-				continue;
-			}
-			connection.score = settledConnection.score;
-		}
-	}
-
-	for (const connection of Object.values(frame.relevanceConnections)) {
-		if (!changedClaimOccurrenceIds.has(connection.sourceClaimOccurrenceId)) {
-			continue;
-		}
-
-		const settledConnection = args.settledFrame.relevanceConnections[connection.id];
-		if (settledConnection) {
-			connection.score = settledConnection.score;
-		}
-	}
-
-	return frame;
 }
 
 function augmentOpeningFrame(args: {
@@ -275,7 +240,11 @@ function augmentOpeningFrame(args: {
 	for (const connection of Object.values(frame.confidenceConnections)) {
 		const openingConnection = args.openingFrame.confidenceConnections[connection.id];
 		if (openingConnection) {
-			frame.confidenceConnections[connection.id] = { ...openingConnection };
+			frame.confidenceConnections[connection.id] = {
+				...connection,
+				...openingConnection,
+				relevanceConnectorOccurrenceIds: connection.relevanceConnectorOccurrenceIds,
+			};
 		} else {
 			connection.score = 0;
 			connection.shellReveal = 0;
@@ -320,6 +289,7 @@ function buildVoilaFrame(args: {
 		if (openingConnection) {
 			connection.deliveryScore = openingConnection.deliveryScore;
 			connection.deliveryScale = openingConnection.deliveryScale;
+			connection.junctionSpan = openingConnection.junctionSpan;
 			connection.score = openingConnection.score;
 			connection.sourceScale = openingConnection.sourceScale;
 			connection.targetSideOffset = openingConnection.targetSideOffset;
@@ -348,39 +318,58 @@ function buildVoilaFrame(args: {
 function buildSproutFrame(args: {
 	newConfidenceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
 	newRelevanceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
-	openingFrame: DebateFrame
+	relevanceAffectedConfidenceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
+	voilaFrame: DebateFrame
 	settledFrame: DebateFrame
 }): DebateFrame {
-	const frame = cloneFrame(args.settledFrame);
+	const hasNewRelevance = args.relevanceAffectedConfidenceOccurrenceIds.size > 0;
+	const frame = cloneFrame(hasNewRelevance ? args.voilaFrame : args.settledFrame);
 
-	for (const claim of Object.values(frame.claims)) {
-		const openingClaim = args.openingFrame.claims[claim.id];
-		if (openingClaim) {
-			claim.rawScore = openingClaim.rawScore;
-			claim.score = openingClaim.score;
+	if (!hasNewRelevance) {
+		for (const claim of Object.values(frame.claims)) {
+			const voilaClaim = args.voilaFrame.claims[claim.id];
+			if (voilaClaim) {
+				claim.rawScore = voilaClaim.rawScore;
+				claim.score = voilaClaim.score;
+			}
+		}
+
+		for (const connection of Object.values(frame.confidenceConnections)) {
+			const voilaConnection = args.voilaFrame.confidenceConnections[connection.id];
+			if (voilaConnection) {
+				connection.deliveryScore = voilaConnection.deliveryScore;
+				connection.score = voilaConnection.score;
+			}
+		}
+
+		for (const connection of Object.values(frame.relevanceConnections)) {
+			const voilaConnection = args.voilaFrame.relevanceConnections[connection.id];
+			if (voilaConnection) {
+				connection.score = voilaConnection.score;
+			}
 		}
 	}
 
 	for (const connection of Object.values(frame.confidenceConnections)) {
-		const openingConnection = args.openingFrame.confidenceConnections[connection.id];
-		if (openingConnection) {
-			connection.deliveryScore = openingConnection.deliveryScore;
-			connection.score = openingConnection.score;
+		if (
+			args.settledFrame.confidenceConnections[connection.id]
+			&& connection.junctionSpan === 0
+			&& args.relevanceAffectedConfidenceOccurrenceIds.has(connection.id)
+		) {
+			connection.junctionSpan = args.settledFrame.confidenceConnections[connection.id]!.junctionSpan;
 		}
 
 		if (args.newConfidenceOccurrenceIds.has(connection.id)) {
 			connection.score = 0;
+			connection.shellReveal = 1;
 		}
 	}
 
 	for (const connection of Object.values(frame.relevanceConnections)) {
-		const openingConnection = args.openingFrame.relevanceConnections[connection.id];
-		if (openingConnection) {
-			connection.score = openingConnection.score;
-		}
-
 		if (args.newRelevanceOccurrenceIds.has(connection.id)) {
 			connection.score = 0;
+			connection.shellReveal = 1;
+			connection.targetSideOffset = 0;
 		}
 	}
 
@@ -425,6 +414,7 @@ function buildAnimationStep<TId extends AnimationStepId>(
 		tracks.confidenceConnections[initial.id] = compactTracks({
 			deliveryScore: createTrack(initial.deliveryScore, target.deliveryScore, resolveTiming({ field: "deliveryScore", id: initial.id, kind: "confidence" })),
 			deliveryScale: createTrack(initial.deliveryScale, target.deliveryScale, resolveTiming({ field: "deliveryScale", id: initial.id, kind: "confidence" })),
+			junctionSpan: createTrack(initial.junctionSpan, target.junctionSpan, resolveTiming({ field: "junctionSpan", id: initial.id, kind: "confidence" })),
 			shellReveal: createTrack(initial.shellReveal, target.shellReveal, resolveTiming({ field: "shellReveal", id: initial.id, kind: "confidence" })),
 			sourceScale: createTrack(initial.sourceScale, target.sourceScale, resolveTiming({ field: "sourceScale", id: initial.id, kind: "confidence" })),
 			targetSideOffset: createTrack(initial.targetSideOffset, target.targetSideOffset, resolveTiming({ field: "targetSideOffset", id: initial.id, kind: "confidence" })),

@@ -47,6 +47,7 @@ describe("resolveDebateSceneGeometry", () => {
 					deliveryScore: 1,
 					deliveryScale: 0.5,
 					id: connectionId,
+					junctionSpan: 0,
 					relevanceMultiplier: 1,
 					relevanceConnectorOccurrenceIds: [],
 					score: 1,

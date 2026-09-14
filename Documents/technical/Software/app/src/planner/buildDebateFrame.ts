@@ -210,24 +210,6 @@ function buildConnectionStates(args: {
 				throw new Error(`Missing resolved connection values for ${occurrence.id}`);
 			}
 
-			const state: ConfidenceConnectionFrameState = {
-				confidenceConnectorId: occurrence.confidenceConnectorId,
-				deliveryScore: connectorScore.deliveryScore,
-				deliveryScale,
-				id: occurrence.id,
-				relevanceMultiplier: connectorScore.relevanceMultiplier,
-				relevanceConnectorOccurrenceIds: occurrence.relevanceConnectorOccurrenceIds,
-				score: score.value,
-				shellReveal: 1,
-				side,
-				sourceClaimOccurrenceId: occurrence.sourceClaimOccurrenceId,
-				sourceScale,
-				targetClaimOccurrenceId: occurrence.targetClaimOccurrenceId,
-				targetSideOffset: confidenceOffsets[index] ?? 0,
-				volumeTransitions: [],
-			};
-			args.frame.confidenceConnections[occurrence.id] = state;
-
 			const relevanceOccurrences = occurrence.relevanceConnectorOccurrenceIds.map(
 				(connectorOccurrenceId) => getRelevanceOccurrence(
 					args.resolvedMath,
@@ -243,6 +225,31 @@ function buildConnectionStates(args: {
 					),
 				})),
 			);
+
+			const state: ConfidenceConnectionFrameState = {
+				confidenceConnectorId: occurrence.confidenceConnectorId,
+				deliveryScore: connectorScore.deliveryScore,
+				deliveryScale,
+				id: occurrence.id,
+				junctionSpan: relevanceOccurrences.reduce(
+					(span, relevanceOccurrence) => span + getRequiredNumber(
+						args.resolvedMath.sourcesScales[relevanceOccurrence.sourceClaimOccurrenceId],
+						`source scale for ${relevanceOccurrence.sourceClaimOccurrenceId}`,
+					),
+					0,
+				),
+				relevanceMultiplier: connectorScore.relevanceMultiplier,
+				relevanceConnectorOccurrenceIds: occurrence.relevanceConnectorOccurrenceIds,
+				score: score.value,
+				shellReveal: 1,
+				side,
+				sourceClaimOccurrenceId: occurrence.sourceClaimOccurrenceId,
+				sourceScale,
+				targetClaimOccurrenceId: occurrence.targetClaimOccurrenceId,
+				targetSideOffset: confidenceOffsets[index] ?? 0,
+				volumeTransitions: [],
+			};
+			args.frame.confidenceConnections[occurrence.id] = state;
 
 			relevanceOccurrences.forEach((relevanceOccurrence, relevanceIndex) => {
 				const relevanceScale = getRequiredNumber(

@@ -49,6 +49,7 @@ export type ConfidenceConnectionFrameState = {
 	deliveryScore: number
 	deliveryScale: number
 	id: PresentationConnectorOccurrenceId
+	junctionSpan: number
 	relevanceMultiplier: number
 	relevanceConnectorOccurrenceIds: PresentationConnectorOccurrenceId[]
 	score: number
@@ -94,7 +95,7 @@ type ClaimTracks = Partial<Record<
 type ConfidenceConnectionTracks = Partial<Record<
 	PresentationConnectorOccurrenceId,
 	Partial<Record<
-		"deliveryScale" | "deliveryScore" | "shellReveal" | "sourceScale" | "targetSideOffset",
+		"deliveryScale" | "deliveryScore" | "junctionSpan" | "shellReveal" | "sourceScale" | "targetSideOffset",
 		NumberTrack
 	>> & { volumeChanges?: NumberTrack[] }
 >>;
@@ -171,6 +172,11 @@ export function resolveAnimationFrame(
 						tracks?.deliveryScale,
 						progress,
 						item.deliveryScale,
+					),
+					junctionSpan: resolveNumberTrack(
+						tracks?.junctionSpan,
+						progress,
+						item.junctionSpan,
 					),
 					score: tracks?.volumeChanges?.at(-1)?.to ?? item.score,
 					shellReveal: resolveNumberTrack(tracks?.shellReveal, progress, item.shellReveal),

@@ -3,7 +3,7 @@
 ## Current Boundary
 
 - The planner currently works from the pre-command `DebateCore` state plus the command payload.
-- `planner` returns a named `DebateAnimationPlan` with an opening scalar frame and `voila`, `sprout`, `firstFill`, and `wave` steps.
+- `planner` returns a named `DebateAnimationPlan` with an opening scalar frame and `voila`, `sprout`, `firstFill`, and `wave` steps for confidence and relevance claim additions.
 - `resolveAnimationFrame` is the only interpolation boundary. Renderers consume resolved scalar frames and do not interpret planner tweens.
 - `resolvePresentationMath` performs cycle-aware scoring once, builds the deterministic presentation graph, and maps aggregate scores, sides, and scales onto path occurrences.
 - The presentation graph expands the original DebateCore by path. It emits a repeated ancestor claim once as an ordinary terminal occurrence, then stops only that branch.
@@ -19,7 +19,7 @@
 
 ## Current Scope
 
-- current implementation target: one or more simultaneous `confidence/claim/add` commands
+- current implementation target: one or more simultaneous `confidence/claim/add` or `relevance/claim/add` commands
 - current animation cutoff: the first propagation `wave` from the command target through its outgoing connectors
 - subsequent propagation waves and final global rescaling remain outside the current plan
 
@@ -36,7 +36,8 @@
 - In the current orientation, claim boxes are left-justified within the claim-lane band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when surrounding constraints permit it.
 - Current planner-owned delivery corridor widths do not yet encode larger detours for route-around-line behavior or crossing avoidance. Those routing expansions are deferred rather than hidden in renderer-local stub lengths.
-- The planner owns positions, scales, target-stack offsets, and reveal tracks. `@reasontracker/components` owns attachment ports, route geometry, junctions, aggregators, and SVG rendering from each resolved scalar frame.
+- The planner owns positions, scales, target-stack offsets, reveal tracks, and each confidence connection's junction span. `@reasontracker/components` owns attachment ports, route geometry, junction polygons, aggregators, and SVG rendering from each resolved scalar frame.
+- For a relevance addition, the planner holds surrounding layout plus relevance-driven confidence and delivery geometry at the pre-addition state through `firstFill`. A new junction grows its span during `sprout`, the relevance connector fluid reaches that junction during `firstFill`, and `wave` then transitions the junction, connector sizing and ordering, and surrounding claim layout together.
 - Delivery `targetSideOffset` comes from ordered parent-fluid intervals, including zero-width points. Full delivery shells are side-anchored around those intervals and may overlap.
 - Affected claims and their connectors transition together throughout Sprout. Claims move once into their settled positions and scales while connector endpoints remain attached and connector widths and target stack positions resolve continuously. Wave resolution keeps that settled layout while interpolating logical claim and delivery scores. Fluid-frontier transitions remain visual history rather than layout input.
 

@@ -149,10 +149,7 @@ export function resolveDebateSceneGeometry(args: {
 		const relevanceStates = connection.relevanceConnectorOccurrenceIds.map(
 			(id) => getRelevanceState(args.frame, id),
 		);
-		const junctionSpan = relevanceStates.reduce(
-			(totalWidth, relevance) => totalWidth + (args.options.claimHeight * relevance.scale),
-			0,
-		);
+		const junctionSpan = args.options.claimHeight * connection.junctionSpan;
 		const sourceApproachWidth = (
 			args.options.connectorCurveLaneWidth
 			+ args.options.connectorDiagonalLaneWidth

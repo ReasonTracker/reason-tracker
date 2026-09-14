@@ -42,7 +42,7 @@ export function DebateAnimationSurface({
 					? <TimedCharacterReveal text={content} {...reveal} />
 					: content;
 			}}
-			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout"
+			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout" || stepId === "firstFill" || stepId === "wave"
 				? foregroundClaimIds
 				: undefined}
 			foregroundClaimIds={foregroundClaimIds}

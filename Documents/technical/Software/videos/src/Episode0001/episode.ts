@@ -5,7 +5,7 @@ const episode = {
 	settings: {
 		composition: {
 			id: "Episode0001",
-			fps: 30,
+			fps: 60,
 			width: 1920,
 			height: 1080,
 		},
@@ -184,29 +184,29 @@ const episode = {
 			type: "graph.addClaim",
 			graph: "argumentGraph",
 			key: "heartAttackMetaAnalysis2024",
-			text: "A 2024 meta-analysis of 12 studies from 10 countries found about a 4% increase in acute myocardial infarction after the spring Daylight Saving Time transition.",
+			text: "A 2024 meta-analysis of 12 studies from 10 countries found about a 4% increase in myocardial infarction after the spring Daylight Saving Time transition.",
 			target: "healthSafety",
 			side: "pro",
 		},
-		{
-			type: "camera.move",
-			target: {
-				offsetSeconds: 4,
-				objects: [
-					"argumentGraph/heartAttackReview2026",
-					"argumentGraph/healthSafety",
-				],
-			},
-			blocking: false,
-		},
-		{
-			type: "graph.addClaim",
-			graph: "argumentGraph",
-			key: "heartAttackReview2026",
-			text: "A 2026 systematic review of 157 epidemiological studies concluded that spring clock changes appear associated with increased acute myocardial infarction, citing the roughly 4% meta-analytic estimate. Its literature search ended June 19, 2025.",
-			target: "healthSafety",
-			side: "pro",
-		},
+		// {
+		// 	type: "camera.move",
+		// 	target: {
+		// 		offsetSeconds: 4,
+		// 		objects: [
+		// 			"argumentGraph/heartAttackReview2026",
+		// 			"argumentGraph/healthSafety",
+		// 		],
+		// 	},
+		// 	blocking: false,
+		// },
+		// {
+		// 	type: "graph.addClaim",
+		// 	graph: "argumentGraph",
+		// 	key: "heartAttackReview2026",
+		// 	text: "A 2026 systematic review of 157 epidemiological studies concluded that spring clock changes appear associated with increased myocardial infarction, citing the roughly 4% meta-analytic estimate. Its literature search ended June 19, 2025.",
+		// 	target: "healthSafety",
+		// 	side: "pro",
+		// },
 		{
 			type: "camera.move",
 			target: {
@@ -215,6 +215,9 @@ const episode = {
 					"argumentGraph/largeJamaHeartAttackStudy2025",
 					"argumentGraph/healthSafety",
 				],
+				"zoom%": 70,
+				"x%": -10,
+				"y%": 0,
 			},
 			blocking: false,
 		},
@@ -226,39 +229,31 @@ const episode = {
 			target: "healthSafety",
 			side: "con",
 		},
+		// {
+		// 	type: "camera.move",
+		// 	target: {
+		// 		offsetSeconds: 4,
+		// 		objects: [
+		// 			"argumentGraph/largeJamaStudySize",
+		// 			"argumentGraph/largeJamaHeartAttackStudy2025",
+		// 			"argumentGraph/healthSafety",
+		// 		],
+		// 	},
+		// 	blocking: false,
+		// },
+		// {
+		// 	type: "graph.addClaim",
+		// 	graph: "argumentGraph",
+		// 	key: "largeJamaStudySize",
+		// 	text: "The 2025 U.S. study included 168,870 myocardial infarction patients at 1,124 hospitals and was published after both the 2024 meta-analysis and the June 19, 2025 search cutoff of the 2026 review, so neither included it.",
+		// 	target: { relevanceOf: "largeJamaHeartAttackStudy2025" },
+		// 	side: "con",
+		// },
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: 4,
 				objects: [
-					"argumentGraph/largeJamaStudySize",
-					"argumentGraph/largeJamaHeartAttackStudy2025",
-					"argumentGraph/healthSafety",
-				],
-			},
-			blocking: false,
-		},
-		{
-			type: "graph.addClaim",
-			graph: "argumentGraph",
-			key: "largeJamaStudySize",
-			text: "The 2025 U.S. study included 168,870 myocardial infarction patients at 1,124 hospitals and was published after both the 2024 meta-analysis and the June 19, 2025 search cutoff of the 2026 review, so neither included it.",
-			target: { relevanceOf: "largeJamaHeartAttackStudy2025" },
-			side: "con",
-		},
-		{
-			type: "camera.move",
-			target: {
-				objects: [
-					"argumentGraph/main",
-					"argumentGraph/disruptsleep",
-					"argumentGraph/implementationCosts",
-					"argumentGraph/annualSavings",
-					"argumentGraph/healthSafety",
-					"argumentGraph/heartAttackMetaAnalysis2024",
-					"argumentGraph/heartAttackReview2026",
-					"argumentGraph/largeJamaHeartAttackStudy2025",
-					"argumentGraph/largeJamaStudySize",
+					"argumentGraph",
 				],
 			},
 			blocking: true,

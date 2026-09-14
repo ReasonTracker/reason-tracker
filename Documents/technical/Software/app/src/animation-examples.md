@@ -56,18 +56,19 @@ These examples describe the visual sequence of what happens on screen and intent
 ## Add Relevance Claim To A New Junction
 
 - **Voila**: The new claim scales in from zero to its calculated size at its settled position.
-- **Sprout**: All affected claims and connectors transition together throughout the step while remaining attached to their connected geometry.
-  - The pipe wall and pipe interior progressively trace out the path of the Relevance Connector from the new claim to the top or bottom side of the relevance aggregator attached to the affected junction on the affected confidence connection.
-  - The affected confidence connection shows a visible junction and a visible Display Confidence Connector leading into that junction.
+- **Sprout**: A new junction grows from zero width to its planned relevance landing span, then the pipe wall and pipe interior trace from the new claim to that junction. The surrounding layout and the incoming Display Confidence Connector and Delivery Connector retain their pre-addition structural state.
+  - The Relevance Connector reaches the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
+  - Existing junctions retain their current span during Sprout. A newly added relevance connector uses a provisional centered landing until the structural handoff.
+- **First Fill**: Fluid progressively fills the new Relevance Connector while every affected confidence connector, delivery connector, and stack offset stays at its pre-addition structural state. The fluid reaches the junction at the end of this step.
+- **Wave**: At relevance-fluid contact, the junction, confidence and delivery connector widths, connector stack offsets, and surrounding claims transition together to their settled values. The parent-side score wave proceeds through that shared transition.
+- The settled state has the following properties:
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
   - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) rules.
   - If there is only one relevance claim, the relevance aggregator may remain hidden or collapsed even though the Relevance Connector is still associated with that relevance aggregator, which can make it look like the connector is landing directly on the junction in this example orientation.
-  - The junction will grow from zero to its planned size on the affected confidence connection. That planned size includes how wide the relevance landing area is, how thick the incoming Display Confidence Connector side is, and how thick the outgoing Delivery Connector side is.
+  - The junction's planned size includes how wide the relevance landing area is, how thick the incoming Display Confidence Connector side is, and how thick the outgoing Delivery Connector side is.
   - Relevance can make that outgoing Delivery Connector side either wider or narrower than the incoming Display Confidence Connector side.
   - If the relevance aggregator needs to become visible, it will grow out from the junction edge as a separate item from the junction.
   - The Display Confidence Connector stays attached to the source-facing edge of the junction and the Delivery Connector stays attached to the delivery aggregator on the target claim side. The delivery aggregator remains visible even when it has only one incoming connector.
-- **First Fill**: The score fluid progressively fills the new pipe.
-- **Wave**: Start the update wave at the target Relevance Aggregator Adjust step.
 
 ## Update Wave
 

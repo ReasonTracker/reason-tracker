@@ -10,7 +10,7 @@ const GEOMETRY_EPSILON = 1e-6;
 /** Maximum routed-path span represented by one sampled segment in a curved transition. */
 const CURVED_TRANSITION_SAMPLE_LENGTH_PX = 12;
 /** Minimum number of sampled segments used to approximate a curved transition. */
-const CURVED_TRANSITION_MIN_SAMPLE_SEGMENTS = 6;
+const CURVED_TRANSITION_MIN_SAMPLE_SEGMENTS = 12;
 
 //#region Geometry primitives
 
