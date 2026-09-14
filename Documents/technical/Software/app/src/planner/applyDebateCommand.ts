@@ -1,6 +1,14 @@
-import type { AddConfidenceClaimCommand } from "../debate-core/Commands.ts";
+import type {
+    AddConfidenceClaimCommand,
+    AddRelevanceClaimCommand,
+} from "../debate-core/Commands.ts";
 import type { ClaimId } from "../debate-core/Claim.ts";
-import type { ConfidenceConnector, ConfidenceConnectorId } from "../debate-core/Connector.ts";
+import type {
+    ConfidenceConnector,
+    ConfidenceConnectorId,
+    RelevanceConnector,
+    RelevanceConnectorId,
+} from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
 import { newId } from "./newId.ts";
 
@@ -54,5 +62,58 @@ export function applyConfidenceClaimAddCommand(args: {
         },
         claimId,
         confidenceConnectorId,
+    };
+}
+
+export interface AppliedRelevanceClaimAddCommand {
+    debateCore: DebateCore
+    claimId: ClaimId
+    relevanceConnectorId: RelevanceConnectorId
+}
+
+export function applyRelevanceClaimAddCommand(args: {
+    debateCore: DebateCore;
+    command: AddRelevanceClaimCommand;
+    when?: Date;
+}): AppliedRelevanceClaimAddCommand {
+    const claimId = args.command.claim.id ?? newId<ClaimId>(args.when);
+    const relevanceConnectorId = args.command.connector.id ?? newId<RelevanceConnectorId>(args.when);
+    const targetConnector = args.debateCore.connectors[args.command.connector.targetConfidenceConnectorId];
+
+    if (!targetConnector || targetConnector.type !== "confidence") {
+        throw new Error(`Cannot add relevance claim to missing target confidence connector: ${args.command.connector.targetConfidenceConnectorId}`);
+    }
+
+    if (args.debateCore.claims[claimId]) {
+        throw new Error(`Cannot add claim with duplicate id: ${claimId}`);
+    }
+
+    if (args.debateCore.connectors[relevanceConnectorId]) {
+        throw new Error(`Cannot add relevance connector with duplicate id: ${relevanceConnectorId}`);
+    }
+
+    const connector: RelevanceConnector = {
+        ...args.command.connector,
+        id: relevanceConnectorId,
+        source: claimId,
+    };
+
+    return {
+        debateCore: {
+            ...args.debateCore,
+            claims: {
+                ...args.debateCore.claims,
+                [claimId]: {
+                    ...args.command.claim,
+                    id: claimId,
+                },
+            },
+            connectors: {
+                ...args.debateCore.connectors,
+                [relevanceConnectorId]: connector,
+            },
+        },
+        claimId,
+        relevanceConnectorId,
     };
 }

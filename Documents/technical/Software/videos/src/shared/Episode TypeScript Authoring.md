@@ -226,7 +226,7 @@ scoreboard: {
 
 ### `graph.addClaim`
 
-Animates one confidence-linked claim into an existing graph. All shown fields are required. `side` is `pro` when the claim supports the main claim overall and `con` when it opposes the main claim overall. Do not author internal side names such as `pro-main` or `con-main`.
+Animates one confidence-linked or relevance-linked claim into an existing graph. All shown fields are required. `side` is `pro` when the claim supports the main claim overall and `con` when it opposes the main claim overall. Do not author internal side names such as `pro-main` or `con-main`.
 
 ```ts
 {
@@ -240,7 +240,22 @@ Animates one confidence-linked claim into an existing graph. All shown fields ar
 }
 ```
 
+Use an object target to add a relevance-linked claim:
+
+```ts
+{
+	type: "graph.addClaim",
+	graph: "argumentGraph",
+	key: "costEvidence",
+	text: "Cost estimates weaken the claimed benefit.",
+	target: { relevanceOf: "daylight" },
+	side: "con",
+}
+```
+
 `showScore` and `textReveal` are optional. Text reveal requires a positive resolved duration. Additions in the same graph that resolve to the same start frame form one animation batch and must have the same duration. Overlapping graph mutations with different start frames are invalid.
+
+A string target creates a confidence relationship to an existing claim. `{ relevanceOf: "claimKey" }` creates a relevance relationship to the confidence relationship sourced by `claimKey`. The referenced claim must already exist and must itself have a string target, so add it before the relevance-linked action.
 
 ### `graph.set`
 

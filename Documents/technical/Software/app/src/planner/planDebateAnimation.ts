@@ -1,7 +1,10 @@
-import type { AddConfidenceClaimCommand } from "../debate-core/Commands.ts";
+import type { AddClaimCommand, AddConfidenceClaimCommand } from "../debate-core/Commands.ts";
 import type { ClaimId } from "../debate-core/Claim.ts";
 import type { ConfidenceConnectorId } from "../debate-core/Connector.ts";
-import { applyConfidenceClaimAddCommand } from "./applyDebateCommand.ts";
+import {
+	applyConfidenceClaimAddCommand,
+	applyRelevanceClaimAddCommand,
+} from "./applyDebateCommand.ts";
 import { buildDebateFrame } from "./buildDebateFrame.ts";
 import type { PresentationConnectorOccurrenceId } from "./buildPresentationGraphFromDebateCore.ts";
 import {
@@ -69,7 +72,7 @@ export function planDebateAnimation(input: PlannerInput): DebateAnimationPlan {
 
 export function planDebateAnimationBatch(
 	input: Omit<PlannerInput, "command"> & {
-		commands: readonly AddConfidenceClaimCommand[]
+		commands: readonly AddClaimCommand[]
 	},
 ): DebateAnimationPlan {
 	if (input.commands.length === 0) {
@@ -79,10 +82,9 @@ export function planDebateAnimationBatch(
 	const options = resolvePlannerOptions(input.options);
 	let settledDebateCore = input.debateCore;
 	const appliedCommands = input.commands.map((command) => {
-		const applied = applyConfidenceClaimAddCommand({
-			command,
-			debateCore: settledDebateCore,
-		});
+		const applied = command.type === "confidence/claim/add"
+			? applyConfidenceClaimAddCommand({ command, debateCore: settledDebateCore })
+			: applyRelevanceClaimAddCommand({ command, debateCore: settledDebateCore });
 		settledDebateCore = applied.debateCore;
 		return applied;
 	});
@@ -112,7 +114,14 @@ export function planDebateAnimationBatch(
 		),
 	});
 	const newConfidenceConnectorIds = new Set(
-		appliedCommands.map((applied) => applied.confidenceConnectorId),
+		appliedCommands.flatMap((applied) =>
+			"confidenceConnectorId" in applied ? [applied.confidenceConnectorId] : []
+		),
+	);
+	const newRelevanceConnectorIds = new Set(
+		appliedCommands.flatMap((applied) =>
+			"relevanceConnectorId" in applied ? [applied.relevanceConnectorId] : []
+		),
 	);
 	const newConfidenceOccurrenceIds = new Set(
 		Object.values(settledFrame.confidenceConnections)
@@ -121,18 +130,26 @@ export function planDebateAnimationBatch(
 			)
 			.map((connection) => connection.id),
 	);
+	const newRelevanceOccurrenceIds = new Set(
+		Object.values(settledFrame.relevanceConnections)
+			.filter((connection) => newRelevanceConnectorIds.has(connection.relevanceConnectorId))
+			.map((connection) => connection.id),
+	);
 	const voilaInitialFrame = augmentOpeningFrame({
 		newConfidenceOccurrenceIds,
+		newRelevanceOccurrenceIds,
 		openingFrame,
 		voilaLayoutFrame,
 	});
 	const voilaFrame = buildVoilaFrame({
 		newConfidenceOccurrenceIds,
+		newRelevanceOccurrenceIds,
 		openingFrame,
 		voilaLayoutFrame,
 	});
 	const sproutFrame = buildSproutFrame({
 		newConfidenceOccurrenceIds,
+		newRelevanceOccurrenceIds,
 		openingFrame,
 		settledFrame,
 	});
@@ -240,6 +257,7 @@ function buildChangedScoreWaveFrame(args: {
 
 function augmentOpeningFrame(args: {
 	newConfidenceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
+	newRelevanceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
 	openingFrame: DebateFrame
 	voilaLayoutFrame: DebateFrame
 }): DebateFrame {
@@ -280,6 +298,7 @@ function augmentOpeningFrame(args: {
 
 function buildVoilaFrame(args: {
 	newConfidenceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
+	newRelevanceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
 	openingFrame: DebateFrame
 	voilaLayoutFrame: DebateFrame
 }): DebateFrame {
@@ -317,6 +336,9 @@ function buildVoilaFrame(args: {
 		const openingConnection = args.openingFrame.relevanceConnections[connection.id];
 		if (openingConnection) {
 			frame.relevanceConnections[connection.id] = { ...openingConnection };
+		} else if (args.newRelevanceOccurrenceIds.has(connection.id)) {
+			connection.score = 0;
+			connection.shellReveal = 0;
 		}
 	}
 
@@ -325,6 +347,7 @@ function buildVoilaFrame(args: {
 
 function buildSproutFrame(args: {
 	newConfidenceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
+	newRelevanceOccurrenceIds: ReadonlySet<PresentationConnectorOccurrenceId>
 	openingFrame: DebateFrame
 	settledFrame: DebateFrame
 }): DebateFrame {
@@ -354,6 +377,10 @@ function buildSproutFrame(args: {
 		const openingConnection = args.openingFrame.relevanceConnections[connection.id];
 		if (openingConnection) {
 			connection.score = openingConnection.score;
+		}
+
+		if (args.newRelevanceOccurrenceIds.has(connection.id)) {
+			connection.score = 0;
 		}
 	}
 

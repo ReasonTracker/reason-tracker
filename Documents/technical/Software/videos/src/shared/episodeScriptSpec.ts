@@ -188,7 +188,7 @@ const graphAddClaimActionSchema = z.object({
 	graph: authorKeySchema,
 	key: authorKeySchema,
 	side: claimSideSchema,
-	target: confidenceTargetSchema,
+	target: claimTargetSchema,
 	text: nonEmptyStringSchema,
 	...graphClaimPresentationShape,
 	type: z.literal("graph.addClaim"),

@@ -1,4 +1,4 @@
-import type { AddConfidenceClaimCommand } from "@debate-core/Commands.ts";
+import type { AddClaimCommand } from "@debate-core/Commands.ts";
 import type { Claim, ClaimId } from "@debate-core/Claim.ts";
 import type {
 	ConfidenceConnector,
@@ -8,7 +8,10 @@ import type {
 	TargetRelation,
 } from "@debate-core/Connector.ts";
 import type { DebateCore } from "@debate-core/Debate.ts";
-import { applyConfidenceClaimAddCommand } from "@planner/applyDebateCommand.ts";
+import {
+	applyConfidenceClaimAddCommand,
+	applyRelevanceClaimAddCommand,
+} from "@planner/applyDebateCommand.ts";
 import type { AnimationStepId, DebateAnimationPlan } from "@planner/DebateAnimationPlan.ts";
 import { planDebateAnimationBatch, planStaticDebate } from "@planner/planner.ts";
 
@@ -932,8 +935,9 @@ function compileGraphAddBatch(
 	if (!state.debateCore) {
 		throw new Error(`Graph ${state.key} must be created before claims are added.`);
 	}
+	const initialDebateCore = state.debateCore;
 
-	const commands = batch.map((scheduled): AddConfidenceClaimCommand => {
+	const commands = batch.map((scheduled): AddClaimCommand => {
 		if (scheduled.action.type !== "graph.addClaim") {
 			throw new Error("Internal graph batch contains a non-add action.");
 		}
@@ -941,7 +945,8 @@ function compileGraphAddBatch(
 		if (state.debateCore?.claims[claimId(state.key, action.key)]) {
 			throw new Error(`Action ${scheduled.index} adds duplicate claim key: ${action.key}`);
 		}
-		const target = requireClaimDefinition(state, action.target, scheduled.index);
+		const targetKey = typeof action.target === "string" ? action.target : action.target.relevanceOf;
+		const target = requireClaimDefinition(state, targetKey, scheduled.index);
 		const definition: ClaimDefinition = {
 			key: action.key,
 			side: action.side,
@@ -956,15 +961,14 @@ function compileGraphAddBatch(
 	});
 	const plan = planDebateAnimationBatch({
 		commands,
-		debateCore: state.debateCore,
+		debateCore: initialDebateCore,
 		origin: state.layout,
 	});
 	const addedClaimIds: ClaimId[] = [];
 	for (const command of commands) {
-		const applied = applyConfidenceClaimAddCommand({
-			command,
-			debateCore: state.debateCore,
-		});
+		const applied: ReturnType<typeof applyConfidenceClaimAddCommand> | ReturnType<typeof applyRelevanceClaimAddCommand> = command.type === "confidence/claim/add"
+			? applyConfidenceClaimAddCommand({ command, debateCore: state.debateCore! })
+			: applyRelevanceClaimAddCommand({ command, debateCore: state.debateCore! });
 		state.debateCore = applied.debateCore;
 		addedClaimIds.push(applied.claimId);
 	}
@@ -974,7 +978,7 @@ function compileGraphAddBatch(
 		addedClaimIds,
 		anchor: state.anchor,
 		claimScoreVisibility: resolveClaimScoreVisibility(state),
-		debateCore: state.debateCore,
+		debateCore: state.debateCore!,
 		durationInFrames: Math.max(1, first.durationInFrames),
 		from: first.from,
 		graph: state.key,
@@ -1139,7 +1143,24 @@ function createAddCommand(
 	state: GraphCompilerState,
 	definition: ClaimDefinition,
 	target: ClaimDefinition,
-): AddConfidenceClaimCommand {
+): AddClaimCommand {
+	const claimTarget = definition.target;
+	if (!claimTarget) {
+		throw new Error(`Claim ${definition.key} has no target.`);
+	}
+
+	if (typeof claimTarget !== "string") {
+		return {
+			claim: createClaim(state.key, definition),
+			connector: {
+				targetConfidenceConnectorId: confidenceConnectorId(state.key, claimTarget.relevanceOf),
+				targetRelationship: toTargetRelation(definition.side, target.side),
+				type: "relevance",
+			},
+			type: "relevance/claim/add",
+		};
+	}
+
 	return {
 		claim: createClaim(state.key, definition),
 		connector: {

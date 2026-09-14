@@ -268,7 +268,7 @@ A string `target` creates a confidence relationship to that claim. `{ "relevance
 
 ### `graph.addClaim`
 
-Animate one new confidence-linked claim into an existing graph.
+Animate one new confidence-linked or relevance-linked claim into an existing graph.
 
 The visual transition begins on the action's first frame. Its duration is divided among the `voila`, `sprout`, `firstFill`, and `wave` phases; no static opening interval is reserved.
 
@@ -283,7 +283,20 @@ The visual transition begins on the action's first frame. Its duration is divide
 }
 ```
 
-All fields shown above are required. The target must be an existing claim key. This action currently supports only a string confidence target; use `graph.set` or `graph.patch` to introduce relevance-linked graph state.
+Use an object target to add a relevance-linked claim:
+
+```json
+{
+  "type": "graph.addClaim",
+  "graph": "argumentGraph",
+  "key": "costEvidence",
+  "text": "Cost estimates weaken the claimed benefit.",
+  "target": { "relevanceOf": "daylight" },
+  "side": "con"
+}
+```
+
+All fields shown above are required. A string target creates a confidence relationship to an existing claim. An object target creates a relevance relationship to the confidence relationship sourced by `relevanceOf`. The referenced claim must already exist and must itself have a string target; add it before the relevance-linked action.
 
 `showScore` is optional and defaults to `true`.
 

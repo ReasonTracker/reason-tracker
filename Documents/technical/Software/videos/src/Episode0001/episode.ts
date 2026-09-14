@@ -150,6 +150,99 @@ const episode = {
 			target: "main",
 			side: "pro",
 		},
+		{
+			type: "camera.move",
+			target: {
+				offsetSeconds: 4,
+				objects: [
+					"argumentGraph/healthSafety",
+					"argumentGraph/main",
+				],
+			},
+			blocking: false,
+		},
+		{
+			type: "graph.addClaim",
+			graph: "argumentGraph",
+			key: "healthSafety",
+			text: "Ending seasonal clock changes would improve health and safety on balance.",
+			target: "main",
+			side: "pro",
+		},
+		{
+			type: "camera.move",
+			target: {
+				offsetSeconds: 4,
+				objects: [
+					"argumentGraph/heartAttackMetaAnalysis2024",
+					"argumentGraph/healthSafety",
+				],
+			},
+			blocking: false,
+		},
+		{
+			type: "graph.addClaim",
+			graph: "argumentGraph",
+			key: "heartAttackMetaAnalysis2024",
+			text: "A 2024 meta-analysis of 12 studies from 10 countries found about a 4% increase in acute myocardial infarction after the spring Daylight Saving Time transition.",
+			target: "healthSafety",
+			side: "pro",
+		},
+		{
+			type: "camera.move",
+			target: {
+				offsetSeconds: 4,
+				objects: [
+					"argumentGraph/largeJamaHeartAttackStudy2025",
+					"argumentGraph/healthSafety",
+				],
+			},
+			blocking: false,
+		},
+		{
+			type: "graph.addClaim",
+			graph: "argumentGraph",
+			key: "largeJamaHeartAttackStudy2025",
+			text: "A 2025 U.S. study found no significant increase in myocardial infarction during Daylight Saving Time transition weeks.",
+			target: "healthSafety",
+			side: "con",
+		},
+		{
+			type: "camera.move",
+			target: {
+				offsetSeconds: 4,
+				objects: [
+					"argumentGraph/largeJamaStudySize",
+					"argumentGraph/largeJamaHeartAttackStudy2025",
+					"argumentGraph/healthSafety",
+				],
+			},
+			blocking: false,
+		},
+		{
+			type: "graph.addClaim",
+			graph: "argumentGraph",
+			key: "largeJamaStudySize",
+			text: "The 2025 study included 168,870 myocardial infarction patients at 1,124 U.S. hospitals, making it much larger than the studies included in the 2024 meta-analysis.",
+			target: { relevanceOf: "largeJamaHeartAttackStudy2025" },
+			side: "pro",
+		},
+		{
+			type: "camera.move",
+			target: {
+				objects: [
+					"argumentGraph/main",
+					"argumentGraph/disruptsleep",
+					"argumentGraph/implementationCosts",
+					"argumentGraph/annualSavings",
+					"argumentGraph/healthSafety",
+					"argumentGraph/heartAttackMetaAnalysis2024",
+					"argumentGraph/largeJamaHeartAttackStudy2025",
+					"argumentGraph/largeJamaStudySize",
+				],
+			},
+			blocking: true,
+		},
 	],
 } satisfies EpisodeScriptSpecInput;
 
