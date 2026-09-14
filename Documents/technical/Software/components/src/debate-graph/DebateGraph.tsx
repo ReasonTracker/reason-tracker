@@ -27,6 +27,7 @@ export type DebateGraphProps = {
 	claimContent?: (claimId: ClaimId, content: string) => ReactNode
 	debateCore: DebateCore
 	diagnostics?: boolean
+	foregroundConnectorClaimIds?: ReadonlySet<ClaimId>
 	foregroundClaimIds?: ReadonlySet<ClaimId>
 	frame: DebateFrame
 	options: PlannerOptions
@@ -39,6 +40,7 @@ export function DebateGraph({
 	claimContent,
 	debateCore,
 	diagnostics = false,
+	foregroundConnectorClaimIds,
 	foregroundClaimIds,
 	frame,
 	options,
@@ -50,12 +52,12 @@ export function DebateGraph({
 		Number(foregroundClaimIds?.has(left.claimId) ?? false)
 		- Number(foregroundClaimIds?.has(right.claimId) ?? false)
 	);
-	const foregroundBands = geometry.bands.filter((band) => {
+	const foregroundConnectorBands = geometry.bands.filter((band) => {
 		const sourceClaim = frame.claims[band.sourceClaimOccurrenceId];
 		return sourceClaim !== undefined
-			&& (foregroundClaimIds?.has(sourceClaim.claimId) ?? false);
+			&& (foregroundConnectorClaimIds?.has(sourceClaim.claimId) ?? false);
 	});
-	const regularBands = geometry.bands.filter((band) => !foregroundBands.includes(band));
+	const regularBands = geometry.bands.filter((band) => !foregroundConnectorBands.includes(band));
 
 	return (
 		<div style={rootStyle}>
@@ -67,7 +69,6 @@ export function DebateGraph({
 			>
 				<g data-layer="connectors">
 					<ConnectorBands bands={regularBands} />
-					<ConnectorBands bands={foregroundBands} />
 				</g>
 				<g data-layer="aggregators">
 					{geometry.deliveryAggregators.map((polygon) => (
@@ -144,6 +145,13 @@ export function DebateGraph({
 						);
 					})}
 				</g>
+				{foregroundConnectorBands.length > 0
+					? (
+						<g data-layer="foreground-connectors">
+							<ConnectorBands bands={foregroundConnectorBands} />
+						</g>
+					)
+					: null}
 				{diagnostics
 					? (
 						<g data-layer="diagnostics">

@@ -42,6 +42,9 @@ export function DebateAnimationSurface({
 					? <TimedCharacterReveal text={content} {...reveal} />
 					: content;
 			}}
+			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout"
+				? foregroundClaimIds
+				: undefined}
 			foregroundClaimIds={foregroundClaimIds}
 			scoreless={hideScores}
 			showClaimScore={(claimId) => claimScoreVisibility[claimId] ?? true}
