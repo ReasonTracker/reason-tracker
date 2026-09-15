@@ -6,8 +6,6 @@ import type { Point } from "./DebateAnimationPlan.ts";
 export interface PlannerOptions {
     /** Edge-to-edge gap between sibling claim boxes along a claim lane's lane axis. This gap resolves at local `sourcesScale`. */
     claimLaneAxisGap: number
-    /** Width reserved for the junction lane on the cross-lane axis when that lane is present. */
-    junctionLaneWidth: number
     /** Width reserved for one curved connector segment on the cross-lane axis. */
     connectorCurveLaneWidth: number
     /** Width reserved for one connector diagonal segment on the cross-lane axis. */
@@ -22,7 +20,6 @@ export interface PlannerOptions {
 
 export const defaultPlannerOptions: PlannerOptions = {
     claimLaneAxisGap: 50,
-    junctionLaneWidth: 70,
     connectorCurveLaneWidth: 100,
     connectorDiagonalLaneWidth: 50,
     claimWidth: 360,

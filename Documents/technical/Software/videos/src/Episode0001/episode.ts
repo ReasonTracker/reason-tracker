@@ -132,6 +132,25 @@ const episode = {
 			target: {
 				offsetSeconds: 4,
 				objects: [
+					"argumentGraph/oneTimeCost",
+					"argumentGraph/main",
+				],
+			},
+			blocking: false,
+		},
+		{
+			type: "graph.addClaim",
+			graph: "argumentGraph",
+			key: "oneTimeCost",
+			text: "There is a one-time cost associated with implementing the change but the benefits last for many years.",
+			target: { relevanceOf: "implementationCosts" },
+			side: "pro",
+		},
+		{
+			type: "camera.move",
+			target: {
+				offsetSeconds: 4,
+				objects: [
 					"argumentGraph/annualSavings",
 					"argumentGraph/main",
 				],

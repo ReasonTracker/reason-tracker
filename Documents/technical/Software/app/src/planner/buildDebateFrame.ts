@@ -96,21 +96,21 @@ export function buildDebateFrame(args: {
 			return;
 		}
 
-		const usesJunctionLane = occurrence.confidenceConnectorOccurrenceIds.some(
-			(connectorOccurrenceId) => {
-				const connector = args.resolvedMath.presentationGraph.connectorOccurrences[
-					connectorOccurrenceId
-				];
-				return connector?.type === "confidence"
-					&& connector.relevanceConnectorOccurrenceIds.length > 0;
-			},
+		const maximumJunctionSpan = Math.max(
+			0,
+			...occurrence.confidenceConnectorOccurrenceIds.map((connectorOccurrenceId) =>
+				resolveConfidenceJunctionSpan(
+					args.resolvedMath,
+					getConfidenceOccurrence(args.resolvedMath, connectorOccurrenceId),
+				)
+			),
 		);
 		const corridorWidth = (
 			args.options.connectorCurveLaneWidth
 			+ args.options.connectorDiagonalLaneWidth
 			+ args.options.connectorCurveLaneWidth
-			+ (usesJunctionLane ? args.options.junctionLaneWidth : 0)
-		) * sourcesScale;
+		) * sourcesScale
+			+ (args.options.claimHeight * maximumJunctionSpan);
 		const sourceLaneLeftEdgeX = claimLeftEdgeX
 			+ (args.options.claimWidth * sourcesScale)
 			+ corridorWidth;
@@ -231,13 +231,7 @@ function buildConnectionStates(args: {
 				deliveryScore: connectorScore.deliveryScore,
 				deliveryScale,
 				id: occurrence.id,
-				junctionSpan: relevanceOccurrences.reduce(
-					(span, relevanceOccurrence) => span + getRequiredNumber(
-						args.resolvedMath.sourcesScales[relevanceOccurrence.sourceClaimOccurrenceId],
-						`source scale for ${relevanceOccurrence.sourceClaimOccurrenceId}`,
-					),
-					0,
-				),
+				junctionSpan: resolveConfidenceJunctionSpan(args.resolvedMath, occurrence),
 				relevanceMultiplier: connectorScore.relevanceMultiplier,
 				relevanceConnectorOccurrenceIds: occurrence.relevanceConnectorOccurrenceIds,
 				score: score.value,
@@ -351,6 +345,25 @@ function getRelevanceOccurrence(
 	}
 
 	return occurrence;
+}
+
+function resolveConfidenceJunctionSpan(
+	resolvedMath: ResolvedPresentationMath,
+	confidenceOccurrence: PresentationConfidenceConnectorOccurrence,
+): number {
+	return confidenceOccurrence.relevanceConnectorOccurrenceIds.reduce(
+		(span, connectorOccurrenceId) => {
+			const relevanceOccurrence = getRelevanceOccurrence(
+				resolvedMath,
+				connectorOccurrenceId,
+			);
+			return span + getRequiredNumber(
+				resolvedMath.sourcesScales[relevanceOccurrence.sourceClaimOccurrenceId],
+				`source scale for ${relevanceOccurrence.sourceClaimOccurrenceId}`,
+			);
+		},
+		0,
+	);
 }
 
 function resolveConnectionEnvelope(args: {

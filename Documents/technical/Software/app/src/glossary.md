@@ -37,7 +37,7 @@ Relevance claims use the same claim-lane positioning model as the other claim vi
 ### Layout Spacing
 
 - Claim Lane Axis Gap - the edge-to-edge gap between sibling claim boxes along a claim lane. It is resolved at the same local `sourcesScale` as the surrounding geometry, so the same local shape stays proportional when zoomed and shrinks or grows with the source-side potential scale.
-- Delivery Connector Corridor - the cross-lane corridor reserved for a delivery connector. It is expressed as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied. The whole corridor resolves at local `sourcesScale`.
+- Delivery Connector Corridor - the cross-lane corridor reserved for a delivery connector. Its base is `(connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth) * sourcesScale`, plus the physical width of the widest junction among the target claim's incoming confidence connectors. A junction width is `claimHeight * junctionSpan`, where `junctionSpan` is the sum of its attached relevance claims' source scales. A connector with no attached relevance claims contributes zero junction width and has no junction geometry.
 - Source Claim Cluster - the local group of sibling source claims attached to one target. The cluster follows the shared ordering rule and stays mostly centered on the source claim it belongs with when surrounding constraints permit it.
 
 ### Concepts

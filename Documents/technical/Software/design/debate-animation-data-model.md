@@ -54,8 +54,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along the lane axis, not a center-to-center distance.
 - That gap resolves at the same local `sourcesScale` as the surrounding geometry so zoom-equivalent structures keep the same proportions and shrink or grow with the source-side potential scale.
-- The delivery-connector corridor on the cross-lane axis is expressed directly as `connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth`, and adds `junctionLaneWidth` when the junction lane is occupied.
-- Those cross-lane widths also resolve at local `sourcesScale`.
+- The delivery-connector corridor on the cross-lane axis has a base width of `(connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth) * sourcesScale`, plus the physical width of the widest junction among the target claim's incoming confidence connectors.
+- A junction width is `claimHeight * junctionSpan`, where `junctionSpan` is the sum of the confidence connector's attached relevance claims' source scales. A connector with no attached relevance claims contributes zero junction width and renders as one uninterrupted delivery path.
 - In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
 - Sibling source claims form local clusters that stay mostly centered on their source claim when the surrounding layout constraints permit it.
 
@@ -77,8 +77,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Resolves opening and post-command occurrence graphs, aggregate math, and deterministic settled layout.
 - Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
 - Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
-- Places the new claim at its settled position during Voila, then transitions all affected claims and their connectors together throughout Sprout. Claims move once into their settled positions and scales while connector endpoints remain attached and connector widths and target stack positions resolve continuously.
-- During Wave, keeps the settled layout while interpolating logical claim and authoritative delivery scores. The moving fluid frontier remains separate visual history.
+  - During Voila, places the new claim and transitions the surrounding structural layout to its post-command positions, scales, connector widths, junction spans, and target-stack offsets while preserving pre-command score values. Connector endpoints remain attached throughout that transition.
+  - During Sprout and First Fill, the new connector reveals through that established structural layout. Wave remains the score-propagation phase: future wave steps may transition score-affected regions' layout together with their score changes. The moving fluid frontier remains separate visual history.
 
 **Resolved frame**
 

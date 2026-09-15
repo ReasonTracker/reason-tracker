@@ -42,25 +42,24 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Add Confidence Claim to Existing Debate Example
 
-- **Voila**: The new claim scales in from zero to its calculated size at its settled position and remains in the foreground throughout the animation sequence.
-  - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
-  - That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from current scored delivery demand. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
-  - Add in the connectors, junctions and agregators for the new claim.
-    - visible is false for the ones that support that.
-    - Delivery Connector scale and score is set to zero
-- **Sprout**: All affected claims and their connectors transition together throughout the step. The claims move once into their planned compact positions and scales while each connector remains attached to its source and target, adjusts to its planned width and target stack position, and the new Delivery Connector traces from the new claim toward the target claim in the `sourceToTarget` direction. The compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
-  - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
+- **Voila**: The new claim scales in from zero at its settled position, while the surrounding claims and connectors transition together to their post-command structural positions, scales, widths, junction spans, and target-stack offsets. Existing scores remain at their pre-command values.
+- Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
+- That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from current scored delivery demand. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
+- Add in the connectors, junctions and agregators for the new claim.
+  - visible is false for the ones that support that.
+  - Delivery Connector scale and score is set to zero
+- **Sprout**: The new Delivery Connector traces from the new claim toward the target claim through the structural layout established during Voila. The compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
+- See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
 - **First Fill**: The score fluid progressively fills the new pipe. Its moving frontier uses the path primitive's overflow-preserving curved extremity collapsed toward the bottom edge. The tip enters through the source boundary before the full slant is visible, and the full slant flows beyond the target boundary before the fill becomes flush.
 - **Wave**: After First Fill completes, interpolate logical scores through the settled layout. The separate moving frontier carries old fluid ahead and new fluid behind while traveling right to left. Subsequent propagation toward the Main Claim remains future scope.
 
 ## Add Relevance Claim To A New Junction
 
-- **Voila**: The new claim scales in from zero to its calculated size at its settled position.
-- **Sprout**: A new junction grows from zero width to its planned relevance landing span, then the pipe wall and pipe interior trace from the new claim to that junction. The surrounding layout and the incoming Display Confidence Connector and Delivery Connector retain their pre-addition structural state.
-  - The Relevance Connector reaches the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
-  - Existing junctions retain their current span during Sprout. A newly added relevance connector uses a provisional centered landing until the structural handoff.
-- **First Fill**: Fluid progressively fills the new Relevance Connector while every affected confidence connector, delivery connector, and stack offset stays at its pre-addition structural state. The fluid reaches the junction at the end of this step.
-- **Wave**: At relevance-fluid contact, the junction, confidence and delivery connector widths, connector stack offsets, and surrounding claims transition together to their settled values. The parent-side score wave proceeds through that shared transition.
+- **Voila**: The new claim scales in from zero to its calculated size at its settled position while the local sibling group, the junction, and its related connectors transition to their post-command structural layout.
+- **Sprout**: The pipe wall and pipe interior trace from the new claim to the already-sized relevance landing area on the junction.
+- The Relevance Connector reaches the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
+- **First Fill**: Fluid progressively fills the new Relevance Connector and reaches the junction at the end of this step.
+- **Wave**: At relevance-fluid contact, the parent-side score wave begins. Future propagation waves may transition the layout of newly score-affected regions together with their score changes.
 - The settled state has the following properties:
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
   - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) rules.
