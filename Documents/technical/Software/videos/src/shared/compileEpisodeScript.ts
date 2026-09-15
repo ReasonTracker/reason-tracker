@@ -27,20 +27,22 @@ import {
 	type ScoreboardLayout,
 	type Anchor,
 	type CssStyle,
+	type Duration,
 	type ObjectLayout,
 } from "./episodeScriptSpec";
 import { resolveGraphSceneTargets } from "./graphSceneTargets";
+import { calculateTextDurationSeconds } from "./textDuration";
 
-const DEFAULT_DURATION_SECONDS: Readonly<Record<EpisodeAction["type"], number>> = {
+const DEFAULT_DURATION: Readonly<Record<EpisodeAction["type"], Duration>> = {
 	"camera.cut": 0,
 	"camera.move": 1.2,
 	"media.add": 0,
 	"media.update": 0,
 	"balance.add": 0,
 	"balance.update": 0,
-	"captions.show": 0,
-	"graph.addClaim": 4,
-	"graph.create": 0,
+	"captions.show": "text",
+	"graph.addClaim": "text",
+	"graph.create": "text",
 	"graph.patch": 0,
 	"graph.set": 0,
 	"wait": 0,
@@ -715,8 +717,8 @@ function scheduleActions(spec: EpisodeScriptSpec): readonly ScheduledEpisodeActi
 	let cursorFrame = 0;
 
 	return spec.script.map((action, index) => {
-		const durationSeconds = resolveDurationSeconds(spec, action);
-		const durationInFrames = Math.max(0, Math.round(durationSeconds * fps));
+		const durationInSeconds = resolveDurationInSeconds(spec, action);
+		const durationInFrames = Math.max(0, Math.round(durationInSeconds * fps));
 		const from = cursorFrame + signedSecondsToFrames(action.offsetSeconds ?? 0, fps);
 		if (from < 0) {
 			throw new Error(`Action ${index} (${action.type}) starts before frame zero.`);
@@ -742,24 +744,52 @@ function signedSecondsToFrames(seconds: number, fps: number): number {
 	return Math.sign(seconds) * Math.round(Math.abs(seconds) * fps);
 }
 
-function resolveDurationSeconds(spec: EpisodeScriptSpec, action: EpisodeAction): number {
-	if (action.durationSeconds !== undefined) {
-		return action.durationSeconds;
+function resolveDurationInSeconds(spec: EpisodeScriptSpec, action: EpisodeAction): number {
+	const duration = action.duration ?? resolveDefaultDuration(spec, action);
+	if (duration !== "text") {
+		return duration;
 	}
+	const text = getDurationText(action);
+	if (text === undefined) {
+		throw new Error(`Action ${action.type} uses a text duration without text content.`);
+	}
+	return calculateTextDurationSeconds(text);
+}
 
+function resolveDefaultDuration(spec: EpisodeScriptSpec, action: EpisodeAction): Duration {
 	const defaults = spec.settings.defaults;
 	switch (action.type) {
 		case "graph.create":
-			return defaults?.["graph.create"]?.durationSeconds
-				?? DEFAULT_DURATION_SECONDS[action.type];
+			return defaults?.["graph.create"]?.duration
+				?? DEFAULT_DURATION[action.type];
 		case "graph.addClaim":
-			return defaults?.["graph.addClaim"]?.durationSeconds
-				?? DEFAULT_DURATION_SECONDS[action.type];
+			return defaults?.["graph.addClaim"]?.duration
+				?? DEFAULT_DURATION[action.type];
 		case "camera.move":
-			return defaults?.["camera.move"]?.durationSeconds
-				?? DEFAULT_DURATION_SECONDS[action.type];
+			return defaults?.["camera.move"]?.duration
+				?? DEFAULT_DURATION[action.type];
+		case "graph.patch":
+		case "graph.set":
+			return getDurationText(action) === undefined ? DEFAULT_DURATION[action.type] : "text";
 		default:
-			return DEFAULT_DURATION_SECONDS[action.type];
+			return DEFAULT_DURATION[action.type];
+	}
+}
+
+function getDurationText(action: EpisodeAction): string | undefined {
+	switch (action.type) {
+		case "captions.show":
+		case "graph.addClaim":
+			return action.text;
+		case "graph.create":
+			return [action.mainClaim.text, ...(action.claims ?? []).map((claim) => claim.text)].join("");
+		case "graph.patch":
+		case "graph.set": {
+			const text = action.claims.flatMap((claim) => claim.text === undefined ? [] : [claim.text]).join("");
+			return text || undefined;
+		}
+		default:
+			return undefined;
 	}
 }
 

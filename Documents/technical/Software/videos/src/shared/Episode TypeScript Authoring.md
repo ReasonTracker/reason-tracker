@@ -21,11 +21,11 @@ const episode = {
       height: 1080,
     },
     defaults: {
-      "graph.addClaim": { durationSeconds: 4 },
-      "camera.move": { durationSeconds: 1.2 },
+      "graph.addClaim": { duration: "text" },
+      "camera.move": { duration: 1.2 },
     },
   },
-  script: [{ type: "wait", durationSeconds: 1 }],
+  script: [{ type: "wait", duration: 1 }],
 } satisfies EpisodeScriptSpecInput;
 
 export default episode;
@@ -58,14 +58,14 @@ Every action accepts these optional timing fields:
 {
 	type: "camera.move",
 	target: { objects: ["argumentGraph/main"] },
-	durationSeconds: 1.2,
+	duration: 1.2,
 	offsetSeconds: -1.2,
 	blocking: false,
 	label: "Frame the main claim",
 }
 ```
 
-- `durationSeconds` is a finite, nonnegative number. Actions with stricter rules are listed below.
+- `duration` is either a finite, nonnegative number of seconds or `"text"`. A text duration is the number of non-whitespace characters divided by 1,500 characters per minute. Actions with stricter rules are listed below.
 - `offsetSeconds` is a signed finite number relative to the current timeline cursor and defaults to `0`.
 - `blocking` defaults to `true`. A blocking action advances the cursor to the later of the current cursor or the action end. A nonblocking action leaves the cursor unchanged.
 - `label` is an optional nonempty name used in Remotion Studio and diagnostics.
@@ -78,18 +78,18 @@ start = cursor + offsetSeconds
 $$
 
 $$
-end = start + durationSeconds
+end = start + duration
 $$
 
 The episode duration is the latest action end, including nonblocking actions.
 
-Runtime duration defaults are `camera.move: 1.2`, `graph.addClaim: 4`, and `0` for `camera.cut`, `graph.create`, `graph.set`, `graph.patch`, `media.add`, `media.update`, `balance.add`, and `balance.update`. `captions.show` and `wait` require an explicit positive duration. `settings.defaults` may override only `camera.move`, `graph.addClaim`, and `graph.create`:
+Runtime duration defaults are `camera.move: 1.2`, `"text"` for `captions.show`, `graph.create`, and `graph.addClaim`, and `0` for `camera.cut`, `graph.set`, `graph.patch`, `media.add`, `media.update`, `balance.add`, and `balance.update`. A `graph.set` or `graph.patch` action that provides claim text also defaults to `"text"`. `wait` requires an explicit positive numeric duration. `settings.defaults` may override only `camera.move`, `graph.addClaim`, and `graph.create`:
 
 ```ts
 defaults: {
-	"camera.move": { durationSeconds: 2 },
-	"graph.addClaim": { durationSeconds: 5 },
-	"graph.create": { durationSeconds: 6 },
+	"camera.move": { duration: 2 },
+	"graph.addClaim": { duration: "text" },
+	"graph.create": { duration: 6 },
 },
 ```
 
@@ -139,7 +139,7 @@ Updates an existing media key. Supply at least one of `source`, a nonempty `layo
 	key: "bill",
 	layout: { y: 370, scale: 1.2 },
 	style: { opacity: 0 },
-	durationSeconds: 0.75,
+	duration: 0.75,
 	blocking: false,
 }
 ```
@@ -170,7 +170,7 @@ Updates an existing balance key. Supply at least one of `scorePercent`, a nonemp
 	type: "balance.update",
 	key: "argumentBalance",
 	scorePercent: 100,
-	durationSeconds: 4,
+	duration: "text",
 	blocking: false,
 }
 ```
@@ -321,7 +321,7 @@ Smoothly moves to a target and defaults to `1.2` seconds unless overridden in se
 		"y%": 8,
 		"zoom%": 180,
 	},
-	durationSeconds: 1.2,
+	duration: 1.2,
 	blocking: false,
 }
 ```
@@ -341,14 +341,14 @@ target: {
 
 ### `captions.show`
 
-Shows nonempty text for an explicit positive duration. Captions default to `anchor: "camera"`; optional `position: "center"` centers the caption.
+Shows nonempty text for a duration that defaults to `"text"`. Captions default to `anchor: "camera"`; optional `position: "center"` centers the caption.
 
 ```ts
 {
 	type: "captions.show",
 	text: "The legislation would have a substantial cost.",
 	position: "center",
-	durationSeconds: 4,
+	duration: "text",
 	offsetSeconds: -4,
 	blocking: false,
 }
@@ -359,7 +359,7 @@ Shows nonempty text for an explicit positive duration. Captions default to `anch
 Advances the timeline without rendering anything. It requires an explicit positive duration and blocks by default.
 
 ```ts
-{ type: "wait", durationSeconds: 2 }
+{ type: "wait", duration: 2 }
 ```
 
 ## Generation Checklist

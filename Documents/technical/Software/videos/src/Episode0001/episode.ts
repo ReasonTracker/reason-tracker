@@ -10,11 +10,8 @@ const episode = {
 			height: 1080,
 		},
 		defaults: {
-			"graph.addClaim": {
-				durationSeconds: 5,
-			},
 			"camera.move": {
-				durationSeconds: 2,
+				duration: 2,
 			},
 		},
 	},
@@ -41,7 +38,7 @@ const episode = {
 			layout: {
 				y: 370,
 			},
-			durationSeconds: 0.75,
+			duration: 0.75,
 			blocking: false,
 		},
 		{
@@ -54,7 +51,7 @@ const episode = {
 			style: {
 				opacity: "0",
 			},
-			durationSeconds: 0.75,
+			duration: 0.75,
 			blocking: false,
 		},
 		{
@@ -91,7 +88,6 @@ const episode = {
 				textReveal: true,
 			},
 			claims: [],
-			durationSeconds: 7,
 		},
 		{
 			type: "camera.move",

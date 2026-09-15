@@ -17,8 +17,8 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
       "height": 1080
     },
     "defaults": {
-      "graph.addClaim": { "durationSeconds": 4 },
-      "camera.move": { "durationSeconds": 1.2 }
+      "graph.addClaim": { "duration": "text" },
+      "camera.move": { "duration": 1.2 }
     }
   },
   "script": []
@@ -49,7 +49,7 @@ Graph, media, and balance keys share one top-level scene target namespace. Add e
 
 Every action accepts these optional fields:
 
-- `durationSeconds`: Decimal seconds. Each action type has a runtime default, and `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, and `camera.move`. `wait` requires an explicit positive duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
+- `duration`: A nonnegative decimal number of seconds or `"text"`. A text duration is the number of non-whitespace characters divided by 1,500 characters per minute. Text-bearing actions default to `"text"`; other actions have numeric runtime defaults. `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, and `camera.move`. `wait` requires an explicit positive numeric duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
 - `offsetSeconds`: Signed decimal-second offset from the current timeline cursor. Omitted means `0`.
 - `blocking`: Omitted means `true`. A blocking action advances the cursor to the later of its current position or that action's end. A nonblocking action leaves the cursor where it is.
 
@@ -60,7 +60,7 @@ start = cursor + offsetSeconds
 $$
 
 $$
-end = start + durationSeconds
+end = start + duration
 $$
 
 The episode duration is the latest action end, including nonblocking actions. An action may not start before frame zero after conversion to frames.
@@ -77,7 +77,7 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
 		"objects": ["argumentGraph/cost", "argumentGraph/main"]
     },
     "offsetSeconds": -2,
-    "durationSeconds": 2,
+    "duration": 2,
     "blocking": false
 },
 {
@@ -87,7 +87,7 @@ Use it with the action's `offsetSeconds` to preframe a claim before it becomes v
   "text": "The legislation would have a substantial cost.",
   "target": "main",
   "side": "con",
-  "durationSeconds": 4
+  "duration": "text"
 }
 ```
 
@@ -133,7 +133,7 @@ Each visual action may also include a `style` object for appearance-only CSS suc
 
 Within either anchor layer, retained visuals render before the graph, whose stacking order is `zIndex: 0`. Use CSS `zIndex` to control overlaps; for example, `zIndex: -1` places canvas media behind the graph without assigning a background color to the scene.
 
-When an update has a positive `durationSeconds`, numeric layout values and matching numeric style values interpolate. Numeric CSS strings with the same unit also interpolate. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
+When an update has a positive numeric `duration`, numeric layout values and matching numeric style values interpolate. Numeric CSS strings with the same unit also interpolate. Other CSS values apply at the update's first frame. Do not use CSS `transition`: episode timing already defines the frame-accurate transition.
 
 Patches for different keys may overlap. Updates for one key may not overlap, and each update must name an already-added key of the same visual kind. An update must change at least one supported value.
 
@@ -160,7 +160,7 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "type": "media.update",
   "key": "sunshineProtectionAct",
   "offsetSeconds": 3,
-  "durationSeconds": 0.75,
+  "duration": 0.75,
   "blocking": false,
   "layout": {
   "x": 960,
@@ -172,7 +172,7 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "type": "media.update",
   "key": "sunshineProtectionAct",
   "offsetSeconds": 5.25,
-  "durationSeconds": 0.75,
+  "duration": 0.75,
   "blocking": false,
   "layout": {
   "x": 2700,
@@ -197,7 +197,7 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
   "type": "balance.update",
   "key": "argumentBalance",
   "scorePercent": 100,
-  "durationSeconds": 4,
+  "duration": "text",
   "blocking": false
 }
 ```
@@ -206,12 +206,12 @@ This image enters while leaning around its bottom-right pivot, holds in place, a
 
 ### `wait`
 
-Advance the timeline without rendering anything. `durationSeconds` is required and must be positive. It blocks by default, so use it to create a gap before the following action.
+Advance the timeline without rendering anything. A positive numeric `duration` is required. It blocks by default, so use it to create a gap before the following action.
 
 ```json
 {
   "type": "wait",
-  "durationSeconds": 2
+  "duration": 2
 }
 ```
 
@@ -380,7 +380,7 @@ Smoothly move to a target.
   "target": {
     "objects": ["argumentGraph/cost", "argumentGraph/main"]
   },
-  "durationSeconds": 1.2,
+  "duration": 1.2,
   "blocking": false
 }
 ```
@@ -426,7 +426,7 @@ Display spoken text for the specified duration. Captions are camera-anchored by 
 {
   "type": "captions.show",
   "text": "The legislation would have a substantial cost.",
-  "durationSeconds": 4,
+  "duration": "text",
   "offsetSeconds": -4,
   "blocking": false
 }

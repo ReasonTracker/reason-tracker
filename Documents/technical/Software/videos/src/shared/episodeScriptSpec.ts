@@ -4,7 +4,8 @@ const authorKeySchema = z.string()
 	.regex(/^[A-Za-z][A-Za-z0-9_-]*$/, "Use letters, numbers, underscores, or hyphens, starting with a letter.");
 const nonEmptyStringSchema = z.string().trim().min(1);
 const secondsSchema = z.number().finite();
-const durationSecondsSchema = secondsSchema.nonnegative();
+const numericDurationSchema = secondsSchema.nonnegative();
+const durationSchema = z.union([numericDurationSchema, z.literal("text")]);
 const anchorSchema = z.enum(["canvas", "camera"]);
 
 const objectLayoutShape = {
@@ -81,9 +82,14 @@ export const claimSideSchema = z.enum(["pro", "con"])
 
 const actionTimingShape = {
 	blocking: z.boolean().optional(),
-	durationSeconds: durationSecondsSchema.optional(),
+	duration: numericDurationSchema.optional(),
 	label: nonEmptyStringSchema.optional(),
 	offsetSeconds: secondsSchema.optional(),
+};
+
+const textActionTimingShape = {
+	...actionTimingShape,
+	duration: durationSchema.optional(),
 };
 
 const cssStyleValueSchema = z.union([z.string(), z.number().finite()]);
@@ -112,7 +118,7 @@ const mediaSourceSchema = z.string().refine(
 const objectAddShape = {
 	...actionTimingShape,
 	anchor: anchorSchema.default("canvas"),
-	durationSeconds: z.literal(0).optional(),
+	duration: z.literal(0).optional(),
 	key: authorKeySchema,
 	layout: objectLayoutSchema,
 	style: cssStyleSchema.optional(),
@@ -168,7 +174,7 @@ const graphClaimStateSchema = z.object({
 }).strict();
 
 const graphCreateActionSchema = z.object({
-	...actionTimingShape,
+	...textActionTimingShape,
 	anchor: anchorSchema.default("canvas"),
 	claims: z.array(newGraphClaimSchema).optional(),
 	hideScores: z.boolean().optional(),
@@ -184,7 +190,7 @@ const graphCreateActionSchema = z.object({
 }).strict();
 
 const graphAddClaimActionSchema = z.object({
-	...actionTimingShape,
+	...textActionTimingShape,
 	graph: authorKeySchema,
 	key: authorKeySchema,
 	side: claimSideSchema,
@@ -195,14 +201,14 @@ const graphAddClaimActionSchema = z.object({
 }).strict();
 
 const graphSetActionSchema = z.object({
-	...actionTimingShape,
+	...textActionTimingShape,
 	claims: z.array(graphClaimStateSchema).min(1),
 	graph: authorKeySchema,
 	type: z.literal("graph.set"),
 }).strict();
 
 const graphPatchActionSchema = z.object({
-	...actionTimingShape,
+	...textActionTimingShape,
 	claims: z.array(graphClaimStateSchema),
 	graph: authorKeySchema,
 	removeConnectionsFrom: z.array(authorKeySchema),
@@ -271,9 +277,8 @@ const balanceUpdateActionSchema = z.object({
 );
 
 const captionsShowActionSchema = z.object({
-	...actionTimingShape,
+	...textActionTimingShape,
 	anchor: anchorSchema.default("camera"),
-	durationSeconds: durationSecondsSchema.positive(),
 	position: z.literal("center").optional(),
 	text: nonEmptyStringSchema,
 	type: z.literal("captions.show"),
@@ -281,7 +286,7 @@ const captionsShowActionSchema = z.object({
 
 const waitActionSchema = z.object({
 	...actionTimingShape,
-	durationSeconds: durationSecondsSchema.positive(),
+	duration: numericDurationSchema.positive(),
 	type: z.literal("wait"),
 }).strict();
 
@@ -302,13 +307,13 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 
 const defaultsSchema = z.object({
 	"camera.move": z.object({
-		durationSeconds: durationSecondsSchema.positive().optional(),
+		duration: numericDurationSchema.positive().optional(),
 	}).strict().optional(),
 	"graph.addClaim": z.object({
-		durationSeconds: durationSecondsSchema.positive().optional(),
+		duration: durationSchema.optional(),
 	}).strict().optional(),
 	"graph.create": z.object({
-		durationSeconds: durationSecondsSchema.optional(),
+		duration: durationSchema.optional(),
 	}).strict().optional(),
 }).strict();
 
@@ -328,6 +333,7 @@ export const episodeScriptSpecSchema = z.object({
 
 export type ClaimSide = z.infer<typeof claimSideSchema>;
 export type Anchor = z.infer<typeof anchorSchema>;
+export type Duration = z.infer<typeof durationSchema>;
 export type EpisodeAction = z.infer<typeof episodeActionSchema>;
 export type EpisodeScriptSpecInput = z.input<typeof episodeScriptSpecSchema>;
 export type EpisodeScriptSpec = z.infer<typeof episodeScriptSpecSchema>;

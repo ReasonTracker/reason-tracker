@@ -53,7 +53,7 @@
             "type": "balance.update",
             "key": "argumentBalance",
             "scorePercent": 100,
-            "durationSeconds": 4,
+            "duration": 4,
             "blocking": false
         }
     ]
