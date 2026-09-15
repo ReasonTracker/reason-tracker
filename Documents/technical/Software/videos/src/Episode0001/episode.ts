@@ -254,6 +254,7 @@ const episode = {
 			},
 			blocking: true,
 		},
+		{ type: "wait", duration: 10 }
 	],
 } satisfies EpisodeScriptSpecInput;
 
