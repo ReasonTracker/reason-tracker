@@ -65,8 +65,10 @@ export function Scoreboard({
 	transitionDurationMs = DEFAULT_TRANSITION_DURATION_MS,
 }: ScoreboardProps) {
 	const signedScore = clampSignedScore(score);
-	const proScore = toDisplayScore((signedScore + 1) / 2);
-	const conScore = toDisplayScore((1 - signedScore) / 2);
+	const proShare = (signedScore + 1) / 2;
+	const conShare = (1 - signedScore) / 2;
+	const proScore = toDisplayScore(proShare);
+	const conScore = toDisplayScore(conShare);
 	const duration = Math.max(0, transitionDurationMs);
 	const resolvedHeight = resolveDimension(height, DEFAULT_HEIGHT);
 	const resolvedNumberWidth = resolveDimension(numberWidth, DEFAULT_NUMBER_WIDTH);
@@ -106,7 +108,7 @@ export function Scoreboard({
 					transitionDuration: `${duration}ms`,
 				}}
 			>
-				<div style={{ ...proFillStyle, height: `${proScore}%`, transitionDuration: `${duration}ms` }} />
+				<div style={{ ...proFillStyle, height: `${proShare * 100}%`, transitionDuration: `${duration}ms` }} />
 				{[25, 50, 75].map((position) => (
 					<div key={position} style={{ ...markerStyle, top: `${position}%` }} />
 				))}
