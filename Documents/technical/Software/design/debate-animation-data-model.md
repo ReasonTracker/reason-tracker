@@ -57,7 +57,8 @@ Defines the data models and orchestration for debate graph animation, supporting
 - The delivery-connector corridor on the cross-lane axis has a base width of `(connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth) * sourcesScale`, plus the physical width of the widest junction among the target claim's incoming confidence connectors.
 - A junction width is `claimHeight * junctionSpan`, where `junctionSpan` is the sum of the confidence connector's attached relevance claims' source scales. A connector with no attached relevance claims contributes zero junction width and renders as one uninterrupted delivery path.
 - In the current orientation, claim boxes are left-justified within the claim-lane band rather than centered across that band.
-- Sibling source claims form local clusters that stay mostly centered on their source claim when the surrounding layout constraints permit it.
+- Each direct confidence connector owns one source-claim cluster: its confidence claim plus the relevance claims that affect its junction. The confidence claim prefers the center of its matching delivery-stack port, and relevance claims stay adjacent to their owning confidence claim.
+- Clusters retain delivery-stack order and use constrained packing on the lane axis. A target-side stack interval is a preferred attachment center, not a container for a claim box; when preferred centers conflict, clusters shift only far enough to preserve scaled gaps and avoid overlap.
 
 ## Flow
 
@@ -104,7 +105,7 @@ Sibling claim order and target-edge connector stack order use the same ordered l
 - Group siblings first by how they relate to the target: `proTarget` siblings first, then `conTarget` siblings.
 - Within each target-relationship group, order is deterministic and source-position driven.
 - When source positions tie, use a stable tie-breaker so repeated layouts keep the same order.
-- The compact along-lane order of sibling claims in a claim lane uses this ordered list.
+- The compact along-lane order of direct confidence source-claim clusters uses this ordered list. Attached relevance claims stay within their owning confidence cluster.
 - The target-edge stack order for delivery connectors and relevance connectors uses this same ordered list.
 
 ## Connector Stacking

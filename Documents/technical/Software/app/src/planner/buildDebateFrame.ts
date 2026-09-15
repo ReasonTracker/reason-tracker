@@ -15,10 +15,15 @@ import type {
 import type { PlannerOptions } from "./contracts.ts";
 import type { ResolvedPresentationMath } from "./resolvePresentationMath.ts";
 
-type ClaimLaneMember = {
-	claimOccurrenceId: PresentationClaimOccurrenceId
-	connectorOccurrenceId: PresentationConnectorOccurrenceId
-	targetRelationship: "proTarget" | "conTarget"
+type ClaimLaneCluster = {
+	claimOccurrenceIds: PresentationClaimOccurrenceId[]
+	confidenceOccurrence: PresentationConfidenceConnectorOccurrence
+};
+
+type ClaimLaneClusterLayout = {
+	cluster: ClaimLaneCluster
+	height: number
+	preferredCenter: number
 };
 
 export function buildDebateFrame(args: {
@@ -43,25 +48,55 @@ export function buildDebateFrame(args: {
 
 		const claimOccurrence = getClaimOccurrence(args.resolvedMath, claimOccurrenceId);
 		const scale = resolveVisualScale(args, claimOccurrenceId);
-		const members = getClaimLaneMembers(args.resolvedMath, claimOccurrence);
-		const membersHeight = members.reduce((height, member, index) => {
-			const memberHeight = measureClaim(member.claimOccurrenceId);
+		const clusters = getClaimLaneClusters(args.resolvedMath, claimOccurrence);
+		const clustersHeight = clusters.reduce((height, cluster, index) => {
+			const clusterHeight = measureClaimLaneCluster(cluster);
+			if (index === 0) {
+				return clusterHeight;
+			}
+
+			const previousCluster = clusters[index - 1];
+			if (!previousCluster) {
+				throw new Error(`Missing previous claim lane cluster for ${claimOccurrenceId}`);
+			}
+
+			return height
+				+ resolveClaimLaneGap(
+					previousCluster.claimOccurrenceIds.at(-1)!,
+					cluster.claimOccurrenceIds[0]!,
+				)
+				+ clusterHeight;
+		}, 0);
+		const height = Math.max(args.options.claimHeight * scale, clustersHeight);
+		measuredHeights.set(claimOccurrenceId, height);
+		return height;
+	};
+
+	const measureClaimLaneCluster = (cluster: ClaimLaneCluster): number => (
+		cluster.claimOccurrenceIds.reduce((height, memberId, index) => {
+			const memberHeight = measureClaim(memberId);
 			if (index === 0) {
 				return memberHeight;
 			}
 
-			const previousMember = members[index - 1];
-			const previousScale = resolveVisualScale(args, previousMember.claimOccurrenceId);
-			const memberScale = resolveVisualScale(args, member.claimOccurrenceId);
+			const previousMemberId = cluster.claimOccurrenceIds[index - 1];
+			if (!previousMemberId) {
+				throw new Error(`Missing previous claim in ${cluster.confidenceOccurrence.id}`);
+			}
 
-			return height
-				+ (args.options.claimLaneAxisGap * ((previousScale + memberScale) / 2))
-				+ memberHeight;
-		}, 0);
-		const height = Math.max(args.options.claimHeight * scale, membersHeight);
-		measuredHeights.set(claimOccurrenceId, height);
-		return height;
-	};
+			return height + resolveClaimLaneGap(previousMemberId, memberId) + memberHeight;
+		}, 0)
+	);
+
+	const resolveClaimLaneGap = (
+		firstClaimOccurrenceId: PresentationClaimOccurrenceId,
+		secondClaimOccurrenceId: PresentationClaimOccurrenceId,
+	): number => (
+		args.options.claimLaneAxisGap * (
+			(resolveVisualScale(args, firstClaimOccurrenceId)
+				+ resolveVisualScale(args, secondClaimOccurrenceId)) / 2
+		)
+	);
 
 	const layoutClaim = (
 		claimOccurrenceId: PresentationClaimOccurrenceId,
@@ -91,8 +126,8 @@ export function buildDebateFrame(args: {
 			sourcesScale,
 		};
 
-		const members = getClaimLaneMembers(args.resolvedMath, occurrence);
-		if (members.length === 0) {
+		const clusters = getClaimLaneClusters(args.resolvedMath, occurrence);
+		if (clusters.length === 0) {
 			return;
 		}
 
@@ -114,42 +149,43 @@ export function buildDebateFrame(args: {
 		const sourceLaneLeftEdgeX = claimLeftEdgeX
 			+ (args.options.claimWidth * sourcesScale)
 			+ corridorWidth;
-		const membersHeight = members.reduce((height, member, index) => {
-			const memberHeight = measureClaim(member.claimOccurrenceId);
-			if (index === 0) {
-				return memberHeight;
-			}
-
-			const previousMember = members[index - 1];
-			const previousScale = getRequiredNumber(
-				args.resolvedMath.sourcesScales[previousMember.claimOccurrenceId],
-				`source scale for ${previousMember.claimOccurrenceId}`,
+		const targetSideOffsets = resolveConfidenceTargetSideOffsets({
+			claimOccurrence: occurrence,
+			options: args.options,
+			resolvedMath: args.resolvedMath,
+		});
+		const clusterLayouts = clusters.map((cluster) => {
+			const confidenceHeight = measureClaim(
+				cluster.confidenceOccurrence.sourceClaimOccurrenceId,
 			);
-			const memberScale = getRequiredNumber(
-				args.resolvedMath.sourcesScales[member.claimOccurrenceId],
-				`source scale for ${member.claimOccurrenceId}`,
+			const height = measureClaimLaneCluster(cluster);
+			const confidenceCenterOffset = -(height / 2) + (confidenceHeight / 2);
+			const targetSideOffset = getRequiredNumber(
+				targetSideOffsets[cluster.confidenceOccurrence.id],
+				`target side offset for ${cluster.confidenceOccurrence.id}`,
 			);
 
-			return height
-				+ (args.options.claimLaneAxisGap * ((previousScale + memberScale) / 2))
-				+ memberHeight;
-		}, 0);
-		let memberTop = claimCenterY - (membersHeight / 2);
+			return {
+				cluster,
+				confidenceCenterOffset,
+				height,
+				preferredCenter: claimCenterY + targetSideOffset - confidenceCenterOffset,
+			};
+		});
+		const clusterCenters = resolvePackedClusterCenters(clusterLayouts, resolveClaimLaneGap);
 
-		members.forEach((member, index) => {
-			const memberHeight = measureClaim(member.claimOccurrenceId);
-			layoutClaim(
-				member.claimOccurrenceId,
-				sourceLaneLeftEdgeX,
-				memberTop + (memberHeight / 2),
-			);
-			memberTop += memberHeight;
-			const nextMember = members[index + 1];
-			if (nextMember) {
-				const memberScale = resolveVisualScale(args, member.claimOccurrenceId);
-				const nextScale = resolveVisualScale(args, nextMember.claimOccurrenceId);
-				memberTop += args.options.claimLaneAxisGap * ((memberScale + nextScale) / 2);
-			}
+		clusterLayouts.forEach((clusterLayout, index) => {
+			let memberTop = (clusterCenters[index] ?? clusterLayout.preferredCenter)
+				- (clusterLayout.height / 2);
+			clusterLayout.cluster.claimOccurrenceIds.forEach((memberId, memberIndex) => {
+				const memberHeight = measureClaim(memberId);
+				layoutClaim(memberId, sourceLaneLeftEdgeX, memberTop + (memberHeight / 2));
+				memberTop += memberHeight;
+				const nextMemberId = clusterLayout.cluster.claimOccurrenceIds[memberIndex + 1];
+				if (nextMemberId) {
+					memberTop += resolveClaimLaneGap(memberId, nextMemberId);
+				}
+			});
 		});
 	};
 
@@ -172,29 +208,17 @@ function buildConnectionStates(args: {
 	resolvedMath: ResolvedPresentationMath
 }): void {
 	for (const claimOccurrence of Object.values(args.resolvedMath.presentationGraph.claimOccurrences)) {
-		const confidenceOccurrences = claimOccurrence.confidenceConnectorOccurrenceIds.map(
-			(connectorOccurrenceId) => getConfidenceOccurrence(args.resolvedMath, connectorOccurrenceId),
+		const confidenceOccurrences = getOrderedConfidenceOccurrences(
+			args.resolvedMath,
+			claimOccurrence,
 		);
-		const confidenceOffsets = resolveDeliveryOffsets({
-			baseClaimHeight: args.options.claimHeight,
-			connections: confidenceOccurrences.map((occurrence) => ({
-				fluidShare: getRequiredNumber(
-					args.resolvedMath.parentFluidShares[occurrence.sourceClaimOccurrenceId],
-					`parent fluid share for ${occurrence.sourceClaimOccurrenceId}`,
-				),
-				shellScale: getRequiredNumber(
-					args.resolvedMath.deliveryScales[occurrence.sourceClaimOccurrenceId],
-					`delivery scale for ${occurrence.sourceClaimOccurrenceId}`,
-				),
-				side: getRequiredSide(args.resolvedMath, occurrence.sourceClaimOccurrenceId),
-			})),
-			parentHeight: args.options.claimHeight * getRequiredNumber(
-				args.resolvedMath.sourcesScales[claimOccurrence.id],
-				`source scale for ${claimOccurrence.id}`,
-			),
+		const confidenceOffsets = resolveConfidenceTargetSideOffsets({
+			claimOccurrence,
+			options: args.options,
+			resolvedMath: args.resolvedMath,
 		});
 
-		confidenceOccurrences.forEach((occurrence, index) => {
+		confidenceOccurrences.forEach((occurrence) => {
 			const sourceScale = getRequiredNumber(
 				args.resolvedMath.sourcesScales[occurrence.sourceClaimOccurrenceId],
 				`source scale for ${occurrence.sourceClaimOccurrenceId}`,
@@ -240,7 +264,7 @@ function buildConnectionStates(args: {
 				sourceClaimOccurrenceId: occurrence.sourceClaimOccurrenceId,
 				sourceScale,
 				targetClaimOccurrenceId: occurrence.targetClaimOccurrenceId,
-				targetSideOffset: confidenceOffsets[index] ?? 0,
+				targetSideOffset: confidenceOffsets[occurrence.id] ?? 0,
 				volumeTransitions: [],
 			};
 			args.frame.confidenceConnections[occurrence.id] = state;
@@ -279,36 +303,42 @@ function buildConnectionStates(args: {
 	}
 }
 
-function getClaimLaneMembers(
+function getClaimLaneClusters(
 	resolvedMath: ResolvedPresentationMath,
 	claimOccurrence: PresentationClaimOccurrence,
-): ClaimLaneMember[] {
-	const members: ClaimLaneMember[] = [];
+): ClaimLaneCluster[] {
+	return getOrderedConfidenceOccurrences(resolvedMath, claimOccurrence).map(
+		(confidenceOccurrence) => ({
+			claimOccurrenceIds: [
+				confidenceOccurrence.sourceClaimOccurrenceId,
+				...confidenceOccurrence.relevanceConnectorOccurrenceIds
+					.map((connectorOccurrenceId) =>
+						getRelevanceOccurrence(resolvedMath, connectorOccurrenceId)
+					)
+					.sort(compareConnectorOccurrences)
+					.map((relevanceOccurrence) => relevanceOccurrence.sourceClaimOccurrenceId),
+			],
+			confidenceOccurrence,
+		}),
+	);
+}
 
-	for (const connectorOccurrenceId of claimOccurrence.confidenceConnectorOccurrenceIds) {
-		const confidenceOccurrence = getConfidenceOccurrence(resolvedMath, connectorOccurrenceId);
-		members.push({
-			claimOccurrenceId: confidenceOccurrence.sourceClaimOccurrenceId,
-			connectorOccurrenceId: confidenceOccurrence.id,
-			targetRelationship: confidenceOccurrence.targetRelationship,
-		});
+function getOrderedConfidenceOccurrences(
+	resolvedMath: ResolvedPresentationMath,
+	claimOccurrence: PresentationClaimOccurrence,
+): PresentationConfidenceConnectorOccurrence[] {
+	return claimOccurrence.confidenceConnectorOccurrenceIds
+		.map((connectorOccurrenceId) => getConfidenceOccurrence(resolvedMath, connectorOccurrenceId))
+		.sort(compareConnectorOccurrences);
+}
 
-		for (const relevanceOccurrenceId of confidenceOccurrence.relevanceConnectorOccurrenceIds) {
-			const relevanceOccurrence = getRelevanceOccurrence(resolvedMath, relevanceOccurrenceId);
-			members.push({
-				claimOccurrenceId: relevanceOccurrence.sourceClaimOccurrenceId,
-				connectorOccurrenceId: relevanceOccurrence.id,
-				targetRelationship: relevanceOccurrence.targetRelationship,
-			});
-		}
-	}
-
-	return members.sort((left, right) => {
-		const relationshipDifference = relationshipRank(left.targetRelationship)
-			- relationshipRank(right.targetRelationship);
-		return relationshipDifference
-			|| left.connectorOccurrenceId.localeCompare(right.connectorOccurrenceId);
-	});
+function compareConnectorOccurrences(
+	left: PresentationConfidenceConnectorOccurrence | PresentationRelevanceConnectorOccurrence,
+	right: PresentationConfidenceConnectorOccurrence | PresentationRelevanceConnectorOccurrence,
+): number {
+	const relationshipDifference = relationshipRank(left.targetRelationship)
+		- relationshipRank(right.targetRelationship);
+	return relationshipDifference || left.id.localeCompare(right.id);
 }
 
 function getClaimOccurrence(
@@ -443,6 +473,104 @@ function resolveDeliveryOffsets(args: {
 		intervalStart = intervalEnd;
 		return shellCenter;
 	});
+}
+
+function resolveConfidenceTargetSideOffsets(args: {
+	claimOccurrence: PresentationClaimOccurrence
+	options: PlannerOptions
+	resolvedMath: ResolvedPresentationMath
+}): Partial<Record<PresentationConnectorOccurrenceId, number>> {
+	const confidenceOccurrences = getOrderedConfidenceOccurrences(
+		args.resolvedMath,
+		args.claimOccurrence,
+	);
+	const offsets = resolveDeliveryOffsets({
+		baseClaimHeight: args.options.claimHeight,
+		connections: confidenceOccurrences.map((occurrence) => ({
+			fluidShare: getRequiredNumber(
+				args.resolvedMath.parentFluidShares[occurrence.sourceClaimOccurrenceId],
+				`parent fluid share for ${occurrence.sourceClaimOccurrenceId}`,
+			),
+			shellScale: getRequiredNumber(
+				args.resolvedMath.deliveryScales[occurrence.sourceClaimOccurrenceId],
+				`delivery scale for ${occurrence.sourceClaimOccurrenceId}`,
+			),
+			side: getRequiredSide(args.resolvedMath, occurrence.sourceClaimOccurrenceId),
+		})),
+		parentHeight: args.options.claimHeight * getRequiredNumber(
+			args.resolvedMath.sourcesScales[args.claimOccurrence.id],
+			`source scale for ${args.claimOccurrence.id}`,
+		),
+	});
+
+	return Object.fromEntries(
+		confidenceOccurrences.map((occurrence, index) => [occurrence.id, offsets[index] ?? 0]),
+	) as Partial<Record<PresentationConnectorOccurrenceId, number>>;
+}
+
+function resolvePackedClusterCenters(
+	clusterLayouts: ClaimLaneClusterLayout[],
+	resolveGap: (
+		firstClaimOccurrenceId: PresentationClaimOccurrenceId,
+		secondClaimOccurrenceId: PresentationClaimOccurrenceId,
+	) => number,
+): number[] {
+	const centerOffsets: number[] = [];
+	for (const [index, clusterLayout] of clusterLayouts.entries()) {
+		if (index === 0) {
+			centerOffsets.push(0);
+			continue;
+		}
+
+		const previousClusterLayout = clusterLayouts[index - 1];
+		if (!previousClusterLayout) {
+			throw new Error(`Missing previous claim lane cluster at ${index}`);
+		}
+
+		centerOffsets.push((centerOffsets[index - 1] ?? 0)
+			+ (previousClusterLayout.height / 2)
+			+ resolveGap(
+				previousClusterLayout.cluster.claimOccurrenceIds.at(-1)!,
+				clusterLayout.cluster.claimOccurrenceIds[0]!,
+			)
+			+ (clusterLayout.height / 2));
+	}
+	const blocks: Array<{ count: number; endIndex: number; sum: number; startIndex: number }> = [];
+
+	for (const [index, clusterLayout] of clusterLayouts.entries()) {
+		blocks.push({
+			count: 1,
+			endIndex: index,
+			sum: clusterLayout.preferredCenter - (centerOffsets[index] ?? 0),
+			startIndex: index,
+		});
+		while (
+			blocks.length > 1
+			&& (blocks.at(-2)!.sum / blocks.at(-2)!.count)
+			> (blocks.at(-1)!.sum / blocks.at(-1)!.count)
+		) {
+			const right = blocks.pop()!;
+			const left = blocks.pop()!;
+			blocks.push({
+				count: left.count + right.count,
+				endIndex: right.endIndex,
+				sum: left.sum + right.sum,
+				startIndex: left.startIndex,
+			});
+		}
+	}
+
+	const transformedCenters = new Array<number>(clusterLayouts.length);
+	for (const block of blocks) {
+		const center = block.sum / block.count;
+		for (let index = block.startIndex; index <= block.endIndex; index += 1) {
+			transformedCenters[index] = center;
+		}
+	}
+
+	return clusterLayouts.map((clusterLayout, index) => (
+		(transformedCenters[index] ?? clusterLayout.preferredCenter) + (centerOffsets[index] ?? 0)
+	));
 }
 
 function getRequiredSide(

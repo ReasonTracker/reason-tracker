@@ -72,6 +72,10 @@
 - Keep this file for agent steering only.
 - Put general project documentation in shared docs.
 
+## Validation
+
+- Do not run, request, propose, or report visual checks, including browser or Remotion previews, Studio launches, screenshots, or image inspection. Use non-visual executable validation where available.
+
 ## Shared Guidance
 
 - When working in a specific subtree, check for a closer `AGENTS.md` in that folder or its nearest ancestor below the repo root and apply it as additive guidance for that scope.

@@ -27,7 +27,7 @@
 - Connector Curve Lane - the lane reserved for one curved connector segment.
 - Connector Diagonal Lane - the lane reserved for one diagonal connector segment.
 
-Relevance claims use the same claim-lane positioning model as the other claim visuals in the source claim cluster they belong with.
+Relevance claims are members of the source-claim cluster owned by the confidence connector whose junction they affect. They remain adjacent to that connector's confidence claim.
 
 ### Shared Ordering
 
@@ -38,7 +38,7 @@ Relevance claims use the same claim-lane positioning model as the other claim vi
 
 - Claim Lane Axis Gap - the edge-to-edge gap between sibling claim boxes along a claim lane. It is resolved at the same local `sourcesScale` as the surrounding geometry, so the same local shape stays proportional when zoomed and shrinks or grows with the source-side potential scale.
 - Delivery Connector Corridor - the cross-lane corridor reserved for a delivery connector. Its base is `(connectorCurveLaneWidth + connectorDiagonalLaneWidth + connectorCurveLaneWidth) * sourcesScale`, plus the physical width of the widest junction among the target claim's incoming confidence connectors. A junction width is `claimHeight * junctionSpan`, where `junctionSpan` is the sum of its attached relevance claims' source scales. A connector with no attached relevance claims contributes zero junction width and has no junction geometry.
-- Source Claim Cluster - the local group of sibling source claims attached to one target. The cluster follows the shared ordering rule and stays mostly centered on the source claim it belongs with when surrounding constraints permit it.
+- Source Claim Cluster - the confidence claim for one direct confidence connector and all relevance claims that affect its junction. The confidence claim prefers the center of its matching delivery-stack port; relevance claims are laid out adjacent to it. Clusters retain shared delivery-stack order, then use constrained packing to maintain scaled gaps and avoid overlap when their preferred positions conflict.
 
 ### Concepts
 
