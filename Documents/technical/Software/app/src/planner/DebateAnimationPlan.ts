@@ -48,6 +48,7 @@ export type ConfidenceConnectionFrameState = {
 	confidenceConnectorId: ConfidenceConnectorId
 	deliveryScore: number
 	deliveryScale: number
+	deliveryTargetScale: number
 	id: PresentationConnectorOccurrenceId
 	junctionSpan: number
 	relevanceMultiplier: number
@@ -95,7 +96,7 @@ type ClaimTracks = Partial<Record<
 type ConfidenceConnectionTracks = Partial<Record<
 	PresentationConnectorOccurrenceId,
 	Partial<Record<
-		"deliveryScale" | "deliveryScore" | "junctionSpan" | "shellReveal" | "sourceScale" | "targetSideOffset",
+		"deliveryScale" | "deliveryScore" | "deliveryTargetScale" | "junctionSpan" | "shellReveal" | "sourceScale" | "targetSideOffset",
 		NumberTrack
 	>> & { volumeChanges?: NumberTrack[] }
 >>;
@@ -109,6 +110,7 @@ type RelevanceConnectionTracks = Partial<Record<
 export type DebateAnimationStep<TId extends AnimationStepId = AnimationStepId> = {
 	id: TId
 	initialFrame: DebateFrame
+	targetFrame: DebateFrame
 	tracks: {
 		claims: ClaimTracks
 		confidenceConnections: ConfidenceConnectionTracks
@@ -140,6 +142,12 @@ export function resolveAnimationFrame(
 	progress: number,
 ): DebateFrame {
 	const step = plan.steps[stepId];
+	if (progress <= 0) {
+		return cloneFrame(step.initialFrame);
+	}
+	if (progress >= 1) {
+		return cloneFrame(step.targetFrame);
+	}
 
 	const resolvedFrame: DebateFrame = {
 		claims: mapRecord(step.initialFrame.claims, (item) => {
@@ -172,6 +180,11 @@ export function resolveAnimationFrame(
 						tracks?.deliveryScale,
 						progress,
 						item.deliveryScale,
+					),
+					deliveryTargetScale: resolveNumberTrack(
+						tracks?.deliveryTargetScale,
+						progress,
+						item.deliveryTargetScale,
 					),
 					junctionSpan: resolveNumberTrack(
 						tracks?.junctionSpan,
@@ -281,4 +294,22 @@ function smoothStep(value: number): number {
 
 function clamp01(value: number): number {
 	return Math.min(1, Math.max(0, value));
+}
+
+function cloneFrame(frame: DebateFrame): DebateFrame {
+	return {
+		claims: mapRecord(frame.claims, (claim) => ({
+			...claim,
+			position: { ...claim.position },
+		})),
+		confidenceConnections: mapRecord(frame.confidenceConnections, (connection) => ({
+			...connection,
+			relevanceConnectorOccurrenceIds: [...connection.relevanceConnectorOccurrenceIds],
+			volumeTransitions: [...connection.volumeTransitions],
+		})),
+		relevanceConnections: mapRecord(frame.relevanceConnections, (connection) => ({
+			...connection,
+			volumeTransitions: [...connection.volumeTransitions],
+		})),
+	};
 }

@@ -14,11 +14,18 @@ export type ScoreValue = {
  * With no score-affecting children, the claim remains fully standing.
  * Negative raw values are reported but do not reduce standing below 0.
  */
-export function calculateScoreValue(impacts: Impact[]): ScoreValue {
+export function calculateScoreValue(
+  impacts: Impact[],
+  defaultScore = UNCHALLENGED_CLAIM_SCORE,
+): ScoreValue {
+  if (!Number.isFinite(defaultScore)) {
+    throw new Error(`Default claim score must be finite: ${defaultScore}`);
+  }
+
   if (impacts.length === 0) {
     return {
-      value: UNCHALLENGED_CLAIM_SCORE,
-      rawValue: UNCHALLENGED_CLAIM_SCORE,
+      value: Math.max(0, defaultScore),
+      rawValue: defaultScore,
       weightedSum: 0,
       totalWeight: 0,
     };

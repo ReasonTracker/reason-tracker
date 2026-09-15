@@ -103,6 +103,9 @@ function addClaimOccurrence(args: {
 	args.nodes[args.scoreNodeId] = {
 		affects: args.affects ?? "Score",
 		claimId: args.claimId,
+		defaultScore: args.affects === "Relevance"
+			? claim.defaultRelevance
+			: claim.defaultConfidence,
 		id: args.scoreNodeId,
 		parentId: args.parentId,
 		proParent: args.proParent,

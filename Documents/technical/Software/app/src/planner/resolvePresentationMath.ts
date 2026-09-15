@@ -94,6 +94,26 @@ export function resolvePresentationMath(
 	};
 }
 
+export function resolvePresentationMathSnapshot(args: {
+	basis: ResolvedPresentationMath
+	claimScores: ResolvedPresentationMath["claimScores"]
+	connectorScores: ResolvedPresentationMath["connectorScores"]
+	rootSourcesScale: number
+}): ResolvedPresentationMath {
+	const presentationScales = calculatePresentationScales({
+		connectorScores: args.connectorScores,
+		presentationGraph: args.basis.presentationGraph,
+		rootSourcesScale: args.rootSourcesScale,
+	});
+
+	return {
+		...args.basis,
+		...presentationScales,
+		claimScores: { ...args.claimScores },
+		connectorScores: { ...args.connectorScores },
+	};
+}
+
 function calculatePresentationSides(
 	graph: DebatePresentationGraph,
 ): ResolvedPresentationMath["sides"] {
@@ -188,16 +208,16 @@ export function calculatePresentationScales(args: {
 
 		const allocation = calculateSiblingScaleAllocation({
 			children: confidenceOccurrences.map((occurrence) => {
-			const score = args.connectorScores[occurrence.id];
-			if (!score) {
-				throw new Error(`Missing presentation connector score: ${occurrence.id}`);
-			}
+				const score = args.connectorScores[occurrence.id];
+				if (!score) {
+					throw new Error(`Missing presentation connector score: ${occurrence.id}`);
+				}
 
-			return {
-				contributionWeight: resolveNonNegativeFinite(score.deliveryScore),
-				id: occurrence.id,
-				relevanceMultiplier: resolveNonNegativeFinite(score.relevanceMultiplier),
-			};
+				return {
+					contributionWeight: resolveNonNegativeFinite(score.deliveryScore),
+					id: occurrence.id,
+					relevanceMultiplier: resolveNonNegativeFinite(score.relevanceMultiplier),
+				};
 			}),
 			parentCapacity: sourcesScale,
 		});

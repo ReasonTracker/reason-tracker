@@ -4,9 +4,9 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Current Implementation Scope
 
-- The first production planner implementation currently covers add-confidence claim animation only.
+- The first production planner implementation covers add-confidence and add-relevance claim animation.
 - The first production planner sequence currently stops after the first `wave` from the command target through its outgoing connectors.
-- Add-relevance animation and subsequent propagation-wave sequencing are future scope.
+- Subsequent propagation-wave sequencing is future scope.
 - The settled display state still needs to support debates that already contain relevance structures elsewhere in the graph.
 - The planner input boundary is the pre-command DebateCore state plus the command payload.
 - Planner-facing math should stay DebateCore-shaped, so the planner should consume DebateCore-first math entrypoints rather than building a separate scoring adapter layer.
@@ -42,24 +42,24 @@ These examples describe the visual sequence of what happens on screen and intent
 
 ## Add Confidence Claim to Existing Debate Example
 
-- **Voila**: The new claim scales in from zero at its settled position, while the surrounding claims and connectors transition together to their post-command structural positions, scales, widths, junction spans, and target-stack offsets. Existing scores remain at their pre-command values.
+- **Voila**: The new claim scales in from zero at its staging position, while the surrounding claims and connectors transition together to the command-applied staging layout. Every new claim contributes score zero in that layout, so its connector and any junction use neutral pre-effect geometry. New connector shells remain hidden throughout this phase.
 - Adds in the new claim setting the scale to tween from zero to its planned full pipe scale.
-- That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from current scored delivery demand. The outgoing delivery side uses that same base scale and then applies the child's continuous relevance multiplier after the junction.
+- That planned claim scale is the shared child `sourcesScale` solved for that target's sibling group from staging delivery demand. The outgoing delivery side uses that same base scale and then applies the staging relevance multiplier after the junction.
 - Add in the connectors, junctions and agregators for the new claim.
   - visible is false for the ones that support that.
   - Delivery Connector scale and score is set to zero
-- **Sprout**: The new Delivery Connector traces from the new claim toward the target claim through the structural layout established during Voila. The compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
+- **Sprout**: The new Delivery Connector traces from the fully grown new claim toward the target claim through the structural layout established during Voila. The whole visible connector remains a complete taper from structural source width to target width throughout its growth, and the completed taper occupies the full route. Its zero-score delivery end remains at the normal stack point on the fluid's anchored side, while existing delivery connectors retain their normal endpoints. The compact claim order uses the same shared ordering rule as the target-side connector stack so the lines do not cross.
 - See [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) for how those target-side attachment positions are determined.
-- **First Fill**: The score fluid progressively fills the new pipe. Its moving frontier uses the path primitive's overflow-preserving curved extremity collapsed toward the bottom edge. The tip enters through the source boundary before the full slant is visible, and the full slant flows beyond the target boundary before the fill becomes flush.
-- **Wave**: After First Fill completes, interpolate logical scores through the settled layout. The separate moving frontier carries old fluid ahead and new fluid behind while traveling right to left. Subsequent propagation toward the Main Claim remains future scope.
+- **First Fill**: The score fluid progressively fills the new pipe while a matching shell transition moves with it. Behind the fluid cap the shell has direct-adjustment structural width; ahead of the cap it retains the original taper. The handoff between those profiles uses the fluid cap's calculated start, end, length, and easing, so the target does not begin opening until the shared transition reaches it and both become flush together. During that contact portion, positions, scales, offsets, junction geometry, and related layout for the direct-adjustment snapshot move while the fill finishes. Parent scores remain frozen.
+- **Wave**: Starts only after First Fill is complete. This single animation changes the first affected parent score and all positions, scales, offsets, junctions, and connector geometry implied by that first-parent score snapshot together. Subsequent propagation toward the Main Claim requires later waves and remains future scope.
 
 ## Add Relevance Claim To A New Junction
 
-- **Voila**: The new claim scales in from zero to its calculated size at its settled position while the local sibling group, the junction, and its related connectors transition to their post-command structural layout.
-- **Sprout**: The pipe wall and pipe interior trace from the new claim to the already-sized relevance landing area on the junction.
+- **Voila**: The new claim scales in from zero to its calculated staging size while the local sibling group, the junction, and its related connectors transition to the command-applied zero-score staging layout. The junction appears with neutral, matching confidence and delivery sides.
+- **Sprout**: The pipe wall and pipe interior trace from the new claim to the staging relevance landing area on the junction.
 - The Relevance Connector reaches the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
-- **First Fill**: Fluid progressively fills the new Relevance Connector and reaches the junction at the end of this step.
-- **Wave**: At relevance-fluid contact, the parent-side score wave begins. Future propagation waves may transition the layout of newly score-affected regions together with their score changes.
+- **First Fill**: Fluid progressively fills the new Relevance Connector. The existing target confidence connection remains in staging geometry until the relevance fluid reaches it; during the final contact interval, the direct connector adjustment takes effect and its claim positions, connector endpoints, widths, stack offsets, junction geometry, and aggregator inputs transition together. The target claim and all ancestor scores remain frozen.
+- **Wave**: Begins only after every First Fill track completes. This single animation changes the first affected parent score and all geometry implied by that first-parent score snapshot together. Future propagation waves may continue one parent level at a time.
 - The settled state has the following properties:
   - The Relevance Connector uses the top side if the relevance claim is above the junction and the bottom side if the relevance claim is below it. It reaches that side with the same slope as that side.
   - If multiple relevance connectors land on that same relevance-aggregator edge, they restack according to the shared [Debate Animation Data Model Design](../../design/debate-animation-data-model.md#connector-stacking) rules.
@@ -72,6 +72,8 @@ These examples describe the visual sequence of what happens on screen and intent
 ## Update Wave
 
 The Update Wave is a process that propagates changes through the graph starting when a claim receives an update to its score.
+
+Each Wave is one animation step. The next parent score and all movement implied by that score change animate together. A Wave starts only after the preceding claim or connector adjustment and its overlapping positioning have completely finished. Propagation beyond that parent uses another Wave rather than being folded into the same calculation.
 
 - Start at a claim that finished adjusting.
 - If the outgoing connector is a Relevance Connector:

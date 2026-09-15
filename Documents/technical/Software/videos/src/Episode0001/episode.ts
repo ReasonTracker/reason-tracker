@@ -203,25 +203,6 @@ const episode = {
 			target: "healthSafety",
 			side: "pro",
 		},
-		// {
-		// 	type: "camera.move",
-		// 	target: {
-		// 		offsetSeconds: 4,
-		// 		objects: [
-		// 			"argumentGraph/heartAttackReview2026",
-		// 			"argumentGraph/healthSafety",
-		// 		],
-		// 	},
-		// 	blocking: false,
-		// },
-		// {
-		// 	type: "graph.addClaim",
-		// 	graph: "argumentGraph",
-		// 	key: "heartAttackReview2026",
-		// 	text: "A 2026 systematic review of 157 epidemiological studies concluded that spring clock changes appear associated with increased myocardial infarction, citing the roughly 4% meta-analytic estimate. Its literature search ended June 19, 2025.",
-		// 	target: "healthSafety",
-		// 	side: "pro",
-		// },
 		{
 			type: "camera.move",
 			target: {
@@ -244,26 +225,6 @@ const episode = {
 			target: "healthSafety",
 			side: "con",
 		},
-		// {
-		// 	type: "camera.move",
-		// 	target: {
-		// 		offsetSeconds: 4,
-		// 		objects: [
-		// 			"argumentGraph/largeJamaStudySize",
-		// 			"argumentGraph/largeJamaHeartAttackStudy2025",
-		// 			"argumentGraph/healthSafety",
-		// 		],
-		// 	},
-		// 	blocking: false,
-		// },
-		// {
-		// 	type: "graph.addClaim",
-		// 	graph: "argumentGraph",
-		// 	key: "largeJamaStudySize",
-		// 	text: "The 2025 U.S. study included 168,870 myocardial infarction patients at 1,124 hospitals and was published after both the 2024 meta-analysis and the June 19, 2025 search cutoff of the 2026 review, so neither included it.",
-		// 	target: { relevanceOf: "largeJamaHeartAttackStudy2025" },
-		// 	side: "con",
-		// },
 		{
 			type: "camera.move",
 			target: {
@@ -271,6 +232,8 @@ const episode = {
 					"argumentGraph",
 				],
 			},
+			offsetSeconds: -2,
+			duration: 4,
 			blocking: true,
 		},
 		{ type: "wait", duration: 10 }

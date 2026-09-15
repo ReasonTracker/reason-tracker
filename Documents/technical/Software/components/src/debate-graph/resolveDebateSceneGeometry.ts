@@ -22,6 +22,11 @@ import { pathGeometryBoundariesToClosedSvgPathData } from "../path-geometry/path
 import { resolveDebateGraphOutlineWidth } from "./visualConstants";
 
 const GEOMETRY_EPSILON = 1e-6;
+// AGENT NOTE: Keep connector-shape tuning constants together below the imports.
+/** Makes the settled delivery taper occupy its full route. */
+const DELIVERY_TAPER_START_POSITION_PERCENT = 0;
+/** Maximum routed-path span represented by one segment in a moving taper profile. */
+const MOVING_TAPER_SAMPLE_LENGTH_PX = 1;
 
 export type AttachmentPort = {
 	center: Point
@@ -110,8 +115,6 @@ export function resolveDebateSceneGeometry(args: {
 	for (const connection of confidenceConnections) {
 		const sourceClaim = getClaimGeometry(claims, connection.sourceClaimOccurrenceId);
 		const targetClaim = getClaimGeometry(claims, connection.targetClaimOccurrenceId);
-		const targetDepth = args.options.aggregatorDepth
-			* (args.frame.claims[connection.targetClaimOccurrenceId]?.sourcesScale ?? 1);
 		const sourcePort = horizontalPort({
 			center: { x: sourceClaim.x, y: sourceClaim.y + (sourceClaim.height / 2) },
 			outwardX: -1,
@@ -119,11 +122,11 @@ export function resolveDebateSceneGeometry(args: {
 		});
 		const targetPort = horizontalPort({
 			center: {
-				x: targetClaim.x + targetClaim.width + targetDepth,
+				x: targetClaim.x + targetClaim.width,
 				y: targetClaim.y + (targetClaim.height / 2) + connection.targetSideOffset,
 			},
 			outwardX: 1,
-			width: args.options.claimHeight * connection.deliveryScale,
+			width: args.options.claimHeight * connection.deliveryTargetScale,
 		});
 		const hasRelevance = connection.relevanceConnectorOccurrenceIds.length > 0;
 
@@ -136,11 +139,14 @@ export function resolveDebateSceneGeometry(args: {
 				route: resolveRoute(sourcePort, targetPort, args.options),
 				shellReveal: connection.shellReveal,
 				shellWidth: targetPort.shellWidth,
+				shellPlacement: connection.side,
 				side: connection.side,
 				sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 				sourcePort,
 				sourceShellWidth: sourcePort.shellWidth,
+				targetShellWidth: args.options.claimHeight * connection.deliveryScale,
 				targetPort,
+				widthTransitionStartPositionPercent: DELIVERY_TAPER_START_POSITION_PERCENT,
 				volumeTransitions: connection.volumeTransitions,
 			}));
 			continue;
@@ -166,7 +172,7 @@ export function resolveDebateSceneGeometry(args: {
 		const deliverySourcePort = horizontalPort({
 			center: { x: junctionCenter.x - (junctionSpan / 2), y: junctionCenter.y },
 			outwardX: -1,
-			width: targetPort.shellWidth,
+			width: args.options.claimHeight * connection.deliveryScale,
 		});
 
 		bands.push(buildSceneBand({
@@ -191,18 +197,22 @@ export function resolveDebateSceneGeometry(args: {
 			route: resolveRoute(deliverySourcePort, targetPort, args.options),
 			shellReveal: connection.shellReveal,
 			shellWidth: targetPort.shellWidth,
+			shellPlacement: connection.side,
 			side: connection.side,
 			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort: deliverySourcePort,
+			sourceShellWidth: deliverySourcePort.shellWidth,
+			targetShellWidth: deliverySourcePort.shellWidth,
 			targetPort,
+			widthTransitionStartPositionPercent: DELIVERY_TAPER_START_POSITION_PERCENT,
 			volumeTransitions: connection.volumeTransitions,
 		}));
 
 		const junctionPoints: [Point, Point, Point, Point] = [
-			{ x: junctionCenter.x - (junctionSpan / 2), y: junctionCenter.y - (targetPort.shellWidth / 2) },
+			{ x: junctionCenter.x - (junctionSpan / 2), y: junctionCenter.y - (deliverySourcePort.shellWidth / 2) },
 			{ x: junctionCenter.x + (junctionSpan / 2), y: junctionCenter.y - (sourcePort.shellWidth / 2) },
 			{ x: junctionCenter.x + (junctionSpan / 2), y: junctionCenter.y + (sourcePort.shellWidth / 2) },
-			{ x: junctionCenter.x - (junctionSpan / 2), y: junctionCenter.y + (targetPort.shellWidth / 2) },
+			{ x: junctionCenter.x - (junctionSpan / 2), y: junctionCenter.y + (deliverySourcePort.shellWidth / 2) },
 		];
 		junctions.push({
 			id: `junction:${connection.id}`,
@@ -282,49 +292,83 @@ function buildSceneBand(args: {
 	route: Waypoint[]
 	shellReveal: number
 	shellWidth: number
+	shellPlacement?: "center" | "proMain" | "conMain"
 	side: SceneBandGeometry["side"]
 	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
 	sourcePort: AttachmentPort
 	sourceShellWidth?: number
+	targetShellWidth?: number
 	targetPort: AttachmentPort
 	volumeTransitions: ConnectorVolumeTransition[]
+	widthTransitionStartPositionPercent?: number
 }): SceneBandGeometry {
 	const sourceShellWidth = args.sourceShellWidth ?? args.shellWidth;
+	const targetShellWidth = args.targetShellWidth ?? args.shellWidth;
 	const fittedRoute = fitPathGeometryCorners({
 		offsetEnvelope: {
-			maxOffset: Math.max(sourceShellWidth, args.shellWidth) / 2,
-			minOffset: -(Math.max(sourceShellWidth, args.shellWidth) / 2),
+			maxOffset: Math.max(sourceShellWidth, targetShellWidth) / 2,
+			minOffset: -(Math.max(sourceShellWidth, targetShellWidth) / 2),
 		},
 		points: args.route,
 	}).points;
-	const shell = buildBand(
-		fittedRoute,
-		sourceShellWidth,
-		args.shellWidth,
-		args.shellReveal,
-		"open",
-		"center",
-		sourceShellWidth,
-		args.shellWidth,
-	);
-	const fluid = args.volumeTransitions.length > 0
-		? buildMovingVolumeBand({
-			placement: args.side,
+	const growingFluidTransition = args.volumeTransitions.length === 1
+		&& (args.volumeTransitions[0]?.initialValue ?? 0) <= GEOMETRY_EPSILON
+		&& (args.volumeTransitions[0]?.finalValue ?? 0) > GEOMETRY_EPSILON
+		? args.volumeTransitions[0]
+		: undefined;
+	const shell = growingFluidTransition && args.widthTransitionStartPositionPercent !== undefined
+		? buildMovingTaperShellBand({
+			finalValue: growingFluidTransition.finalValue,
+			initialValue: growingFluidTransition.initialValue,
+			placement: args.shellPlacement ?? "center",
+			progress: growingFluidTransition.progress,
 			route: fittedRoute,
-			shellWidth: Math.max(sourceShellWidth, args.shellWidth),
-			stableValue: args.fluidScore,
-			transitions: args.volumeTransitions,
+			sourceShellWidth,
+			targetShellWidth,
+			widthTransitionStartPositionPercent: args.widthTransitionStartPositionPercent,
 		})
 		: buildBand(
 			fittedRoute,
-			sourceShellWidth * clamp01(args.fluidScore),
-			args.shellWidth * clamp01(args.fluidScore),
-			1,
-			"open",
-			args.side,
 			sourceShellWidth,
 			args.shellWidth,
+			args.shellReveal,
+			"open",
+			args.shellPlacement ?? "center",
+			sourceShellWidth,
+			targetShellWidth,
+			args.widthTransitionStartPositionPercent,
 		);
+	const fluid = growingFluidTransition && args.widthTransitionStartPositionPercent !== undefined
+		? buildBand(
+			fittedRoute,
+			sourceShellWidth * clamp01(growingFluidTransition.finalValue),
+			targetShellWidth * clamp01(growingFluidTransition.finalValue),
+			growingFluidTransition.progress,
+			"curved",
+			args.side,
+			sourceShellWidth,
+			targetShellWidth,
+			args.widthTransitionStartPositionPercent,
+		)
+		: args.volumeTransitions.length > 0
+			? buildMovingVolumeBand({
+				placement: args.side,
+				route: fittedRoute,
+				shellWidth: Math.max(sourceShellWidth, targetShellWidth),
+				stableValue: args.fluidScore,
+				transitions: args.volumeTransitions,
+			})
+			: buildBand(
+				fittedRoute,
+				sourceShellWidth * clamp01(args.fluidScore),
+				args.shellWidth * clamp01(args.fluidScore),
+				1,
+				"open",
+				args.side,
+				sourceShellWidth,
+				targetShellWidth,
+				args.widthTransitionStartPositionPercent,
+			);
 
 	return {
 		diagnosticIssues: [...shell.issues, ...fluid.issues],
@@ -338,6 +382,123 @@ function buildSceneBand(args: {
 		sourcePort: args.sourcePort,
 		targetPort: args.targetPort,
 	};
+}
+
+function buildMovingTaperShellBand(args: {
+	finalValue: number
+	initialValue: number
+	placement: "center" | "proMain" | "conMain"
+	progress: number
+	route: Waypoint[]
+	sourceShellWidth: number
+	targetShellWidth: number
+	widthTransitionStartPositionPercent: number
+}): { issues: PathGeometryIssue[]; pathData: string } {
+	const routeLength = estimateRouteLength(args.route);
+	if (routeLength <= GEOMETRY_EPSILON) {
+		return { issues: [], pathData: "" };
+	}
+
+	const finalValue = clamp01(args.finalValue);
+	const transitionLength = Math.max(
+		args.sourceShellWidth * finalValue,
+		args.targetShellWidth * finalValue,
+		1,
+	);
+	const frontierEnd = clamp01(args.progress) * (routeLength + transitionLength);
+	const frontierStart = frontierEnd - transitionLength;
+	const taperStart = routeLength * clamp01(args.widthTransitionStartPositionPercent / 100);
+	const sourceOffsets = resolveBandOffsets(
+		args.sourceShellWidth,
+		args.placement,
+		args.sourceShellWidth,
+	);
+	const initialTargetOffsets = resolveBandOffsets(
+		args.targetShellWidth * clamp01(args.initialValue),
+		args.placement,
+		args.targetShellWidth,
+	);
+	const settledTargetOffsets = resolveBandOffsets(
+		args.targetShellWidth,
+		args.placement,
+		args.targetShellWidth,
+	);
+	const sampleDistances = new Set<number>([0, routeLength]);
+	for (
+		let distance = MOVING_TAPER_SAMPLE_LENGTH_PX;
+		distance < routeLength;
+		distance += MOVING_TAPER_SAMPLE_LENGTH_PX
+	) {
+		sampleDistances.add(distance);
+	}
+	for (const distance of [taperStart, frontierStart, frontierEnd]) {
+		sampleDistances.add(Math.min(routeLength, Math.max(0, distance)));
+	}
+
+	const distances = [...sampleDistances].sort((left, right) => left - right);
+	const offsets = distances.map((distance) => {
+		const taperProgress = routeLength - taperStart <= GEOMETRY_EPSILON
+			? 1
+			: curvedTransitionProgress((distance - taperStart) / (routeLength - taperStart));
+		const initialOffsets = interpolateBandOffsets(
+			sourceOffsets,
+			initialTargetOffsets,
+			taperProgress,
+		);
+		const settledOffsets = interpolateBandOffsets(
+			sourceOffsets,
+			settledTargetOffsets,
+			taperProgress,
+		);
+		const settledWeight = distance <= frontierStart
+			? 1
+			: distance >= frontierEnd
+				? 0
+				: 1 - curvedTransitionProgress((distance - frontierStart) / transitionLength);
+
+		return interpolateBandOffsets(initialOffsets, settledOffsets, settledWeight);
+	});
+	const instructions: PathGeometryInstruction[] = [
+		{ kind: "open", startPositionPercent: 0, type: "extremity" },
+		{ ...offsets[0]!, type: "offsets" },
+	];
+	for (let index = 1; index < distances.length; index += 1) {
+		const previousDistance = distances[index - 1]!;
+		const distance = distances[index]!;
+		instructions.push({
+			kind: "linear",
+			lengthPx: distance - previousDistance,
+			startPositionPercent: (previousDistance / routeLength) * 100,
+			type: "transition",
+		});
+		instructions.push({ ...offsets[index]!, type: "offsets" });
+	}
+	instructions.push({ kind: "open", startPositionPercent: 100, type: "extremity" });
+	const geometry = buildPathGeometry({ instructions, points: args.route });
+
+	return {
+		issues: geometry.issues,
+		pathData: pathGeometryBoundariesToClosedSvgPathData(
+			geometry.boundaryAPathCommands,
+			geometry.boundaryBPathCommands,
+		),
+	};
+}
+
+function interpolateBandOffsets(
+	from: { offsetA: number; offsetB: number },
+	to: { offsetA: number; offsetB: number },
+	progress: number,
+): { offsetA: number; offsetB: number } {
+	return {
+		offsetA: from.offsetA + ((to.offsetA - from.offsetA) * progress),
+		offsetB: from.offsetB + ((to.offsetB - from.offsetB) * progress),
+	};
+}
+
+function curvedTransitionProgress(value: number): number {
+	const progress = clamp01(value);
+	return (1 - Math.cos(Math.PI * progress)) / 2;
 }
 
 function buildMovingVolumeBand(args: {
@@ -373,6 +534,7 @@ function buildBand(
 	placement: "center" | "proMain" | "conMain",
 	sourceShellWidth: number,
 	targetShellWidth: number,
+	widthTransitionStartPositionPercent = 50,
 ): { issues: PathGeometryIssue[]; pathData: string } {
 	const safeSourceWidth = Math.max(0, sourceWidth);
 	const safeTargetWidth = Math.max(0, targetWidth);
@@ -394,21 +556,23 @@ function buildBand(
 		placement,
 		targetShellWidth,
 	);
+	const routeLength = estimateRouteLength(route);
 	const instructions: PathGeometryInstruction[] = [
 		{ kind: "open" as const, startPositionPercent: 0, type: "extremity" as const },
 		{ ...sourceOffsets, type: "offsets" as const },
 	];
-	if (safeReveal >= 1 - GEOMETRY_EPSILON && !sameOffsets(sourceOffsets, targetOffsets)) {
+	if (!sameOffsets(sourceOffsets, targetOffsets)) {
+		const settledTransitionLength = routeLength * (1 - (widthTransitionStartPositionPercent / 100));
 		instructions.push({
+			clipAtTrailingExtremity: true,
 			kind: "curved",
-			lengthPx: Math.max(sourceShellWidth, targetShellWidth, 1),
-			startPositionPercent: 50,
+			lengthPx: settledTransitionLength,
+			startPositionPercent: widthTransitionStartPositionPercent,
 			type: "transition",
 		});
 		instructions.push({ ...targetOffsets, type: "offsets" as const });
 	}
 	if (revealExtremity === "curved" && safeReveal < 1 - GEOMETRY_EPSILON) {
-		const routeLength = estimateRouteLength(route);
 		const lengthPx = Math.max(safeSourceWidth, safeTargetWidth, 1);
 		const frontierDistance = safeReveal * (routeLength + lengthPx);
 		const startPositionPercent = routeLength <= GEOMETRY_EPSILON
@@ -416,7 +580,7 @@ function buildBand(
 			: ((frontierDistance - lengthPx) / routeLength) * 100;
 		instructions.push({
 			allowOverflow: true,
-			collapseOffset: sourceOffsets.offsetB,
+			collapseOffset: sourceOffsets.offsetA,
 			kind: "curved",
 			lengthPx,
 			startPositionPercent,

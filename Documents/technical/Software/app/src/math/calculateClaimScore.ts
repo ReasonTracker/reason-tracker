@@ -15,7 +15,12 @@ export function calculateClaimScore(
     throw new Error(`Missing score node: ${scoreNodeId}`);
   }
 
-  const value = calculateScoreValue(impacts);
+  const value = calculateScoreValue(
+    impacts,
+    (graph.childrenByParentId?.[scoreNodeId]?.length ?? 0) === 0
+      ? node.defaultScore
+      : undefined,
+  );
 
   return {
     scoreNodeId,

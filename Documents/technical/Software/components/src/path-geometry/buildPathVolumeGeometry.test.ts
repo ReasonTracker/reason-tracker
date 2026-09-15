@@ -19,7 +19,7 @@ describe("buildPathVolumeGeometry", () => {
 		expect(resolveEndpointWidth(geometry, "end")).toBeCloseTo(100);
 	});
 
-	it("derives the correct extremity for transitions to and from zero", () => {
+	it("keeps transitions to and from zero on the selected path-relative edge", () => {
 		const [decreasing] = buildPathVolumeGeometry({
 			placement: "positiveEdge",
 			points: route,
@@ -42,13 +42,13 @@ describe("buildPathVolumeGeometry", () => {
 		expect(lastPoint(increasing).y).toBeCloseTo(50);
 
 		const [leftwardFill] = buildPathVolumeGeometry({
-			placement: "negativeEdge",
+			placement: "positiveEdge",
 			points: [...route].reverse(),
 			shellWidth: 100,
 			stableValue: 1,
 			transitions: [{ finalValue: 1, initialValue: 0, progress: 0.5 }],
 		});
-		expect(lastPoint(leftwardFill).y).toBeCloseTo(50);
+		expect(lastPoint(leftwardFill).y).toBeCloseTo(-50);
 	});
 
 	it("keeps simultaneous volumes separated by a zero-valued section", () => {

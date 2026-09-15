@@ -1,6 +1,5 @@
 import {
 	buildPathGeometry,
-	resolvePathOffsetPointAtDistance,
 	type OffsetSection,
 	type PathGeometry,
 	type PathGeometryInstruction,
@@ -9,8 +8,8 @@ import {
 
 // AGENT NOTE: Keep tunable path-volume geometry constants grouped here.
 const GEOMETRY_EPSILON = 1e-6;
-/** Multiplier for the path length occupied by animated fill transitions. */
-const VOLUME_TRANSITION_LENGTH_SCALE = 2;
+/** Keeps animated fill transitions the same length as a one-shell-width wall transition. */
+const VOLUME_TRANSITION_LENGTH_SCALE = 1;
 
 export type PathVolumePlacement = "center" | "negativeEdge" | "positiveEdge";
 
@@ -79,11 +78,7 @@ export function buildPathVolumeGeometry(input: PathVolumeGeometryInput): PathGeo
 
 		if (!finalVisible && initialVisible) {
 			const initialOffsets = resolveOffsets(initialValue, shellWidth, input.placement);
-			const collapseOffset = resolveLowerCollapseOffset(
-				input.points,
-				(transition.startPositionPercent / 100) * routeLength,
-				initialOffsets,
-			);
+			const collapseOffset = resolveCollapseOffset(shellWidth, input.placement);
 			instructions = [
 				{
 					allowOverflow: true,
@@ -100,11 +95,7 @@ export function buildPathVolumeGeometry(input: PathVolumeGeometryInput): PathGeo
 
 		if (finalVisible && !initialVisible) {
 			const finalOffsets = resolveOffsets(finalValue, shellWidth, input.placement);
-			const collapseOffset = resolveLowerCollapseOffset(
-				input.points,
-				((transition.startPositionPercent / 100) * routeLength) + transition.lengthPx,
-				finalOffsets,
-			);
+			const collapseOffset = resolveCollapseOffset(shellWidth, input.placement);
 			instructions ??= [
 				{ kind: "open", startPositionPercent: 0, type: "extremity" },
 				{ ...finalOffsets, type: "offsets" },
@@ -191,22 +182,6 @@ function resolveCollapseOffset(
 	}
 
 	return placement === "negativeEdge" ? -(shellWidth / 2) : shellWidth / 2;
-}
-
-function resolveLowerCollapseOffset(
-	points: Waypoint[],
-	distance: number,
-	offsets: OffsetSection,
-): number {
-	const pointA = resolvePathOffsetPointAtDistance(points, distance, offsets.offsetA);
-	const pointB = resolvePathOffsetPointAtDistance(points, distance, offsets.offsetB);
-	if (!pointA || !pointB) {
-		return offsets.offsetB;
-	}
-
-	return pointA.y >= pointB.y
-		? offsets.offsetA
-		: offsets.offsetB;
 }
 
 function estimateRouteLength(points: Waypoint[]): number {

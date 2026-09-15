@@ -197,7 +197,11 @@ export function buildDebateFrame(args: {
 		(args.origin?.x ?? (args.options.claimWidth * rootScale) / 2) - ((args.options.claimWidth * rootScale) / 2),
 		args.origin?.y ?? 0,
 	);
-	buildConnectionStates({ frame, options: args.options, resolvedMath: args.resolvedMath });
+	buildConnectionStates({
+		frame,
+		options: args.options,
+		resolvedMath: args.resolvedMath,
+	});
 
 	return frame;
 }
@@ -254,6 +258,7 @@ function buildConnectionStates(args: {
 				confidenceConnectorId: occurrence.confidenceConnectorId,
 				deliveryScore: connectorScore.deliveryScore,
 				deliveryScale,
+				deliveryTargetScale: deliveryScale,
 				id: occurrence.id,
 				junctionSpan: resolveConfidenceJunctionSpan(args.resolvedMath, occurrence),
 				relevanceMultiplier: connectorScore.relevanceMultiplier,
@@ -502,7 +507,6 @@ function resolveConfidenceTargetSideOffsets(args: {
 			`source scale for ${args.claimOccurrence.id}`,
 		),
 	});
-
 	return Object.fromEntries(
 		confidenceOccurrences.map((occurrence, index) => [occurrence.id, offsets[index] ?? 0]),
 	) as Partial<Record<PresentationConnectorOccurrenceId, number>>;

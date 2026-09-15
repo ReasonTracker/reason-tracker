@@ -6,14 +6,13 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 ## Current Implementation Scope
 
-- The first production planner scope currently covers `confidence/claim/add`.
+- The first production planner scope covers `confidence/claim/add` and `relevance/claim/add`.
 - The first production planner sequence currently stops after the first `wave` from the command target through its outgoing connectors.
 - Input debates may contain cycles and repeated claims.
 - Episode0004 is the canonical planner-driven implementation of this scope.
 
 ## Deferred Scope
 
-- add-relevance animation
 - subsequent propagation-wave sequencing after the first outgoing-connector wave
 - command types outside the current `confidence/claim/add` flow
 - reversible score and relevance behavior after the math and debate-core contracts are explicitly redesigned for it
@@ -75,11 +74,13 @@ Defines the data models and orchestration for debate graph animation, supporting
 **Planner**
 
 - Receives the pre-command `DebateCore` state and the command.
-- Resolves opening and post-command occurrence graphs, aggregate math, and deterministic settled layout.
+- Resolves the opening and command-applied occurrence graphs, aggregate math, explicit intermediate score snapshots, and deterministic layout for each snapshot.
 - Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
 - Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
-  - During Voila, places the new claim and transitions the surrounding structural layout to its post-command positions, scales, connector widths, junction spans, and target-stack offsets while preserving pre-command score values. Connector endpoints remain attached throughout that transition.
-  - During Sprout and First Fill, the new connector reveals through that established structural layout. Wave remains the score-propagation phase: future wave steps may transition score-affected regions' layout together with their score changes. The moving fluid frontier remains separate visual history.
+  - During Voila, new-claim growth overlaps surrounding claim repositioning, connector endpoint movement, target-stack offset changes, junction expansion, and other structural changes needed to reach neutral command-applied staging. New connector shells remain hidden, and connector endpoints remain attached throughout.
+  - During Sprout, only newly added connector shells reveal through the established staging layout. Relevance-shell reveal keeps its delayed start; scores and positions do not advance.
+  - During First Fill, the new connector's fluid frontier advances with a same-length shell-profile handoff: direct-adjustment structural shell is behind the handoff and the temporary taper remains ahead. Both transitions use the same calculated spatial interval. During the contact portion, positions, scales, offsets, junction geometry, and related layout derived from the direct-adjustment snapshot may move while the fill finishes. Parent scores remain frozen.
+  - Wave cannot overlap Voila, Sprout, or First Fill. It begins from the exact completed First Fill frame. The current single Wave simultaneously changes the first affected parent score and all geometry implied by that first-parent snapshot. Later parent propagation requires later waves and remains outside the current scope.
 
 **Resolved frame**
 
@@ -118,7 +119,8 @@ Connector stacking arranges connectors that land on the same target edge. The pl
 - Stack membership is the set of connectors that land on the same target edge.
 - Stack order comes from the shared ordering rule above rather than from a separate connector-only ordering rule.
 - Delivery connectors walk ordered parent-fluid intervals centered as one combined fluid stack. Every child participates: zero fluid creates `[cursor, cursor]` and does not advance the cursor.
-- Delivery shells do not contribute stack spacing and may overlap. For interval `[start, end]`, the shell center is `start + shellWidth / 2` for `conMain` and `end - shellWidth / 2` for `proMain`.
+- Delivery shells do not contribute stack spacing and may overlap. For interval `[start, end]`, the normal shell center is `start + shellWidth / 2` for `conMain` and `end - shellWidth / 2` for `proMain`.
+- During the staging and first-fill frames of a newly added confidence connection only, its target retains the normal parent-fluid stack cursor and fluid-side anchor. Its wall retains structural width at the source and narrows close to the target to its current delivered fluid width.
 - Relevance connectors retain structural-shell stacking; their receiving-edge behavior is unchanged.
 - Reveal controls how much of a connector is visible and never changes the settled attachment position.
 - Delivery shell paths are painted first across all bands, followed by all fluid paths, so an overlapping wall cannot cover fluid.

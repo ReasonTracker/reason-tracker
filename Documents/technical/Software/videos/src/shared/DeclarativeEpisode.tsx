@@ -28,17 +28,20 @@ const CAPTION_CONTAINER_STYLE = {
 } as const;
 
 const CLOSED_CAPTION_STYLE = {
+	pointerEvents: "none",
 	...CAPTION_CONTAINER_STYLE,
 	bottom: 80,
 } as const;
 
 const CENTERED_CAPTION_STYLE = {
+	pointerEvents: "none",
 	...CAPTION_CONTAINER_STYLE,
 	top: "50%",
 	transform: "translate(-50%, -50%)",
 } as const;
 
 const CLOSED_CAPTION_TEXT_STYLE = {
+	pointerEvents: "none",
 	backgroundColor: "rgba(0, 0, 0, 0.68)",
 	boxDecorationBreak: "clone",
 	color: "#ffffff",
@@ -78,11 +81,13 @@ const CANVAS_GRAPH_STYLE = {
 
 const CAMERA_GRAPH_STYLE = {
 	...CAMERA_LAYER_STYLE,
+	pointerEvents: "none",
 	zIndex: 0,
 } as const;
 
 const SCOREBOARD_STYLE = {
 	position: "absolute",
+	pointerEvents: "none",
 	zIndex: 1,
 } as const;
 

@@ -25,6 +25,7 @@ export type Claim = {
  * The same ClaimId may appear in multiple ScoreNodes.
  */
 export type ScoreNode = {
+	defaultScore?: number;
 	id: ScoreNodeId;
 	claimId: ClaimId;
 	parentId?: ScoreNodeId;

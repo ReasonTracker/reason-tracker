@@ -44,6 +44,7 @@ export interface PathTransitionInstruction {
 	lengthPx: number;
 	kind: PathGeometryTransitionKind;
 	allowOverflow?: boolean;
+	clipAtTrailingExtremity?: boolean;
 }
 
 export type PathGeometryExtremityKind = "curved" | "open" | "linear";
@@ -192,10 +193,22 @@ interface PathProfileSegment {
 	endDistance: number;
 	fromSection: OffsetSection;
 	toSection: OffsetSection;
+	collapseEndDistance?: number;
+	collapseOffset?: number;
+	collapseStartDistance?: number;
+	collapseTransitionKind?: PathGeometryTransitionKind;
 	interpolationEndDistance?: number;
 	interpolationStartDistance?: number;
 	transitionKind?: PathGeometryTransitionKind;
 }
+
+type TrailingBaseTransition = {
+	endDistance: number
+	fromSection: OffsetSection
+	startDistance: number
+	toSection: OffsetSection
+	transitionKind: PathGeometryTransitionKind
+};
 
 interface CenterlineEvaluation {
 	point: Point;
@@ -619,6 +632,7 @@ function buildProfileSegments(
 	}
 
 	const segments: PathProfileSegment[] = [];
+	let trailingBaseTransition: TrailingBaseTransition | undefined;
 	let cursor = firstInstruction.kind !== "open" && firstInstruction.allowOverflow
 		? 0
 		: clampStartPositionPercent(
@@ -775,17 +789,56 @@ function buildProfileSegments(
 		}
 
 		const transitionEnd = clampNumber(transitionStart + transitionLength, transitionStart, totalLength);
+		const transitionVisibleEnd = instruction.clipAtTrailingExtremity
+			? Math.min(
+				transitionEnd,
+				clampNumber(
+					(totalLength * lastInstruction.startPositionPercent) / 100,
+					0,
+					totalLength,
+				),
+			)
+			: transitionEnd;
+		if (transitionVisibleEnd <= transitionStart + GEOMETRY_EPSILON) {
+			instructionIndex += 2;
+			continue;
+		}
 		pushProfileSegment(segments, cursor, transitionStart, activeSection, activeSection);
+		const transitionFromSection = activeSection;
 		pushProfileSegment(
 			segments,
 			transitionStart,
-			transitionEnd,
-			activeSection,
+			transitionVisibleEnd,
+			transitionFromSection,
 			nextSection,
 			instruction.kind,
+			transitionStart,
+			transitionEnd,
 		);
-		activeSection = nextSection;
-		cursor = transitionEnd;
+		if (
+			instruction.clipAtTrailingExtremity
+			&& transitionVisibleEnd < transitionEnd - GEOMETRY_EPSILON
+		) {
+			trailingBaseTransition = {
+				endDistance: transitionEnd,
+				fromSection: transitionFromSection,
+				startDistance: transitionStart,
+				toSection: nextSection,
+				transitionKind: instruction.kind,
+			};
+		}
+		activeSection = interpolateOffsetSection(
+			transitionFromSection,
+			nextSection,
+			resolveTransitionInterpolation(
+				instruction.kind,
+				(transitionVisibleEnd - transitionStart) / Math.max(
+					transitionEnd - transitionStart,
+					GEOMETRY_EPSILON,
+				),
+			),
+		);
+		cursor = transitionVisibleEnd;
 		instructionIndex += 2;
 	}
 
@@ -853,7 +906,26 @@ function buildProfileSegments(
 			offsetA: trailingExtremity.collapseOffset,
 			offsetB: trailingExtremity.collapseOffset,
 		};
-		pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection, trailingExtremity.kind);
+		if (trailingBaseTransition) {
+			pushProfileSegment(
+				segments,
+				trailingStart,
+				trailingEnd,
+				trailingBaseTransition.fromSection,
+				trailingBaseTransition.toSection,
+				trailingBaseTransition.transitionKind,
+				trailingBaseTransition.startDistance,
+				trailingBaseTransition.endDistance,
+				{
+					endDistance: trailingEnd,
+					offset: trailingExtremity.collapseOffset,
+					startDistance: trailingStart,
+					transitionKind: trailingExtremity.kind,
+				},
+			);
+		} else {
+			pushProfileSegment(segments, trailingStart, trailingEnd, activeSection, collapsedSection, trailingExtremity.kind);
+		}
 	}
 
 	return segments;
@@ -1002,12 +1074,29 @@ function evaluateBoundaryPoint(
 		toOffset,
 		resolveTransitionInterpolation(profileSegment.transitionKind, interpolation),
 	);
+	const collapseSpan = (profileSegment.collapseEndDistance ?? 0)
+		- (profileSegment.collapseStartDistance ?? 0);
+	const resolvedOffset = profileSegment.collapseOffset === undefined
+		? offset
+		: interpolateNumber(
+			offset,
+			profileSegment.collapseOffset,
+			resolveTransitionInterpolation(
+				profileSegment.collapseTransitionKind,
+				collapseSpan <= GEOMETRY_EPSILON
+					? 1
+					: (distance - profileSegment.collapseStartDistance!) / collapseSpan,
+			),
+		);
 
-	return addPoint(centerline.point, scalePoint(left, offset));
+	return addPoint(centerline.point, scalePoint(left, resolvedOffset));
 }
 
 function resolveVaryingSegmentSampleCount(profileSegment: PathProfileSegment): number {
-	if (profileSegment.transitionKind !== "curved") {
+	if (
+		profileSegment.transitionKind !== "curved"
+		&& profileSegment.collapseTransitionKind !== "curved"
+	) {
 		return 1;
 	}
 
@@ -1160,12 +1249,22 @@ function pushProfileSegment(
 	transitionKind?: PathGeometryTransitionKind,
 	interpolationStartDistance?: number,
 	interpolationEndDistance?: number,
+	collapse?: {
+		endDistance: number
+		offset: number
+		startDistance: number
+		transitionKind: PathGeometryTransitionKind
+	},
 ): void {
 	if (endDistance - startDistance <= GEOMETRY_EPSILON) {
 		return;
 	}
 
 	segments.push({
+		collapseEndDistance: collapse?.endDistance,
+		collapseOffset: collapse?.offset,
+		collapseStartDistance: collapse?.startDistance,
+		collapseTransitionKind: collapse?.transitionKind,
 		endDistance,
 		fromSection,
 		interpolationEndDistance,
@@ -1308,4 +1407,15 @@ function clampNumber(value: number, minimum: number, maximum: number): number {
 
 function pointsEqual(a: Point, b: Point): boolean {
 	return Math.abs(a.x - b.x) <= GEOMETRY_EPSILON && Math.abs(a.y - b.y) <= GEOMETRY_EPSILON;
+}
+
+function interpolateOffsetSection(
+	fromSection: OffsetSection,
+	toSection: OffsetSection,
+	progress: number,
+): OffsetSection {
+	return {
+		offsetA: interpolateNumber(fromSection.offsetA, toSection.offsetA, progress),
+		offsetB: interpolateNumber(fromSection.offsetB, toSection.offsetB, progress),
+	};
 }

@@ -693,20 +693,29 @@ export function resolveGraphPlayback(
 		return { animation, stepId: "wave", stepProgress: 1 };
 	}
 
-	const progress = animation.durationInFrames <= 1
-		? 1
-		: (frame - animation.from) / (animation.durationInFrames - 1);
-	let phaseStart = 0;
+	const lastAnimationFrame = Math.max(0, animation.durationInFrames - 1);
+	const animationFrame = Math.min(lastAnimationFrame, Math.max(0, frame - animation.from));
+	let accumulatedWeight = 0;
+	let phaseStartFrame = 0;
 	for (const [step, weight] of GRAPH_PHASES) {
-		const phaseEnd = phaseStart + weight;
-		if (progress < phaseEnd || step === "wave") {
+		accumulatedWeight += weight;
+		const phaseEndFrame = step === "wave"
+			? lastAnimationFrame
+			: Math.round(accumulatedWeight * lastAnimationFrame);
+		if (animationFrame < phaseEndFrame || step === "wave") {
+			const phaseDuration = phaseEndFrame - phaseStartFrame;
 			return {
 				animation,
 				stepId: step,
-				stepProgress: Math.min(1, Math.max(0, (progress - phaseStart) / weight)),
+				stepProgress: phaseDuration <= 0
+					? 1
+					: Math.min(1, Math.max(
+						0,
+						(animationFrame - phaseStartFrame) / phaseDuration,
+					)),
 			};
 		}
-		phaseStart = phaseEnd;
+		phaseStartFrame = phaseEndFrame;
 	}
 
 	return { animation, stepId: "wave", stepProgress: 1 };

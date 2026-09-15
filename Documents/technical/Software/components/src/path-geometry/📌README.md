@@ -53,6 +53,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - An `offsets` instruction defines a stable section state between transitions and extremities.
 - A `transition` instruction uses `startPositionPercent` and `lengthPx` because it occupies a path range that begins at a path-relative position and extends for a pixel length.
 - A transition may set `allowOverflow` when its full span must enter through the start boundary or leave through the end boundary without compressing its interpolation.
+- A transition may set `clipAtTrailingExtremity` to reveal only the portion before a trailing open, linear, or curved extremity while preserving the interpolation phase of its complete span.
 - A `transition` instruction should declare a transition kind such as `linear` or `curved`.
 - A `linear` transition interpolates offsets directly from the earlier section state to the later section state.
 - A `curved` transition uses one continuous bowed interpolation from the earlier section state to the later section state, without flattening into a straight-feeling middle.

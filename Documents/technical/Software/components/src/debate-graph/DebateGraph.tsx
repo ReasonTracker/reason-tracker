@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
 import type { ClaimId } from "@debate-core/Claim.ts";
 import type { DebateCore } from "@debate-core/Debate.ts";
 import type {
@@ -71,9 +71,6 @@ export function DebateGraph({
 					<ConnectorBands bands={regularBands} />
 				</g>
 				<g data-layer="aggregators">
-					{geometry.deliveryAggregators.map((polygon) => (
-						<Aggregator key={polygon.id} polygon={polygon} />
-					))}
 					{geometry.junctions.map((polygon) => (
 						<Aggregator key={polygon.id} polygon={polygon} />
 					))}
@@ -190,37 +187,60 @@ function ConnectorBand({
 	const color = sideColor(band.side);
 	const issueCodes = band.diagnosticIssues.map((issue) => issue.code).join(" ") || undefined;
 	const pathData = layer === "shell" ? band.shellPathData : band.fluidPathData;
+	const clipPathId = useId();
 	if (!pathData) {
 		return null;
 	}
 
 	return (
-		<g
-			data-band-layer={layer}
-			data-geometry-issues={issueCodes}
-			data-kind={band.kind}
-			data-occurrence-id={band.id}
-		>
-			<path
-				d={pathData}
-				fill={layer === "shell" ? COLORS.shell : color}
-				stroke={layer === "shell" ? color : undefined}
-				strokeWidth={layer === "shell" ? band.outlineWidth : undefined}
-			/>
-		</g>
+		<>
+			{layer === "shell"
+				? (
+					<defs>
+						<clipPath id={clipPathId}>
+							<path d={pathData} />
+						</clipPath>
+					</defs>
+				)
+				: null}
+			<g
+				data-band-layer={layer}
+				data-geometry-issues={issueCodes}
+				data-kind={band.kind}
+				data-occurrence-id={band.id}
+			>
+				<path
+					clipPath={layer === "shell" ? `url(#${clipPathId})` : undefined}
+					d={pathData}
+					fill={layer === "shell" ? COLORS.shell : color}
+					stroke={layer === "shell" ? color : undefined}
+					strokeWidth={layer === "shell" ? band.outlineWidth * 2 : undefined}
+				/>
+			</g>
+		</>
 	);
 }
 
 function Aggregator({ polygon }: { polygon: PolygonGeometry }) {
+	const clipPathId = useId();
+	const points = polygon.points.map((point) => `${point.x},${point.y}`).join(" ");
 	return (
-		<polygon
-			data-geometry-id={polygon.id}
-			fill={COLORS.shell}
-			points={polygon.points.map((point) => `${point.x},${point.y}`).join(" ")}
-			stroke={sideColor(polygon.side)}
-			strokeLinejoin="round"
-			strokeWidth={polygon.outlineWidth}
-		/>
+		<>
+			<defs>
+				<clipPath id={clipPathId}>
+					<polygon points={points} />
+				</clipPath>
+			</defs>
+			<polygon
+				clipPath={`url(#${clipPathId})`}
+				data-geometry-id={polygon.id}
+				fill={COLORS.shell}
+				points={points}
+				stroke={sideColor(polygon.side)}
+				strokeLinejoin="round"
+				strokeWidth={polygon.outlineWidth * 2}
+			/>
+		</>
 	);
 }
 
