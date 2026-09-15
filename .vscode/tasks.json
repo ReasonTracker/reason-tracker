@@ -5,13 +5,29 @@
       "label": "00-command-center-open",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "00:CommandCenter:open"],
+      "args": [
+        "run",
+        "00:CommandCenter:open"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/Documents/technical/Software/00-command-center"
       },
       "runOptions": {
         "runOn": "folderOpen"
       }
+    },
+    {
+      "label": "full-typecheck",
+      "type": "shell",
+      "command": "vp",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/Documents/technical/Software"
+      },
+      "problemMatcher": []
     }
   ]
 }
