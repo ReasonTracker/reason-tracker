@@ -79,6 +79,7 @@
 - Read and follow `Documents/technical/Coding Guidelines.md` for shared project conventions.
 - For `Documents/technical/Software`, prefer Vite Plus `vp` whenever an equivalent `vp` command exists. Use `vp` for install, run, exec, dev, build, preview, and package orchestration instead of defaulting to `pnpm`, `npm`, or other package-manager commands.
 - For `Documents/technical/Software`, enforce the `vp` preference documented in `Documents/technical/Coding Guidelines.md` even when a package-manager command would also work.
+- Run every `vp` command from `Documents/technical/Software`, never from the repository root or a leaf package directory. For package-specific scripts, target the package from that directory with `-F`; for example, run `vp run -F @reasontracker/components typecheck`.
 - AI agents may have a default bias toward `pnpm` commands; correct for that here and actively translate that bias back to `vp` when possible.
 - This repo expects `rg` to be available in the local developer shell for code search.
 - When command choice or workflow semantics are unclear, read the Vite Plus docs before falling back to package-manager conventions: https://viteplus.dev/
