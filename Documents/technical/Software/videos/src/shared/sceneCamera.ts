@@ -8,11 +8,6 @@ import {
 } from "./compileEpisodeScript";
 import type { EpisodeAction } from "./episodeScriptSpec";
 
-// AGENT NOTE: Keep camera framing and motion tuning values together.
-/** Adds breathing room around the complete selected scene rectangle. */
-const CAMERA_PADDING_RATIO = 0.01;
-/** Preserves visible padding when framing very small scene targets. */
-const MINIMUM_CAMERA_PADDING = 1;
 const CAMERA_EASING = Easing.bezier(0.42, 0, 0.2, 1);
 
 type CameraAction = Extract<EpisodeAction, { type: `camera.${string}` }>;
@@ -135,7 +130,7 @@ function resolveTargetBounds(
         return target;
     });
     const fittedBounds = fitBoundsToAspectRatio(
-        addCameraPadding(combineBounds(selectedTargets.map((target) => target.bounds))),
+        combineBounds(selectedTargets.map((target) => target.bounds)),
         compositionAspectRatio(episode),
     );
     return applyTargetAdjustments(fittedBounds, scheduled.action.target);
@@ -153,19 +148,6 @@ function applyTargetAdjustments(
         minX: bounds.minX + ((bounds.width - width) / 2) + (width * (target["x%"] ?? 0) / 100),
         minY: bounds.minY + ((bounds.height - height) / 2) + (height * (target["y%"] ?? 0) / 100),
         width,
-    };
-}
-
-function addCameraPadding(bounds: CameraBounds): CameraBounds {
-    const padding = Math.max(
-        MINIMUM_CAMERA_PADDING,
-        Math.max(bounds.width, bounds.height) * CAMERA_PADDING_RATIO,
-    );
-    return {
-        height: bounds.height + (padding * 2),
-        minX: bounds.minX - padding,
-        minY: bounds.minY - padding,
-        width: bounds.width + (padding * 2),
     };
 }
 

@@ -32,13 +32,14 @@ export function resolveGraphSceneTargets(playback: GraphPlayback): readonly Scen
         });
     }
 
+    const targets = [...claimTargets.values()];
     return [
         {
             anchor: playback.animation.anchor,
-            bounds: playback.animation.plan.bounds,
+            bounds: targets.map((target) => target.bounds).reduce(combineBounds),
             id: playback.animation.graph,
         },
-        ...claimTargets.values(),
+        ...targets,
     ];
 }
 

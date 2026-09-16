@@ -231,8 +231,8 @@ const episode = {
 				objects: [
 					"argumentGraph",
 				],
+				"y%": -7,
 			},
-			offsetSeconds: -2,
 			duration: 4,
 			blocking: true,
 		},
