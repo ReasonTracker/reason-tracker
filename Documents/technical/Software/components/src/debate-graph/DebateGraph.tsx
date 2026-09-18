@@ -1,4 +1,5 @@
-import { useId, type CSSProperties, type ReactNode } from "react";
+import { useId, type CSSProperties } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import type { ClaimId } from "@debate-core/Claim.ts";
 import type { DebateCore } from "@debate-core/Debate.ts";
 import type {
@@ -22,9 +23,13 @@ const COLORS = {
 const CLAIM_TEXT_FONT_SIZE = 18;
 const SCORELESS_CLAIM_TEXT_SCALE = 1.3;
 
+export type ClaimTextReveal = {
+	progress: number
+};
+
 export type DebateGraphProps = {
 	bounds: DebateAnimationPlan["bounds"]
-	claimContent?: (claimId: ClaimId, content: string) => ReactNode
+	claimTextReveals?: Readonly<Record<string, ClaimTextReveal>>
 	debateCore: DebateCore
 	diagnostics?: boolean
 	foregroundConnectorClaimIds?: ReadonlySet<ClaimId>
@@ -37,7 +42,7 @@ export type DebateGraphProps = {
 
 export function DebateGraph({
 	bounds,
-	claimContent,
+	claimTextReveals,
 	debateCore,
 	diagnostics = false,
 	foregroundConnectorClaimIds,
@@ -126,7 +131,7 @@ export function DebateGraph({
 													: CLAIM_TEXT_FONT_SIZE,
 											}}
 										>
-											{claimContent?.(claim.claimId, content) ?? content}
+											<ClaimMarkdown content={content} reveal={claimTextReveals?.[claim.claimId]} />
 										</div>
 										{showClaimScore?.(claim.claimId) ?? true
 											? (
@@ -248,6 +253,96 @@ function sideColor(side: "proMain" | "conMain"): string {
 	return side === "proMain" ? COLORS.pro : COLORS.con;
 }
 
+function ClaimMarkdown({
+	content,
+	reveal,
+}: {
+	content: string
+	reveal?: ClaimTextReveal
+}) {
+	return (
+		<ReactMarkdown
+			components={createClaimMarkdownComponents()}
+			rehypePlugins={reveal && reveal.progress < 1
+				? [createMarkdownCharacterRevealPlugin(reveal.progress)]
+				: undefined}
+		>
+			{content}
+		</ReactMarkdown>
+	);
+}
+
+type MarkdownNode = {
+	children?: MarkdownNode[]
+	properties?: Record<string, unknown>
+	tagName?: string
+	type: string
+	value?: string
+};
+
+function createMarkdownCharacterRevealPlugin(progress: number) {
+	return () => (tree: unknown) => {
+		if (!isMarkdownNode(tree)) {
+			return;
+		}
+		const totalCharacterCount = countMarkdownCharacters(tree);
+		const visibleCharacterCount = Math.floor(totalCharacterCount * progress);
+		wrapMarkdownCharacters(tree, visibleCharacterCount, { characterIndex: 0 });
+	};
+}
+
+function countMarkdownCharacters(node: MarkdownNode): number {
+	return node.type === "text"
+		? Array.from(node.value ?? "").length
+		: (node.children?.reduce((count, child) => count + countMarkdownCharacters(child), 0) ?? 0);
+}
+
+function wrapMarkdownCharacters(
+	node: MarkdownNode,
+	visibleCharacterCount: number,
+	state: { characterIndex: number },
+): void {
+	if (!node.children) {
+		return;
+	}
+	const children: MarkdownNode[] = [];
+	for (const child of node.children) {
+		if (child.type !== "text") {
+			wrapMarkdownCharacters(child, visibleCharacterCount, state);
+			children.push(child);
+			continue;
+		}
+		for (const character of Array.from(child.value ?? "")) {
+			const characterIndex = state.characterIndex;
+			state.characterIndex += 1;
+			children.push({
+				children: [{ type: "text", value: character }],
+				properties: { "data-reveal-character-hidden": characterIndex >= visibleCharacterCount },
+				tagName: "span",
+				type: "element",
+			});
+		}
+	}
+	node.children = children;
+}
+
+function isMarkdownNode(value: unknown): value is MarkdownNode {
+	return typeof value === "object"
+		&& value !== null
+		&& "type" in value
+		&& typeof value.type === "string";
+}
+
+function createClaimMarkdownComponents(): Components {
+	return {
+		p: ({ node: _node, style, ...props }) => <p {...props} style={{ ...style, margin: 0 }} />,
+		span: ({ node, style, ...props }) => {
+			const hidden = node?.properties["data-reveal-character-hidden"] === true;
+			return <span {...props} style={hidden ? { ...style, ...hiddenCharacterStyle } : style} />;
+		},
+	};
+}
+
 const rootStyle: CSSProperties = {
 	height: "100%",
 	overflow: "hidden",
@@ -303,4 +398,8 @@ const scoreCaptionStyle: CSSProperties = {
 	fontWeight: 600,
 	lineHeight: 1,
 	marginTop: 2,
+};
+
+const hiddenCharacterStyle: CSSProperties = {
+	visibility: "hidden",
 };

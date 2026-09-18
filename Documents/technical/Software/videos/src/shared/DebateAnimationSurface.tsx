@@ -6,7 +6,7 @@ import {
 	type AnimationStepId,
 	type DebateAnimationPlan,
 } from "@planner/DebateAnimationPlan.ts";
-import { TimedCharacterReveal } from "./TimedCharacterReveal";
+import { useCurrentFrame } from "remotion";
 import type { ClaimTextReveal } from "./compileEpisodeScript";
 
 export type DebateAnimationSurfaceProps = {
@@ -30,18 +30,18 @@ export function DebateAnimationSurface({
 	stepId,
 	stepProgress,
 }: DebateAnimationSurfaceProps) {
+	const currentFrame = useCurrentFrame();
 	const frame = stepId
 		? resolveAnimationFrame(plan, stepId, stepProgress)
 		: plan.openingFrame;
 	return (
 		<DebateGraph
 			bounds={plan.bounds}
-			claimContent={(claimId, content) => {
-				const reveal = claimTextReveals[claimId];
-				return reveal
-					? <TimedCharacterReveal text={content} {...reveal} />
-					: content;
-			}}
+			claimTextReveals={Object.fromEntries(
+				Object.entries(claimTextReveals).map(([claimId, reveal]) => [claimId, {
+					progress: resolveClaimTextRevealProgress(currentFrame, reveal),
+				}]),
+			)}
 			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout" || stepId === "firstFill" || stepId === "wave"
 				? foregroundClaimIds
 				: undefined}
@@ -53,4 +53,8 @@ export function DebateAnimationSurface({
 			options={plan.options}
 		/>
 	);
+}
+
+function resolveClaimTextRevealProgress(frame: number, reveal: ClaimTextReveal): number {
+	return Math.max(0, Math.min(1, (frame - reveal.from) / reveal.durationInFrames));
 }

@@ -10,7 +10,8 @@
     "src"
   ],
   "dependencies": {
-    "@reasontracker/app": "workspace:*"
+    "@reasontracker/app": "workspace:*",
+    "react-markdown": "^10.1.0"
   },
   "scripts": {
     "test": "vp test run",
@@ -23,7 +24,7 @@
   "devDependencies": {
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "vitest": "^4.1.2",
-    "vite-plus": "^0.1.16"
+    "vite-plus": "^0.1.16",
+    "vitest": "^4.1.2"
   }
 }
