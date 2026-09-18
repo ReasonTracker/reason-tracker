@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Claim } from "@debate-core/Claim.ts";
 
 const authorKeySchema = z.string()
 	.regex(/^[A-Za-z][A-Za-z0-9_-]*$/, "Use letters, numbers, underscores, or hyphens, starting with a letter.");
@@ -148,6 +149,13 @@ const graphClaimPresentationShape = {
 	textReveal: z.boolean().optional(),
 };
 
+const episodeClaimShape = {
+	defaultConfidence: z.number().finite().optional(),
+	defaultRelevance: z.number().finite().optional(),
+	key: authorKeySchema,
+	text: nonEmptyStringSchema,
+};
+
 const scoreboardSchema = z.object({
 	anchor: anchorSchema.default("camera"),
 	height: z.number().finite().positive(),
@@ -158,14 +166,15 @@ const scoreboardSchema = z.object({
 }).strict();
 
 const newGraphClaimSchema = z.object({
-	key: authorKeySchema,
+	...episodeClaimShape,
 	side: claimSideSchema,
 	target: claimTargetSchema,
-	text: nonEmptyStringSchema,
 	...graphClaimPresentationShape,
 }).strict();
 
 const graphClaimStateSchema = z.object({
+	defaultConfidence: z.number().finite().optional(),
+	defaultRelevance: z.number().finite().optional(),
 	key: authorKeySchema,
 	side: claimSideSchema.optional(),
 	target: claimTargetSchema.optional(),
@@ -181,8 +190,7 @@ const graphCreateActionSchema = z.object({
 	key: authorKeySchema,
 	layout: graphLayoutSchema,
 	mainClaim: z.object({
-		key: authorKeySchema,
-		text: nonEmptyStringSchema,
+		...episodeClaimShape,
 		...graphClaimPresentationShape,
 	}).strict(),
 	scoreboard: scoreboardSchema.optional(),
@@ -191,11 +199,10 @@ const graphCreateActionSchema = z.object({
 
 const graphAddClaimActionSchema = z.object({
 	...textActionTimingShape,
+	...episodeClaimShape,
 	graph: authorKeySchema,
-	key: authorKeySchema,
 	side: claimSideSchema,
 	target: claimTargetSchema,
-	text: nonEmptyStringSchema,
 	...graphClaimPresentationShape,
 	type: z.literal("graph.addClaim"),
 }).strict();
@@ -334,6 +341,10 @@ export const episodeScriptSpecSchema = z.object({
 export type ClaimSide = z.infer<typeof claimSideSchema>;
 export type Anchor = z.infer<typeof anchorSchema>;
 export type Duration = z.infer<typeof durationSchema>;
+export type EpisodeClaim = Omit<Claim, "content" | "id"> & {
+	key: string
+	text: string
+};
 export type EpisodeAction = z.infer<typeof episodeActionSchema>;
 export type EpisodeScriptSpecInput = z.input<typeof episodeScriptSpecSchema>;
 export type EpisodeScriptSpec = z.infer<typeof episodeScriptSpecSchema>;

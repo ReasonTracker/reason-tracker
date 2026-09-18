@@ -28,6 +28,7 @@ import {
 	type Anchor,
 	type CssStyle,
 	type Duration,
+	type EpisodeClaim,
 	type ObjectLayout,
 } from "./episodeScriptSpec";
 import { resolveGraphSceneTargets } from "./graphSceneTargets";
@@ -88,12 +89,10 @@ export type EpisodeMediaAsset = {
 	src: string
 };
 
-type ClaimDefinition = {
-	key: string
+type ClaimDefinition = EpisodeClaim & {
 	side: ClaimSide
 	showScore?: boolean
 	target?: ClaimTarget
-	text: string
 	textReveal?: boolean
 };
 
@@ -857,6 +856,8 @@ function compileGraphActions(
 				scoreboard: action.scoreboard,
 			};
 			state.claimDefinitions.set(action.mainClaim.key, {
+				defaultConfidence: action.mainClaim.defaultConfidence,
+				defaultRelevance: action.mainClaim.defaultRelevance,
 				key: action.mainClaim.key,
 				side: "pro-main",
 				showScore: action.mainClaim.showScore ?? false,
@@ -987,6 +988,8 @@ function compileGraphAddBatch(
 		const targetKey = typeof action.target === "string" ? action.target : action.target.relevanceOf;
 		const target = requireClaimDefinition(state, targetKey, scheduled.index);
 		const definition: ClaimDefinition = {
+			defaultConfidence: action.defaultConfidence,
+			defaultRelevance: action.defaultRelevance,
 			key: action.key,
 			side: action.side,
 			showScore: action.showScore,
@@ -1215,6 +1218,8 @@ function createAddCommand(
 function createClaim(graphKey: string, definition: ClaimDefinition): Claim {
 	return {
 		content: definition.text,
+		defaultConfidence: definition.defaultConfidence,
+		defaultRelevance: definition.defaultRelevance,
 		id: claimId(graphKey, definition.key),
 	};
 }
@@ -1274,6 +1279,8 @@ function mergeClaimDefinition(
 		);
 	}
 	state.claimDefinitions.set(claim.key, {
+		defaultConfidence: claim.defaultConfidence ?? existing?.defaultConfidence,
+		defaultRelevance: claim.defaultRelevance ?? existing?.defaultRelevance,
 		key: claim.key,
 		side: claim.side ?? existing!.side,
 		showScore: claim.showScore ?? existing?.showScore,

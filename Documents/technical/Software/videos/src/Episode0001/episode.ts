@@ -86,6 +86,7 @@ const episode = {
 				key: "main",
 				text: "The United States would benefit overall from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
 				textReveal: true,
+				defaultConfidence: 0,
 			},
 			claims: [],
 		},
@@ -149,7 +150,7 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: 4,
+				offsetSeconds: 1,
 				objects: [
 					"argumentGraph/annualSavings",
 					"argumentGraph/main",
@@ -187,7 +188,7 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: 4,
+				offsetSeconds: .5,
 				objects: [
 					"argumentGraph/heartAttackMetaAnalysis2024",
 					"argumentGraph/healthSafety",
