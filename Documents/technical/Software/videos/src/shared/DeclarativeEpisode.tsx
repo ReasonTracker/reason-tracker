@@ -70,6 +70,7 @@ const CANVAS_LAYER_STYLE = {
 } as const;
 
 const CAMERA_LAYER_STYLE = {
+	pointerEvents: "none",
 	inset: 0,
 	position: "absolute",
 } as const;
