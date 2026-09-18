@@ -11,7 +11,8 @@
   ],
   "dependencies": {
     "@reasontracker/app": "workspace:*",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0"
   },
   "scripts": {
     "test": "vp test run",

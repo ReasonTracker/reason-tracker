@@ -1,0 +1,13 @@
+.reasontracker-claim-markdown__paragraph {
+    margin: 0;
+}
+
+.reasontracker-claim-markdown__small {
+    display: block;
+    font-size: 0.5em;
+    margin-top: 0.5em;
+}
+
+.reasontracker-claim-markdown__character--hidden {
+    visibility: hidden;
+}

@@ -108,9 +108,9 @@ export function Scoreboard({
 					transitionDuration: `${duration}ms`,
 				}}
 			>
-				<div style={{ ...proFillStyle, height: `${proShare * 100}%`, transitionDuration: `${duration}ms` }} />
+				<div style={{ ...proFillStyle, height: `calc(${proShare * 100}% + ${MARKER_THICKNESS / 2}px)`, transitionDuration: `${duration}ms` }} />
 				{[25, 50, 75].map((position) => (
-					<div key={position} style={{ ...markerStyle, top: `${position}%` }} />
+					<div key={position} style={{ ...markerStyle, top: `calc(${position}% - ${MARKER_THICKNESS / 2}px)` }} />
 				))}
 			</div>
 			<ScoreCell color={COLORS.pro} score={proScore} shown={showNumbers} transitionDuration={duration} />

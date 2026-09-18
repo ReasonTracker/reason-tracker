@@ -1,5 +1,7 @@
 import { useId, type CSSProperties } from "react";
+import rehypeRaw from "rehype-raw";
 import ReactMarkdown, { type Components } from "react-markdown";
+import "./claimMarkdown.css";
 import type { ClaimId } from "@debate-core/Claim.ts";
 import type { DebateCore } from "@debate-core/Debate.ts";
 import type {
@@ -22,6 +24,29 @@ const COLORS = {
 };
 const CLAIM_TEXT_FONT_SIZE = 18;
 const SCORELESS_CLAIM_TEXT_SCALE = 1.3;
+const CLAIM_MARKDOWN_ALLOWED_ELEMENTS = [
+	"a",
+	"blockquote",
+	"br",
+	"code",
+	"em",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"h6",
+	"hr",
+	"img",
+	"li",
+	"ol",
+	"p",
+	"pre",
+	"small",
+	"span",
+	"strong",
+	"ul",
+];
 
 export type ClaimTextReveal = {
 	progress: number
@@ -262,10 +287,14 @@ function ClaimMarkdown({
 }) {
 	return (
 		<ReactMarkdown
+			allowedElements={CLAIM_MARKDOWN_ALLOWED_ELEMENTS}
 			components={createClaimMarkdownComponents()}
-			rehypePlugins={reveal && reveal.progress < 1
-				? [createMarkdownCharacterRevealPlugin(reveal.progress)]
-				: undefined}
+			rehypePlugins={[
+				rehypeRaw,
+				...(reveal && reveal.progress < 1
+					? [createMarkdownCharacterRevealPlugin(reveal.progress)]
+					: []),
+			]}
 		>
 			{content}
 		</ReactMarkdown>
@@ -335,12 +364,17 @@ function isMarkdownNode(value: unknown): value is MarkdownNode {
 
 function createClaimMarkdownComponents(): Components {
 	return {
-		p: ({ node: _node, style, ...props }) => <p {...props} style={{ ...style, margin: 0 }} />,
-		span: ({ node, style, ...props }) => {
+		p: ({ className, node: _node, ...props }) => <p {...props} className={mergeClassNames(className, "reasontracker-claim-markdown__paragraph")} />,
+		small: ({ className, node: _node, ...props }) => <small {...props} className={mergeClassNames(className, "reasontracker-claim-markdown__small")} />,
+		span: ({ className, node, ...props }) => {
 			const hidden = node?.properties["data-reveal-character-hidden"] === true;
-			return <span {...props} style={hidden ? { ...style, ...hiddenCharacterStyle } : style} />;
+			return <span {...props} className={hidden ? mergeClassNames(className, "reasontracker-claim-markdown__character--hidden") : className} />;
 		},
 	};
+}
+
+function mergeClassNames(...classNames: Array<string | undefined>): string {
+	return classNames.filter(Boolean).join(" ");
 }
 
 const rootStyle: CSSProperties = {
@@ -398,8 +432,4 @@ const scoreCaptionStyle: CSSProperties = {
 	fontWeight: 600,
 	lineHeight: 1,
 	marginTop: 2,
-};
-
-const hiddenCharacterStyle: CSSProperties = {
-	visibility: "hidden",
 };

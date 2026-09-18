@@ -84,7 +84,7 @@ const episode = {
 			},
 			mainClaim: {
 				key: "main",
-				text: "The United States would benefit *overall* from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
+				text: "The United States would benefit overall from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
 				textReveal: true,
 				defaultConfidence: 0,
 			},
@@ -124,7 +124,7 @@ const episode = {
 			type: "graph.addClaim",
 			graph: "argumentGraph",
 			key: "implementationCosts",
-			text: "$500 million to $1 billion to implement the change was projected for the comparable 2007 U.S. daylight saving time rule change.",
+			text: "$500 million to $1 billion to implement the change. <small>[ Projected for the comparable 2007 U.S. daylight saving time rule change. ]</small>",
 			target: "main",
 			side: "con",
 		},
@@ -150,13 +150,14 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: 1,
+				offsetSeconds: 3,
 				objects: [
 					"argumentGraph/annualSavings",
 					"argumentGraph/main",
 				],
+				"y%": 18,
 			},
-			blocking: false,
+			blocking: true,
 		},
 		{
 			type: "graph.addClaim",
@@ -169,7 +170,7 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: 4,
+				offsetSeconds: 2,
 				objects: [
 					"argumentGraph/healthSafety",
 					"argumentGraph/main",
@@ -188,7 +189,7 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
-				offsetSeconds: .5,
+				offsetSeconds: 2,
 				objects: [
 					"argumentGraph/heartAttackMetaAnalysis2024",
 					"argumentGraph/healthSafety",
@@ -229,11 +230,13 @@ const episode = {
 		{
 			type: "camera.move",
 			target: {
+				offsetSeconds: +2,
 				objects: [
 					"argumentGraph",
 				],
 				"y%": -7,
 			},
+			offsetSeconds: -2,
 			duration: 4,
 			blocking: true,
 		},
