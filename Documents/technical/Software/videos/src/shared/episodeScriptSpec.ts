@@ -156,7 +156,7 @@ const episodeClaimShape = {
 	text: nonEmptyStringSchema,
 };
 
-const scoreboardSchema = z.object({
+const scoreboardLayoutSchema = z.object({
 	anchor: anchorSchema.default("camera"),
 	height: z.number().finite().positive(),
 	numberWidth: z.number().finite().positive(),
@@ -193,7 +193,6 @@ const graphCreateActionSchema = z.object({
 		...episodeClaimShape,
 		...graphClaimPresentationShape,
 	}).strict(),
-	scoreboard: scoreboardSchema.optional(),
 	type: z.literal("graph.create"),
 }).strict();
 
@@ -220,6 +219,14 @@ const graphPatchActionSchema = z.object({
 	graph: authorKeySchema,
 	removeConnectionsFrom: z.array(authorKeySchema),
 	type: z.literal("graph.patch"),
+}).strict();
+
+const scoreboardCreateActionSchema = z.object({
+	...actionTimingShape,
+	duration: z.literal(0).optional(),
+	graph: authorKeySchema,
+	layout: scoreboardLayoutSchema,
+	type: z.literal("scoreboard.create"),
 }).strict();
 
 const cameraTargetTimingShape = {
@@ -302,6 +309,7 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	graphAddClaimActionSchema,
 	graphSetActionSchema,
 	graphPatchActionSchema,
+	scoreboardCreateActionSchema,
 	cameraMoveActionSchema,
 	cameraCutActionSchema,
 	mediaAddActionSchema,
@@ -360,4 +368,4 @@ export type MediaLayoutUpdate = z.infer<typeof mediaLayoutUpdateSchema>;
 export type ObjectLayout = z.infer<typeof objectLayoutSchema>;
 export type ObjectAdd = z.infer<typeof objectAddBaseSchema>;
 export type ObjectUpdate = z.infer<typeof objectUpdateBaseSchema>;
-export type ScoreboardLayout = z.infer<typeof scoreboardSchema>;
+export type ScoreboardLayout = z.infer<typeof scoreboardLayoutSchema>;

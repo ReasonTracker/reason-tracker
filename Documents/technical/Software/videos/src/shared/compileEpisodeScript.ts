@@ -46,6 +46,7 @@ const DEFAULT_DURATION: Readonly<Record<EpisodeAction["type"], Duration>> = {
 	"graph.create": "text",
 	"graph.patch": 0,
 	"graph.set": 0,
+	"scoreboard.create": 0,
 	"wait": 0,
 };
 
@@ -68,6 +69,7 @@ const SUPPORTED_ACTION_TYPES = [
 	"graph.set",
 	"media.add",
 	"media.update",
+	"scoreboard.create",
 	"wait",
 ] as const;
 
@@ -76,7 +78,8 @@ const DEFAULT_SCREEN_OBJECT_STYLE: CssStyle = {
 };
 
 type ClaimTarget = string | { relevanceOf: string };
-type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>;
+type GraphAction = Extract<EpisodeAction, { type: `graph.${string}` }>
+	| Extract<EpisodeAction, { type: "scoreboard.create" }>;
 type SceneObjectAddAction = Extract<EpisodeAction, { type: "media.add" | "balance.add" }>;
 type SceneObjectUpdateAction = Extract<EpisodeAction, { type: "media.update" | "balance.update" }>;
 type SceneObjectAction = SceneObjectAddAction | SceneObjectUpdateAction;
@@ -811,6 +814,8 @@ function describeAction(action: EpisodeAction): string {
 			return `Set ${action.graph}`;
 		case "graph.patch":
 			return `Patch ${action.graph}`;
+		case "scoreboard.create":
+			return `Create scoreboard for ${action.graph}`;
 		case "camera.cut":
 			return "Camera cut";
 		case "camera.move":
@@ -833,6 +838,7 @@ function compileGraphActions(
 	actions: readonly ScheduledEpisodeAction[],
 ): readonly CompiledGraphAnimation[] {
 	const graphStates = new Map<string, GraphCompilerState>();
+	const scoreboardLayouts = new Map<string, { index: number; layout: ScoreboardLayout }>();
 	const animations: CompiledGraphAnimation[] = [];
 	const graphActions = actions
 		.filter(isScheduledGraphAction);
@@ -841,6 +847,20 @@ function compileGraphActions(
 	for (let actionIndex = 0; actionIndex < graphActions.length;) {
 		const scheduled = graphActions[actionIndex]!;
 		const action = scheduled.action;
+
+		if (action.type === "scoreboard.create") {
+			if (scoreboardLayouts.has(action.graph)) {
+				throw new Error(`Action ${scheduled.index} creates duplicate scoreboard for graph: ${action.graph}`);
+			}
+			scoreboardLayouts.set(action.graph, { index: scheduled.index, layout: action.layout });
+			const state = graphStates.get(action.graph);
+			if (state) {
+				state.scoreboard = action.layout;
+				animations.push(createStaticGraphAnimation(state, scheduled));
+			}
+			actionIndex += 1;
+			continue;
+		}
 
 		if (action.type === "graph.create") {
 			if (graphStates.has(action.key)) {
@@ -853,7 +873,7 @@ function compileGraphActions(
 				key: action.key,
 				lastAnimationEndFrame: 0,
 				layout: action.layout,
-				scoreboard: action.scoreboard,
+				scoreboard: scoreboardLayouts.get(action.key)?.layout,
 			};
 			state.claimDefinitions.set(action.mainClaim.key, {
 				defaultConfidence: action.mainClaim.defaultConfidence,
@@ -889,7 +909,12 @@ function compileGraphActions(
 					origin: state.layout,
 				}),
 				scoreboard: state.scoreboard,
-				sourceActionIndexes: [scheduled.index],
+				sourceActionIndexes: [
+					scheduled.index,
+					...(scoreboardLayouts.get(action.key)?.index === undefined
+						? []
+						: [scoreboardLayouts.get(action.key)!.index]),
+				],
 			});
 			state.lastAnimationEndFrame = scheduled.endFrame;
 			state.lastAnimationAction = scheduled;
@@ -932,6 +957,11 @@ function compileGraphActions(
 		compileGraphAddBatch(state, batch, animations, spec.settings.composition.fps);
 		actionIndex = nextIndex;
 	}
+	for (const [graphKey, scoreboard] of scoreboardLayouts) {
+		if (!graphStates.has(graphKey)) {
+			throw new Error(`Action ${scoreboard.index} creates a scoreboard for unknown graph: ${graphKey}`);
+		}
+	}
 
 	return animations;
 }
@@ -939,7 +969,7 @@ function compileGraphActions(
 function isScheduledGraphAction(
 	action: ScheduledEpisodeAction,
 ): action is ScheduledEpisodeAction & { action: GraphAction } {
-	return action.action.type.startsWith("graph.");
+	return action.action.type.startsWith("graph.") || action.action.type === "scoreboard.create";
 }
 
 function isScheduledSceneObjectAction(

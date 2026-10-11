@@ -68,6 +68,17 @@ const episode = {
 			blocking: false,
 		},
 		{
+			type: "scoreboard.create",
+			graph: "argumentGraph",
+			layout: {
+				x: 5,
+				y: 5,
+				height: 300,
+				thermometerWidth: 100,
+				numberWidth: 170,
+			},
+		},
+		{
 			type: "graph.create",
 			key: "argumentGraph",
 			layout: {
@@ -75,16 +86,9 @@ const episode = {
 				y: 540,
 			},
 			hideScores: true,
-			scoreboard: {
-				x: 5,
-				y: 5,
-				height: 300,
-				thermometerWidth: 100,
-				numberWidth: 170,
-			},
 			mainClaim: {
 				key: "main",
-				text: "The United States would benefit overall from enacting the Sunshine Protection Act to establish permanent Daylight Saving Time all year long.",
+				text: "The United States would benefit overall from permanent Daylight Saving Time all year long. <small>Sunshine Protection Act.</small>",
 				textReveal: true,
 				defaultConfidence: 0,
 			},
