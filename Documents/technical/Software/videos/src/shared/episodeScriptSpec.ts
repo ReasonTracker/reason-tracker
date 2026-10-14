@@ -149,6 +149,26 @@ const graphClaimPresentationShape = {
 	textReveal: z.boolean().optional(),
 };
 
+const screenFillGraphTimingSchema = z.object({
+	firstFill: numericDurationSchema,
+	reorient: numericDurationSchema,
+	sprout: numericDurationSchema,
+	wave: numericDurationSchema,
+}).strict();
+const screenFillClaimPresentationSchema = z.object({
+	mode: z.literal("screen-fill"),
+	timing: z.object({
+		graph: screenFillGraphTimingSchema,
+		hold: numericDurationSchema,
+		reveal: durationSchema,
+		settle: numericDurationSchema.positive(),
+	}).strict(),
+}).strict();
+const graphClaimPresentationSchema = z.discriminatedUnion("mode", [
+	z.object({ mode: z.literal("graph") }).strict(),
+	screenFillClaimPresentationSchema,
+]);
+
 const episodeClaimShape = {
 	defaultConfidence: z.number().finite().optional(),
 	defaultRelevance: z.number().finite().optional(),
@@ -204,11 +224,37 @@ const graphAddClaimActionSchema = z.object({
 	...textActionTimingShape,
 	...episodeClaimShape,
 	graph: authorKeySchema,
+	presentation: graphClaimPresentationSchema.optional(),
 	side: claimSideSchema,
 	target: claimTargetSchema,
 	...graphClaimPresentationShape,
 	type: z.literal("graph.addClaim"),
-}).strict();
+}).strict().superRefine((action, context) => {
+	if (action.presentation?.mode !== "screen-fill") {
+		return;
+	}
+	if (action.duration !== undefined) {
+		context.addIssue({
+			code: "custom",
+			message: "A screen-fill claim uses presentation.timing instead of duration.",
+			path: ["duration"],
+		});
+	}
+	if (!action.textReveal && action.presentation.timing.reveal !== 0) {
+		context.addIssue({
+			code: "custom",
+			message: "A screen-fill claim without textReveal must use reveal: 0.",
+			path: ["presentation", "timing", "reveal"],
+		});
+	}
+	if (action.textReveal && action.presentation.timing.reveal === 0) {
+		context.addIssue({
+			code: "custom",
+			message: "A screen-fill claim with textReveal requires a positive or text reveal duration.",
+			path: ["presentation", "timing", "reveal"],
+		});
+	}
+});
 
 const graphSetActionSchema = z.object({
 	...textActionTimingShape,
@@ -304,7 +350,7 @@ const captionsShowActionSchema = z.object({
 
 const waitActionSchema = z.object({
 	...actionTimingShape,
-	duration: numericDurationSchema.positive(),
+	duration: numericDurationSchema.positive().optional(),
 	type: z.literal("wait"),
 }).strict();
 
@@ -324,21 +370,56 @@ export const episodeActionSchema = z.discriminatedUnion("type", [
 	waitActionSchema,
 ]);
 
+const operationTimingDefaultsShape = {
+	blocking: z.boolean().optional(),
+	offsetSeconds: secondsSchema.optional(),
+};
+
+const numericTimingDefaultsSchema = z.object({
+	...operationTimingDefaultsShape,
+	duration: numericDurationSchema.optional(),
+}).strict();
+const textTimingDefaultsSchema = z.object({
+	...operationTimingDefaultsShape,
+	duration: durationSchema.optional(),
+}).strict();
+const graphAddClaimDefaultsSchema = textTimingDefaultsSchema.extend({
+	presentation: graphClaimPresentationSchema.optional(),
+}).strict();
+
 const defaultsSchema = z.object({
-	"camera.move": z.object({
+	"balance.add": numericTimingDefaultsSchema.optional(),
+	"balance.update": numericTimingDefaultsSchema.optional(),
+	"camera.cut": z.object(operationTimingDefaultsShape).strict().optional(),
+	"camera.move": numericTimingDefaultsSchema.optional(),
+	"captions.show": textTimingDefaultsSchema.optional(),
+	"graph.addClaim": graphAddClaimDefaultsSchema.optional(),
+	"graph.create": textTimingDefaultsSchema.optional(),
+	"graph.patch": textTimingDefaultsSchema.optional(),
+	"graph.set": textTimingDefaultsSchema.optional(),
+	"media.add": z.object(operationTimingDefaultsShape).strict().optional(),
+	"media.update": numericTimingDefaultsSchema.optional(),
+	"scoreboard.create": z.object(operationTimingDefaultsShape).strict().optional(),
+	"wait": z.object({
+		...operationTimingDefaultsShape,
 		duration: numericDurationSchema.positive().optional(),
-	}).strict().optional(),
-	"graph.addClaim": z.object({
-		duration: durationSchema.optional(),
-	}).strict().optional(),
-	"graph.create": z.object({
-		duration: durationSchema.optional(),
 	}).strict().optional(),
 }).strict();
 
+const defaultsUpdateActionSchema = z.object({
+	defaults: defaultsSchema.refine(
+		(defaults) => Object.keys(defaults).length > 0,
+		"Provide at least one defaults entry.",
+	),
+	type: z.literal("defaults.update"),
+}).strict();
+
 export const episodeScriptSpecSchema = z.object({
-	schemaVersion: z.literal(3),
-	script: z.array(episodeActionSchema).min(1),
+	schemaVersion: z.literal(4),
+	script: z.array(z.discriminatedUnion("type", [
+		...episodeActionSchema.options,
+		defaultsUpdateActionSchema,
+	])).min(1),
 	settings: z.object({
 		composition: z.object({
 			fps: z.number().int().positive(),
@@ -346,7 +427,6 @@ export const episodeScriptSpecSchema = z.object({
 			id: nonEmptyStringSchema,
 			width: z.number().int().positive(),
 		}).strict(),
-		defaults: defaultsSchema.optional(),
 	}).strict(),
 }).strict();
 
@@ -357,7 +437,10 @@ export type EpisodeClaim = Omit<Claim, "content" | "id"> & {
 	key: string
 	text: string
 };
-export type EpisodeAction = z.infer<typeof episodeActionSchema>;
+export type EpisodeDefaults = z.infer<typeof defaultsSchema>;
+export type EpisodeAction = z.infer<typeof episodeScriptSpecSchema>["script"][number];
+export type EpisodeOperation = Exclude<EpisodeAction, { type: "defaults.update" }>;
+export type GraphAddClaimPresentation = z.infer<typeof graphClaimPresentationSchema>;
 export type EpisodeScriptSpecInput = z.input<typeof episodeScriptSpecSchema>;
 export type EpisodeScriptSpec = z.infer<typeof episodeScriptSpecSchema>;
 export type GraphAddClaimAction = z.infer<typeof graphAddClaimActionSchema>;

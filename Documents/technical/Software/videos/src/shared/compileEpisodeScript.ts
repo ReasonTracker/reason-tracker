@@ -19,6 +19,8 @@ import {
 	episodeScriptSpecSchema,
 	type ClaimSide,
 	type EpisodeAction,
+	type EpisodeDefaults,
+	type EpisodeOperation,
 	type EpisodeScriptSpec,
 	type GraphClaimState,
 	type GraphLayout,
@@ -34,7 +36,7 @@ import {
 import { resolveGraphSceneTargets } from "./graphSceneTargets";
 import { calculateTextDurationSeconds } from "./textDuration";
 
-const DEFAULT_DURATION: Readonly<Record<EpisodeAction["type"], Duration>> = {
+const DEFAULT_DURATION: Readonly<Record<EpisodeOperation["type"], Duration>> = {
 	"camera.cut": 0,
 	"camera.move": 1.2,
 	"media.add": 0,
@@ -57,6 +59,7 @@ const GRAPH_PHASES = [
 	["wave", 13 / 112],
 	["reorient", 13 / 112],
 ] as const satisfies readonly (readonly [AnimationStepId, number])[];
+const SCREEN_FILL_GRAPH_PHASES = ["sprout", "firstFill", "wave", "reorient"] as const satisfies readonly Exclude<AnimationStepId, "voila">[];
 
 const SUPPORTED_ACTION_TYPES = [
 	"balance.add",
@@ -64,6 +67,7 @@ const SUPPORTED_ACTION_TYPES = [
 	"camera.cut",
 	"camera.move",
 	"captions.show",
+	"defaults.update",
 	"graph.addClaim",
 	"graph.create",
 	"graph.patch",
@@ -113,7 +117,7 @@ type GraphCompilerState = {
 };
 
 export type ScheduledEpisodeAction = {
-	action: EpisodeAction
+	action: EpisodeOperation
 	durationInFrames: number
 	endFrame: number
 	from: number
@@ -133,7 +137,16 @@ export type CompiledGraphAnimation = {
 	label: string
 	plan: DebateAnimationPlan
 	scoreboard?: ScoreboardLayout
+	screenFill?: CompiledScreenFill
 	sourceActionIndexes: readonly number[]
+};
+
+export type CompiledScreenFill = {
+	claimId: ClaimId
+	graphPhaseDurationInFrames: Readonly<Record<Exclude<AnimationStepId, "voila">, number>>
+	holdDurationInFrames: number
+	revealDurationInFrames: number
+	settleDurationInFrames: number
 };
 
 export type ClaimTextReveal = {
@@ -171,6 +184,10 @@ export type CompiledSceneObject = {
 
 export type GraphPlayback = {
 	animation: CompiledGraphAnimation
+	screenFill?: {
+		progress: number
+		stage: "hold" | "reveal" | "settle"
+	}
 	stepId?: AnimationStepId
 	stepProgress: number
 };
@@ -196,7 +213,7 @@ export function compileEpisodeScript(
 	const spec = result.data;
 	const actions = scheduleActions(spec);
 	const graphAnimations = compileGraphActions(spec, actions);
-	const claimTextReveals = compileClaimTextReveals(actions);
+	const claimTextReveals = compileClaimTextReveals(actions, spec.settings.composition.fps);
 	const sceneObjects = compileSceneObjects(actions, mediaAssets);
 	assertUniqueSceneTargetRoots(graphAnimations, sceneObjects);
 
@@ -647,6 +664,7 @@ function parseCssNumber(value: CssStyle[string]): { unit: string; value: number 
 
 function compileClaimTextReveals(
 	actions: readonly ScheduledEpisodeAction[],
+	fps: number,
 ): Readonly<Record<ClaimId, ClaimTextReveal>> {
 	const reveals: Record<ClaimId, ClaimTextReveal> = {};
 	for (const scheduled of actions) {
@@ -665,17 +683,24 @@ function compileClaimTextReveals(
 			continue;
 		}
 		if (action.type === "graph.addClaim" && action.textReveal) {
-			reveals[claimId(action.graph, action.key)] = requireClaimTextReveal(scheduled);
+			const screenFill = resolveScreenFillTimingInFrames(action, fps);
+			reveals[claimId(action.graph, action.key)] = requireClaimTextReveal(
+				scheduled,
+				screenFill?.revealDurationInFrames,
+			);
 		}
 	}
 	return reveals;
 }
 
-function requireClaimTextReveal(action: ScheduledEpisodeAction): ClaimTextReveal {
-	if (action.durationInFrames < 1) {
+function requireClaimTextReveal(
+	action: ScheduledEpisodeAction,
+	durationInFrames = action.durationInFrames,
+): ClaimTextReveal {
+	if (durationInFrames < 1) {
 		throw new Error(`Action ${action.index} enables textReveal but has no duration.`);
 	}
-	return { durationInFrames: action.durationInFrames, from: action.from };
+	return { durationInFrames, from: action.from };
 }
 
 export function resolveGraphPlayback(
@@ -690,6 +715,9 @@ export function resolveGraphPlayback(
 	}
 	if (!animation) {
 		return undefined;
+	}
+	if (animation.screenFill) {
+		return resolveScreenFillPlayback(animation, frame);
 	}
 
 	if (frame >= animation.from + animation.durationInFrames) {
@@ -724,40 +752,161 @@ export function resolveGraphPlayback(
 	return { animation, stepId: "wave", stepProgress: 1 };
 }
 
+function resolveScreenFillPlayback(
+	animation: CompiledGraphAnimation,
+	frame: number,
+): GraphPlayback {
+	const screenFill = animation.screenFill;
+	if (!screenFill) {
+		throw new Error("Expected a screen-fill graph animation.");
+	}
+	let elapsedFrame = Math.max(0, frame - animation.from);
+	for (const [stage, durationInFrames] of [
+		["reveal", screenFill.revealDurationInFrames],
+		["hold", screenFill.holdDurationInFrames],
+		["settle", screenFill.settleDurationInFrames],
+	] as const) {
+		if (durationInFrames > 0 && elapsedFrame < durationInFrames) {
+			return {
+				animation,
+				screenFill: { progress: elapsedFrame / Math.max(1, durationInFrames - 1), stage },
+				stepProgress: 0,
+			};
+		}
+		elapsedFrame -= durationInFrames;
+	}
+	for (const stepId of SCREEN_FILL_GRAPH_PHASES) {
+		const durationInFrames = screenFill.graphPhaseDurationInFrames[stepId];
+		if (durationInFrames > 0 && elapsedFrame < durationInFrames) {
+			return {
+				animation,
+				stepId,
+				stepProgress: elapsedFrame / Math.max(1, durationInFrames - 1),
+			};
+		}
+		elapsedFrame -= durationInFrames;
+	}
+	return { animation, stepId: "wave", stepProgress: 1 };
+}
+
 function scheduleActions(spec: EpisodeScriptSpec): readonly ScheduledEpisodeAction[] {
 	const { fps } = spec.settings.composition;
 	let cursorFrame = 0;
+	let defaults: EpisodeDefaults = {};
 
-	return spec.script.map((action, index) => {
-		const durationInSeconds = resolveDurationInSeconds(spec, action);
-		const durationInFrames = Math.max(0, Math.round(durationInSeconds * fps));
-		const from = cursorFrame + signedSecondsToFrames(action.offsetSeconds ?? 0, fps);
+	return spec.script.flatMap((action, index) => {
+		if (action.type === "defaults.update") {
+			defaults = mergeEpisodeDefaults(defaults, action.defaults);
+			return [];
+		}
+		const resolvedAction = resolveOperationDefaults(defaults, action);
+		const durationInFrames = resolveActionDurationInFrames(resolvedAction, fps);
+		const from = cursorFrame + signedSecondsToFrames(resolvedAction.offsetSeconds ?? 0, fps);
 		if (from < 0) {
-			throw new Error(`Action ${index} (${action.type}) starts before frame zero.`);
+			throw new Error(`Action ${index} (${resolvedAction.type}) starts before frame zero.`);
 		}
 
 		const endFrame = from + durationInFrames;
-		if (action.blocking ?? true) {
+		if (resolvedAction.blocking ?? true) {
 			cursorFrame = Math.max(cursorFrame, endFrame);
 		}
 
-		return {
-			action,
+		return [{
+			action: resolvedAction,
 			durationInFrames,
 			endFrame,
 			from,
 			index,
-			label: action.label ?? describeAction(action),
-		};
+			label: resolvedAction.label ?? describeAction(resolvedAction),
+		}];
 	});
+}
+
+function mergeEpisodeDefaults(
+	current: EpisodeDefaults,
+	update: EpisodeDefaults,
+): EpisodeDefaults {
+	return {
+		"balance.add": { ...current["balance.add"], ...update["balance.add"] },
+		"balance.update": { ...current["balance.update"], ...update["balance.update"] },
+		"camera.cut": { ...current["camera.cut"], ...update["camera.cut"] },
+		"camera.move": { ...current["camera.move"], ...update["camera.move"] },
+		"captions.show": { ...current["captions.show"], ...update["captions.show"] },
+		"graph.addClaim": { ...current["graph.addClaim"], ...update["graph.addClaim"] },
+		"graph.create": { ...current["graph.create"], ...update["graph.create"] },
+		"graph.patch": { ...current["graph.patch"], ...update["graph.patch"] },
+		"graph.set": { ...current["graph.set"], ...update["graph.set"] },
+		"media.add": { ...current["media.add"], ...update["media.add"] },
+		"media.update": { ...current["media.update"], ...update["media.update"] },
+		"scoreboard.create": { ...current["scoreboard.create"], ...update["scoreboard.create"] },
+		"wait": { ...current.wait, ...update.wait },
+	};
+}
+
+function resolveOperationDefaults(
+	defaults: EpisodeDefaults,
+	action: EpisodeOperation,
+): EpisodeOperation {
+	if (
+		action.type === "graph.addClaim"
+		&& (action.presentation ?? defaults["graph.addClaim"]?.presentation)?.mode === "screen-fill"
+	) {
+		if (action.duration !== undefined) {
+			throw new Error(`Screen-fill claim ${action.key} uses presentation.timing instead of duration.`);
+		}
+		const { duration: _duration, ...screenFillDefaults } = defaults["graph.addClaim"] ?? {};
+		return { ...screenFillDefaults, ...action } as EpisodeOperation;
+	}
+	return { ...defaults[action.type], ...action } as EpisodeOperation;
+}
+
+function resolveActionDurationInFrames(action: EpisodeOperation, fps: number): number {
+	const screenFill = resolveScreenFillTimingInFrames(action, fps);
+	if (screenFill) {
+		return screenFill.revealDurationInFrames
+			+ screenFill.holdDurationInFrames
+			+ screenFill.settleDurationInFrames
+			+ SCREEN_FILL_GRAPH_PHASES.reduce(
+				(total, stepId) => total + screenFill.graphPhaseDurationInFrames[stepId],
+				0,
+			);
+	}
+	return Math.max(0, Math.round(resolveDurationInSeconds(action) * fps));
+}
+
+function resolveScreenFillTimingInFrames(
+	action: EpisodeOperation,
+	fps: number,
+): Omit<CompiledScreenFill, "claimId"> | undefined {
+	if (action.type !== "graph.addClaim" || action.presentation?.mode !== "screen-fill") {
+		return undefined;
+	}
+	const timing = action.presentation.timing;
+	const revealDurationInSeconds = timing.reveal === "text"
+		? calculateTextDurationSeconds(action.text)
+		: timing.reveal;
+	return {
+		graphPhaseDurationInFrames: {
+			firstFill: Math.round(timing.graph.firstFill * fps),
+			reorient: Math.round(timing.graph.reorient * fps),
+			sprout: Math.round(timing.graph.sprout * fps),
+			wave: Math.round(timing.graph.wave * fps),
+		},
+		holdDurationInFrames: Math.round(timing.hold * fps),
+		revealDurationInFrames: Math.round(revealDurationInSeconds * fps),
+		settleDurationInFrames: Math.round(timing.settle * fps),
+	};
 }
 
 function signedSecondsToFrames(seconds: number, fps: number): number {
 	return Math.sign(seconds) * Math.round(Math.abs(seconds) * fps);
 }
 
-function resolveDurationInSeconds(spec: EpisodeScriptSpec, action: EpisodeAction): number {
-	const duration = action.duration ?? resolveDefaultDuration(spec, action);
+function resolveDurationInSeconds(action: EpisodeOperation): number {
+	const duration = action.duration ?? resolveDefaultDuration(action);
+	if (action.type === "wait" && (duration === "text" || duration <= 0)) {
+		throw new Error("Wait requires an explicit or default positive duration.");
+	}
 	if (duration !== "text") {
 		return duration;
 	}
@@ -768,18 +917,8 @@ function resolveDurationInSeconds(spec: EpisodeScriptSpec, action: EpisodeAction
 	return calculateTextDurationSeconds(text);
 }
 
-function resolveDefaultDuration(spec: EpisodeScriptSpec, action: EpisodeAction): Duration {
-	const defaults = spec.settings.defaults;
+function resolveDefaultDuration(action: EpisodeOperation): Duration {
 	switch (action.type) {
-		case "graph.create":
-			return defaults?.["graph.create"]?.duration
-				?? DEFAULT_DURATION[action.type];
-		case "graph.addClaim":
-			return defaults?.["graph.addClaim"]?.duration
-				?? DEFAULT_DURATION[action.type];
-		case "camera.move":
-			return defaults?.["camera.move"]?.duration
-				?? DEFAULT_DURATION[action.type];
 		case "graph.patch":
 		case "graph.set":
 			return getDurationText(action) === undefined ? DEFAULT_DURATION[action.type] : "text";
@@ -788,7 +927,7 @@ function resolveDefaultDuration(spec: EpisodeScriptSpec, action: EpisodeAction):
 	}
 }
 
-function getDurationText(action: EpisodeAction): string | undefined {
+function getDurationText(action: EpisodeOperation): string | undefined {
 	switch (action.type) {
 		case "captions.show":
 		case "graph.addClaim":
@@ -805,7 +944,7 @@ function getDurationText(action: EpisodeAction): string | undefined {
 	}
 }
 
-function describeAction(action: EpisodeAction): string {
+function describeAction(action: EpisodeOperation): string {
 	switch (action.type) {
 		case "graph.create":
 			return `Create ${action.key}`;
@@ -1005,6 +1144,12 @@ function compileGraphAddBatch(
 	if (batch.some((item) => item.durationInFrames !== first.durationInFrames)) {
 		throw new Error(`Same-start graph additions on ${state.key} must use the same duration.`);
 	}
+	if (
+		batch.length > 1
+		&& batch.some((item) => item.action.type === "graph.addClaim" && item.action.presentation?.mode === "screen-fill")
+	) {
+		throw new Error(`Graph ${state.key}: a screen-fill claim cannot share a graph-add batch.`);
+	}
 	if (!state.debateCore) {
 		throw new Error(`Graph ${state.key} must be created before claims are added.`);
 	}
@@ -1051,6 +1196,9 @@ function compileGraphAddBatch(
 	}
 	state.lastAnimationEndFrame = first.endFrame;
 	state.lastAnimationAction = first;
+	const screenFill = first.action.type === "graph.addClaim"
+		? compileScreenFill(first.action, state.key, fps)
+		: undefined;
 	animations.push({
 		addedClaimIds,
 		anchor: state.anchor,
@@ -1063,8 +1211,20 @@ function compileGraphAddBatch(
 		label: batch.map((item) => item.label).join(" + "),
 		plan,
 		scoreboard: state.scoreboard,
+		screenFill,
 		sourceActionIndexes: batch.map((item) => item.index),
 	});
+}
+
+function compileScreenFill(
+	action: Extract<EpisodeOperation, { type: "graph.addClaim" }>,
+	graphKey: string,
+	fps: number,
+): CompiledScreenFill | undefined {
+	const timing = resolveScreenFillTimingInFrames(action, fps);
+	return timing
+		? { ...timing, claimId: claimId(graphKey, action.key) }
+		: undefined;
 }
 
 function describeScheduledGraphAction(scheduled: ScheduledEpisodeAction): string {

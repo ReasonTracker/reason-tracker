@@ -1,7 +1,7 @@
 import type { EpisodeScriptSpecInput } from "../shared/episodeScriptSpec";
 
 const episode = {
-	schemaVersion: 3,
+	schemaVersion: 4,
 	settings: {
 		composition: {
 			id: "Episode0001",
@@ -9,13 +9,16 @@ const episode = {
 			width: 1920,
 			height: 1080,
 		},
-		defaults: {
-			"camera.move": {
-				duration: 2,
-			},
-		},
 	},
 	script: [
+		{
+			type: "defaults.update",
+			defaults: {
+				"camera.move": {
+					duration: 2,
+				},
+			},
+		},
 		{
 			type: "media.add",
 			key: "sunshineProtectionAct",

@@ -8,24 +8,28 @@ The executable source of truth is [episodeScriptSpec.ts](./episodeScriptSpec.ts)
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "settings": {
     "composition": {
       "id": "Episode0001",
       "fps": 30,
       "width": 1920,
       "height": 1080
-    },
-    "defaults": {
-      "graph.addClaim": { "duration": "text" },
-      "camera.move": { "duration": 1.2 }
     }
   },
-  "script": []
+  "script": [
+    {
+      "type": "defaults.update",
+      "defaults": {
+        "camera.move": { "duration": 1.2 },
+        "graph.addClaim": { "duration": "text" }
+      }
+    }
+  ]
 }
 ```
 
-- `schemaVersion` must be `3`.
+- `schemaVersion` must be `4`.
 - `settings.composition` is required and defines the Remotion composition.
 - `script` is a required ordered list of actions. Actions do not have IDs.
 - A custom `label` is optional. It names the action in Remotion Studio and diagnostics only.
@@ -49,7 +53,7 @@ Graph, media, and balance keys share one top-level scene target namespace. Add e
 
 Every action accepts these optional fields:
 
-- `duration`: A nonnegative decimal number of seconds or `"text"`. A text duration is the number of non-whitespace characters divided by 1,500 characters per minute. Text-bearing actions default to `"text"`; other actions have numeric runtime defaults. `settings.defaults` may override defaults for `graph.create`, `graph.addClaim`, and `camera.move`. `wait` requires an explicit positive numeric duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
+- `duration`: A nonnegative decimal number of seconds or `"text"`. A text duration is the number of non-whitespace characters divided by 1,500 characters per minute. Text-bearing actions default to `"text"`; other actions have numeric runtime defaults. `wait` requires an explicit or inherited positive numeric duration. Visual `.add` actions are immediate and allow only zero duration. Visual `.update` actions default to zero duration, which is a cut; use a positive duration to transition compatible numeric values.
 - `offsetSeconds`: Signed decimal-second offset from the current timeline cursor. Omitted means `0`.
 - `blocking`: Omitted means `true`. A blocking action advances the cursor to the later of its current position or that action's end. A nonblocking action leaves the cursor where it is.
 
@@ -64,6 +68,26 @@ end = start + duration
 $$
 
 The episode duration is the latest action end, including nonblocking actions. An action may not start before frame zero after conversion to frames.
+
+### `defaults.update`
+
+Use this immediate operation to set scheduling defaults for every following matching action. It does not consume timeline time and affects actions by source order, not their resolved frame position. An explicit field on an action overrides its active default.
+
+```json
+{
+  "type": "defaults.update",
+  "defaults": {
+    "camera.move": { "duration": 2, "blocking": false },
+    "graph.addClaim": { "duration": "text" },
+    "media.update": { "duration": 0.75, "blocking": false },
+    "balance.update": { "duration": 0.75, "blocking": false },
+    "captions.show": { "duration": "text" },
+    "wait": { "duration": 1 }
+  }
+}
+```
+
+Every operation supports default `blocking` and `offsetSeconds`: `balance.add`, `balance.update`, `camera.cut`, `camera.move`, `captions.show`, `graph.addClaim`, `graph.create`, `graph.patch`, `graph.set`, `media.add`, `media.update`, `scoreboard.create`, and `wait`. Operations with an animatable duration accept a default `duration`; immediate operations (`balance.add`, `camera.cut`, `media.add`, and `scoreboard.create`) do not. `graph.addClaim` may also inherit a complete `presentation` object.
 
 Camera targets accept `offsetSeconds`, which defaults to `0` and shifts only the timeline position used to resolve the target's geometry. It does not affect the camera action's scheduled start time.
 
@@ -308,6 +332,31 @@ Set `textReveal` to `true` to reveal a claim's text character by character over 
 - `con`: opposes the main claim overall.
 
 The compiler derives the internal target-relative relationship. A source and target on the same side support each other; opposite sides oppose each other.
+
+Use `presentation.mode: "screen-fill"` to reveal one claim in the current camera viewport before it joins the graph:
+
+```json
+{
+  "type": "graph.addClaim",
+  "graph": "argumentGraph",
+  "key": "healthEvidence",
+  "text": "The transition causes an immediate health risk.",
+  "target": "healthSafety",
+  "side": "pro",
+  "textReveal": true,
+  "presentation": {
+    "mode": "screen-fill",
+    "timing": {
+      "reveal": "text",
+      "hold": 1.5,
+      "settle": 0.75,
+      "graph": { "sprout": 0.4, "firstFill": 0.35, "wave": 0.3, "reorient": 0.25 }
+    }
+  }
+}
+```
+
+`reveal` writes the claim only when `textReveal` is `true`; otherwise it must be `0`. `hold` starts after the full text appears. `settle` moves the card to the planner's completed entrance position at its final graph size. The planner then performs `sprout`, `firstFill`, `wave`, and `reorient`. Screen-fill claims do not use top-level `duration`, cannot share a same-frame claim-add batch, and cannot overlap another graph mutation.
 
 To animate multiple additions together, schedule them at the exact same resolved start time. The easiest form is sequential nonblocking actions after a common cursor position. All additions in the same graph batch must use the same resolved duration. Graph mutations with different overlapping start times are rejected.
 

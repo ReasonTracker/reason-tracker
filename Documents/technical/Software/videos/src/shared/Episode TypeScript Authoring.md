@@ -12,7 +12,7 @@ Create one `episode.ts` in the episode directory. Use this exact wrapper, includ
 import type { EpisodeScriptSpecInput } from "../shared/episodeScriptSpec";
 
 const episode = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   settings: {
     composition: {
       id: "Episode0007",
@@ -20,18 +20,23 @@ const episode = {
       width: 1920,
       height: 1080,
     },
-    defaults: {
-      "graph.addClaim": { duration: "text" },
-      "camera.move": { duration: 1.2 },
-    },
   },
-  script: [{ type: "wait", duration: 1 }],
+  script: [
+    {
+      type: "defaults.update",
+      defaults: {
+        "camera.move": { duration: 1.2 },
+        "graph.addClaim": { duration: "text" },
+      },
+    },
+    { type: "wait", duration: 1 },
+  ],
 } satisfies EpisodeScriptSpecInput;
 
 export default episode;
 ```
 
-- `schemaVersion` must be `3`.
+- `schemaVersion` must be `4`.
 - `settings.composition` and a nonempty `script` are required.
 - Use a unique nonempty Remotion composition `id`.
 - Do not add imports other than the type import unless the episode intentionally needs executable TypeScript behavior.
@@ -83,15 +88,25 @@ $$
 
 The episode duration is the latest action end, including nonblocking actions.
 
-Runtime duration defaults are `camera.move: 1.2`, `"text"` for `captions.show`, `graph.create`, and `graph.addClaim`, and `0` for `camera.cut`, `graph.set`, `graph.patch`, `media.add`, `media.update`, `balance.add`, and `balance.update`. A `graph.set` or `graph.patch` action that provides claim text also defaults to `"text"`. `wait` requires an explicit positive numeric duration. `settings.defaults` may override only `camera.move`, `graph.addClaim`, and `graph.create`:
+Runtime duration defaults are `camera.move: 1.2`, `"text"` for `captions.show`, `graph.create`, and `graph.addClaim`, and `0` for `camera.cut`, `graph.set`, `graph.patch`, `media.add`, `media.update`, `balance.add`, and `balance.update`. A `graph.set` or `graph.patch` action that provides claim text also defaults to `"text"`. `wait` requires an explicit or inherited positive numeric duration.
+
+Use `defaults.update` as the first script operation to establish episode defaults, and again later when following actions should use a new pace. It is immediate: it has no timing fields, does not render, and affects only later actions in source order. Explicit action fields override active defaults. Every operation type accepts default `blocking` and `offsetSeconds`; operations with animatable durations also accept `duration`:
 
 ```ts
-defaults: {
-	"camera.move": { duration: 2 },
-	"graph.addClaim": { duration: "text" },
-	"graph.create": { duration: 6 },
+{
+	type: "defaults.update",
+	defaults: {
+		"camera.move": { duration: 2, blocking: false },
+		"graph.addClaim": { duration: "text" },
+		"media.update": { duration: 0.75, blocking: false },
+		"balance.update": { duration: 0.75, blocking: false },
+		"captions.show": { duration: "text" },
+		wait: { duration: 1 },
+	},
 },
 ```
+
+The supported defaults entries are `balance.add`, `balance.update`, `camera.cut`, `camera.move`, `captions.show`, `graph.addClaim`, `graph.create`, `graph.patch`, `graph.set`, `media.add`, `media.update`, `scoreboard.create`, and `wait`. Immediate operations (`balance.add`, `camera.cut`, `media.add`, and `scoreboard.create`) do not accept a duration default. `graph.addClaim` defaults may additionally set a complete `presentation` object.
 
 ## Anchors And Layout
 
@@ -254,6 +269,31 @@ Use an object target to add a relevance-linked claim:
 ```
 
 `showScore` and `textReveal` are optional. Text reveal requires a positive resolved duration. Additions in the same graph that resolve to the same start frame form one animation batch and must have the same duration. Overlapping graph mutations with different start frames are invalid.
+
+Set `presentation.mode` to `"screen-fill"` when a new claim should first occupy most of the current camera viewport, then settle into the graph before graph-response animation continues:
+
+```ts
+{
+	type: "graph.addClaim",
+	graph: "argumentGraph",
+	key: "healthEvidence",
+	text: "The transition causes an immediate health risk.",
+	target: "healthSafety",
+	side: "pro",
+	textReveal: true,
+	presentation: {
+		mode: "screen-fill",
+		timing: {
+			reveal: "text",
+			hold: 1.5,
+			settle: 0.75,
+			graph: { sprout: 0.4, firstFill: 0.35, wave: 0.3, reorient: 0.25 },
+		},
+	},
+}
+```
+
+`reveal` writes the claim when `textReveal: true`; otherwise it must be `0`. `hold` begins after the complete text is visible. `settle` moves the claim to the planner's completed entrance position at its final graph size. `sprout`, `firstFill`, `wave`, and `reorient` then run the existing planner phases. A screen-fill claim does not use top-level `duration`, cannot share a same-frame claim-add batch, and cannot overlap another graph mutation.
 
 A string target creates a confidence relationship to an existing claim. `{ relevanceOf: "claimKey" }` creates a relevance relationship to the confidence relationship sourced by `claimKey`. The referenced claim must already exist and must itself have a string target, so add it before the relevance-linked action.
 

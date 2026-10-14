@@ -92,6 +92,16 @@ const SCOREBOARD_STYLE = {
 	zIndex: 1,
 } as const;
 
+// AGENT NOTE: Keep screen-fill geometry here so the authoring contract remains viewport-relative.
+/** Leaves readable breathing room around a screen-fill claim. */
+const SCREEN_FILL_HORIZONTAL_INSET = 180;
+/** Leaves room above and below a screen-fill claim for the composition frame. */
+const SCREEN_FILL_VERTICAL_INSET = 150;
+const SCREEN_FILL_STYLE = {
+	...CAMERA_LAYER_STYLE,
+	zIndex: 2,
+} as const;
+
 export type DeclarativeEpisodeProps = {
 	camera?: SceneCameraScript
 	episode: CompiledEpisodeScript
@@ -151,6 +161,71 @@ export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: Declar
 					plan={playback.animation.plan}
 					stepId={playback.stepId}
 					stepProgress={playback.stepProgress}
+				/>
+			</div>
+		);
+	};
+	const renderScreenFill = () => {
+		if (!playback?.screenFill || !playback.animation.screenFill) {
+			return null;
+		}
+		const targetFrame = resolveAnimationFrame(playback.animation.plan, "voila", 1);
+		const targetClaim = Object.entries(targetFrame.claims).find(([, claim]) =>
+			claim.claimId === playback.animation.screenFill?.claimId
+		);
+		if (!targetClaim) {
+			throw new Error(`Screen-fill claim ${playback.animation.screenFill.claimId} is missing from its planner frame.`);
+		}
+		const [claimOccurrenceId, claim] = targetClaim;
+		const cameraScale = episode.composition.width / cameraBounds.width;
+		const destination = {
+			scale: claim.scale * cameraScale,
+			x: (claim.position.x - cameraBounds.minX) * cameraScale,
+			y: (claim.position.y - cameraBounds.minY) * cameraScale,
+		};
+		const screenFill = {
+			scale: Math.min(
+				(episode.composition.width - (SCREEN_FILL_HORIZONTAL_INSET * 2)) / playback.animation.plan.options.claimWidth,
+				(episode.composition.height - (SCREEN_FILL_VERTICAL_INSET * 2)) / playback.animation.plan.options.claimHeight,
+			),
+			x: episode.composition.width / 2,
+			y: episode.composition.height / 2,
+		};
+		const progress = playback.screenFill.stage === "settle"
+			? smoothStep(playback.screenFill.progress)
+			: 0;
+		const isolatedFrame = {
+			...targetFrame,
+			claims: {
+				[claimOccurrenceId]: {
+					...claim,
+					opacity: 1,
+					position: {
+						x: interpolateNumber(screenFill.x, destination.x, progress),
+						y: interpolateNumber(screenFill.y, destination.y, progress),
+					},
+					scale: interpolateNumber(screenFill.scale, destination.scale, progress),
+				},
+			},
+			confidenceConnections: {},
+			relevanceConnections: {},
+		};
+		return (
+			<div style={SCREEN_FILL_STYLE}>
+				<DebateAnimationSurface
+					claimScoreVisibility={playback.animation.claimScoreVisibility}
+					claimTextReveals={episode.claimTextReveals}
+					debateCore={playback.animation.debateCore}
+					frameOverride={isolatedFrame}
+					hideScores={playback.animation.hideScores}
+					plan={playback.animation.plan}
+					renderBounds={{
+						height: episode.composition.height,
+						minX: 0,
+						minY: 0,
+						width: episode.composition.width,
+					}}
+					stepProgress={0}
 				/>
 			</div>
 		);
@@ -234,6 +309,7 @@ export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: Declar
 					{renderScoreboard("camera")}
 					{renderCaptions("camera")}
 				</div>
+				{renderScreenFill()}
 			</AbsoluteFill>
 		</>
 	);
@@ -257,4 +333,13 @@ export function createDeclarativeEpisode(
 		),
 		episode,
 	};
+}
+
+function interpolateNumber(from: number, to: number, progress: number): number {
+	return from + ((to - from) * progress);
+}
+
+function smoothStep(progress: number): number {
+	const bounded = Math.max(0, Math.min(1, progress));
+	return bounded * bounded * (3 - (2 * bounded));
 }
