@@ -7,6 +7,8 @@ type CreateWithOptionalId<T extends { id: unknown }> = Omit<T, "id"> & { id?: T[
 export interface Claim {
 	id: ClaimId
 	content: string
+	reversible?: boolean
+	reversedContent?: string
 
 	/**
 	 * This is an optional default confidence value for this specific claim 

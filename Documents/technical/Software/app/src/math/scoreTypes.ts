@@ -1,6 +1,7 @@
 export type Brand<T, Name extends string> = T & { readonly __brand: Name };
 
 export type ClaimId = Brand<string, "ClaimId">;
+export type ScoreRole = "Score" | "Relevance";
 /**
  * The id of one claim occurrence in the acyclic scoring graph.
  *
@@ -30,7 +31,8 @@ export type ScoreNode = {
 	claimId: ClaimId;
 	parentId?: ScoreNodeId;
 	proParent?: boolean;
-	affects: "Score" | "Relevance";
+	reversible: boolean;
+	affects: ScoreRole;
 };
 
 /**
@@ -49,8 +51,10 @@ export type ScoreGraph = {
 export type Score = {
 	scoreNodeId: ScoreNodeId;
 	claimId: ClaimId;
+	directedValue: number;
+	originalValue: number;
+	reversed: boolean;
 	value: number;
-	rawValue: number;
 	weightedSum: number;
 	totalWeight: number;
 };

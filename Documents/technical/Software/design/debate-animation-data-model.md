@@ -7,7 +7,7 @@ Defines the data models and orchestration for debate graph animation, supporting
 ## Current Implementation Scope
 
 - The first production planner scope covers `confidence/claim/add` and `relevance/claim/add`.
-- The first production planner sequence currently stops after the first `wave` from the command target through its outgoing connectors.
+- The first production planner sequence currently stops after the first `wave` and its following `reorient` transition from the command target through its outgoing connectors.
 - Input debates may contain cycles and repeated claims.
 - Episode0004 is the canonical planner-driven implementation of this scope.
 
@@ -15,7 +15,6 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - subsequent propagation-wave sequencing after the first outgoing-connector wave
 - command types outside the current `confidence/claim/add` flow
-- reversible score and relevance behavior after the math and debate-core contracts are explicitly redesigned for it
 
 ## Command Contract Boundary
 
@@ -30,6 +29,9 @@ Defines the data models and orchestration for debate graph animation, supporting
 - Inclusion-minimal connector break sets are scored with the strict acyclic scorer, then claim fields and connector contributions are averaged over the full variant count.
 - Cycle audit data remains separate from ordinary display state.
 - Presentation independently expands DebateCore by path and terminates only after emitting a claim already present on that path.
+- A reversible claim resolves a signed `originalValue`, a non-negative display `value`, and a signed `directedValue`. The fixed connector relationship applies to `directedValue`; it never changes because a claim reverses.
+- Presentation resolves `originalSide`, `derivedSide`, and `displaySide` per occurrence. It also resolves optional `reversedContent` into `derivedContent` and `displayContent`; renderers consume display fields rather than inferring reversal from a numeric value.
+- Cycle aggregation retains score and relevance roles independently, averages `originalValue` for each role, then resolves reversal from that average.
 
 ## Scale Contract
 
@@ -75,12 +77,13 @@ Defines the data models and orchestration for debate graph animation, supporting
 
 - Receives the pre-command `DebateCore` state and the command.
 - Resolves the opening and command-applied occurrence graphs, aggregate math, explicit intermediate score snapshots, and deterministic layout for each snapshot.
-- Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, and `wave` steps.
+- Produces one `DebateAnimationPlan` with an opening scalar frame and named `voila`, `sprout`, `firstFill`, `wave`, and `reorient` steps.
 - Authors explicit tracks for position, structural scale, target-stack offset, shell reveal, and fluid reveal.
   - During Voila, new-claim growth overlaps surrounding claim repositioning, connector endpoint movement, target-stack offset changes, junction expansion, and other structural changes needed to reach neutral command-applied staging. New connector shells remain hidden, and connector endpoints remain attached throughout.
   - During Sprout, only newly added connector shells reveal through the established staging layout. Relevance-shell reveal keeps its delayed start; scores and positions do not advance.
   - During First Fill, the new connector's fluid frontier advances with a same-length shell-profile handoff: direct-adjustment structural shell is behind the handoff and the temporary taper remains ahead. Both transitions use the same calculated spatial interval. During the contact portion, positions, scales, offsets, junction geometry, and related layout derived from the direct-adjustment snapshot may move while the fill finishes. Parent scores remain frozen.
   - Wave cannot overlap Voila, Sprout, or First Fill. It begins from the exact completed First Fill frame. The current single Wave simultaneously changes the first affected parent score and all geometry implied by that first-parent snapshot. Later parent propagation requires later waves and remains outside the current scope.
+  - Reorient follows Wave. It changes display side and content at its first frame, then interpolates the vertical-stack repacking, attachment offsets, and connector geometry implied by derived sides. Score values remain settled throughout Reorient.
 
 **Resolved frame**
 

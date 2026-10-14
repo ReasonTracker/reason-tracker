@@ -106,24 +106,34 @@ export function buildDebateFrame(args: {
 		const occurrence = getClaimOccurrence(args.resolvedMath, claimOccurrenceId);
 		const sourcesScale = resolveVisualScale(args, claimOccurrenceId);
 		const score = args.resolvedMath.claimScores[claimOccurrenceId];
-		const side = args.resolvedMath.sides[claimOccurrenceId];
-		if (!score || !side) {
+		const originalContent = args.resolvedMath.originalContents[claimOccurrenceId];
+		const derivedContent = args.resolvedMath.derivedContents[claimOccurrenceId];
+		const displayContent = args.resolvedMath.displayContents[claimOccurrenceId];
+		const originalSide = args.resolvedMath.originalSides[claimOccurrenceId];
+		const derivedSide = args.resolvedMath.derivedSides[claimOccurrenceId];
+		const displaySide = args.resolvedMath.displaySides[claimOccurrenceId];
+		if (!score || !originalContent || !derivedContent || !displayContent || !originalSide || !derivedSide || !displaySide) {
 			throw new Error(`Missing resolved presentation values for ${claimOccurrenceId}`);
 		}
 
 		frame.claims[claimOccurrenceId] = {
 			claimId: occurrence.claimId,
+			derivedContent,
+			derivedSide,
+			displayContent,
+			displaySide,
 			id: claimOccurrenceId,
 			opacity: 1,
+			originalContent,
+			originalSide,
+			originalValue: score.originalValue,
 			position: {
 				x: claimLeftEdgeX + ((args.options.claimWidth * sourcesScale) / 2),
 				y: claimCenterY,
 			},
-			rawScore: score.rawValue,
 			scale: sourcesScale,
-			score: score.value,
-			side,
 			sourcesScale,
+			value: score.value,
 		};
 
 		const clusters = getClaimLaneClusters(args.resolvedMath, occurrence);
@@ -233,8 +243,8 @@ function buildConnectionStates(args: {
 			);
 			const score = args.resolvedMath.claimScores[occurrence.sourceClaimOccurrenceId];
 			const connectorScore = args.resolvedMath.connectorScores[occurrence.id];
-			const side = args.resolvedMath.sides[occurrence.sourceClaimOccurrenceId];
-			if (!score || !connectorScore || !side) {
+			const displaySide = args.resolvedMath.displaySides[occurrence.sourceClaimOccurrenceId];
+			if (!score || !connectorScore || !displaySide) {
 				throw new Error(`Missing resolved connection values for ${occurrence.id}`);
 			}
 
@@ -265,7 +275,7 @@ function buildConnectionStates(args: {
 				relevanceConnectorOccurrenceIds: occurrence.relevanceConnectorOccurrenceIds,
 				score: score.value,
 				shellReveal: 1,
-				side,
+				displaySide,
 				sourceClaimOccurrenceId: occurrence.sourceClaimOccurrenceId,
 				sourceScale,
 				targetClaimOccurrenceId: occurrence.targetClaimOccurrenceId,
@@ -282,10 +292,10 @@ function buildConnectionStates(args: {
 				const relevanceScore = args.resolvedMath.claimScores[
 					relevanceOccurrence.sourceClaimOccurrenceId
 				];
-				const relevanceSide = args.resolvedMath.sides[
+				const relevanceDisplaySide = args.resolvedMath.displaySides[
 					relevanceOccurrence.sourceClaimOccurrenceId
 				];
-				if (!relevanceScore || !relevanceSide) {
+				if (!relevanceScore || !relevanceDisplaySide) {
 					throw new Error(`Missing resolved relevance values for ${relevanceOccurrence.id}`);
 				}
 
@@ -295,7 +305,7 @@ function buildConnectionStates(args: {
 					scale: relevanceScale,
 					score: relevanceScore.value,
 					shellReveal: 1,
-					side: relevanceSide,
+					displaySide: relevanceDisplaySide,
 					sourceClaimOccurrenceId: relevanceOccurrence.sourceClaimOccurrenceId,
 					targetConfidenceConnectorOccurrenceId:
 						relevanceOccurrence.targetConfidenceConnectorOccurrenceId,
@@ -320,7 +330,7 @@ function getClaimLaneClusters(
 					.map((connectorOccurrenceId) =>
 						getRelevanceOccurrence(resolvedMath, connectorOccurrenceId)
 					)
-					.sort(compareConnectorOccurrences)
+					.sort((left, right) => compareConnectorOccurrences(resolvedMath, left, right))
 					.map((relevanceOccurrence) => relevanceOccurrence.sourceClaimOccurrenceId),
 			],
 			confidenceOccurrence,
@@ -334,16 +344,18 @@ function getOrderedConfidenceOccurrences(
 ): PresentationConfidenceConnectorOccurrence[] {
 	return claimOccurrence.confidenceConnectorOccurrenceIds
 		.map((connectorOccurrenceId) => getConfidenceOccurrence(resolvedMath, connectorOccurrenceId))
-		.sort(compareConnectorOccurrences);
+		.sort((left, right) => compareConnectorOccurrences(resolvedMath, left, right));
 }
 
 function compareConnectorOccurrences(
+	resolvedMath: ResolvedPresentationMath,
 	left: PresentationConfidenceConnectorOccurrence | PresentationRelevanceConnectorOccurrence,
 	right: PresentationConfidenceConnectorOccurrence | PresentationRelevanceConnectorOccurrence,
 ): number {
-	const relationshipDifference = relationshipRank(left.targetRelationship)
-		- relationshipRank(right.targetRelationship);
-	return relationshipDifference || left.id.localeCompare(right.id);
+	const sideDifference = displaySideRank(
+		getRequiredDisplaySide(resolvedMath, left.sourceClaimOccurrenceId),
+	) - displaySideRank(getRequiredDisplaySide(resolvedMath, right.sourceClaimOccurrenceId));
+	return sideDifference || left.id.localeCompare(right.id);
 }
 
 function getClaimOccurrence(
@@ -428,8 +440,8 @@ function resolveCenteredOffsets(
 	});
 }
 
-function relationshipRank(relationship: "proTarget" | "conTarget"): number {
-	return relationship === "proTarget" ? 0 : 1;
+function displaySideRank(side: "proMain" | "conMain"): number {
+	return side === "proMain" ? 0 : 1;
 }
 
 function getRequiredNumber(value: number | undefined, label: string): number {
@@ -500,7 +512,7 @@ function resolveConfidenceTargetSideOffsets(args: {
 				args.resolvedMath.deliveryScales[occurrence.sourceClaimOccurrenceId],
 				`delivery scale for ${occurrence.sourceClaimOccurrenceId}`,
 			),
-			side: getRequiredSide(args.resolvedMath, occurrence.sourceClaimOccurrenceId),
+			side: getRequiredDisplaySide(args.resolvedMath, occurrence.sourceClaimOccurrenceId),
 		})),
 		parentHeight: args.options.claimHeight * getRequiredNumber(
 			args.resolvedMath.sourcesScales[args.claimOccurrence.id],
@@ -577,11 +589,11 @@ function resolvePackedClusterCenters(
 	));
 }
 
-function getRequiredSide(
+function getRequiredDisplaySide(
 	resolvedMath: ResolvedPresentationMath,
 	claimOccurrenceId: PresentationClaimOccurrenceId,
 ): "proMain" | "conMain" {
-	const side = resolvedMath.sides[claimOccurrenceId];
+	const side = resolvedMath.displaySides[claimOccurrenceId];
 	if (!side) {
 		throw new Error(`Missing side for ${claimOccurrenceId}`);
 	}

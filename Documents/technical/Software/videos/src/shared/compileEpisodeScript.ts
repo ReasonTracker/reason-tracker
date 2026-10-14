@@ -54,7 +54,8 @@ const GRAPH_PHASES = [
 	["voila", 1 / 4],
 	["sprout", 2 / 7],
 	["firstFill", 13 / 56],
-	["wave", 13 / 56],
+	["wave", 13 / 112],
+	["reorient", 13 / 112],
 ] as const satisfies readonly (readonly [AnimationStepId, number])[];
 
 const SUPPORTED_ACTION_TYPES = [
@@ -879,6 +880,8 @@ function compileGraphActions(
 				defaultConfidence: action.mainClaim.defaultConfidence,
 				defaultRelevance: action.mainClaim.defaultRelevance,
 				key: action.mainClaim.key,
+				reversible: action.mainClaim.reversible,
+				reversedContent: action.mainClaim.reversedContent,
 				side: "pro-main",
 				showScore: action.mainClaim.showScore ?? false,
 				text: action.mainClaim.text,
@@ -1021,6 +1024,8 @@ function compileGraphAddBatch(
 			defaultConfidence: action.defaultConfidence,
 			defaultRelevance: action.defaultRelevance,
 			key: action.key,
+			reversible: action.reversible,
+			reversedContent: action.reversedContent,
 			side: action.side,
 			showScore: action.showScore,
 			target: action.target,
@@ -1246,11 +1251,17 @@ function createAddCommand(
 }
 
 function createClaim(graphKey: string, definition: ClaimDefinition): Claim {
+	if (definition.reversedContent !== undefined && definition.reversible !== true) {
+		throw new Error(`Claim ${definition.key} provides reversedContent without reversible: true.`);
+	}
+
 	return {
 		content: definition.text,
 		defaultConfidence: definition.defaultConfidence,
 		defaultRelevance: definition.defaultRelevance,
 		id: claimId(graphKey, definition.key),
+		reversible: definition.reversible,
+		reversedContent: definition.reversedContent,
 	};
 }
 
@@ -1312,6 +1323,8 @@ function mergeClaimDefinition(
 		defaultConfidence: claim.defaultConfidence ?? existing?.defaultConfidence,
 		defaultRelevance: claim.defaultRelevance ?? existing?.defaultRelevance,
 		key: claim.key,
+		reversible: claim.reversible ?? existing?.reversible,
+		reversedContent: claim.reversedContent ?? existing?.reversedContent,
 		side: claim.side ?? existing!.side,
 		showScore: claim.showScore ?? existing?.showScore,
 		target: claim.target ?? existing?.target,

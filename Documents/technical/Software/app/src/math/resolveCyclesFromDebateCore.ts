@@ -14,7 +14,7 @@ import {
 	type ScoreCalculationStep,
 } from "./calculateScores.ts";
 import { NEUTRAL_RELEVANCE } from "./scoringAxioms.ts";
-import type { Score } from "./scoreTypes.ts";
+import type { Score, ScoreRole } from "./scoreTypes.ts";
 
 // AGENT NOTE: Keep cycle-resolution safety limits grouped here.
 /** Maximum number of connector subsets considered during exact break-set enumeration. */
@@ -47,6 +47,10 @@ type DependencyGraph = {
 }
 
 export type AggregatedClaimScore = Omit<Score, "scoreNodeId">;
+export type AggregatedClaimScoresByRole = Record<
+	ScoreRole,
+	Partial<Record<ClaimId, AggregatedClaimScore>>
+>;
 
 export type ConnectorScoreContribution = {
 	deliveryScore: number
@@ -57,6 +61,7 @@ export type ConnectorScoreContribution = {
 export type CycleBreakVariant = {
 	breakConnectorIds: ConnectorId[]
 	claimScores: Partial<Record<ClaimId, AggregatedClaimScore>>
+	claimScoresByRole: AggregatedClaimScoresByRole
 	connectorScores: Partial<Record<ConnectorId, ConnectorScoreContribution>>
 	graph: BuiltScoreGraphFromDebateCore
 	id: string
@@ -65,6 +70,7 @@ export type CycleBreakVariant = {
 
 export type CycleResolvedScoreResult = {
 	claimScores: Partial<Record<ClaimId, AggregatedClaimScore>>
+	claimScoresByRole: AggregatedClaimScoresByRole
 	connectorScores: Partial<Record<ConnectorId, ConnectorScoreContribution>>
 	cycleComponents: CycleComponent[]
 	reachableClaimIds: ClaimId[]
@@ -129,43 +135,50 @@ export function resolveCyclesFromDebateCore(
 		const excludedConnectorIds = new Set(breakConnectorIds);
 		const graph = buildScoreGraphFromDebateCore(debateCore, { excludedConnectorIds });
 		const mainScoreRun = calculateScoresWithSteps(graph.graph);
-		const claimScores: Partial<Record<ClaimId, AggregatedClaimScore>> = {};
+		const claimScoresByRole: AggregatedClaimScoresByRole = {
+			Relevance: {},
+			Score: {},
+		};
 
-		for (const claimId of reachableClaimIds) {
-			const claimGraph = claimId === debateCore.mainClaimId
-				? graph
-				: buildScoreGraphFromDebateCore(debateCore, {
-					excludedConnectorIds,
-					rootClaimId: claimId,
-				});
+		for (const role of ["Score", "Relevance"] as const) {
+			for (const claimId of reachableClaimIds) {
+				const claimGraph = role === "Score" && claimId === debateCore.mainClaimId
+					? graph
+					: buildScoreGraphFromDebateCore(debateCore, {
+						excludedConnectorIds,
+						rootAffects: role,
+						rootClaimId: claimId,
+					});
 
-			occurrenceNodeCount += Object.keys(claimGraph.graph.nodes).length;
-			if (occurrenceNodeCount > limits.maxOccurrenceNodes) {
-				throw new CycleResolutionTooComplexError({
-					candidateConnectorCount: candidateConnectorIds.length,
-					estimatedCandidateStates: breakSets.length,
-					limit: limits.maxOccurrenceNodes,
-					limitKind: "occurrenceNodes",
-				});
+				occurrenceNodeCount += Object.keys(claimGraph.graph.nodes).length;
+				if (occurrenceNodeCount > limits.maxOccurrenceNodes) {
+					throw new CycleResolutionTooComplexError({
+						candidateConnectorCount: candidateConnectorIds.length,
+						estimatedCandidateStates: breakSets.length,
+						limit: limits.maxOccurrenceNodes,
+						limitKind: "occurrenceNodes",
+					});
+				}
+
+				const scores = role === "Score" && claimId === debateCore.mainClaimId
+					? mainScoreRun.scores
+					: calculateScoresWithSteps(claimGraph.graph).scores;
+				const rootScore = scores[claimGraph.rootScoreNodeId];
+
+				if (!rootScore) {
+					throw new Error(`Missing root score for cycle variant claim: ${claimId}`);
+				}
+
+				claimScoresByRole[role][claimId] = toAggregatedClaimScore(rootScore);
 			}
-
-			const scores = claimId === debateCore.mainClaimId
-				? mainScoreRun.scores
-				: calculateScoresWithSteps(claimGraph.graph).scores;
-			const rootScore = scores[claimGraph.rootScoreNodeId];
-
-			if (!rootScore) {
-				throw new Error(`Missing root score for cycle variant claim: ${claimId}`);
-			}
-
-			claimScores[claimId] = toAggregatedClaimScore(rootScore);
 		}
 
 		return {
 			breakConnectorIds,
-			claimScores,
+			claimScores: claimScoresByRole.Score,
+			claimScoresByRole,
 			connectorScores: calculateVariantConnectorScores({
-				claimScores,
+				claimScoresByRole,
 				debateCore,
 				excludedConnectorIds,
 				reachableConnectorIds,
@@ -176,8 +189,14 @@ export function resolveCyclesFromDebateCore(
 		};
 	});
 
+	const claimScoresByRole: AggregatedClaimScoresByRole = {
+		Relevance: averageClaimScores(debateCore, reachableClaimIds, variants, "Relevance"),
+		Score: averageClaimScores(debateCore, reachableClaimIds, variants, "Score"),
+	};
+
 	return {
-		claimScores: averageClaimScores(reachableClaimIds, variants),
+		claimScores: claimScoresByRole.Score,
+		claimScoresByRole,
 		connectorScores: averageConnectorScores(reachableConnectorIds, variants),
 		cycleComponents,
 		reachableClaimIds,
@@ -448,7 +467,7 @@ function combinationsOfSize<T>(values: T[], size: number): T[][] {
 }
 
 function calculateVariantConnectorScores(args: {
-	claimScores: Partial<Record<ClaimId, AggregatedClaimScore>>
+	claimScoresByRole: AggregatedClaimScoresByRole
 	debateCore: DebateCore
 	excludedConnectorIds: ReadonlySet<ConnectorId>
 	reachableConnectorIds: ConnectorId[]
@@ -461,7 +480,9 @@ function calculateVariantConnectorScores(args: {
 			continue;
 		}
 
-		const sourceScore = args.claimScores[connector.source]?.value ?? 1;
+		const sourceScore = args.claimScoresByRole[
+			connector.type === "confidence" ? "Score" : "Relevance"
+		][connector.source]?.value ?? 1;
 		if (args.excludedConnectorIds.has(connector.id)) {
 			connectorScores[connector.id] = {
 				deliveryScore: 0,
@@ -473,7 +494,7 @@ function calculateVariantConnectorScores(args: {
 
 		const relevanceMultiplier = connector.type === "confidence"
 			? calculateConfidenceConnectorRelevance({
-				claimScores: args.claimScores,
+				claimScores: args.claimScoresByRole.Relevance,
 				confidenceConnector: connector,
 				debateCore: args.debateCore,
 				excludedConnectorIds: args.excludedConnectorIds,
@@ -509,11 +530,14 @@ function calculateConfidenceConnectorRelevance(args: {
 			continue;
 		}
 
-		const score = args.claimScores[connector.source]?.value ?? 1;
-		if (connector.targetRelationship === "proTarget") {
-			relevance *= 1 + score;
+		const directedValue = args.claimScores[connector.source]?.directedValue ?? 1;
+		const signedValue = connector.targetRelationship === "proTarget"
+			? directedValue
+			: -directedValue;
+		if (signedValue >= 0) {
+			relevance *= 1 + signedValue;
 		} else {
-			relevance *= 1 / (1 + Math.abs(score));
+			relevance *= 1 / (1 + Math.abs(signedValue));
 		}
 	}
 
@@ -521,22 +545,31 @@ function calculateConfidenceConnectorRelevance(args: {
 }
 
 function averageClaimScores(
+	debateCore: DebateCore,
 	claimIds: ClaimId[],
 	variants: CycleBreakVariant[],
+	role: ScoreRole,
 ): Partial<Record<ClaimId, AggregatedClaimScore>> {
 	const scores: Partial<Record<ClaimId, AggregatedClaimScore>> = {};
 
 	for (const claimId of claimIds) {
-		const contributions = variants.map((variant) => variant.claimScores[claimId]);
+		const contributions = variants.map((variant) => variant.claimScoresByRole[role][claimId]);
 		if (contributions.some((score) => !score)) {
 			throw new Error(`Missing claim contribution while averaging cycle variants: ${claimId}`);
 		}
 
+		const originalValue = average(contributions.map((score) => score?.originalValue ?? 0));
+		const reversible = debateCore.claims[claimId]?.reversible === true;
+		const reversed = reversible && originalValue < 0;
+		const value = reversible ? Math.abs(originalValue) : Math.max(0, originalValue);
+
 		scores[claimId] = {
 			claimId,
-			rawValue: average(contributions.map((score) => score?.rawValue ?? 0)),
+			directedValue: reversible ? originalValue : value,
+			originalValue,
+			reversed,
 			totalWeight: average(contributions.map((score) => score?.totalWeight ?? 0)),
-			value: average(contributions.map((score) => score?.value ?? 0)),
+			value,
 			weightedSum: average(contributions.map((score) => score?.weightedSum ?? 0)),
 		};
 	}
@@ -569,7 +602,9 @@ function averageConnectorScores(
 function toAggregatedClaimScore(score: Score): AggregatedClaimScore {
 	return {
 		claimId: score.claimId,
-		rawValue: score.rawValue,
+		directedValue: score.directedValue,
+		originalValue: score.originalValue,
+		reversed: score.reversed,
 		totalWeight: score.totalWeight,
 		value: score.value,
 		weightedSum: score.weightedSum,

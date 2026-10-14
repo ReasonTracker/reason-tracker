@@ -130,8 +130,10 @@ function scoreChanged(before?: Score, after?: Score): boolean {
 	}
 
 	return (
+		before.directedValue !== after.directedValue ||
+		before.originalValue !== after.originalValue ||
+		before.reversed !== after.reversed ||
 		before.value !== after.value ||
-		before.rawValue !== after.rawValue ||
 		before.weightedSum !== after.weightedSum ||
 		before.totalWeight !== after.totalWeight
 	);

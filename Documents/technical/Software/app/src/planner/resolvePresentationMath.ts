@@ -24,10 +24,16 @@ export type ResolvedPresentationMath = {
 		Record<PresentationConnectorOccurrenceId, ConnectorScoreContribution>
 	>
 	cycleResolution: CycleResolvedScoreResult
+	debateCore: DebateCore
 	deliveryScales: Partial<Record<PresentationClaimOccurrenceId, number>>
+	derivedContents: Partial<Record<PresentationClaimOccurrenceId, string>>
+	derivedSides: Partial<Record<PresentationClaimOccurrenceId, PresentationSide>>
+	displayContents: Partial<Record<PresentationClaimOccurrenceId, string>>
+	displaySides: Partial<Record<PresentationClaimOccurrenceId, PresentationSide>>
+	originalContents: Partial<Record<PresentationClaimOccurrenceId, string>>
+	originalSides: Partial<Record<PresentationClaimOccurrenceId, PresentationSide>>
 	parentFluidShares: Partial<Record<PresentationClaimOccurrenceId, number>>
 	presentationGraph: DebatePresentationGraph
-	sides: Partial<Record<PresentationClaimOccurrenceId, PresentationSide>>
 	sourcesScales: Partial<Record<PresentationClaimOccurrenceId, number>>
 };
 
@@ -53,7 +59,7 @@ export function resolvePresentationMath(
 	const connectorScores: ResolvedPresentationMath["connectorScores"] = {};
 
 	for (const occurrence of Object.values(presentationGraph.claimOccurrences)) {
-		const score = cycleResolution.claimScores[occurrence.claimId];
+		const score = cycleResolution.claimScoresByRole[occurrence.affects][occurrence.claimId];
 		if (!score) {
 			throw new Error(
 				`Missing aggregate score for presentation claim occurrence: ${occurrence.id}`,
@@ -75,7 +81,14 @@ export function resolvePresentationMath(
 		connectorScores[occurrence.id] = score;
 	}
 
-	const sides = calculatePresentationSides(presentationGraph);
+	const originalSides = calculatePresentationSides(presentationGraph);
+	const presentationDisplay = resolvePresentationDisplay({
+		claimScores,
+		debateCore,
+		displayMode: "derived",
+		originalSides,
+		presentationGraph,
+	});
 	const { deliveryScales, parentFluidShares, sourcesScales } = calculatePresentationScales({
 		connectorScores,
 		presentationGraph,
@@ -86,10 +99,12 @@ export function resolvePresentationMath(
 		claimScores,
 		connectorScores,
 		cycleResolution,
+		debateCore,
 		deliveryScales,
+		...presentationDisplay,
 		parentFluidShares,
 		presentationGraph,
-		sides,
+		originalSides,
 		sourcesScales,
 	};
 }
@@ -98,6 +113,7 @@ export function resolvePresentationMathSnapshot(args: {
 	basis: ResolvedPresentationMath
 	claimScores: ResolvedPresentationMath["claimScores"]
 	connectorScores: ResolvedPresentationMath["connectorScores"]
+	displayMode?: "derived" | "original"
 	rootSourcesScale: number
 }): ResolvedPresentationMath {
 	const presentationScales = calculatePresentationScales({
@@ -111,13 +127,70 @@ export function resolvePresentationMathSnapshot(args: {
 		...presentationScales,
 		claimScores: { ...args.claimScores },
 		connectorScores: { ...args.connectorScores },
+		...resolvePresentationDisplay({
+			claimScores: args.claimScores,
+			debateCore: args.basis.debateCore,
+			displayMode: args.displayMode ?? "derived",
+			originalSides: args.basis.originalSides,
+			presentationGraph: args.basis.presentationGraph,
+		}),
+	};
+}
+
+function resolvePresentationDisplay(args: {
+	claimScores: ResolvedPresentationMath["claimScores"]
+	debateCore: DebateCore
+	displayMode: "derived" | "original"
+	originalSides: ResolvedPresentationMath["originalSides"]
+	presentationGraph: DebatePresentationGraph
+}): Pick<
+	ResolvedPresentationMath,
+	"derivedContents" | "derivedSides" | "displayContents" | "displaySides" | "originalContents"
+> {
+	const derivedContents: ResolvedPresentationMath["derivedContents"] = {};
+	const derivedSides: ResolvedPresentationMath["derivedSides"] = {};
+	const displayContents: ResolvedPresentationMath["displayContents"] = {};
+	const displaySides: ResolvedPresentationMath["displaySides"] = {};
+	const originalContents: ResolvedPresentationMath["originalContents"] = {};
+
+	for (const occurrence of Object.values(args.presentationGraph.claimOccurrences)) {
+		const claim = args.debateCore.claims[occurrence.claimId];
+		const originalSide = args.originalSides[occurrence.id];
+		const score = args.claimScores[occurrence.id];
+		if (!claim || !originalSide || !score) {
+			throw new Error(`Missing resolved display state for ${occurrence.id}`);
+		}
+
+		const derivedSide = score.reversed ? flipSide(originalSide) : originalSide;
+		const originalContent = claim.content;
+		const derivedContent = score.reversed
+			? claim.reversedContent ?? originalContent
+			: originalContent;
+
+		derivedContents[occurrence.id] = derivedContent;
+		derivedSides[occurrence.id] = derivedSide;
+		displayContents[occurrence.id] = args.displayMode === "derived"
+			? derivedContent
+			: originalContent;
+		displaySides[occurrence.id] = args.displayMode === "derived"
+			? derivedSide
+			: originalSide;
+		originalContents[occurrence.id] = originalContent;
+	}
+
+	return {
+		derivedContents,
+		derivedSides,
+		displayContents,
+		displaySides,
+		originalContents,
 	};
 }
 
 function calculatePresentationSides(
 	graph: DebatePresentationGraph,
-): ResolvedPresentationMath["sides"] {
-	const sides: ResolvedPresentationMath["sides"] = {};
+): ResolvedPresentationMath["originalSides"] {
+	const sides: ResolvedPresentationMath["originalSides"] = {};
 
 	const assignSide = (
 		claimOccurrenceId: PresentationClaimOccurrenceId,
@@ -286,4 +359,8 @@ function resolveNonNegativeFinite(value: number): number {
 	}
 
 	return value;
+}
+
+function flipSide(side: PresentationSide): PresentationSide {
+	return side === "proMain" ? "conMain" : "proMain";
 }

@@ -88,9 +88,11 @@ const episode = {
 			hideScores: true,
 			mainClaim: {
 				key: "main",
-				text: "The United States would benefit overall from permanent Daylight Saving Time all year long. <small>Sunshine Protection Act.</small>",
+				text: "The United States should choose permanent Daylight Saving Time rather than permanent Standard Time, ending seasonal clock changes. <small>Sunshine Protection Act.</small>",
 				textReveal: true,
 				defaultConfidence: 0,
+				reversible: true,
+				reversedContent: "The United States should choose permanent Standard Time rather than permanent Daylight Saving Time, ending seasonal clock changes.",
 			},
 			claims: [],
 		},

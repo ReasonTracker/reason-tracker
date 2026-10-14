@@ -108,7 +108,7 @@ export function resolveDebateSceneGeometry(args: {
 				{ x: targetClaim.x + targetClaim.width + depth, y: targetClaim.y + targetClaim.height },
 				{ x: targetClaim.x + targetClaim.width, y: targetClaim.y + targetClaim.height },
 			],
-			side: targetState?.side ?? "proMain",
+			side: targetState?.displaySide ?? "proMain",
 		});
 	}
 
@@ -139,8 +139,8 @@ export function resolveDebateSceneGeometry(args: {
 				route: resolveRoute(sourcePort, targetPort, args.options),
 				shellReveal: connection.shellReveal,
 				shellWidth: targetPort.shellWidth,
-				shellPlacement: connection.side,
-				side: connection.side,
+				shellPlacement: connection.displaySide,
+				side: connection.displaySide,
 				sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 				sourcePort,
 				sourceShellWidth: sourcePort.shellWidth,
@@ -183,7 +183,7 @@ export function resolveDebateSceneGeometry(args: {
 			route: resolveRoute(sourcePort, confidenceTargetPort, args.options),
 			shellReveal: connection.shellReveal,
 			shellWidth: sourcePort.shellWidth,
-			side: connection.side,
+			side: connection.displaySide,
 			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort,
 			targetPort: confidenceTargetPort,
@@ -197,8 +197,8 @@ export function resolveDebateSceneGeometry(args: {
 			route: resolveRoute(deliverySourcePort, targetPort, args.options),
 			shellReveal: connection.shellReveal,
 			shellWidth: targetPort.shellWidth,
-			shellPlacement: connection.side,
-			side: connection.side,
+			shellPlacement: connection.displaySide,
+			side: connection.displaySide,
 			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort: deliverySourcePort,
 			sourceShellWidth: deliverySourcePort.shellWidth,
@@ -222,7 +222,7 @@ export function resolveDebateSceneGeometry(args: {
 				...relevanceStates.map((relevance) => relevance.scale),
 			)),
 			points: junctionPoints,
-			side: connection.side,
+			side: connection.displaySide,
 		});
 
 		for (const relevance of relevanceStates) {
@@ -276,7 +276,7 @@ function buildRelevanceBand(args: {
 		route: resolveRoute(sourcePort, targetPort, args.options),
 		shellReveal: args.relevance.shellReveal,
 		shellWidth,
-		side: args.relevance.side,
+		side: args.relevance.displaySide,
 		sourceClaimOccurrenceId: args.relevance.sourceClaimOccurrenceId,
 		sourcePort,
 		targetPort,

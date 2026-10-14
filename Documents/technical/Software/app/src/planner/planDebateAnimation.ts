@@ -69,13 +69,14 @@ export function planStaticDebate(
 	const sprout = buildAnimationStep("sprout", frame, frame, () => ({}));
 	const voila = buildAnimationStep("voila", frame, frame, () => ({}));
 	const wave = buildAnimationStep("wave", frame, frame, () => ({}));
+	const reorient = buildAnimationStep("reorient", frame, frame, () => ({}));
 
 	return {
 		bounds: resolveSceneBounds([frame], options.claimWidth, options.claimHeight),
 		origin: input.origin,
 		openingFrame: frame,
 		options,
-		steps: { firstFill, sprout, voila, wave },
+		steps: { firstFill, reorient, sprout, voila, wave },
 	};
 }
 
@@ -201,6 +202,19 @@ export function planDebateAnimationBatch(
 		options,
 		resolvedMath: waveResolvedMath,
 	}), firstFillFrame);
+	const reorientResolvedMath = resolveSnapshotMath(
+		settledResolvedMath,
+		waveResolvedMath.claimScores,
+		waveResolvedMath.connectorScores,
+		"derived",
+	);
+	const reorientFrame = preserveRevealState(buildDebateFrame({
+		debateCore: settledDebateCore,
+		origin: input.origin,
+		options,
+		resolvedMath: reorientResolvedMath,
+	}), waveFrame);
+	const reorientInitialFrame = applyDisplayState(waveFrame, reorientFrame);
 
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
 		easing: "smooth",
@@ -231,6 +245,12 @@ export function planDebateAnimationBatch(
 		waveFrame,
 		() => ({ easing: "smooth" }),
 	);
+	const reorient = buildAnimationStep(
+		"reorient",
+		reorientInitialFrame,
+		reorientFrame,
+		() => ({ easing: "smooth" }),
+	);
 
 	return {
 		bounds: resolveSceneBounds([
@@ -240,11 +260,12 @@ export function planDebateAnimationBatch(
 			sproutFrame,
 			firstFillFrame,
 			waveFrame,
+			reorientFrame,
 		], options.claimWidth, options.claimHeight),
 		origin: input.origin,
 		openingFrame,
 		options,
-		steps: { firstFill, sprout, voila, wave },
+		steps: { firstFill, reorient, sprout, voila, wave },
 	};
 }
 
@@ -492,7 +513,7 @@ function resolveFirstFillMath(args: {
 		);
 	}
 
-	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores);
+	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores, "original");
 }
 
 function resolveFirstWaveMath(args: {
@@ -514,7 +535,7 @@ function resolveFirstWaveMath(args: {
 		);
 	}
 
-	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores);
+	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores, "original");
 }
 
 function resolveFirstWaveImpact(
@@ -576,7 +597,9 @@ function resolvePlacementMath(args: {
 	)) {
 		claimScores[occurrence.id] = args.openingResolvedMath.claimScores[occurrence.id] ?? {
 			claimId: occurrence.claimId,
-			rawValue: 0,
+			directedValue: 0,
+			originalValue: 0,
+			reversed: false,
 			totalWeight: 0,
 			value: 0,
 			weightedSum: 0,
@@ -594,18 +617,57 @@ function resolvePlacementMath(args: {
 		};
 	}
 
-	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores);
+	return resolveSnapshotMath(args.settledResolvedMath, claimScores, connectorScores, "original");
+}
+
+function applyDisplayState(
+	frame: DebateFrame,
+	displayFrame: DebateFrame,
+): DebateFrame {
+	const resolvedFrame = cloneFrame(frame);
+
+	for (const claim of Object.values(resolvedFrame.claims)) {
+		const displayClaim = displayFrame.claims[claim.id];
+		if (!displayClaim) {
+			throw new Error(`Missing display claim frame: ${claim.id}`);
+		}
+
+		claim.displayContent = displayClaim.displayContent;
+		claim.displaySide = displayClaim.displaySide;
+	}
+
+	for (const connection of Object.values(resolvedFrame.confidenceConnections)) {
+		const displayConnection = displayFrame.confidenceConnections[connection.id];
+		if (!displayConnection) {
+			throw new Error(`Missing display confidence frame: ${connection.id}`);
+		}
+
+		connection.displaySide = displayConnection.displaySide;
+	}
+
+	for (const connection of Object.values(resolvedFrame.relevanceConnections)) {
+		const displayConnection = displayFrame.relevanceConnections[connection.id];
+		if (!displayConnection) {
+			throw new Error(`Missing display relevance frame: ${connection.id}`);
+		}
+
+		connection.displaySide = displayConnection.displaySide;
+	}
+
+	return resolvedFrame;
 }
 
 function resolveSnapshotMath(
 	basis: ResolvedPresentationMath,
 	claimScores: ResolvedPresentationMath["claimScores"],
 	connectorScores: ResolvedPresentationMath["connectorScores"],
+	displayMode: "derived" | "original" = "derived",
 ): ResolvedPresentationMath {
 	return resolvePresentationMathSnapshot({
 		basis,
 		claimScores,
 		connectorScores,
+		displayMode,
 		rootSourcesScale: basis.sourcesScales[basis.presentationGraph.rootClaimOccurrenceId] ?? 1,
 	});
 }
@@ -664,7 +726,9 @@ function claimScoresEqual(
 	right: ResolvedPresentationMath["claimScores"][PresentationClaimOccurrenceId],
 ): boolean {
 	return left?.claimId === right?.claimId
-		&& left?.rawValue === right?.rawValue
+		&& left?.directedValue === right?.directedValue
+		&& left?.originalValue === right?.originalValue
+		&& left?.reversed === right?.reversed
 		&& left?.totalWeight === right?.totalWeight
 		&& left?.value === right?.value
 		&& left?.weightedSum === right?.weightedSum;
@@ -701,10 +765,10 @@ function buildAnimationStep<TId extends AnimationStepId>(
 			opacity: createTrack(initial.opacity, target.opacity, resolveTiming({ field: "opacity", id: initial.id, kind: "claim" })),
 			positionX: createTrack(initial.position.x, target.position.x, resolveTiming({ field: "positionX", id: initial.id, kind: "claim" })),
 			positionY: createTrack(initial.position.y, target.position.y, resolveTiming({ field: "positionY", id: initial.id, kind: "claim" })),
-			rawScore: createTrack(initial.rawScore, target.rawScore, resolveTiming({ field: "rawScore", id: initial.id, kind: "claim" })),
+			originalValue: createTrack(initial.originalValue, target.originalValue, resolveTiming({ field: "originalValue", id: initial.id, kind: "claim" })),
 			scale: createTrack(initial.scale, target.scale, resolveTiming({ field: "scale", id: initial.id, kind: "claim" })),
-			score: createTrack(initial.score, target.score, resolveTiming({ field: "score", id: initial.id, kind: "claim" })),
 			sourcesScale: createTrack(initial.sourcesScale, target.sourcesScale, resolveTiming({ field: "sourcesScale", id: initial.id, kind: "claim" })),
+			value: createTrack(initial.value, target.value, resolveTiming({ field: "value", id: initial.id, kind: "claim" })),
 		});
 	}
 

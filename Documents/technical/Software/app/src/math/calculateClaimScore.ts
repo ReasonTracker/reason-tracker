@@ -20,13 +20,16 @@ export function calculateClaimScore(
     (graph.childrenByParentId?.[scoreNodeId]?.length ?? 0) === 0
       ? node.defaultScore
       : undefined,
+    node.reversible,
   );
 
   return {
     scoreNodeId,
     claimId: node.claimId,
+    directedValue: value.directedValue,
+    originalValue: value.originalValue,
+    reversed: value.reversed,
     value: value.value,
-    rawValue: value.rawValue,
     weightedSum: value.weightedSum,
     totalWeight: value.totalWeight,
   };

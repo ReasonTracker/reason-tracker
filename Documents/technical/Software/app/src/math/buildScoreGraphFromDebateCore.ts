@@ -5,7 +5,7 @@ import type {
 	RelevanceConnectorId,
 } from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
-import type { ScoreGraph, ScoreNode, ScoreNodeId } from "./scoreTypes.ts";
+import type { ScoreGraph, ScoreNode, ScoreNodeId, ScoreRole } from "./scoreTypes.ts";
 
 export interface BuiltScoreGraphFromDebateCore {
 	graph: ScoreGraph
@@ -18,6 +18,7 @@ export interface BuiltScoreGraphFromDebateCore {
 
 export interface BuildScoreGraphFromDebateCoreOptions {
 	excludedConnectorIds?: ReadonlySet<ConnectorId>
+	rootAffects?: ScoreRole
 	rootClaimId?: ClaimId
 }
 
@@ -55,6 +56,7 @@ export function buildScoreGraphFromDebateCore(
 		incomingConfidenceConnectorIdsByTargetClaimId,
 		incomingRelevanceConnectorIdsByTargetConfidenceConnectorId,
 		nodes,
+		affects: options.rootAffects ?? "Score",
 		scoreNodeId: rootScoreNodeId,
 		scoreNodeIdByConfidenceConnectorId,
 		scoreNodeIdsByConfidenceConnectorId,
@@ -109,6 +111,7 @@ function addClaimOccurrence(args: {
 		id: args.scoreNodeId,
 		parentId: args.parentId,
 		proParent: args.proParent,
+		reversible: claim.reversible === true,
 	};
 
 	if (args.confidenceConnectorId) {

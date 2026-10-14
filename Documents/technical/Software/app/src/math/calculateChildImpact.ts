@@ -17,7 +17,7 @@ export function calculateChildImpact(
     throw new Error(`Score child is missing proParent: ${child.id}`);
   }
   const sign = child.proParent ? PRO_PARENT_SIGN : CON_PARENT_SIGN;
-  const signedValue = childScore.value * sign;
+  const signedValue = childScore.directedValue * sign;
 
   return {
     scoreNodeId: child.id,

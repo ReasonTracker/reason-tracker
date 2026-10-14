@@ -8,6 +8,7 @@ import type {
 	RelevanceConnectorId,
 } from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
+import type { ScoreRole } from "../math/scoreTypes.ts";
 
 const DEFAULT_MAX_PRESENTATION_OCCURRENCES = 100_000;
 
@@ -20,6 +21,7 @@ export type PresentationConnectorOccurrenceId = string & {
 };
 
 export type PresentationClaimOccurrence = {
+	affects: ScoreRole
 	claimId: ClaimId
 	confidenceConnectorOccurrenceIds: PresentationConnectorOccurrenceId[]
 	id: PresentationClaimOccurrenceId
@@ -102,6 +104,7 @@ export function buildPresentationGraphFromDebateCore(
 	};
 
 	const addClaimOccurrence = (args: {
+		affects: ScoreRole
 		ancestorClaimIds: ReadonlySet<ClaimId>
 		claimId: ClaimId
 		id: PresentationClaimOccurrenceId
@@ -116,6 +119,7 @@ export function buildPresentationGraphFromDebateCore(
 		const terminal = args.ancestorClaimIds.has(args.claimId);
 		registerOccurrence();
 		graph.claimOccurrences[args.id] = {
+			affects: args.affects,
 			claimId: args.claimId,
 			confidenceConnectorOccurrenceIds: [],
 			id: args.id,
@@ -161,6 +165,7 @@ export function buildPresentationGraphFromDebateCore(
 				};
 				confidenceOccurrence.relevanceConnectorOccurrenceIds.push(connectorOccurrenceId);
 				addClaimOccurrence({
+					affects: "Relevance",
 					ancestorClaimIds: nextAncestorClaimIds,
 					claimId: connector.source,
 					id: sourceClaimOccurrenceId,
@@ -191,6 +196,7 @@ export function buildPresentationGraphFromDebateCore(
 			};
 			graph.claimOccurrences[args.id].confidenceConnectorOccurrenceIds.push(connectorOccurrenceId);
 			addClaimOccurrence({
+				affects: "Score",
 				ancestorClaimIds: nextAncestorClaimIds,
 				claimId: connector.source,
 				id: sourceClaimOccurrenceId,
@@ -202,6 +208,7 @@ export function buildPresentationGraphFromDebateCore(
 	};
 
 	addClaimOccurrence({
+		affects: "Score",
 		ancestorClaimIds: new Set(),
 		claimId: debateCore.mainClaimId,
 		id: graph.rootClaimOccurrenceId,

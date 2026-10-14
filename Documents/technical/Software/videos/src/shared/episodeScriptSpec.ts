@@ -153,6 +153,8 @@ const episodeClaimShape = {
 	defaultConfidence: z.number().finite().optional(),
 	defaultRelevance: z.number().finite().optional(),
 	key: authorKeySchema,
+	reversible: z.boolean().optional(),
+	reversedContent: nonEmptyStringSchema.optional(),
 	text: nonEmptyStringSchema,
 };
 
@@ -176,6 +178,8 @@ const graphClaimStateSchema = z.object({
 	defaultConfidence: z.number().finite().optional(),
 	defaultRelevance: z.number().finite().optional(),
 	key: authorKeySchema,
+	reversible: z.boolean().optional(),
+	reversedContent: nonEmptyStringSchema.optional(),
 	side: claimSideSchema.optional(),
 	target: claimTargetSchema.optional(),
 	text: nonEmptyStringSchema.optional(),

@@ -10,7 +10,7 @@ import type {
 import type { PlannerOptions } from "./contracts.ts";
 import type { PresentationSide } from "./resolvePresentationMath.ts";
 
-export type AnimationStepId = "voila" | "sprout" | "firstFill" | "wave";
+export type AnimationStepId = "voila" | "sprout" | "firstFill" | "wave" | "reorient";
 export type AnimationEasing = "linear" | "smooth";
 
 export type Point = {
@@ -28,14 +28,19 @@ export type NumberTrack = {
 
 export type ClaimFrameState = {
 	claimId: ClaimId
+	derivedContent: string
+	derivedSide: PresentationSide
+	displayContent: string
+	displaySide: PresentationSide
 	id: PresentationClaimOccurrenceId
 	opacity: number
+	originalContent: string
+	originalSide: PresentationSide
+	originalValue: number
 	position: Point
-	rawScore: number
 	scale: number
-	score: number
-	side: PresentationSide
 	sourcesScale: number
+	value: number
 };
 
 export type ConnectorVolumeTransition = {
@@ -55,7 +60,7 @@ export type ConfidenceConnectionFrameState = {
 	relevanceConnectorOccurrenceIds: PresentationConnectorOccurrenceId[]
 	score: number
 	shellReveal: number
-	side: PresentationSide
+	displaySide: PresentationSide
 	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
 	sourceScale: number
 	targetClaimOccurrenceId: PresentationClaimOccurrenceId
@@ -69,7 +74,7 @@ export type RelevanceConnectionFrameState = {
 	scale: number
 	score: number
 	shellReveal: number
-	side: PresentationSide
+	displaySide: PresentationSide
 	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
 	targetConfidenceConnectorOccurrenceId: PresentationConnectorOccurrenceId
 	targetSideOffset: number
@@ -90,7 +95,7 @@ export type DebateFrame = {
 
 type ClaimTracks = Partial<Record<
 	PresentationClaimOccurrenceId,
-	Partial<Record<"opacity" | "positionX" | "positionY" | "rawScore" | "scale" | "score" | "sourcesScale", NumberTrack>>
+	Partial<Record<"opacity" | "originalValue" | "positionX" | "positionY" | "scale" | "sourcesScale" | "value", NumberTrack>>
 >>;
 
 type ConfidenceConnectionTracks = Partial<Record<
@@ -130,6 +135,7 @@ export type DebateAnimationPlan = {
 	options: PlannerOptions
 	steps: {
 		firstFill: DebateAnimationStep<"firstFill">
+		reorient: DebateAnimationStep<"reorient">
 		sprout: DebateAnimationStep<"sprout">
 		voila: DebateAnimationStep<"voila">
 		wave: DebateAnimationStep<"wave">
@@ -159,10 +165,14 @@ export function resolveAnimationFrame(
 					x: resolveNumberTrack(tracks?.positionX, progress, item.position.x),
 					y: resolveNumberTrack(tracks?.positionY, progress, item.position.y),
 				},
-				rawScore: resolveNumberTrack(tracks?.rawScore, progress, item.rawScore),
+				originalValue: resolveNumberTrack(
+					tracks?.originalValue,
+					progress,
+					item.originalValue,
+				),
 				scale: resolveNumberTrack(tracks?.scale, progress, item.scale),
-				score: resolveNumberTrack(tracks?.score, progress, item.score),
 				sourcesScale: resolveNumberTrack(tracks?.sourcesScale, progress, item.sourcesScale),
+				value: resolveNumberTrack(tracks?.value, progress, item.value),
 			};
 		}),
 		confidenceConnections: mapRecord(

@@ -42,7 +42,7 @@ export function DebateAnimationSurface({
 					progress: resolveClaimTextRevealProgress(currentFrame, reveal),
 				}]),
 			)}
-			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout" || stepId === "firstFill" || stepId === "wave"
+			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout" || stepId === "firstFill" || stepId === "wave" || stepId === "reorient"
 				? foregroundClaimIds
 				: undefined}
 			foregroundClaimIds={foregroundClaimIds}

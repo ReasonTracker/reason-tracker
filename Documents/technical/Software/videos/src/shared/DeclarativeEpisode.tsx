@@ -137,6 +137,7 @@ export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: Declar
 			|| playback.stepId === "sprout"
 			|| playback.stepId === "firstFill"
 			|| playback.stepId === "wave"
+			|| playback.stepId === "reorient"
 			? new Set(playback.animation.addedClaimIds)
 			: undefined;
 		return (
@@ -174,7 +175,7 @@ export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: Declar
 				<Scoreboard
 					height={scoreboard.height}
 					numberWidth={scoreboard.numberWidth}
-					score={mainClaim?.rawScore ?? 0}
+					score={mainClaim?.originalValue ?? 0}
 					thermometerWidth={scoreboard.thermometerWidth}
 				/>
 			</div>

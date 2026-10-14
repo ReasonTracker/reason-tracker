@@ -108,12 +108,11 @@ export function DebateGraph({
 				<g data-layer="claims">
 					{claims.map((claim) => {
 						const claimGeometry = geometry.claims[claim.id];
-						const content = debateCore.claims[claim.claimId]?.content ?? String(claim.claimId);
 						if (!claimGeometry || claimGeometry.width <= 0 || claimGeometry.height <= 0) {
 							return null;
 						}
 
-						const color = sideColor(claim.side);
+						const color = sideColor(claim.displaySide);
 						const outlineWidth = resolveDebateGraphOutlineWidth(claim.scale);
 						return (
 							<g
@@ -156,12 +155,12 @@ export function DebateGraph({
 													: CLAIM_TEXT_FONT_SIZE,
 											}}
 										>
-											<ClaimMarkdown content={content} reveal={claimTextReveals?.[claim.claimId]} />
+											<ClaimMarkdown content={claim.displayContent} reveal={claimTextReveals?.[claim.claimId]} />
 										</div>
 										{showClaimScore?.(claim.claimId) ?? true
 											? (
 												<div style={scoreGroupStyle}>
-													<div style={scoreStyle}>{Math.round(claim.score * 100)}%</div>
+													<div style={scoreStyle}>{Math.round(claim.value * 100)}%</div>
 													<div style={scoreCaptionStyle}></div>
 												</div>
 											)

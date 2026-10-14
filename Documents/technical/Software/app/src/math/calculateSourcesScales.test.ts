@@ -112,6 +112,7 @@ function scoreNode(
         affects,
         claimId: id as unknown as ClaimId,
         id,
+        reversible: false,
         ...(parentId === undefined ? {} : { parentId }),
         ...(proParent === undefined ? {} : { proParent }),
     };
@@ -120,7 +121,9 @@ function scoreNode(
 function score(id: ScoreNodeId, value: number): Score {
     return {
         claimId: id as unknown as ClaimId,
-        rawValue: value,
+        directedValue: value,
+        originalValue: value,
+        reversed: false,
         scoreNodeId: id,
         totalWeight: 0,
         value,

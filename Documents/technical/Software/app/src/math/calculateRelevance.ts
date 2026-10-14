@@ -27,7 +27,7 @@ export function calculateRelevance(
       throw new Error(`Missing relevance child score: ${relevanceChildId}`);
     }
 
-    const signedValue = calculateRelevanceValue(child, childScore.value);
+    const signedValue = calculateRelevanceValue(child, childScore.directedValue);
 
     if (signedValue >= 0) {
       relevance *= 1 + signedValue;
