@@ -6,6 +6,10 @@
 // equation exactly as written (thin-space commas aside, which KaTeX renders
 // fine). If KaTeX fails to load or a formula fails to parse, the LaTeX
 // source stays visible.
+//
+// This file ships with the Muse branch: Netlify builds the branch on
+// every push (branch deploy), so changes here can be reviewed live
+// before they reach dev or main.
 (function () {
   var base = "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/";
 
