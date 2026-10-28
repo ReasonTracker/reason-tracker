@@ -1,0 +1,44 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=1in]{geometry}
+\pagestyle{empty}
+
+\begin{document}
+
+\section*{Reason Tracker scoring formula (simplified)}
+
+Assumptions: every claim is reversible, and the map has no cycles.
+
+Parent score:
+\begin{equation*}
+\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}.
+\end{equation*}
+
+Weight of one claim:
+\begin{equation*}
+\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|.
+\end{equation*}
+
+Relevance of one edge:
+\begin{equation*}
+\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}.
+\end{equation*}
+
+Base case: a claim with no child claims scores $1$.
+
+Definitions:
+\begin{itemize}
+  \item $n$: the parent claim.
+  \item $c$: a claim.
+  \item $\mathrm{isPro}_c$: $+1$ if $c$ is pro $n$, $-1$ if $c$ is con.
+  \item $\mathrm{score}$: score of a claim (subscript says which claim).
+  \item $\mathrm{weight}_c$: weight of claim $c$ (relevance $\times$
+        how much it stands).
+  \item $\rho_c$: relevance multiplier of claim $c$'s edge ($\rho$ in
+        the relevance section is this, for one edge).
+  \item $r$: a relevance claim on an edge.
+  \item $\mathrm{isPro}_r$: $+1$ if $r$ is pro importance, $-1$ if $r$
+        is con.
+\end{itemize}
+
+\end{document}
