@@ -39,11 +39,14 @@ A `score` is the claim's current standing after the entered claims are applied.
 
 A score of `1` means the claim has not been reduced. It does not mean the claim is proven. The system does not subtract points for information that has not been entered.
 
+A claim with an authored starting value (`defaultConfidence` / `defaultRelevance`) and no children scores that value instead of `1`.
+
 New information changes the score only when it is added as a claim and connected into the graph.
 
 ## Core rules
 
-- Claims start fully standing.
+- Claims start fully standing, unless an authored starting value (`defaultConfidence` / `defaultRelevance`) is set, in which case a claim with no children scores that value.
+- Reversibility is a per-claim flag: a non-reversible claim clamps negative standing at 0, while a reversible claim keeps the magnitude and exposes direction through `directedValue` (and a `reversed` flag).
 - Attacks reduce standing when they survive their own challenges.
 - Defenses matter by weakening attacks.
 - Relevance changes how much one claim affects another.
@@ -66,21 +69,19 @@ New information changes the score only when it is added as a claim and connected
 - Cycle-resolved presentation allocation consumes authoritative averaged `deliveryScore`; it does not multiply separately averaged score and relevance values.
 - Missing information has no hidden score effect.
 
-## Deferred math issue
-
-- Reversible score and relevance behavior is intentionally out of scope for the current contract pass. Reintroduce it only after the debate-core contract and the exact math semantics are approved.
-
 ## Suggested Reading path
 
 1. `scoringAxioms.ts`
-2. `calculateScoresFromDebateCore.ts` - DebateCore-first scoring entrypoint
-3. `resolveCyclesFromDebateCore.ts` - exact variant enumeration, audit data, and aggregate values
-4. `buildScoreGraphFromDebateCore.ts` - path-safe acyclic occurrence graph construction
-5. `calculateScores.ts` - strict acyclic scoring pass
-6. `calculateChildImpact.ts` - one child claim's effect on its parent
-7. `calculateClaimScore.ts` - one parent score from child impacts
-8. `calculateScoreValue.ts` - weighted value kernel
-9. `calculateRelevance.ts` - relevance multiplier
-10. `calculateSourcesScales.ts` - acyclic source-side scale kernel
-11. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
-12. `sortClaimsLeavesToRoot.ts` - acyclic evaluation order
+2. `scoreTypes.ts` - claim occurrences, scores, and impacts
+3. `calculateScoresFromDebateCore.ts` - DebateCore-first scoring entrypoint
+4. `resolveCyclesFromDebateCore.ts` - exact variant enumeration, audit data, and aggregate values
+5. `buildScoreGraphFromDebateCore.ts` - path-safe acyclic occurrence graph construction
+6. `calculateScores.ts` - strict acyclic scoring pass
+7. `calculateSides.ts` - main-claim side derivation (`proMain` / `conMain`) per occurrence
+8. `calculateChildImpact.ts` - one child claim's effect on its parent
+9. `calculateClaimScore.ts` - one parent score from child impacts
+10. `calculateScoreValue.ts` - weighted value kernel
+11. `calculateRelevance.ts` - relevance multiplier
+12. `calculateSourcesScales.ts` - acyclic source-side scale kernel
+13. `claimChildrenIdsByParentId.ts` - parent-to-children lookup
+14. `sortClaimsLeavesToRoot.ts` - acyclic evaluation order
