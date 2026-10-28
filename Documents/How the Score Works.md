@@ -2,13 +2,13 @@
 
 Most debates are hard to follow because reasons get shouted, not weighed. You hear ten arguments, but not which ones hold up in the map so far, which ones matter most, or where the disagreement really is.
 
-Reason Tracker draws a decision as a map, and scores it the same way every time.
+Reason Tracker draws a decision as a map, and scores it with the same formula every time.
 
 ## The score is a snapshot, not a verdict
 
-It is not a poll, not a probability that something is true, and not an AI deciding for you. It's a picture of the argument as entered so far, scored by [rules you can inspect](https://github.com/ReasonTracker/reason-tracker/blob/main/Documents/technical/Software/app/src/math/%F0%9F%93%8CREADME.md).
+It is not a poll, not a probability that something is true, and not an AI deciding for you. It's a picture of the argument as entered so far, scored by [a formula you can inspect](https://github.com/ReasonTracker/reason-tracker/blob/main/Documents/technical/Software/app/src/math/%F0%9F%93%8CREADME.md).
 
-The rules are fixed. The map is not. The score is only as complete and fair as the argument entered so far — change the map, and the score changes.
+The formula is fixed. The map is not. The score is only as complete and fair as the argument entered so far — change the map, and the score changes.
 
 Disagree with the result? The map shows you exactly where to push: challenge a claim, challenge its support, or challenge its relevance — and the score updates, in the open, for everyone to see.
 
