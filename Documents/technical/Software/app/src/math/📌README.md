@@ -31,6 +31,8 @@ Definitions:
 
 LaTeX source: [formula-simpler.tex](./formula-simpler.tex)
 
+## Introduction
+
 This file is the entry point for reading the scoring code.
 
 A `score` is the claim's current standing after the entered claims are applied.
