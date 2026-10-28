@@ -1,5 +1,36 @@
 # Scoring Math
 
+## Simplified formula
+
+For understanding, not the full contract. This form assumes every claim is reversible, and the map has no cycles.
+
+Parent score:
+
+$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
+
+Weight of one claim:
+
+$$\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|$$
+
+Relevance of one edge:
+
+$$\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
+
+Base case: a claim with no child claims scores 1.
+
+Definitions:
+
+- $n$: the parent claim.
+- $c$: a claim.
+- $\mathrm{isPro}_c$: $+1$ if $c$ is pro $n$, $-1$ if $c$ is con.
+- $\mathrm{score}$: score of a claim (subscript says which claim).
+- $\mathrm{weight}_c$: weight of claim $c$ (relevance × how much it stands).
+- $\rho_c$: relevance multiplier of claim $c$'s edge ($\rho$ in the relevance formula is this, for one edge).
+- $r$: a relevance claim on an edge.
+- $\mathrm{isPro}_r$: $+1$ if $r$ is pro importance, $-1$ if $r$ is con.
+
+LaTeX source: [formula-simpler.tex](./formula-simpler.tex)
+
 This file is the entry point for reading the scoring code.
 
 A `score` is the claim's current standing after the entered claims are applied.
@@ -32,37 +63,6 @@ New information changes the score only when it is added as a claim and connected
 - `calculateSourcesScales.ts` owns the canonical sibling allocation: base scale is `parentCapacity / max(1, totalDeliveryContributionWeight)`, and parent fluid shares use the same denominator.
 - Cycle-resolved presentation allocation consumes authoritative averaged `deliveryScore`; it does not multiply separately averaged score and relevance values.
 - Missing information has no hidden score effect.
-
-## Simplified formula
-
-For understanding, not the full contract. This form assumes every claim is reversible, and the map has no cycles.
-
-Parent score:
-
-$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
-
-Weight of one claim:
-
-$$\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|$$
-
-Relevance of one edge:
-
-$$\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
-
-Base case: a claim with no child claims scores 1.
-
-Definitions:
-
-- $n$: the parent claim.
-- $c$: a claim.
-- $\mathrm{isPro}_c$: $+1$ if $c$ is pro $n$, $-1$ if $c$ is con.
-- $\mathrm{score}$: score of a claim (subscript says which claim).
-- $\mathrm{weight}_c$: weight of claim $c$ (relevance × how much it stands).
-- $\rho_c$: relevance multiplier of claim $c$'s edge ($\rho$ in the relevance formula is this, for one edge).
-- $r$: a relevance claim on an edge.
-- $\mathrm{isPro}_r$: $+1$ if $r$ is pro importance, $-1$ if $r$ is con.
-
-LaTeX source: [formula-simpler.tex](./formula-simpler.tex)
 
 ## Deferred math issue
 
