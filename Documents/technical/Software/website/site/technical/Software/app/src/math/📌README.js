@@ -11,7 +11,8 @@
 // every push (branch deploy), so changes here can be reviewed live
 // before they reach dev or main.
 (function () {
-  var base = "https://cdn.jsdelivr.net/npm/katex@0.19.1/dist/";
+  var KATEX_VERSION = "0.19.1";
+var base = "https://cdn.jsdelivr.net/npm/katex@" + KATEX_VERSION + "/dist/";
 
   function loadCss(href) {
     var link = document.createElement("link");
