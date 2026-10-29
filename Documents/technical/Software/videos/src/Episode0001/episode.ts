@@ -243,7 +243,8 @@ const episode = {
 				objects: [
 					"argumentGraph",
 				],
-				"y%": -7,
+				"zoom%": 88,
+				"y%": -6,
 			},
 			offsetSeconds: -2,
 			duration: 4,

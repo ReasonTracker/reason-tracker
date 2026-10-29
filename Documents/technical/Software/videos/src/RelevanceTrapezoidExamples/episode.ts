@@ -446,6 +446,7 @@ const episode = {
 			target: {
 				offsetSeconds: 1,
 				objects: ["argumentGraph"],
+				"zoom%": 90,
 			},
 			duration: 3,
 			blocking: true,
