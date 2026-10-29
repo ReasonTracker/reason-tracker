@@ -206,6 +206,27 @@ export function applyDisplayState(
 	return resolvedFrame;
 }
 
+export function settleAggregatorScores(frame: DebateFrame): DebateFrame {
+	const settledFrame = cloneFrame(frame);
+	for (const connection of Object.values(settledFrame.confidenceConnections)) {
+		connection.aggregatorScore = connection.score;
+	}
+	return settledFrame;
+}
+
+/** The delivery aggregator fills in the step after its pipe fills, so it shows the previous step's pipe score. */
+export function trailAggregatorScores(frame: DebateFrame, previousFrame: DebateFrame): DebateFrame {
+	const trailingFrame = cloneFrame(frame);
+	for (const connection of Object.values(trailingFrame.confidenceConnections)) {
+		const previousConnection = previousFrame.confidenceConnections[connection.id];
+		if (!previousConnection) {
+			throw new Error(`Previous frame is missing confidence occurrence: ${connection.id}`);
+		}
+		connection.aggregatorScore = previousConnection.score;
+	}
+	return trailingFrame;
+}
+
 export function cloneFrame(frame: DebateFrame): DebateFrame {
 	return {
 		claims: mapRecord(frame.claims, (claim) => ({
@@ -214,6 +235,7 @@ export function cloneFrame(frame: DebateFrame): DebateFrame {
 		})),
 		confidenceConnections: mapRecord(frame.confidenceConnections, (connection) => ({
 			...connection,
+			aggregatorVolumeTransitions: [...connection.aggregatorVolumeTransitions],
 			relevanceConnectorOccurrenceIds: [...connection.relevanceConnectorOccurrenceIds],
 			volumeTransitions: [...connection.volumeTransitions],
 		})),

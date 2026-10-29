@@ -19,9 +19,11 @@ import {
 } from "./path-geometry/buildPathGeometry.ts";
 import { buildPathVolumeGeometry } from "./path-geometry/buildPathVolumeGeometry.ts";
 import {
+	resolveDeliveryAggregatorFlowGeometry,
 	resolveDeliveryAggregatorGeometry,
 	type DeliveryAggregatorGeometry,
 } from "./resolveDeliveryAggregatorGeometry.ts";
+import { calculateConnectorCorridor } from "./calculateConnectorCorridor.ts";
 import { resolveDebateGraphOutlineWidth } from "./debateGraphOutline.ts";
 
 const GEOMETRY_EPSILON = 1e-6;
@@ -91,7 +93,7 @@ export function resolveDebateSceneGeometry(args: {
 	) as Record<string, ClaimGeometry>;
 	const bands: SceneBandGeometry[] = [];
 	const deliveryAggregators: DeliveryAggregatorGeometry[] = [];
-	const aggregatorWidths = new Map<string, number>();
+	const aggregators = new Map<string, DeliveryAggregatorGeometry>();
 	const confidenceConnections = Object.values(args.frame.confidenceConnections);
 
 	for (const connection of confidenceConnections) {
@@ -105,9 +107,6 @@ export function resolveDebateSceneGeometry(args: {
 		const aggregator = resolveDeliveryAggregatorGeometry({
 			claimBounds: getClaimGeometry(claims, connection.sourceClaimOccurrenceId),
 			claimState,
-			incomingConnections: confidenceConnections.filter(
-				(incoming) => incoming.targetClaimOccurrenceId === connection.sourceClaimOccurrenceId,
-			),
 			options: args.options,
 			relevanceScales: relevanceStates.map((relevance) => relevance.scale),
 		});
@@ -115,7 +114,7 @@ export function resolveDebateSceneGeometry(args: {
 			continue;
 		}
 
-		aggregatorWidths.set(connection.sourceClaimOccurrenceId, aggregator.width);
+		aggregators.set(connection.sourceClaimOccurrenceId, aggregator);
 		deliveryAggregators.push(aggregator);
 		for (const relevance of relevanceStates) {
 			bands.push(buildRelevanceBand({
@@ -130,6 +129,7 @@ export function resolveDebateSceneGeometry(args: {
 	for (const connection of confidenceConnections) {
 		const sourceClaim = getClaimGeometry(claims, connection.sourceClaimOccurrenceId);
 		const targetClaim = getClaimGeometry(claims, connection.targetClaimOccurrenceId);
+		const aggregator = aggregators.get(connection.targetClaimOccurrenceId);
 		const sourcePort = horizontalPort({
 			center: { x: sourceClaim.x, y: sourceClaim.y + (sourceClaim.height / 2) },
 			outwardX: -1,
@@ -138,19 +138,21 @@ export function resolveDebateSceneGeometry(args: {
 		const targetPort = horizontalPort({
 			center: {
 				x: targetClaim.x + targetClaim.width
-					+ (aggregatorWidths.get(connection.targetClaimOccurrenceId) ?? 0),
+					+ (aggregator?.width ?? 0),
 				y: targetClaim.y + (targetClaim.height / 2) + connection.targetSideOffset,
 			},
 			outwardX: 1,
 			width: args.options.claimHeight * connection.deliveryTargetScale,
 		});
+		const route = resolveRoute(sourcePort, targetPort, args.options);
+		const targetShellWidth = args.options.claimHeight * connection.deliveryScale;
 
 		bands.push(buildSceneBand({
 			fluidScore: connection.score,
 			id: `${connection.id}:delivery`,
 			kind: "delivery",
 			outlineWidth: resolveDebateGraphOutlineWidth(connection.deliveryScale),
-			route: resolveRoute(sourcePort, targetPort, args.options),
+			route,
 			shellReveal: connection.shellReveal,
 			shellWidth: targetPort.shellWidth,
 			shellPlacement: connection.displaySide,
@@ -158,11 +160,35 @@ export function resolveDebateSceneGeometry(args: {
 			sourceClaimOccurrenceId: connection.sourceClaimOccurrenceId,
 			sourcePort,
 			sourceShellWidth: sourcePort.shellWidth,
-			targetShellWidth: args.options.claimHeight * connection.deliveryScale,
+			targetShellWidth,
 			targetPort,
 			widthTransitionStartPositionPercent: DELIVERY_TAPER_START_POSITION_PERCENT,
 			volumeTransitions: connection.volumeTransitions,
 		}));
+		if (aggregator) {
+			// The aggregator transitions repeat the pipe's previous-step transitions, so they share its
+			// front length, and the front keeps the pace it had across the pipe.
+			const transitionLengthPx = resolveDeliveryFrontLength({
+				sourceShellWidth: sourcePort.shellWidth,
+				targetShellWidth,
+				transitions: connection.aggregatorVolumeTransitions,
+			});
+			const pace = (estimateRouteLength(route) + transitionLengthPx)
+				/ Math.max(GEOMETRY_EPSILON, aggregator.width + transitionLengthPx);
+			const flow = resolveDeliveryAggregatorFlowGeometry({
+				aggregator,
+				connection,
+				options: args.options,
+				transitionLengthPx,
+				volumeTransitions: connection.aggregatorVolumeTransitions.map((transition) => ({
+					...transition,
+					progress: clamp01(transition.progress * pace),
+				})),
+			});
+			if (flow) {
+				aggregator.flows.push(flow);
+			}
+		}
 	}
 
 	return { bands, claims, deliveryAggregators };
@@ -241,11 +267,7 @@ function buildSceneBand(args: {
 		},
 		points: args.route,
 	}).points;
-	const growingFluidTransition = args.volumeTransitions.length === 1
-		&& (args.volumeTransitions[0]?.initialValue ?? 0) <= GEOMETRY_EPSILON
-		&& (args.volumeTransitions[0]?.finalValue ?? 0) > GEOMETRY_EPSILON
-		? args.volumeTransitions[0]
-		: undefined;
+	const growingFluidTransition = resolveGrowingFluidTransition(args.volumeTransitions);
 	const shell = growingFluidTransition && args.widthTransitionStartPositionPercent !== undefined
 		? buildMovingTaperShellBand({
 			finalValue: growingFluidTransition.finalValue,
@@ -312,6 +334,30 @@ function buildSceneBand(args: {
 		sourcePort: args.sourcePort,
 		targetPort: args.targetPort,
 	};
+}
+
+function resolveGrowingFluidTransition(
+	transitions: ConnectorVolumeTransition[],
+): ConnectorVolumeTransition | undefined {
+	return transitions.length === 1
+		&& (transitions[0]?.initialValue ?? 0) <= GEOMETRY_EPSILON
+		&& (transitions[0]?.finalValue ?? 0) > GEOMETRY_EPSILON
+		? transitions[0]
+		: undefined;
+}
+
+/** Front length a delivery pipe uses for these transitions, matching `buildSceneBand`. */
+function resolveDeliveryFrontLength(args: {
+	sourceShellWidth: number
+	targetShellWidth: number
+	transitions: ConnectorVolumeTransition[]
+}): number {
+	const growingFluidTransition = resolveGrowingFluidTransition(args.transitions);
+	if (growingFluidTransition) {
+		const finalValue = clamp01(growingFluidTransition.finalValue);
+		return Math.max(args.sourceShellWidth * finalValue, args.targetShellWidth * finalValue, 1);
+	}
+	return Math.max(args.sourceShellWidth, args.targetShellWidth);
 }
 
 function buildMovingTaperShellBand(args: {
@@ -567,13 +613,15 @@ function resolveRoute(
 		return [source.center, target.center];
 	}
 
-	const endpointRun = Math.min(options.connectorCurveLaneWidth, distance / 3);
-	const cornerRadius = Math.min(endpointRun, distance / 6);
+	const corridor = calculateConnectorCorridor({
+		bendRun: (Math.abs(target.center.x - source.center.x) * (1 - options.connectorStraightShare)) / 2,
+		straightShare: options.connectorStraightShare,
+	});
 
 	return [
 		source.center,
-		addScaled(source.center, source.outwardNormal, endpointRun, cornerRadius),
-		addScaled(target.center, target.outwardNormal, endpointRun, cornerRadius),
+		addScaled(source.center, source.outwardNormal, corridor.bendRun),
+		addScaled(target.center, target.outwardNormal, corridor.bendRun),
 		target.center,
 	];
 }
@@ -595,12 +643,10 @@ function addScaled(
 	point: Point,
 	vector: Point,
 	distance: number,
-	radius?: number,
 ): Waypoint {
 	return {
 		x: point.x + (vector.x * distance),
 		y: point.y + (vector.y * distance),
-		...(radius === undefined ? {} : { radius }),
 	};
 }
 

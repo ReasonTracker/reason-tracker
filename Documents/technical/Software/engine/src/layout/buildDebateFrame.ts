@@ -12,12 +12,11 @@ import type {
 	RelevanceConnectionFrameState,
 } from "../animation/DebateAnimationPlan.ts";
 import type { Point } from "../geometry/Point.ts";
+import { calculateConnectorCorridor } from "../geometry/calculateConnectorCorridor.ts";
 import type { PlannerOptions } from "../animation/contracts.ts";
 import type { ResolvedPresentationMath } from "./resolvePresentationMath.ts";
 
 // AGENT NOTE: Keep layout geometry tolerances and spacing/shape tuning grouped here.
-/** Scales the connector corridor width relative to the largest rendered child. */
-const CONNECTOR_COLUMN_WIDTH_MULTIPLIER = 1.5;
 /** Smallest rendered width or length treated as nonzero by contour packing. */
 const CONTOUR_GEOMETRY_EPSILON = 1e-6;
 /**
@@ -100,12 +99,12 @@ export function buildDebateFrame(args: {
 			? Math.max(...childOccurrences.map((occurrence) =>
 				resolveVisualScale(args, occurrence.sourceClaimOccurrenceId)))
 			: resolveSourcesScale(args.resolvedMath, claimOccurrenceId);
+		const connectorCorridor = calculateConnectorCorridor({
+			bendRun: args.options.claimHeight * childScale,
+			straightShare: args.options.connectorStraightShare,
+		});
 		return (args.options.claimWidth * resolveVisualScale(args, claimOccurrenceId))
-			+ (
-				args.options.connectorCurveLaneWidth
-				+ args.options.connectorDiagonalLaneWidth
-				+ args.options.connectorCurveLaneWidth
-			) * childScale * CONNECTOR_COLUMN_WIDTH_MULTIPLIER
+			+ connectorCorridor.width
 			+ resolveAggregatorWidth(claimOccurrenceId);
 	};
 
@@ -351,6 +350,8 @@ function buildConnectionStates(args: {
 			}
 
 			const state: ConfidenceConnectionFrameState = {
+				aggregatorScore: score.value,
+				aggregatorVolumeTransitions: [],
 				confidenceConnectorId: occurrence.confidenceConnectorId,
 				deliveryScore: connectorScore.deliveryScore,
 				deliveryScale,
@@ -757,9 +758,9 @@ function addPlacementConnectorContour(args: {
 
 	addRouteContour({
 		contour: args.contour,
-		curveLaneWidth: args.options.connectorCurveLaneWidth,
 		source,
 		sourceNormal: { x: -1, y: 0 },
+		straightShare: args.options.connectorStraightShare,
 		target,
 		targetNormal,
 		width,
@@ -768,9 +769,9 @@ function addPlacementConnectorContour(args: {
 
 function addRouteContour(args: {
 	contour: ClaimContour
-	curveLaneWidth: number
 	source: Point
 	sourceNormal: Point
+	straightShare: number
 	target: Point
 	targetNormal: Point
 	width: number
@@ -783,11 +784,14 @@ function addRouteContour(args: {
 		return;
 	}
 
-	const endpointRun = Math.min(args.curveLaneWidth, distance / 3);
+	const corridor = calculateConnectorCorridor({
+		bendRun: (Math.abs(args.target.x - args.source.x) * (1 - args.straightShare)) / 2,
+		straightShare: args.straightShare,
+	});
 	const points: Point[] = [
 		args.source,
-		addRouteWaypoint(args.source, args.sourceNormal, endpointRun),
-		addRouteWaypoint(args.target, args.targetNormal, endpointRun),
+		addRouteWaypoint(args.source, args.sourceNormal, corridor.bendRun),
+		addRouteWaypoint(args.target, args.targetNormal, corridor.bendRun),
 		args.target,
 	];
 	const halfWidth = Math.max(0, args.width) / 2;

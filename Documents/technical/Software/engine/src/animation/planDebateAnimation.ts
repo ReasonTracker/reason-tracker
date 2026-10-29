@@ -17,6 +17,8 @@ import {
 	buildVoilaFrame,
 	preserveOpeningFrameState,
 	preserveRevealState,
+	settleAggregatorScores,
+	trailAggregatorScores,
 } from "./animationFrameTransitions.ts";
 import {
 	assertScoreChangesLimitedTo,
@@ -28,6 +30,7 @@ import {
 import {
 	buildAnimationStep,
 	resolveSceneBounds,
+	type TrackAddress,
 } from "./buildAnimationStep.ts";
 import {
 	resolvePlannerOptions,
@@ -39,6 +42,13 @@ import {
 import type { DebateAnimationPlan } from "./DebateAnimationPlan.ts";
 
 const FIRST_FILL_LAYOUT_START_PROGRESS = 0.5;
+
+// Linear, like the First Fill score, so the aggregator front keeps the pipe front's pace.
+function resolveTrailingAggregatorTiming(address: TrackAddress) {
+	return address.field === "aggregatorScore"
+		? { easing: "linear" as const }
+		: { easing: "smooth" as const };
+}
 
 export function planStaticDebate(
 	input: Omit<PlannerInput, "command">,
@@ -127,23 +137,23 @@ export function planDebateAnimationBatch(
 		),
 		openingFrame,
 	);
-	const voilaInitialFrame = augmentOpeningFrame({
+	const voilaInitialFrame = settleAggregatorScores(augmentOpeningFrame({
 		addedClaimOccurrenceIds: commandImpact.addedClaimOccurrenceIds,
 		newConfidenceOccurrenceIds: commandImpact.newConfidenceOccurrenceIds,
 		newRelevanceOccurrenceIds: commandImpact.newRelevanceOccurrenceIds,
 		openingFrame,
 		stagingFrame: stagedAnimationFrame,
-	});
-	const voilaFrame = buildVoilaFrame({
+	}));
+	const voilaFrame = settleAggregatorScores(buildVoilaFrame({
 		newConfidenceOccurrenceIds: commandImpact.newConfidenceOccurrenceIds,
 		newRelevanceOccurrenceIds: commandImpact.newRelevanceOccurrenceIds,
 		stagingFrame: stagedAnimationFrame,
-	});
-	const sproutFrame = buildSproutFrame({
+	}));
+	const sproutFrame = settleAggregatorScores(buildSproutFrame({
 		newConfidenceOccurrenceIds: commandImpact.newConfidenceOccurrenceIds,
 		newRelevanceOccurrenceIds: commandImpact.newRelevanceOccurrenceIds,
 		voilaFrame,
-	});
+	}));
 	const firstFillResolvedMath = resolveFirstFillMath({
 		commandImpact,
 		settledResolvedMath,
@@ -159,12 +169,12 @@ export function planDebateAnimationBatch(
 		label: "First Fill",
 		to: firstFillResolvedMath,
 	});
-	const firstFillFrame = preserveRevealState(buildDebateFrame({
+	const firstFillFrame = trailAggregatorScores(preserveRevealState(buildDebateFrame({
 		debateCore: settledDebateCore,
 		origin: input.origin,
 		options,
 		resolvedMath: firstFillResolvedMath,
-	}), sproutFrame);
+	}), sproutFrame), sproutFrame);
 	const waveResolvedMath = resolveFirstWaveMath({
 		commandImpact,
 		firstFillResolvedMath,
@@ -181,24 +191,24 @@ export function planDebateAnimationBatch(
 		label: "Wave",
 		to: waveResolvedMath,
 	});
-	const waveFrame = preserveRevealState(buildDebateFrame({
+	const waveFrame = trailAggregatorScores(preserveRevealState(buildDebateFrame({
 		debateCore: settledDebateCore,
 		origin: input.origin,
 		options,
 		resolvedMath: waveResolvedMath,
-	}), firstFillFrame);
+	}), firstFillFrame), firstFillFrame);
 	const reorientResolvedMath = resolveSnapshotMath(
 		settledResolvedMath,
 		waveResolvedMath.claimScores,
 		waveResolvedMath.connectorScores,
 		"derived",
 	);
-	const reorientFrame = preserveRevealState(buildDebateFrame({
+	const reorientFrame = trailAggregatorScores(preserveRevealState(buildDebateFrame({
 		debateCore: settledDebateCore,
 		origin: input.origin,
 		options,
 		resolvedMath: reorientResolvedMath,
-	}), waveFrame);
+	}), waveFrame), waveFrame);
 	const reorientInitialFrame = applyDisplayState(waveFrame, reorientFrame);
 
 	const voila = buildAnimationStep("voila", voilaInitialFrame, voilaFrame, () => ({
@@ -228,13 +238,13 @@ export function planDebateAnimationBatch(
 		"wave",
 		firstFillFrame,
 		waveFrame,
-		() => ({ easing: "smooth" }),
+		resolveTrailingAggregatorTiming,
 	);
 	const reorient = buildAnimationStep(
 		"reorient",
 		reorientInitialFrame,
 		reorientFrame,
-		() => ({ easing: "smooth" }),
+		resolveTrailingAggregatorTiming,
 	);
 
 	return {

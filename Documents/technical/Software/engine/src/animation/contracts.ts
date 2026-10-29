@@ -1,15 +1,17 @@
 import type { DebateCommand } from "../debate-core/Commands.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
 import type { Point } from "../geometry/Point.ts";
+import { calculateConnectorCorridor } from "../geometry/calculateConnectorCorridor.ts";
 
 // #region Planner options
 export interface PlannerOptions {
     /** Edge-to-edge gap between sibling claim boxes along a claim lane's lane axis. This gap resolves at local `sourcesScale`. */
     claimLaneAxisGap: number
-    /** Width reserved for one curved connector segment on the cross-lane axis. */
-    connectorCurveLaneWidth: number
-    /** Width reserved for one connector diagonal segment on the cross-lane axis. */
-    connectorDiagonalLaneWidth: number
+    /**
+     * Fraction of the connector column reserved for its central straight section.
+     * The remaining width is divided equally between the two endpoint bends.
+     */
+    connectorStraightShare: number
     /** Claim width used when resolving claim edges from claim centers. */
     claimWidth: number
     /** Claim height used for claim bounds and derived pipe width. */
@@ -18,17 +20,18 @@ export interface PlannerOptions {
 
 export const defaultPlannerOptions: PlannerOptions = {
     claimLaneAxisGap: 50,
-    connectorCurveLaneWidth: 100,
-    connectorDiagonalLaneWidth: 50,
+    connectorStraightShare: 0.5,
     claimWidth: 360,
     claimHeight: 176,
 };
 
 export function resolvePlannerOptions(options?: Partial<PlannerOptions>): PlannerOptions {
-    return {
+    const resolved = {
         ...defaultPlannerOptions,
         ...options,
     };
+    calculateConnectorCorridor({ bendRun: 0, straightShare: resolved.connectorStraightShare });
+    return resolved;
 }
 
 // #endregion

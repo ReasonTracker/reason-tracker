@@ -46,7 +46,7 @@ The plan contains an occurrence-keyed opening `DebateFrame` and named `voila`, `
 ## Layout
 
 - `claimLaneAxisGap` is the edge-to-edge gap between sibling claim boxes along a lane axis. It resolves at local `sourcesScale`.
-- The delivery-connector corridor width is `(2 * connectorCurveLaneWidth + connectorDiagonalLaneWidth) * largestRenderedScale * 1.5 + deliveryAggregatorWidth`. Curve width also caps each straight connector end; diagonal width reserves the slanted middle.
+- The delivery-connector corridor width is `(2 * widestRenderedConnectorWidth) / (1 - connectorStraightShare) + deliveryAggregatorWidth`. `connectorStraightShare` reserves that fraction for the central straight section; the remaining width is divided equally between the two endpoint bends. Each bend run equals the widest rendered connector width, keeping both sides of the pipe rounded through the widest supported 90-degree turn.
 - Claim boxes are left-justified in their claim-lane band. A child column contains direct confidence children followed by relevance claims affecting that claim's delivery.
 - Confidence children prefer their matching delivery-stack port. The first relevance claim prefers the position below the delivery aggregator. Constrained packing uses ordered entries and horizontal contours of claims, aggregators, and routed connectors.
 - A delivery aggregator appears when relevance affects a claim's outgoing confidence connection. Its claim-side edge matches the claim height; its children-side edge is `claimHeight * sourcesScale`. Its top and bottom sides slant equally and reserve the combined width of incoming relevance connectors, lengthening as needed to remain at or below 45 degrees. Incoming delivery connectors pass through it, scaled by the ratio of the two edge lengths.
@@ -55,6 +55,7 @@ The plan contains an occurrence-keyed opening `DebateFrame` and named `voila`, `
 
 - Fill transitions specify initial and final numeric values. Geometry derives the moving frontier from track timing.
 - Fill travels from source to target. Increasing fill remains behind the frontier; decreasing fill retains the initial width ahead and the final width behind it.
+- Delivery fluid fills a delivery aggregator in the step after it fills the connector: First Fill connectors fill their aggregators during Wave, and Wave connectors fill theirs during Reorient. The aggregator front keeps the connector front's pace, and the aggregator scales each incoming stream toward the claim-side edge. Relevance connectors end at its bottom edge.
 - Sibling claims and target-edge connector stacks use one deterministic order: group `proTarget` before `conTarget`, then order by source position with a stable tie-breaker. Direct confidence children use this order; relevance claims follow in their own ordered list.
 - `targetSideOffset` is measured along the resolved target edge. Delivery connectors land on the target aggregator when present, otherwise on the target claim. Relevance connectors land perpendicular to the bottom edge of their aggregator; the nearest relevance claim lands farthest from the claim.
 - Delivery connectors share one centered parent-fluid stack. Every child participates, including zero-fluid children, whose `[cursor, cursor]` interval does not advance the cursor. Shells do not add spacing and may overlap.

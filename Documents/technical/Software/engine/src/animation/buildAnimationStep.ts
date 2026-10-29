@@ -54,6 +54,7 @@ export function buildAnimationStep<TId extends AnimationStepId>(
 		}
 
 		tracks.confidenceConnections[initial.id] = compactTracks({
+			aggregatorVolumeChanges: createTrackList(initial.aggregatorScore, target.aggregatorScore, resolveTiming({ field: "aggregatorScore", id: initial.id, kind: "confidence" })),
 			deliveryScore: createTrack(initial.deliveryScore, target.deliveryScore, resolveTiming({ field: "deliveryScore", id: initial.id, kind: "confidence" })),
 			deliveryScale: createTrack(initial.deliveryScale, target.deliveryScale, resolveTiming({ field: "deliveryScale", id: initial.id, kind: "confidence" })),
 			deliveryTargetScale: createTrack(initial.deliveryTargetScale, target.deliveryTargetScale, resolveTiming({ field: "deliveryTargetScale", id: initial.id, kind: "confidence" })),

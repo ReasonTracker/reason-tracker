@@ -1,10 +1,16 @@
 import type {
 	ClaimFrameState,
 	ConfidenceConnectionFrameState,
+	ConnectorVolumeTransition,
 } from "../animation/DebateAnimationPlan.ts";
 import type { Point } from "./Point.ts";
 import { resolveDeliveryAggregatorWidth } from "../layout/buildDebateFrame.ts";
 import type { PlannerOptions } from "../animation/contracts.ts";
+import { buildPathVolumeGeometry } from "./path-geometry/buildPathVolumeGeometry.ts";
+import type {
+	PathGeometry,
+	PathGeometryCommand,
+} from "./path-geometry/buildPathGeometry.ts";
 import { resolveDebateGraphOutlineWidth } from "./debateGraphOutline.ts";
 
 const GEOMETRY_EPSILON = 1e-6;
@@ -12,7 +18,7 @@ const GEOMETRY_EPSILON = 1e-6;
 export type DeliveryAggregatorQuad = [Point, Point, Point, Point];
 
 export type DeliveryAggregatorFlowGeometry = {
-	fluid?: DeliveryAggregatorQuad
+	fluid: PathGeometry[]
 	id: string
 	outlineWidth: number
 	shell: DeliveryAggregatorQuad
@@ -34,13 +40,12 @@ export type DeliveryAggregatorGeometry = {
 /**
  * Builds the trapezoid on a claim's children-facing side. Its claim-side edge matches the
  * claim box, its children-side edge matches the claim's base scale, and its width comes from
- * `resolveDeliveryAggregatorWidth`. Each incoming confidence connector continues through it,
+ * `resolveDeliveryAggregatorWidth`. Incoming confidence connectors continue through it,
  * scaled from the children-side edge to the claim-side edge.
  */
 export function resolveDeliveryAggregatorGeometry(args: {
 	claimBounds: { height: number; width: number; x: number; y: number }
 	claimState: ClaimFrameState
-	incomingConnections: readonly ConfidenceConnectionFrameState[]
 	options: PlannerOptions
 	relevanceScales: readonly number[]
 }): DeliveryAggregatorGeometry | undefined {
@@ -61,37 +66,10 @@ export function resolveDeliveryAggregatorGeometry(args: {
 	const claimEdgeX = args.claimBounds.x + args.claimBounds.width;
 	const childEdgeX = claimEdgeX + width;
 	const centerY = args.claimBounds.y + (args.claimBounds.height / 2);
-	const flowScale = childEdgeHeight <= GEOMETRY_EPSILON
-		? 0
-		: args.claimBounds.height / childEdgeHeight;
-	const toClaimEdge = (y: number) => centerY + ((y - centerY) * flowScale);
-	const quad = (top: number, bottom: number): DeliveryAggregatorQuad => [
-		{ x: claimEdgeX, y: toClaimEdge(top) },
-		{ x: childEdgeX, y: top },
-		{ x: childEdgeX, y: bottom },
-		{ x: claimEdgeX, y: toClaimEdge(bottom) },
-	];
-
-	const flows: DeliveryAggregatorFlowGeometry[] = [];
-	for (const connection of args.incomingConnections) {
-		const landing = resolveLanding(connection, args.options, centerY);
-		if (!landing) {
-			continue;
-		}
-		const shellInterval = anchoredInterval(landing.portY, landing.windowWidth, landing.shellWidth, connection.displaySide);
-		const fluidInterval = anchoredInterval(landing.portY, landing.windowWidth, landing.fluidWidth, connection.displaySide);
-		flows.push({
-			fluid: landing.fluidWidth > GEOMETRY_EPSILON ? quad(...fluidInterval) : undefined,
-			id: `${connection.id}:aggregator-flow`,
-			outlineWidth: resolveDebateGraphOutlineWidth(connection.deliveryScale),
-			shell: quad(...shellInterval),
-			side: connection.displaySide,
-		});
-	}
 
 	return {
 		childEdgeX,
-		flows,
+		flows: [],
 		id: `delivery-aggregator:${args.claimState.id}`,
 		outlineWidth: resolveDebateGraphOutlineWidth(Math.max(
 			args.claimState.scale,
@@ -109,38 +87,67 @@ export function resolveDeliveryAggregatorGeometry(args: {
 	};
 }
 
-/**
- * Matches the delivery band's cross-section where it meets the children-side edge.
- * Returns nothing while that band has not yet fully arrived.
- */
-function resolveLanding(
-	connection: ConfidenceConnectionFrameState,
-	options: PlannerOptions,
-	centerY: number,
-): { fluidWidth: number; portY: number; shellWidth: number; windowWidth: number } | undefined {
-	if (connection.shellReveal < 1 - GEOMETRY_EPSILON) {
+export function resolveDeliveryAggregatorFlowGeometry(args: {
+	aggregator: DeliveryAggregatorGeometry
+	connection: ConfidenceConnectionFrameState
+	options: PlannerOptions
+	transitionLengthPx: number
+	volumeTransitions: ConnectorVolumeTransition[]
+}): DeliveryAggregatorFlowGeometry | undefined {
+	if (args.connection.shellReveal < 1 - GEOMETRY_EPSILON || args.aggregator.width <= GEOMETRY_EPSILON) {
 		return undefined;
 	}
-	const transitions = connection.volumeTransitions;
-	const arrived = transitions.every((transition) => transition.progress >= 1 - GEOMETRY_EPSILON);
-	const growing = transitions.length === 1
-		&& (transitions[0]?.initialValue ?? 0) <= GEOMETRY_EPSILON
-		&& (transitions[0]?.finalValue ?? 0) > GEOMETRY_EPSILON;
-	if (growing && !arrived) {
-		return undefined;
-	}
-	const fluidValue = transitions.length === 0
-		? connection.score
-		: arrived
-			? transitions[transitions.length - 1]!.finalValue
-			: transitions[0]!.initialValue;
-	const shellWidth = options.claimHeight * Math.max(0, connection.deliveryTargetScale);
 
+	const centerY = (args.aggregator.points[1].y + args.aggregator.points[2].y) / 2;
+	const childHeight = args.aggregator.points[2].y - args.aggregator.points[1].y;
+	const claimHeight = args.aggregator.points[3].y - args.aggregator.points[0].y;
+	const flowScale = childHeight <= GEOMETRY_EPSILON ? 0 : claimHeight / childHeight;
+	const portY = centerY + args.connection.targetSideOffset;
+	const windowWidth = args.options.claimHeight * Math.max(0, args.connection.deliveryScale);
+	const shellWidth = args.options.claimHeight * Math.max(0, args.connection.deliveryTargetScale);
+	const shellInterval = anchoredInterval(portY, windowWidth, shellWidth, args.connection.displaySide);
+	const warpCommand = (command: PathGeometryCommand): PathGeometryCommand => {
+		if (command.kind === "arc") {
+			throw new Error("Delivery aggregator volume must use a straight reference path.");
+		}
+		const progress = (args.aggregator.childEdgeX - command.x) / args.aggregator.width;
+		const scale = 1 + ((flowScale - 1) * progress);
+		return { ...command, y: centerY + ((command.y - centerY) * scale) };
+	};
+	// Fluid entering from the delivery pipe matches its outlet, which tapers to `deliveryTargetScale`.
+	const outletRatio = windowWidth <= GEOMETRY_EPSILON ? 0 : shellWidth / windowWidth;
+	const fluid = buildPathVolumeGeometry({
+		placement: args.connection.displaySide === "proMain" ? "negativeEdge" : "positiveEdge",
+		points: [
+			{ x: args.aggregator.childEdgeX, y: portY },
+			{ x: args.aggregator.points[0].x, y: portY },
+		],
+		shellWidth: windowWidth,
+		stableValue: args.connection.aggregatorScore * outletRatio,
+		transitionLengthPx: args.transitionLengthPx,
+		transitions: args.volumeTransitions.map((transition) => ({
+			...transition,
+			finalValue: transition.finalValue * outletRatio,
+			initialValue: transition.initialValue * outletRatio,
+		})),
+	}).map((region) => ({
+		...region,
+		boundaryAPathCommands: region.boundaryAPathCommands.map(warpCommand),
+		boundaryBPathCommands: region.boundaryBPathCommands.map(warpCommand),
+	}));
+
+	const [top, bottom] = shellInterval;
 	return {
-		fluidWidth: shellWidth * Math.min(1, Math.max(0, fluidValue)),
-		portY: centerY + connection.targetSideOffset,
-		shellWidth,
-		windowWidth: options.claimHeight * Math.max(0, connection.deliveryScale),
+		fluid,
+		id: `${args.connection.id}:aggregator-flow`,
+		outlineWidth: resolveDebateGraphOutlineWidth(args.connection.deliveryScale),
+		shell: [
+			{ x: args.aggregator.points[0].x, y: centerY + ((top - centerY) * flowScale) },
+			{ x: args.aggregator.childEdgeX, y: top },
+			{ x: args.aggregator.childEdgeX, y: bottom },
+			{ x: args.aggregator.points[0].x, y: centerY + ((bottom - centerY) * flowScale) },
+		],
+		side: args.connection.displaySide,
 	};
 }
 

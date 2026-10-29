@@ -14,6 +14,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 
 - `buildPathGeometry`
 - `fitPathGeometryCorners`
+- `buildPathVolumeGeometry` for moving fluid volumes along a path
 - shared type contracts that describe path-geometry inputs and outputs
 - SVG path-data helpers for path-geometry command output
 
@@ -66,6 +67,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - `startPositionPercent` is measured as a percentage of total path length, and `lengthPx` is measured in pixels along the routed centerline.
 - A linear or curved extremity uses `collapseOffset` to define the edge shape across its span.
 - A curved transition is approximated by sampled intermediate boundary points along the routed path at a density that preserves the bow shape.
+- `buildPathVolumeGeometry` accepts `transitionLengthPx` so a volume can share the front length of a connected path.
 
 ## Validation Rules
 

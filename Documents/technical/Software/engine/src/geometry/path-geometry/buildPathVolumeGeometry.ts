@@ -24,6 +24,7 @@ export type PathVolumeGeometryInput = {
 	points: Waypoint[]
 	shellWidth: number
 	stableValue: number
+	transitionLengthPx?: number
 	transitions: readonly PathVolumeTransition[]
 };
 
@@ -48,7 +49,7 @@ export function buildPathVolumeGeometry(input: PathVolumeGeometryInput): PathGeo
 		.map((transition) => positionTransition(
 			transition,
 			routeLength,
-			shellWidth * VOLUME_TRANSITION_LENGTH_SCALE,
+			Math.max(0, input.transitionLengthPx ?? shellWidth * VOLUME_TRANSITION_LENGTH_SCALE),
 		))
 		.sort((left, right) => left.startPositionPercent - right.startPositionPercent);
 	if (transitions.length === 0) {

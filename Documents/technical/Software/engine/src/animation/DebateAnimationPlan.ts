@@ -46,6 +46,9 @@ export type ConnectorVolumeTransition = {
 };
 
 export type ConfidenceConnectionFrameState = {
+	/** Fluid level inside the target's delivery aggregator; it trails `score` by one step. */
+	aggregatorScore: number
+	aggregatorVolumeTransitions: ConnectorVolumeTransition[]
 	confidenceConnectorId: ConfidenceConnectorId
 	deliveryScore: number
 	deliveryScale: number
@@ -98,7 +101,7 @@ type ConfidenceConnectionTracks = Partial<Record<
 	Partial<Record<
 		"deliveryScale" | "deliveryScore" | "deliveryTargetScale" | "shellReveal" | "sourceScale" | "targetSideOffset",
 		NumberTrack
-	>> & { volumeChanges?: NumberTrack[] }
+	>> & { aggregatorVolumeChanges?: NumberTrack[], volumeChanges?: NumberTrack[] }
 >>;
 
 type RelevanceConnectionTracks = Partial<Record<
@@ -176,6 +179,11 @@ export function resolveAnimationFrame(
 				const tracks = step.tracks.confidenceConnections[item.id];
 				return {
 					...item,
+					aggregatorScore: tracks?.aggregatorVolumeChanges?.at(-1)?.to ?? item.aggregatorScore,
+					aggregatorVolumeTransitions: resolveVolumeTransitions(
+						tracks?.aggregatorVolumeChanges,
+						progress,
+					),
 					deliveryScore: resolveNumberTrack(
 						tracks?.deliveryScore,
 						progress,
@@ -304,6 +312,7 @@ function cloneFrame(frame: DebateFrame): DebateFrame {
 		})),
 		confidenceConnections: mapRecord(frame.confidenceConnections, (connection) => ({
 			...connection,
+			aggregatorVolumeTransitions: [...connection.aggregatorVolumeTransitions],
 			relevanceConnectorOccurrenceIds: [...connection.relevanceConnectorOccurrenceIds],
 			volumeTransitions: [...connection.volumeTransitions],
 		})),
