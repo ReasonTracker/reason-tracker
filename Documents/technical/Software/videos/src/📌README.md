@@ -4,7 +4,7 @@ This folder owns the Remotion root, episode definitions, and Remotion-only share
 
 ## Boundaries
 
-- Use app debate-core commands, reducer output, and layout as the source of truth for animated graph state.
+- Use `@reasontracker/engine` debate commands, scoring, and layout as the source of truth for animated graph state.
 - Keep episode-specific fixture data, story beats, and timing in declarative episode specifications when the shared episode vocabulary supports them.
 - Keep shared Remotion helpers in [Shared](./shared/📌README.md).
 - Keep reusable non-Remotion render primitives in `@reasontracker/components`.
@@ -13,7 +13,6 @@ This folder owns the Remotion root, episode definitions, and Remotion-only share
 ---
 
 <!-- autonav:start -->
-
 - [Component Visualizers](./component-visualizers/📌README.md)
 - [Math Explainer](./math-explainer/📌README.md)
 - [Episode0001](./Episode0001/📌README.md)

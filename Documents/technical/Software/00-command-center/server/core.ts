@@ -105,7 +105,7 @@ async function typecheckSoftware(reporter: CommandReporter) {
 async function buildWebsite(reporter: CommandReporter) {
   reporter.report("Running website build.");
   const result = await spawnCommand({
-    command: "vp run -F reason-tracker-repo-website build",
+    command: "vp run -F @reasontracker/website build",
     onOutput: (chunk) => {
       reporter.report(chunk);
       process.stdout.write(chunk);
@@ -290,4 +290,3 @@ async function stopProcessTree(pid: number) {
 function shellQuote(value: string) {
   return JSON.stringify(value);
 }
-

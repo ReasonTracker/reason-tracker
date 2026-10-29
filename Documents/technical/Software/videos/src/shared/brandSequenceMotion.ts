@@ -1,18 +1,6 @@
-type BrandSequenceState = {
-    reasonX: number;
-    trackerX: number;
-    wordOpacity: number;
-    taglineY: number;
-    taglineOpacity: number;
-};
+import * as sharedBrandSequenceMotion from "@reasontracker/website/brand-sequence-motion";
 
-// @ts-ignore Shared website motion module is plain JS so the static website can publish it directly.
-import * as sharedBrandSequenceMotion from "@website/modules/brand-sequence-motion.js";
-
-export const BRAND_SEQUENCE_END_FRAME: number = sharedBrandSequenceMotion.BRAND_SEQUENCE_END_FRAME;
-export const BRAND_SEQUENCE_TAGLINE: string = sharedBrandSequenceMotion.BRAND_SEQUENCE_TAGLINE;
-export const TAGLINE_CENTER_OFFSET: number = sharedBrandSequenceMotion.TAGLINE_CENTER_OFFSET;
-
-export const getBrandSequenceState = (frame: number): BrandSequenceState => {
-    return sharedBrandSequenceMotion.getBrandSequenceState(frame) as BrandSequenceState;
-};
+export const BRAND_SEQUENCE_END_FRAME = sharedBrandSequenceMotion.BRAND_SEQUENCE_END_FRAME;
+export const BRAND_SEQUENCE_TAGLINE = sharedBrandSequenceMotion.BRAND_SEQUENCE_TAGLINE;
+export const TAGLINE_CENTER_OFFSET = sharedBrandSequenceMotion.TAGLINE_CENTER_OFFSET;
+export const getBrandSequenceState = sharedBrandSequenceMotion.getBrandSequenceState;

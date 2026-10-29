@@ -1,16 +1,16 @@
 import { createElement } from "react";
 import { AbsoluteFill } from "remotion";
-import { z } from "zod";
 
 import {
 	buildPathGeometry,
 	type PathGeometryInput,
 	type PathGeometryInstruction,
-} from "@reasontracker/components/src/path-geometry/buildPathGeometry";
+} from "@reasontracker/engine/geometry/path-geometry/buildPathGeometry.ts";
 import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
-} from "@reasontracker/components/src/path-geometry/pathGeometrySvg";
+} from "@reasontracker/engine/geometry/path-geometry/pathGeometrySvg.ts";
+import type { PathGeometryVisualizerProps } from "./pathGeometryVisualizerSchema";
 
 // AGENT NOTE: Keep tunable numeric preview constants grouped here.
 /** Width of the Remotion preview canvas in pixels. */
@@ -32,59 +32,6 @@ const VISUALIZER_POINTS = [
 	{ x: 700, y: 780, radius: 120 },
 	{ x: 260, y: 780 },
 ] satisfies Array<{ x: number; y: number; radius?: number }>;
-
-const pipeWidthSchema = z.number().min(1).step(1);
-
-const offsetsSectionSchema = z.object({
-	type: z.literal("offsets"),
-	offsetA: z.number(),
-	offsetB: z.number(),
-});
-
-const linearExtremitySchema = z.object({
-	kind: z.literal("linear"),
-	startPositionPercent: z.number().min(0).max(100),
-	lengthPx: z.number().min(0).step(1),
-	collapseOffset: z.number(),
-});
-
-const curvedExtremitySchema = z.object({
-	kind: z.literal("curved"),
-	startPositionPercent: z.number().min(0).max(100),
-	lengthPx: z.number().min(0).step(1),
-	collapseOffset: z.number(),
-});
-
-const openExtremitySchema = z.object({
-	kind: z.literal("open"),
-	startPositionPercent: z.number().min(0).max(100),
-});
-
-const extremityEditorSchema = z.discriminatedUnion("kind", [
-	openExtremitySchema,
-	curvedExtremitySchema,
-	linearExtremitySchema,
-]);
-
-const transitionStepSchema = z.object({
-	type: z.literal("transition"),
-	startPositionPercent: z.number().min(0).max(100),
-	lengthPx: z.number().min(0).step(1),
-	kind: z.enum(["curved", "linear"]),
-});
-
-export const pathGeometryVisualizerSchema = z.object({
-	pipeWidth: pipeWidthSchema,
-	fluidLeadingExtremity: extremityEditorSchema,
-	fluidSections: z.array(
-		z.discriminatedUnion("type", [offsetsSectionSchema, transitionStepSchema]),
-	).min(1),
-	fluidTrailingExtremity: extremityEditorSchema,
-});
-
-export type PathGeometryVisualizerProps = z.infer<
-	typeof pathGeometryVisualizerSchema
->;
 
 export const PathGeometryVisualizer = (
 	props: PathGeometryVisualizerProps,

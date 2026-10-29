@@ -11,17 +11,7 @@ Use this file for organization rules that are broader than one package but more 
 - Reduce repeated repo-wide searching before routine edits.
 - Keep structural guidance in one canonical location instead of spreading it across many package docs.
 
-## Prototype Expectations
-
-This repository is currently a prototype.
-
-While the repository remains in prototype phase:
-
-- do not add or expand automated tests unless the prototype rule is explicitly changed
-- avoid routine change-log style documentation for normal iteration
-- update docs only when standing truth needs to stay accurate, such as structure, ownership, entrypoints, glossary terms, protected areas, or stable workflow rules
-
-Prototype work should optimize for iteration speed without letting durable guidance drift out of date.
+Follow the prototype and documentation rules in the root [Agent Steering](../../AGENTS.md).
 
 ## Documentation Layers
 

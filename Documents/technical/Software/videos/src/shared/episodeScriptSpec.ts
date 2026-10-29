@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Claim } from "@debate-core/Claim.ts";
+import type { Claim } from "@reasontracker/engine/debate-core/Claim.ts";
 
 const authorKeySchema = z.string()
 	.regex(/^[A-Za-z][A-Za-z0-9_-]*$/, "Use letters, numbers, underscores, or hyphens, starting with a letter.");

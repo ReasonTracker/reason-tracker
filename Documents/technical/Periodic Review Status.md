@@ -1,7 +1,6 @@
 # Periodic Review Status
 
 This file tracks when the next periodic repository reviews should be offered.
-It is current-state scheduling, not a historical log. Git tracks history.
 
 Reviews should be offered at a natural idle point, not during active implementation.
 The AI may choose the review approach, but should keep findings concise, actionable, and non-duplicative.

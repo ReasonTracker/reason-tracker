@@ -1,5 +1,4 @@
 import path from "node:path";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig, type ViteDevServer } from "vite";
 
 const commandCenterDir = path.resolve(import.meta.dirname);
@@ -7,7 +6,7 @@ const watchedServerDir = `${toPosixPath(path.join(commandCenterDir, "server"))}/
 const watchedBackendPaths = [path.join(commandCenterDir, "server")];
 
 export default defineConfig({
-  plugins: [tsconfigPaths(), commandCenterApiPlugin()],
+  plugins: [commandCenterApiPlugin()],
   server: {
     host: true,
   },

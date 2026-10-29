@@ -2,8 +2,8 @@ import { useId } from "react";
 import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
-} from "../path-geometry/pathGeometrySvg";
-import type { SceneBandGeometry } from "./resolveDebateSceneGeometry";
+} from "@reasontracker/engine/geometry/path-geometry/pathGeometrySvg.ts";
+import type { SceneBandGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
 import { DEBATE_GRAPH_COLORS, debateGraphSideColor } from "./visualConstants";
 
 // AGENT NOTE: Keep pipe rendering tuning constants together below the imports.

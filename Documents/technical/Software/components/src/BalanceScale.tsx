@@ -218,23 +218,6 @@ function calculateLabelRadius(distancePercent = 100): number {
     return READOUT_RADIUS + READOUT_LABEL_DISTANCE * distancePercent / 100;
 }
 
-function calculateLabelCenter(label: ReadoutLabelProps) {
-    return calculateReadoutTextPosition(
-        label.scorePercent,
-        calculateLabelRadius(label.distancePercent),
-        READOUT_LABEL_WRAP_WIDTH,
-    ).point;
-}
-
-function calculateLabelTop(label: ReadoutLabelProps): number {
-    const lines = wrapReadoutLabel(label.text);
-    const labelHeight = READOUT_LABEL_FONT_SIZE
-        + (lines.length - 1) * READOUT_LABEL_FONT_SIZE * 1.2
-        + READOUT_LABEL_PADDING * 2;
-    const labelAnchorPoint = readoutPointForScore(label.scorePercent, calculateLabelRadius(label.distancePercent));
-    return labelAnchorPoint.y - labelHeight;
-}
-
 function calculateScoreLabelWidth(scorePercent: number): number {
     return formatScoreLabel(scorePercent).length * READOUT_SCORE_FONT_SIZE * 0.7 + READOUT_LABEL_PADDING * 2;
 }

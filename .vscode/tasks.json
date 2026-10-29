@@ -4,13 +4,15 @@
     {
       "label": "00-command-center-open",
       "type": "shell",
-      "command": "npm",
+      "command": "vp",
       "args": [
         "run",
+        "-F",
+        "@reasontracker/00-command-center",
         "00:CommandCenter:open"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/Documents/technical/Software/00-command-center"
+        "cwd": "${workspaceFolder}/Documents/technical/Software"
       },
       "runOptions": {
         "runOn": "folderOpen"

@@ -1,18 +1,12 @@
-# 📌 Src
+# Component Source
 
-This folder owns the shared source entrypoints for the components package.
+This folder contains React components and their rendering-specific helpers.
 
-## Boundaries
+## Ownership
 
-- Keep Remotion-only hooks, playback helpers, and composition wiring out of this folder.
-- Prefer component-level boundaries that can render in both Remotion and web environments.
-- Add a local README for each subfolder that becomes its own responsibility boundary.
-- `debate-graph` owns shared claim, attachment-port, connector-band, and delivery-aggregator geometry plus the React/SVG renderer.
-
----
+- `debate-graph/` renders engine-owned debate geometry as SVG.
+- Shared layout, scoring, path, and scene geometry belong to [Engine](../../engine/📌README.md).
 
 <!-- autonav:start -->
-- [Claim Connector](./claim-connector/📌README.md)
-- [Path Geometry](./path-geometry/📌README.md)
 - [Debate Graph](./debate-graph/📌README.md)
 <!-- autonav:end -->

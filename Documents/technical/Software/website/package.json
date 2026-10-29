@@ -1,8 +1,14 @@
 {
-  "name": "reason-tracker-repo-website",
+  "name": "@reasontracker/website",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./brand-sequence-motion": {
+      "types": "./site/modules/brand-sequence-motion.d.ts",
+      "default": "./site/modules/brand-sequence-motion.js"
+    }
+  },
   "scripts": {
     "dev": "vp dev --host",
     "typecheck": "tsc --noEmit -p ./tsconfig.json",
@@ -15,7 +21,6 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "vite": "^6.3.5",
-    "vite-plus": "^0.1.16",
-    "vite-tsconfig-paths": "^6.0.0"
+    "vite-plus": "^0.1.16"
   }
 }

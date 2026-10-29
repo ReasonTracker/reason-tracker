@@ -1,12 +1,12 @@
 import { DebateGraph } from "@reasontracker/components";
-import type { ClaimId } from "@debate-core/Claim.ts";
-import type { DebateCore } from "@debate-core/Debate.ts";
+import type { ClaimId } from "@reasontracker/engine/debate-core/Claim.ts";
+import type { DebateCore } from "@reasontracker/engine/debate-core/Debate.ts";
 import {
 	resolveAnimationFrame,
 	type AnimationStepId,
 	type DebateAnimationPlan,
 	type DebateFrame,
-} from "@planner/DebateAnimationPlan.ts";
+} from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
 import { useCurrentFrame } from "remotion";
 import type { ClaimTextReveal } from "./compileEpisodeScript";
 

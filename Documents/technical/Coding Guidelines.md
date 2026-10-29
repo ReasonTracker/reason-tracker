@@ -31,6 +31,19 @@ These are implementation guidelines for repository code structure and file organ
 - Reduce file tree clutter.
 - Preserve clear and predictable structure while coding.
 
+## File Size And Naming
+
+- Keep implementation files at or below 300 lines when practical. Split larger files by responsibility; episode content and standalone AI references are exempt.
+- Use PascalCase filenames for React components and domain contracts. Use camelCase filenames for function modules, named after their main export.
+- Use `calculate` for math, `build` for construction, and `resolve` for deriving a value from existing state.
+
+## Standalone AI References
+
+- Write standalone reference files for an AI that has no repository or code access.
+- Put the complete contract, instructions, and examples in one file that remains useful when uploaded without the repository.
+- Prefer a TypeScript reference for TypeScript input formats. A compile-only import may verify compatibility with the runtime schema; authoring guidance must remain self-contained.
+- Mark the file clearly as an uploadable standalone AI reference.
+
 ## Prototype Abstraction Pressure
 
 - In prototype code, prefer one concrete class or one plain function over an interface plus a single implementation.
@@ -51,25 +64,16 @@ These are implementation guidelines for repository code structure and file organ
 - Higher layers may compose values for the owned contract, but they should not recreate the same behavior with clipping, visibility windows, duplicated transition math, or parallel props that drift from the source contract.
 - If the existing contract is insufficient, extend the owning layer or explicitly request a contract change there instead of working around it in the consumer.
 
-## Human Review Notes
-
-- When documentation in a technical area refers to review status, explicitly state the level of human review instead of using an unqualified word such as `reviewed`.
-- Prefer concrete phrases such as `API types reviewed by a human`, `implementation not yet reviewed by a human`, or `draft AI-generated implementation`.
-- Do not imply that code or behavior has human approval unless that approval is explicitly known.
-- When contract review and implementation review are at different levels, note both rather than collapsing them into one status.
-
 ## Tunable Constants Placement
 
 - For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.
 - Keep those constants grouped in one block and reference them in the implementation instead of inline magic numbers.
-- Add a short `AGENT NOTE` comment above the block when maintaining or introducing this pattern so future edits keep the constants in the same location.
-- Add symbol-level TSDoc or JSDoc comments to each tunable constant when the meaning is not obvious from the name alone.
-- Do not assume the reader knows specialized domain terms. If a constant uses a term such as `epsilon`, explain the practical meaning in plain language at the symbol itself.
-- Prefer comments that explain what changing the constant does to behavior, tolerances, or visual output.
+- Add a short `AGENT NOTE` only when keeping the constants together prevents a regression.
+- Add a concise comment only when the constant's behavior or effect is not clear from its name.
 
 ## Type Patterns
 
-- **PartialExceptId:** Use `PartialExceptId<T extends { id: unknown }>` (defined as `Partial<Omit<T, "id">> & { id?: T["id"] }`) for create/patch shapes that accept partial payloads but must preserve correct `id` typing when an `id` is supplied.
+- **Create/patch id types:** Use `CreateWithOptionalId<T>` when all create fields are required except an optional generated `id`. Use `PatchWithRequiredId<T>` when patch fields are optional but `id` is required.
 
 - **Forbid fields in union variants:** When a union member must forbid a field, prefer `field?: never` (e.g. `id?: never` or `source?: never`) over `field?: undefined` so TypeScript surfaces a clear compile-time error if the field is provided. After changes, run a type-check to validate downstream consumers.
 

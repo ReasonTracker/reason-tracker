@@ -18,8 +18,6 @@ From `Documents/technical/Software`:
 ```bash
 vp run website:dev
 vp run website:build
-vp run website:publish
-vp run website:preview
 vp run maintain:markdown
 ```
 

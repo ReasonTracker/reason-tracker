@@ -5,8 +5,8 @@ import { Composition } from "remotion";
 
 import {
 	PathGeometryVisualizer,
-	pathGeometryVisualizerSchema,
 } from "./component-visualizers/path-geometry/PathGeometryVisualizer";
+import { pathGeometryVisualizerSchema } from "./component-visualizers/path-geometry/pathGeometryVisualizerSchema";
 import { episodes } from "./episodeRegistry";
 
 const pathGeometryVisualizerComposition =

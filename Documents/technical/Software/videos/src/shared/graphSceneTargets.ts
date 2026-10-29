@@ -1,4 +1,4 @@
-import { resolveAnimationFrame } from "@planner/DebateAnimationPlan.ts";
+import { resolveAnimationFrame } from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
 
 import type { GraphPlayback, SceneTarget } from "./compileEpisodeScript";
 

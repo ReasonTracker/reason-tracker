@@ -5,20 +5,6 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "erasableSyntaxOnly": true,
-    "paths": {
-      "@app/*": [
-        "./app/src/*"
-      ],
-      "@debate-core/*": [
-        "./app/src/debate-core/*"
-      ],
-      "@planner/*": [
-        "./app/src/planner/*"
-      ],
-      "@website/*": [
-        "./website/site/*"
-      ]
-    }
+    "erasableSyntaxOnly": true
   }
 }

@@ -1,32 +1,24 @@
-# Shared
+# Shared Episode Runtime
 
-This folder owns Remotion-only helpers that are reused by episode compositions.
+This folder owns episode schema, scheduling, compilation, and Remotion playback helpers.
 
 ## Owns
 
-- relative cursor scheduling for blocking and nonblocking episode actions
-- validation and compilation of declarative episode action scripts
-- separate, self-contained [Episode JSON authoring](./Episode%20JSON%20Authoring.md) and [Episode TypeScript authoring](./Episode%20TypeScript%20Authoring.md) guides for human and AI script authors
-- generic Remotion playback for planner-backed declarative episodes
-- fade wrappers that expose visible Remotion `Sequence` ranges
-- graph animation orchestration through `GraphView`, `GraphEvents`, and `CameraMove`
-- transparent canvas and fixed camera layers for declarative episode visuals
-- explicit scene-camera actions that frame canvas-anchored graphs or stable claim keys
-- planner-frame playback through the shared `DebateGraph` React/SVG renderer
-- episode frame, template, and brand sequence wrappers
+- episode action schema and compilation
+- relative cursor scheduling for blocking and nonblocking actions
+- playback of planner-backed debate animations
+- Remotion scene camera and scene-object transitions
+- fade, caption, frame, template, and brand-sequence helpers
+- the [standalone episode-authoring reference](./EpisodeAuthoringReference.ts)
 
 ## Boundaries
 
 - Keep reusable non-Remotion render primitives in `@reasontracker/components`.
-- Keep domain state changes and layout calculation in app debate-core.
-- Keep episode-specific content, timing, graph events, and camera actions in episode scripts.
-- Keep both [Episode JSON authoring](./Episode%20JSON%20Authoring.md) and [Episode TypeScript authoring](./Episode%20TypeScript%20Authoring.md) synchronized whenever the script schema, supported options, defaults, or compiler behavior changes. Each guide must remain usable without the other.
-- Keep executable special behavior in an explicit typed extension rather than encoding code in JSON.
-- Do not invent alternate layout, scale, or graph-bound decisions in this folder; Remotion helpers should only select planner-produced frames.
-- Do not pre-apply later operation results to earlier frames. Camera helpers may frame a future graph state, but graph rendering helpers must keep operation-derived frames pure.
-- Do not recreate lower-level path-geometry behavior in this folder; ordered connector reveal and connector-width sweeps must be expressed through `@reasontracker/components` path-geometry instructions rather than host-side clipping or visibility-window props.
-
----
+- Keep debate domain changes, scoring, layout, and geometry in `@reasontracker/engine`.
+- Keep episode content, timing, graph actions, and camera actions in episode scripts.
+- Keep the standalone authoring reference synchronized with the schema and runtime behavior. Its type example must satisfy `EpisodeScriptSpecInput`.
+- Let the engine produce planner frames; playback selects and renders those frames.
+- Keep path geometry in the engine and SVG rendering in `@reasontracker/components`.
 
 <!-- autonav:start -->
 <!-- autonav:end -->

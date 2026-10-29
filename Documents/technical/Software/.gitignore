@@ -11,6 +11,8 @@ videos/out/
 
 **/dist/
 **/.vite/
+scripts/markdown-maintenance-report.md
+website/scripts/publish-website-report.md
 
 # Logs and local env
 *.log

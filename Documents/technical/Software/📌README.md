@@ -1,7 +1,5 @@
 # 📌 Software
 
-Prototype status: this repository is currently a prototype. Do not build or add tests until this rule is explicitly changed in the documentation and agent guidance
-
 ## Organization Pattern
 
 Software assets are organized as one asset per top-level folder.
@@ -11,14 +9,17 @@ New assets should be created as direct children of this folder (for example, `vi
 
 | Asset | Purpose | Main entrypoints | Status |
 | ----- | ------- | ---------------- | ------ |
+| Engine | Debate contracts, scoring, graph geometry, layout, and animation | `engine/src/debate-core/`, `scoring/`, `geometry/`, `layout/`, `animation/` | Active |
+| Components | Shared React/SVG rendering | `components/src/index.ts` | Active |
+| Website | Static site generation and website assets | `website/scripts/publish-website.mts` | Active |
+| Videos | Remotion compositions and episode scripts | `videos/src/Root.tsx` | Active |
+| 00 Command Center | Local workspace command launcher | `00-command-center/index.html` | Active |
 
 Use this table for fast routing. Read the linked package `📌README.md` files when the change needs local ownership or deeper workflow detail.
 
 ## Local Command Center
 
 Run `vp run -F @reasontracker/00-command-center 00:CommandCenter:open` from this folder to open the local Software command center. It is the default launcher for workspace operations through the current fixed command menu and focused Video page.
-
-Prefer Vite Plus (`vp`) over `pnpm` in this folder when an equivalent command exists. Docs: https://viteplus.dev/
 
 The root `tsconfig.json` in this folder is the shared TypeScript compiler-policy file for the Software monorepo. Package tsconfig files should extend it and only keep package-specific overrides.
 
@@ -29,7 +30,6 @@ This repo expects `rg` (ripgrep) to be available in the local developer shell by
 On a fresh Windows machine, run this once from the `Documents/technical/Software` folder:
 
 - `vp install`
-- `vp run developer:install`
 - `vp run developer:setup-machine`
 
 If Vite Plus is not available yet in the current shell, the direct fallback command is:
@@ -47,7 +47,7 @@ The setup script is intended to be idempotent: rerun it whenever you want the lo
 - [Website](./website/📌README.md)
 - [Scripts](./scripts/📌README.md)
 - [Components](./components/📌README.md)
-- [App](./app/📌README.md)
+- [Engine](./engine/📌README.md)
 - [00 Command Center](./00-command-center/📌README.md)
 - [Videos](./videos/📌README.md)
 - [Design](./design/📌README.md)

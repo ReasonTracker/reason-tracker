@@ -6,11 +6,14 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "files": [
     "src"
   ],
   "dependencies": {
-    "@reasontracker/app": "workspace:*",
+    "@reasontracker/engine": "workspace:*",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0"
   },

@@ -12,7 +12,6 @@
   },
   "devDependencies": {
     "vite": "^6.3.5",
-    "vite-plus": "^0.1.16",
-    "vite-tsconfig-paths": "^6.0.0"
+    "vite-plus": "^0.1.16"
   }
 }
