@@ -14,8 +14,6 @@ export interface PlannerOptions {
     claimWidth: number
     /** Claim height used for claim bounds and derived pipe width. */
     claimHeight: number
-    /** Outward depth for delivery and relevance aggregators. */
-    aggregatorDepth: number
 }
 
 export const defaultPlannerOptions: PlannerOptions = {
@@ -24,7 +22,6 @@ export const defaultPlannerOptions: PlannerOptions = {
     connectorDiagonalLaneWidth: 50,
     claimWidth: 360,
     claimHeight: 176,
-    aggregatorDepth: 36,
 };
 
 export function resolvePlannerOptions(options?: Partial<PlannerOptions>): PlannerOptions {

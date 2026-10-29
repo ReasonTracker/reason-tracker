@@ -340,7 +340,6 @@ function preserveOpeningFrameState(
 			frame.confidenceConnections[connection.id] = {
 				...connection,
 				...openingConnection,
-				junctionSpan: connection.junctionSpan,
 				relevanceConnectorOccurrenceIds: connection.relevanceConnectorOccurrenceIds,
 			};
 		}
@@ -782,7 +781,6 @@ function buildAnimationStep<TId extends AnimationStepId>(
 			deliveryScore: createTrack(initial.deliveryScore, target.deliveryScore, resolveTiming({ field: "deliveryScore", id: initial.id, kind: "confidence" })),
 			deliveryScale: createTrack(initial.deliveryScale, target.deliveryScale, resolveTiming({ field: "deliveryScale", id: initial.id, kind: "confidence" })),
 			deliveryTargetScale: createTrack(initial.deliveryTargetScale, target.deliveryTargetScale, resolveTiming({ field: "deliveryTargetScale", id: initial.id, kind: "confidence" })),
-			junctionSpan: createTrack(initial.junctionSpan, target.junctionSpan, resolveTiming({ field: "junctionSpan", id: initial.id, kind: "confidence" })),
 			shellReveal: createTrack(initial.shellReveal, target.shellReveal, resolveTiming({ field: "shellReveal", id: initial.id, kind: "confidence" })),
 			sourceScale: createTrack(initial.sourceScale, target.sourceScale, resolveTiming({ field: "sourceScale", id: initial.id, kind: "confidence" })),
 			targetSideOffset: createTrack(initial.targetSideOffset, target.targetSideOffset, resolveTiming({ field: "targetSideOffset", id: initial.id, kind: "confidence" })),

@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import rehypeRaw from "rehype-raw";
 import ReactMarkdown, { type Components } from "react-markdown";
 import "./claimMarkdown.css";
@@ -9,19 +9,17 @@ import type {
 	DebateFrame,
 } from "@planner/DebateAnimationPlan.ts";
 import type { PlannerOptions } from "@planner/contracts.ts";
+import { DeliveryAggregator } from "./DeliveryAggregator";
+import { Pipe } from "./Pipe";
+import { resolveDebateSceneGeometry } from "./resolveDebateSceneGeometry";
 import {
-	resolveDebateSceneGeometry,
-	type PolygonGeometry,
-	type SceneBandGeometry,
-} from "./resolveDebateSceneGeometry";
-import { resolveDebateGraphOutlineWidth } from "./visualConstants";
+	DEBATE_GRAPH_COLORS,
+	debateGraphSideColor,
+	resolveDebateGraphOutlineWidth,
+} from "./visualConstants";
 
-const COLORS = {
-	con: "var(--con)",
-	pro: "var(--pro)",
-	shell: "#151b24",
-	text: "#f8fafc",
-};
+// AGENT NOTE: Keep tunable rendering values together below imports.
+const COLORS = DEBATE_GRAPH_COLORS;
 const CLAIM_TEXT_FONT_SIZE = 18;
 const SCORELESS_CLAIM_TEXT_SCALE = 1.3;
 const CLAIM_MARKDOWN_ALLOWED_ELEMENTS = [
@@ -57,7 +55,6 @@ export type DebateGraphProps = {
 	claimTextReveals?: Readonly<Record<string, ClaimTextReveal>>
 	debateCore: DebateCore
 	diagnostics?: boolean
-	foregroundConnectorClaimIds?: ReadonlySet<ClaimId>
 	foregroundClaimIds?: ReadonlySet<ClaimId>
 	frame: DebateFrame
 	options: PlannerOptions
@@ -70,7 +67,6 @@ export function DebateGraph({
 	claimTextReveals,
 	debateCore,
 	diagnostics = false,
-	foregroundConnectorClaimIds,
 	foregroundClaimIds,
 	frame,
 	options,
@@ -82,12 +78,6 @@ export function DebateGraph({
 		Number(foregroundClaimIds?.has(left.claimId) ?? false)
 		- Number(foregroundClaimIds?.has(right.claimId) ?? false)
 	);
-	const foregroundConnectorBands = geometry.bands.filter((band) => {
-		const sourceClaim = frame.claims[band.sourceClaimOccurrenceId];
-		return sourceClaim !== undefined
-			&& (foregroundConnectorClaimIds?.has(sourceClaim.claimId) ?? false);
-	});
-	const regularBands = geometry.bands.filter((band) => !foregroundConnectorBands.includes(band));
 
 	return (
 		<div style={rootStyle}>
@@ -97,12 +87,25 @@ export function DebateGraph({
 				style={svgStyle}
 				viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
 			>
-				<g data-layer="connectors">
-					<ConnectorBands bands={regularBands} />
+				<g data-layer="pipe-shells">
+					{geometry.bands.map((band) => (
+						<Pipe band={band} key={band.id} layer="shell" />
+					))}
+					{geometry.deliveryAggregators.map((aggregator) => (
+						<DeliveryAggregator aggregator={aggregator} key={aggregator.id} layer="shell" />
+					))}
 				</g>
-				<g data-layer="aggregators">
-					{geometry.junctions.map((polygon) => (
-						<Aggregator key={polygon.id} polygon={polygon} />
+				<g data-layer="pipe-fluids">
+					{geometry.bands.map((band) => (
+						<Pipe band={band} fluidBorder key={band.id} layer="fluid" />
+					))}
+					{geometry.deliveryAggregators.map((aggregator) => (
+						<DeliveryAggregator aggregator={aggregator} key={aggregator.id} layer="fluid" />
+					))}
+				</g>
+				<g data-layer="aggregator-borders">
+					{geometry.deliveryAggregators.map((aggregator) => (
+						<DeliveryAggregator aggregator={aggregator} key={aggregator.id} layer="border" />
 					))}
 				</g>
 				<g data-layer="claims">
@@ -112,7 +115,7 @@ export function DebateGraph({
 							return null;
 						}
 
-						const color = sideColor(claim.displaySide);
+						const color = debateGraphSideColor(claim.displaySide);
 						const outlineWidth = resolveDebateGraphOutlineWidth(claim.scale);
 						return (
 							<g
@@ -171,13 +174,6 @@ export function DebateGraph({
 						);
 					})}
 				</g>
-				{foregroundConnectorBands.length > 0
-					? (
-						<g data-layer="foreground-connectors">
-							<ConnectorBands bands={foregroundConnectorBands} />
-						</g>
-					)
-					: null}
 				{diagnostics
 					? (
 						<g data-layer="diagnostics">
@@ -191,90 +187,6 @@ export function DebateGraph({
 			</svg>
 		</div>
 	);
-}
-
-function ConnectorBands({ bands }: { bands: readonly SceneBandGeometry[] }) {
-	return (
-		<>
-			{bands.map((band) => (
-				<ConnectorBand band={band} key={`${band.id}:shell`} layer="shell" />
-			))}
-			{bands.map((band) => (
-				<ConnectorBand band={band} key={`${band.id}:fluid`} layer="fluid" />
-			))}
-		</>
-	);
-}
-
-function ConnectorBand({
-	band,
-	layer,
-}: {
-	band: SceneBandGeometry
-	layer: "shell" | "fluid"
-}) {
-	const color = sideColor(band.side);
-	const issueCodes = band.diagnosticIssues.map((issue) => issue.code).join(" ") || undefined;
-	const pathData = layer === "shell" ? band.shellPathData : band.fluidPathData;
-	const clipPathId = useId();
-	if (!pathData) {
-		return null;
-	}
-
-	return (
-		<>
-			{layer === "shell"
-				? (
-					<defs>
-						<clipPath id={clipPathId}>
-							<path d={pathData} />
-						</clipPath>
-					</defs>
-				)
-				: null}
-			<g
-				data-band-layer={layer}
-				data-geometry-issues={issueCodes}
-				data-kind={band.kind}
-				data-occurrence-id={band.id}
-			>
-				<path
-					clipPath={layer === "shell" ? `url(#${clipPathId})` : undefined}
-					d={pathData}
-					fill={layer === "shell" ? COLORS.shell : color}
-					stroke={layer === "shell" ? color : undefined}
-					strokeWidth={layer === "shell" ? band.outlineWidth * 2 : undefined}
-				/>
-			</g>
-		</>
-	);
-}
-
-function Aggregator({ polygon }: { polygon: PolygonGeometry }) {
-	const clipPathId = useId();
-	const points = polygon.points.map((point) => `${point.x},${point.y}`).join(" ");
-	return (
-		<>
-			<defs>
-				<clipPath id={clipPathId}>
-					<polygon points={points} />
-				</clipPath>
-			</defs>
-			<polygon
-				clipPath={`url(#${clipPathId})`}
-				data-geometry-id={polygon.id}
-				fill={COLORS.shell}
-				points={points}
-				stroke={sideColor(polygon.side)}
-				strokeLinejoin="round"
-				strokeWidth={polygon.outlineWidth * 2}
-			/>
-		</>
-	);
-}
-
-function sideColor(side: "proMain" | "conMain"): string {
-	return side === "proMain" ? COLORS.pro : COLORS.con;
 }
 
 function ClaimMarkdown({

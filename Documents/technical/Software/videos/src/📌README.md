@@ -17,4 +17,5 @@ This folder owns the Remotion root, episode definitions, and Remotion-only share
 - [Component Visualizers](./component-visualizers/📌README.md)
 - [Math Explainer](./math-explainer/📌README.md)
 - [Episode0001](./Episode0001/📌README.md)
+- [RelevanceTrapezoidExamples](./RelevanceTrapezoidExamples/📌README.md)
 <!-- autonav:end -->

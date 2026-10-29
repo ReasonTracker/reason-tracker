@@ -61,7 +61,7 @@ export interface ConnectRelevanceCommand {
 
 - For `confidence/claim/add`, create the claim first, resolve its id, then create a confidence connector whose `source` is that claim id.
 - For `relevance/claim/add`, create the claim first, resolve its id, then create a relevance connector whose `source` is that claim id.
-- For `confidence/connect`, create the confidence connector exactly from the command payload.
+- For `confidence/connect`, create the confidence connector exactly from the command payload. Reject a connector whose `source` equals its `targetClaimId`; a claim connected to itself is invalid data.
 - For `relevance/connect`, create the relevance connector exactly from the command payload.
 
 ## Naming note

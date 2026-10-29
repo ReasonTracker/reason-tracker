@@ -47,9 +47,6 @@ export function DebateAnimationSurface({
 					progress: resolveClaimTextRevealProgress(currentFrame, reveal),
 				}]),
 			)}
-			foregroundConnectorClaimIds={stepId === "voila" || stepId === "sprout" || stepId === "firstFill" || stepId === "wave" || stepId === "reorient"
-				? foregroundClaimIds
-				: undefined}
 			foregroundClaimIds={foregroundClaimIds}
 			scoreless={hideScores}
 			showClaimScore={(claimId) => claimScoreVisibility[claimId] ?? true}

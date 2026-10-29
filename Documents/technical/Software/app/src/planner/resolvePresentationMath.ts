@@ -261,6 +261,12 @@ export function calculatePresentationScales(args: {
 			return;
 		}
 
+		const outgoingOccurrence = claimOccurrence.incomingConnectorOccurrenceId
+			? args.presentationGraph.connectorOccurrences[claimOccurrence.incomingConnectorOccurrenceId]
+			: undefined;
+		const relevanceOccurrenceIds = outgoingOccurrence?.type === "confidence"
+			? outgoingOccurrence.relevanceConnectorOccurrenceIds
+			: [];
 		const confidenceOccurrences = claimOccurrence.confidenceConnectorOccurrenceIds.map(
 			(connectorOccurrenceId) => {
 				const connectorOccurrence = args.presentationGraph.connectorOccurrences[
@@ -275,7 +281,7 @@ export function calculatePresentationScales(args: {
 				return connectorOccurrence;
 			},
 		);
-		if (confidenceOccurrences.length === 0) {
+		if (confidenceOccurrences.length === 0 && relevanceOccurrenceIds.length === 0) {
 			return;
 		}
 
@@ -307,22 +313,23 @@ export function calculatePresentationScales(args: {
 				allocation.sharedChildSourcesScale,
 				deliveryScale,
 			);
-
-			for (const relevanceOccurrenceId of occurrence.relevanceConnectorOccurrenceIds) {
-				const relevanceOccurrence = args.presentationGraph.connectorOccurrences[
-					relevanceOccurrenceId
-				];
-				if (!relevanceOccurrence || relevanceOccurrence.type !== "relevance") {
-					throw new Error(`Missing presentation relevance occurrence: ${relevanceOccurrenceId}`);
-				}
-
-				assignScales(
-					relevanceOccurrence.sourceClaimOccurrenceId,
-					allocation.sharedChildSourcesScale,
-					allocation.sharedChildSourcesScale,
-				);
-			}
 		});
+
+		// Relevance claims stack in this claim's child column, so they share its children's base scale.
+		for (const relevanceOccurrenceId of relevanceOccurrenceIds) {
+			const relevanceOccurrence = args.presentationGraph.connectorOccurrences[
+				relevanceOccurrenceId
+			];
+			if (!relevanceOccurrence || relevanceOccurrence.type !== "relevance") {
+				throw new Error(`Missing presentation relevance occurrence: ${relevanceOccurrenceId}`);
+			}
+
+			assignScales(
+				relevanceOccurrence.sourceClaimOccurrenceId,
+				allocation.sharedChildSourcesScale,
+				allocation.sharedChildSourcesScale,
+			);
+		}
 	};
 
 	assignScales(

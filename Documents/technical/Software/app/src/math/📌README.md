@@ -53,8 +53,9 @@ New information changes the score only when it is added as a claim and connected
 - `ScoreNodeId` means one claim occurrence in the acyclic scoring graph, not the reusable claim identity itself.
 - `calculateScoresFromDebateCore` resolves cyclic DebateCore input before invoking the acyclic scoring kernel.
 - Cycle resolution enumerates every inclusion-minimal connector break set that makes the main-claim dependency closure acyclic.
-- Every variant uses the same acyclic scorer. Claim fields and connector contributions are averaged across the full variant count.
-- A connector cut in one variant contributes zero in that variant. Resolution fails with a typed complexity error rather than sampling or truncating variants.
+- Every variant removes its cut connectors and runs only the claims that can reach a cycle through the same acyclic scorer; claims that cannot reach a cycle are scored once and shared by every variant.
+- Connector contributions are read from the scorer run rooted at the connector's target claim, never recalculated. Claim fields are averaged across the full variant count. A cut connector does not exist in its variant, so connector contributions are averaged only across the variants that keep that connector.
+- Resolution fails with a typed complexity error rather than sampling or truncating variants.
 - Cycle components and variants are retained for audit consumers but are not normal graph-display state.
 - Eventual `proMain` or `conMain` side derivation lives in math.
 - Source-side potential-scale derivation lives in math.
