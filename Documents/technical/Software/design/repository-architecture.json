@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "workspacePrefix": "Documents/technical/Software",
+  "workspaceFiles": [
+    ".gitignore",
+    "netlify.toml",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.json",
+    "📌README.md",
+    "vite.config.ts"
+  ],
+  "excludedPathSegments": [
+    ".git",
+    "dist",
+    "node_modules"
+  ],
+  "analysisRoots": [
+    "00-command-center",
+    "components/src",
+    "engine/src",
+    "scripts",
+    "videos/src",
+    "website/scripts",
+    "website/site"
+  ],
+  "areas": [
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "rootFiles": true,
+      "description": "Workspace orchestration and root configuration."
+    },
+    {
+      "id": "engine",
+      "root": "engine",
+      "packageName": "@reasontracker/engine",
+      "description": "Debate contracts, scoring, geometry, layout, and animation."
+    },
+    {
+      "id": "components",
+      "root": "components",
+      "packageName": "@reasontracker/components",
+      "description": "Reusable React and SVG rendering, including shared brand styles."
+    },
+    {
+      "id": "videos",
+      "root": "videos",
+      "packageName": "@reasontracker/video",
+      "description": "Remotion compositions, episode scripts, and video-owned assets."
+    },
+    {
+      "id": "website",
+      "root": "website",
+      "packageName": "@reasontracker/website",
+      "description": "Static website publishing, page augmentations, and site assets."
+    },
+    {
+      "id": "command-center",
+      "label": "00 Command Center",
+      "root": "00-command-center",
+      "packageName": "@reasontracker/00-command-center",
+      "description": "Local launcher for workspace commands and tools."
+    },
+    {
+      "id": "scripts",
+      "root": "scripts",
+      "description": "Shared workspace tooling and markdown routing rules."
+    },
+    {
+      "id": "design",
+      "root": "design",
+      "description": "Architecture definitions and software design documents."
+    }
+  ],
+  "allowedPackageImports": [
+    {
+      "from": "components",
+      "to": "engine"
+    },
+    {
+      "from": "videos",
+      "to": "components"
+    },
+    {
+      "from": "videos",
+      "to": "engine"
+    },
+    {
+      "from": "website",
+      "to": "components"
+    },
+    {
+      "from": "website",
+      "to": "videos"
+    },
+    {
+      "from": "command-center",
+      "to": "components"
+    }
+  ],
+  "allowedRelativeImports": [
+    {
+      "from": "website/scripts/publish-website.mts",
+      "to": "scripts/markdown-index-rules.mts",
+      "reason": "The website publisher consumes shared route rules owned by workspace tooling."
+    },
+    {
+      "from": "website/scripts/publish-website.mts",
+      "to": "scripts/published-package-assets.mts",
+      "reason": "The website publisher and architecture map share the package assets published by the website."
+    }
+  ],
+  "approvedRuntimeExceptions": [
+    {
+      "id": "command-center-remotion-launcher",
+      "file": "00-command-center/server/core.ts",
+      "symbol": "openRemotionStudio",
+      "locationMatch": "const videosDir = resolve(softwareDir, \"videos\");",
+      "target": "videos",
+      "reason": "The command center launches Remotion Studio from the videos workspace by setting its working directory; it does not import video code."
+    },
+    {
+      "id": "command-center-website-cleaner",
+      "file": "00-command-center/server/core.ts",
+      "symbol": "cleanWebsiteDist",
+      "locationMatch": "const websiteDistDir = resolve(softwareDir, \"website\", \"dist\");",
+      "target": "website/dist",
+      "reason": "The command center removes website build output as a launcher operation; it does not import website code."
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import path from "node:path";
+
 // Markdown routing settings shared by the website publisher and markdown maintenance.
 // Paths under this root folder are collapsed to root-level routes.
 export const COLLAPSED_SOURCE_ROOT_NAME = "Documents";
@@ -16,6 +18,63 @@ export function toVirtualPath(sourcePath: string): string {
     return normalized.slice(normalized.indexOf("/") + 1);
   }
   return normalized;
+}
+
+export function normalizeRouteSegment(value: string): string {
+  const ascii = String(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const collapsed = ascii
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return collapsed || "untitled";
+}
+
+export function normalizeDirectoryPath(sourcePath: string): string {
+  return toVirtualPath(sourcePath)
+    .split("/")
+    .filter(Boolean)
+    .map(normalizeRouteSegment)
+    .join("/");
+}
+
+export function toDirectoryOutputRelativePath(sourcePath: string): string {
+  const normalizedPath = normalizeDirectoryPath(sourcePath);
+  return normalizedPath ? `${normalizedPath}/index.html` : "index.html";
+}
+
+export function toDirectoryHref(sourcePath: string): string {
+  const outputPath = toDirectoryOutputRelativePath(sourcePath);
+  return outputPath === "index.html" ? "/" : `/${outputPath.slice(0, -"index.html".length)}`;
+}
+
+export function toFileOutputRelativePath(
+  normalizedDirectoryPath: string,
+  sourcePath: string,
+  siblingFiles: { has: (fileName: string) => boolean } | null = null,
+): string {
+  const fileName = sourcePath.replaceAll("\\", "/").split("/").pop() || sourcePath;
+  const extension = path.extname(fileName).toLowerCase();
+  const name = extension ? fileName.slice(0, -extension.length) : fileName;
+
+  if (extension === ".md") {
+    return joinRoutePath(normalizedDirectoryPath, normalizeRouteSegment(name), "index.html");
+  }
+
+  const hasCompanionMarkdown = siblingFiles?.has(`${fileName}.md`) ?? false;
+  const slug = extension
+    ? normalizeRouteSegment(`${name}-${extension.slice(1)}${hasCompanionMarkdown ? "-file" : ""}`)
+    : normalizeRouteSegment(`${name}${hasCompanionMarkdown ? "-file" : ""}`);
+
+  return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
+}
+
+function joinRoutePath(...segments: string[]): string {
+  return segments.filter(Boolean).join("/");
 }
 
 export function normalizeMdStemKey(fileName: string): string | null {

@@ -1,0 +1,285 @@
+body>main.doc-shell {
+  width: min(100% - 2rem, 1600px);
+  max-width: none;
+}
+
+#software-architecture-map {
+  --arch-radius: 0.8rem;
+  --arch-padding: 1rem;
+  margin-block: 1.5rem;
+}
+
+#software-architecture-map .arch-intro,
+#software-architecture-map .arch-muted {
+  color: var(--muted);
+}
+
+#software-architecture-map .arch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-block: 1rem;
+}
+
+#software-architecture-map input,
+#software-architecture-map button {
+  color: var(--text);
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--panel);
+  padding: 0.5rem 0.7rem;
+}
+
+#software-architecture-map input {
+  min-width: min(22rem, 100%);
+  flex: 1 1 16rem;
+}
+
+#software-architecture-map button {
+  cursor: pointer;
+}
+
+#software-architecture-map button:hover,
+#software-architecture-map button:focus-visible,
+#software-architecture-map input:focus-visible {
+  border-color: var(--pro);
+  outline: 2px solid color-mix(in srgb, var(--pro) 45%, transparent);
+  outline-offset: 1px;
+}
+
+#software-architecture-map .arch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-block: 0.75rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+#software-architecture-map .arch-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#software-architecture-map .arch-legend-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+#software-architecture-map .arch-legend-line {
+  flex: 0 0 auto;
+  width: 1.7rem;
+  border-top: 2px solid var(--con);
+}
+
+#software-architecture-map .arch-legend-dashed {
+  border-top-style: dashed;
+}
+
+#software-architecture-map .arch-repository-tree {
+  margin: 0;
+  padding: 0.8rem;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--arch-radius);
+  background: color-mix(in srgb, var(--bg) 62%, var(--panel));
+}
+
+#software-architecture-map .arch-repository-tree > li {
+  margin-block: 0.25rem;
+}
+
+#software-architecture-map .arch-repository-tree > li > details > summary {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+#software-architecture-map .arch-repository-tree > li > .arch-file {
+  display: inline-flex;
+}
+
+#software-architecture-map .arch-workspace-folder {
+  margin-block: 0.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--pro);
+  border-radius: 0.55rem;
+  background: var(--panel);
+}
+
+#software-architecture-map .arch-workspace-folder > summary {
+  color: var(--pro);
+  font-weight: 650;
+}
+
+#software-architecture-map .arch-workspace-content {
+  padding-top: 0.5rem;
+}
+
+#software-architecture-map .arch-workspace-path {
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+#software-architecture-map .arch-scroll {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--arch-radius);
+  background: color-mix(in srgb, var(--bg) 62%, var(--panel));
+  overscroll-behavior-inline: contain;
+}
+
+#software-architecture-map .arch-canvas {
+  position: relative;
+}
+
+#software-architecture-map .arch-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#software-architecture-map .arch-edge {
+  fill: none;
+  stroke: var(--con);
+  stroke-width: 2.4;
+  opacity: 0.78;
+}
+
+#software-architecture-map .arch-edge-declared {
+  stroke-dasharray: 6 5;
+}
+
+#software-architecture-map .arch-area-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: var(--arch-padding);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--pro);
+  border-right-color: var(--con);
+  border-radius: var(--arch-radius);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+#software-architecture-map .arch-area-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+#software-architecture-map .arch-area-heading h2 {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font-size: 1.05rem;
+}
+
+#software-architecture-map .arch-area-path,
+#software-architecture-map .arch-area-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.73rem;
+}
+
+#software-architecture-map .arch-area-path {
+  width: fit-content;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+#software-architecture-map .arch-area-path:hover,
+#software-architecture-map .arch-area-path:focus-visible {
+  color: var(--pro);
+}
+
+#software-architecture-map .arch-area-description {
+  min-height: 2.7em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+#software-architecture-map .arch-report {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+}
+
+#software-architecture-map .arch-report-section {
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--arch-radius);
+  background: var(--panel);
+}
+
+#software-architecture-map .arch-report-section h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+
+#software-architecture-map .arch-report-section p,
+#software-architecture-map .arch-report-section li {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+#software-architecture-map .arch-report-section ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+#software-architecture-map .arch-report-section li {
+  margin-block: 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+#software-architecture-map .arch-report-section code {
+  color: var(--text);
+}
+
+#software-architecture-map .arch-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--pro);
+  font-weight: 600;
+}
+
+#software-architecture-map .arch-status.has-findings {
+  color: var(--con);
+}
+
+#software-architecture-map .arch-error {
+  padding: 0.8rem;
+  border-left: 3px solid var(--con);
+  background: var(--panel);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+#software-architecture-map [hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  body>main.doc-shell {
+    width: min(100% - 1rem, 1600px);
+  }
+
+  #software-architecture-map {
+    --arch-padding: 0.75rem;
+  }
+}

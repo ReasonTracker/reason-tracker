@@ -9,6 +9,10 @@ const videosDir = resolve(softwareDir, "videos");
 const websiteDistDir = resolve(softwareDir, "website", "dist");
 const studioPort = Number.parseInt(process.env.REMOTION_STUDIO_PORT ?? "3000", 10);
 const studioUrl = `http://localhost:${studioPort}`;
+// Must match the website dev server port in website/vite.config.mts.
+const websiteDevPort = Number.parseInt(process.env.WEBSITE_DEV_PORT ?? "5174", 10);
+const websiteDevUrl = `http://localhost:${websiteDevPort}`;
+const architectureMapUrl = `${websiteDevUrl}/repository-architecture/`;
 const ansiEscapePattern = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
 type CommandRunResult = {
@@ -51,6 +55,18 @@ export async function runCommand(request: { command: string }, reporter: Command
 
   if (request.command === "clean-website-dist") {
     return cleanWebsiteDist(reporter);
+  }
+
+  if (request.command === "run-website-dev") {
+    return runWebsiteDev(reporter);
+  }
+
+  if (request.command === "open-architecture-map") {
+    return openArchitectureMap(reporter);
+  }
+
+  if (request.command === "stop-website-dev") {
+    return stopWebsiteDev(reporter);
   }
 
   if (request.command === "open-remotion-studio") {
@@ -118,6 +134,63 @@ async function cleanWebsiteDist(reporter: CommandReporter) {
   reporter.report(`Removing website build output at ${websiteDistDir}.`);
   await rm(websiteDistDir, { force: true, recursive: true });
   reporter.report("Website build output removed.", "complete");
+}
+
+async function runWebsiteDev(reporter: CommandReporter) {
+  if (await isPortOpen(websiteDevPort)) {
+    reporter.report(`Website dev server is already running at ${websiteDevUrl}.`, "complete");
+    return;
+  }
+
+  reporter.report("Generating architecture map.");
+  const mapResult = await spawnCommand({
+    command: "vp run architecture:map",
+    cwd: softwareDir,
+    onOutput: (chunk) => {
+      reporter.report(chunk);
+      process.stdout.write(chunk);
+    },
+  });
+
+  if (mapResult.status !== 0) {
+    reporter.report(`Architecture map generation failed with status ${mapResult.status}.`, "error");
+    return;
+  }
+
+  reporter.report("Starting website dev server.");
+  await spawnCommand({
+    command: "vp run website:dev",
+    cwd: softwareDir,
+    launchInTerminal: true,
+    resolveOnSpawn: true,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+
+  reporter.report(`Started website dev server at ${websiteDevUrl}.`, "complete");
+}
+
+async function openArchitectureMap(reporter: CommandReporter) {
+  if (!(await isPortOpen(websiteDevPort))) {
+    reporter.report("Website dev server is not running. Use Run first.", "complete");
+    return;
+  }
+
+  reporter.report(architectureMapUrl, "open-url");
+  reporter.report(`Opened ${architectureMapUrl}.`, "complete");
+}
+
+async function stopWebsiteDev(reporter: CommandReporter) {
+  const listenerPid = await getListeningProcessId(websiteDevPort);
+
+  if (listenerPid === null) {
+    reporter.report("Website dev server is not running.", "complete");
+    return;
+  }
+
+  reporter.report(`Stopping website dev server process tree rooted at ${listenerPid}.`);
+  await stopProcessTree(listenerPid);
+  reporter.report("Stopped website dev server.", "complete");
 }
 
 async function openRemotionStudio(reporter: CommandReporter) {

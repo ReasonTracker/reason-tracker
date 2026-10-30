@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "repositoryTree": {
+    "name": "Repository",
+    "path": ".",
+    "kind": "directory",
+    "children": [
+      {
+        "name": ".vscode",
+        "path": ".vscode",
+        "kind": "directory",
+        "children": []
+      },
+      {
+        "name": "Documents",
+        "path": "Documents",
+        "kind": "directory",
+        "children": [
+          {
+            "name": "technical",
+            "path": "Documents/technical",
+            "kind": "directory",
+            "children": [
+              {
+                "name": "Software",
+                "path": "Documents/technical/Software",
+                "kind": "workspace",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "layout": {
+    "width": 1660,
+    "height": 951
+  },
+  "areas": [
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "root": ".",
+      "path": "Software",
+      "href": "/technical/software/",
+      "description": "Workspace orchestration and root configuration.",
+      "fileCount": 8,
+      "packageName": null,
+      "exports": null,
+      "searchText": "workspace documents/technical/software workspace orchestration and root configuration.",
+      "width": 340,
+      "height": 200,
+      "$H": 277,
+      "x": 12,
+      "y": 12
+    },
+    {
+      "id": "engine",
+      "label": "Engine",
+      "root": "engine",
+      "path": "Software/engine",
+      "href": "/technical/software/engine/",
+      "description": "Debate contracts, scoring, geometry, layout, and animation.",
+      "fileCount": 60,
+      "packageName": "@reasontracker/engine",
+      "exports": {
+        "./debate-core/*": "./src/debate-core/*",
+        "./scoring/*": "./src/scoring/*",
+        "./geometry/*": "./src/geometry/*",
+        "./layout/*": "./src/layout/*",
+        "./animation/*": "./src/animation/*",
+        "./typeUtils": "./src/typeUtils.ts"
+      },
+      "searchText": "engine documents/technical/software/engine debate contracts, scoring, geometry, layout, and animation.",
+      "width": 340,
+      "height": 200,
+      "$H": 279,
+      "x": 1308,
+      "y": 739
+    },
+    {
+      "id": "components",
+      "label": "Components",
+      "root": "components",
+      "path": "Software/components",
+      "href": "/technical/software/components/",
+      "description": "Reusable React and SVG rendering, including shared brand styles.",
+      "fileCount": 16,
+      "packageName": "@reasontracker/components",
+      "exports": {
+        ".": "./src/index.ts",
+        "./brand.css": "./src/brand.css"
+      },
+      "searchText": "components documents/technical/software/components reusable react and svg rendering, including shared brand styles.",
+      "width": 340,
+      "height": 200,
+      "$H": 281,
+      "x": 876,
+      "y": 491
+    },
+    {
+      "id": "videos",
+      "label": "Videos",
+      "root": "videos",
+      "path": "Software/videos",
+      "href": "/technical/software/videos/",
+      "description": "Remotion compositions, episode scripts, and video-owned assets.",
+      "fileCount": 43,
+      "packageName": "@reasontracker/video",
+      "exports": {
+        ".": "./src/index.ts",
+        "./brandSequenceMotion": "./src/shared/brandSequenceMotion.ts",
+        "./brandSequence.css": "./src/shared/brandSequence.css"
+      },
+      "searchText": "videos documents/technical/software/videos remotion compositions, episode scripts, and video-owned assets.",
+      "width": 340,
+      "height": 200,
+      "$H": 283,
+      "x": 444,
+      "y": 739
+    },
+    {
+      "id": "website",
+      "label": "Website",
+      "root": "website",
+      "path": "Software/website",
+      "href": "/technical/software/website/",
+      "description": "Static website publishing, page augmentations, and site assets.",
+      "fileCount": 19,
+      "packageName": "@reasontracker/website",
+      "exports": {},
+      "searchText": "website documents/technical/software/website static website publishing, page augmentations, and site assets.",
+      "width": 340,
+      "height": 200,
+      "$H": 285,
+      "x": 12,
+      "y": 689
+    },
+    {
+      "id": "command-center",
+      "label": "00 Command Center",
+      "root": "00-command-center",
+      "path": "Software/00-command-center",
+      "href": "/technical/software/00-command-center/",
+      "description": "Local launcher for workspace commands and tools.",
+      "fileCount": 9,
+      "packageName": "@reasontracker/00-command-center",
+      "exports": {},
+      "searchText": "00 command center documents/technical/software/00-command-center local launcher for workspace commands and tools.",
+      "width": 340,
+      "height": 200,
+      "$H": 287,
+      "x": 444,
+      "y": 491
+    },
+    {
+      "id": "scripts",
+      "label": "Scripts",
+      "root": "scripts",
+      "path": "Software/scripts",
+      "href": "/technical/software/scripts/",
+      "description": "Shared workspace tooling and markdown routing rules.",
+      "fileCount": 7,
+      "packageName": null,
+      "exports": null,
+      "searchText": "scripts documents/technical/software/scripts shared workspace tooling and markdown routing rules.",
+      "width": 340,
+      "height": 200,
+      "$H": 289,
+      "x": 444,
+      "y": 243
+    },
+    {
+      "id": "design",
+      "label": "Design",
+      "root": "design",
+      "path": "Software/design",
+      "href": "/technical/software/design/",
+      "description": "Architecture definitions and software design documents.",
+      "fileCount": 3,
+      "packageName": null,
+      "exports": null,
+      "searchText": "design documents/technical/software/design architecture definitions and software design documents.",
+      "width": 340,
+      "height": 200,
+      "$H": 291,
+      "x": 372,
+      "y": 12
+    }
+  ],
+  "edges": [
+    {
+      "id": "command-center--components",
+      "from": "command-center",
+      "to": "components",
+      "count": 1,
+      "assetReferences": [],
+      "declared": true
+    },
+    {
+      "id": "components--engine",
+      "from": "components",
+      "to": "engine",
+      "count": 4,
+      "assetReferences": [],
+      "declared": true
+    },
+    {
+      "id": "videos--components",
+      "from": "videos",
+      "to": "components",
+      "count": 4,
+      "assetReferences": [],
+      "declared": true
+    },
+    {
+      "id": "videos--engine",
+      "from": "videos",
+      "to": "engine",
+      "count": 10,
+      "assetReferences": [],
+      "declared": true
+    },
+    {
+      "id": "website--components",
+      "from": "website",
+      "to": "components",
+      "count": 0,
+      "assetReferences": [
+        "@reasontracker/components/brand.css"
+      ],
+      "declared": true
+    },
+    {
+      "id": "website--scripts",
+      "from": "website",
+      "to": "scripts",
+      "count": 2,
+      "assetReferences": [],
+      "declared": false
+    },
+    {
+      "id": "website--videos",
+      "from": "website",
+      "to": "videos",
+      "count": 0,
+      "assetReferences": [
+        "@reasontracker/video/brandSequence.css",
+        "@reasontracker/video/brandSequenceMotion"
+      ],
+      "declared": true
+    }
+  ],
+  "allowedPackageImports": [
+    {
+      "from": "components",
+      "to": "engine"
+    },
+    {
+      "from": "videos",
+      "to": "components"
+    },
+    {
+      "from": "videos",
+      "to": "engine"
+    },
+    {
+      "from": "website",
+      "to": "components"
+    },
+    {
+      "from": "website",
+      "to": "videos"
+    },
+    {
+      "from": "command-center",
+      "to": "components"
+    }
+  ],
+  "allowedRelativeImports": [
+    {
+      "from": "website/scripts/publish-website.mts",
+      "to": "scripts/markdown-index-rules.mts",
+      "reason": "The website publisher consumes shared route rules owned by workspace tooling."
+    },
+    {
+      "from": "website/scripts/publish-website.mts",
+      "to": "scripts/published-package-assets.mts",
+      "reason": "The website publisher and architecture map share the package assets published by the website."
+    }
+  ],
+  "report": {
+    "unexpectedDependencies": [],
+    "boundaryBypasses": [],
+    "unassignedFiles": [],
+    "staleExceptions": [],
+    "approvedExceptions": [
+      {
+        "file": "00-command-center/server/core.ts",
+        "symbol": "openRemotionStudio",
+        "line": 196,
+        "pathLine": 8,
+        "target": "videos",
+        "reason": "The command center launches Remotion Studio from the videos workspace by setting its working directory; it does not import video code."
+      },
+      {
+        "file": "00-command-center/server/core.ts",
+        "symbol": "cleanWebsiteDist",
+        "line": 133,
+        "pathLine": 9,
+        "target": "website/dist",
+        "reason": "The command center removes website build output as a launcher operation; it does not import website code."
+      }
+    ]
+  }
+}

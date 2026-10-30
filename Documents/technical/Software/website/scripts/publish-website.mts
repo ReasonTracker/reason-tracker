@@ -9,9 +9,14 @@ import frontMatter from "front-matter";
 import { marked } from "marked";
 import {
   INDEX_CANDIDATE_KEYS,
+  normalizeDirectoryPath,
+  normalizeRouteSegment as normalizeSegment,
   selectPreferredIndex,
+  toDirectoryOutputRelativePath,
+  toFileOutputRelativePath,
   toVirtualPath,
 } from "../../scripts/markdown-index-rules.mts";
+import { PUBLISHED_PACKAGE_ASSETS } from "../../scripts/published-package-assets.mts";
 
 const parseFrontMatter = frontMatter as unknown as <T>(
   file: string,
@@ -147,12 +152,6 @@ const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-r
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
 const RESERVED_SITE_PREFIXES = ["css/", "icons/", "modules/"] as const;
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
-// Files owned by other workspace packages, published at fixed site URLs.
-const PACKAGE_ASSETS = [
-  { specifier: "@reasontracker/components/brand.css", output: "css/brand.css", stripTypes: false },
-  { specifier: "@reasontracker/video/brandSequence.css", output: "css/brand-sequence.css", stripTypes: false },
-  { specifier: "@reasontracker/video/brandSequenceMotion", output: "modules/brand-sequence-motion.js", stripTypes: true },
-] as const;
 const EXCLUDED_SOURCE_SEGMENTS = Object.freeze([
   "node_modules",
   ".pnpm-store",
@@ -236,7 +235,7 @@ async function copyStaticAssets(): Promise<void> {
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "icons"), path.join(DIST_DIR, "icons"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "modules"), path.join(DIST_DIR, "modules"));
 
-  for (const asset of PACKAGE_ASSETS) {
+  for (const asset of PUBLISHED_PACKAGE_ASSETS) {
     const source = await fs.readFile(fileURLToPath(import.meta.resolve(asset.specifier)), "utf8");
     const outputPath = path.join(DIST_DIR, asset.output);
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -602,7 +601,7 @@ function createRoutePlan(tree: Map<string, DirectoryNode>, currentIndexCandidate
     const normalizedDirectoryPath = normalizeDirectoryPath(directoryPath);
     normalizedDirectoryPathBySource.set(directoryPath, normalizedDirectoryPath);
 
-    const outputRelPath = normalizedDirectoryPath ? `${normalizedDirectoryPath}/index.html` : "index.html";
+    const outputRelPath = toDirectoryOutputRelativePath(directoryPath);
 
     claimOutputPath(routeOwners, outputRelPath, `directory:${directoryPath || "<root>"}`);
 
@@ -695,36 +694,6 @@ function claimOutputPath(routeOwners: Map<string, string>, outputRelPath: string
   );
 }
 
-function normalizeDirectoryPath(directoryPath: string): string {
-  const segments = directoryPath.split("/").filter(Boolean);
-  return segments.map((segment) => normalizeSegment(segment)).join("/");
-}
-
-function toFileOutputRelativePath(
-  normalizedDirectoryPath: string,
-  sourcePath: string,
-  siblingFiles: Map<string, string> | null = null,
-): string {
-  const parsed = parseSourcePath(sourcePath);
-
-  if (parsed.extension === ".md") {
-    const slug = normalizeSegment(parsed.name);
-    return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
-  }
-
-  const hasCompanionMarkdown = siblingFiles?.has?.(`${parsed.fileName}.md`) || false;
-
-  const slug = parsed.extension
-    ? normalizeSegment(`${parsed.name}-${parsed.extension.slice(1)}${hasCompanionMarkdown ? "-file" : ""}`)
-    : normalizeSegment(`${parsed.name}${hasCompanionMarkdown ? "-file" : ""}`);
-
-  return joinRoutePath(normalizedDirectoryPath, slug, "index.html");
-}
-
-function joinRoutePath(...segments: string[]): string {
-  return segments.filter(Boolean).join("/");
-}
-
 async function publishDirectoryPages(
   routePlan: RoutePlan,
   tree: Map<string, DirectoryNode>,
@@ -759,8 +728,7 @@ async function publishDirectoryPages(
 
     const directoryItems: DirectoryItem[] = directories.map((name) => {
       const sourceChildPath = page.sourceDirectoryPath ? `${page.sourceDirectoryPath}/${name}` : name;
-      const normalizedChildPath = normalizeDirectoryPath(sourceChildPath);
-      const href = toHrefFromOutputPath(joinRoutePath(normalizedChildPath, "index.html"));
+      const href = toHrefFromOutputPath(toDirectoryOutputRelativePath(sourceChildPath));
 
       return {
         sourcePath: sourceChildPath,
@@ -1418,20 +1386,6 @@ function renderDocMetadata(metadata: DocMetadata): string {
 function extractTitle(markdown: string): string {
   const titleMatch = markdown.match(/^#\s+(.+)$/m);
   return titleMatch?.[1].trim() || "Reason Tracker";
-}
-
-function normalizeSegment(value: string): string {
-  const ascii = String(value)
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-  const collapsed = ascii
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return collapsed || "untitled";
 }
 
 function extensionLabel(filePath: string): string {

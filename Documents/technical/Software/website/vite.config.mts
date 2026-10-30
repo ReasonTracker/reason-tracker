@@ -164,6 +164,9 @@ export default defineConfig({
   plugins: [publishWebsitePlugin()],
   server: {
     host: true,
+    // The command center finds the dev server by this port; it also runs Vite on the default 5173.
+    port: Number.parseInt(process.env.WEBSITE_DEV_PORT ?? "5174", 10),
+    strictPort: true,
   },
   preview: {
     host: true,

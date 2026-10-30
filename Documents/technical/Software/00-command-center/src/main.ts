@@ -156,6 +156,11 @@ function openCommandStream(commandId: string) {
 	eventSource.onmessage = (event) => {
 		const entry = JSON.parse(event.data) as LogEntry;
 
+		if (entry.type === "open-url") {
+			window.open(entry.message, "_blank", "noopener,noreferrer");
+			return;
+		}
+
 		appendLogEntry(entry);
 
 		if (entry.message.startsWith(studioAlreadyRunningPrefix)) {
