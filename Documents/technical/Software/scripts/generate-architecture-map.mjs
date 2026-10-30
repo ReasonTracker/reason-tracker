@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import ELK from "elkjs/lib/elk.bundled.js";
 import { cruise } from "dependency-cruiser";
+import ts from "typescript";
 import { toDirectoryHref } from "./markdown-index-rules.mts";
 import { PUBLISHED_PACKAGE_ASSETS } from "./published-package-assets.mts";
 
@@ -15,6 +16,7 @@ const OUTPUT_RELATIVE_PATH = "Documents/technical/Software/website/site/modules/
 const isCheck = process.argv.includes("--check");
 const isStrict = process.argv.includes("--strict");
 const byName = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+const importKindsCache = new Map();
 
 try {
   const definition = JSON.parse(await readFile(DEFINITION_PATH, "utf8"));
@@ -28,7 +30,7 @@ try {
   const unassignedFiles = softwareFiles.filter((file) => !findArea(file, definition.areas, definition.workspaceFiles));
   const areas = buildAreas(softwareFiles, definition, packageData);
   const repositoryTree = buildRepositoryTree(repositoryFiles, definition.workspacePrefix);
-  const dependencyData = await analyzeDependencies(definition, packageData);
+  const dependencyData = await analyzeDependencies(definition, packageData, areas);
   const exceptions = await validateExceptions(definition.approvedRuntimeExceptions);
   const layout = await layoutAreas(areas, dependencyData.edges);
   const report = {
@@ -45,18 +47,24 @@ try {
       width: layout.width,
       height: layout.height,
     },
-    areas: areas.map((area) => ({
-      ...area,
-      ...layout.children.find((node) => node.id === area.id),
-    })),
+    areas: areas.map((area) => {
+      const { modules, ...areaData } = area;
+      return {
+        ...areaData,
+        modules: modules.map(({ files, ...module }) => module),
+        ...layout.children.find((node) => node.id === area.id),
+      };
+    }),
     edges: layout.edges.map((edge) => ({
       id: edge.id,
       from: edge.sources[0],
       to: edge.targets[0],
       count: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.count ?? 0,
+      typeCount: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.typeCount ?? 0,
       assetReferences: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.assetReferences ?? [],
       declared: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.declared ?? false,
     })),
+    moduleEdges: dependencyData.moduleEdges,
     allowedPackageImports: definition.allowedPackageImports,
     allowedRelativeImports: definition.allowedRelativeImports,
     report,
@@ -141,6 +149,7 @@ function buildAreas(files, definition, packageData) {
       ? rootPath.slice("Documents/technical/".length)
       : rootPath;
 
+    const modules = buildModules(areaFiles, area, definition.workspacePrefix);
     return {
       id: area.id,
       label: area.label ?? titleCase(area.id),
@@ -151,11 +160,60 @@ function buildAreas(files, definition, packageData) {
       fileCount: areaFiles.length,
       packageName: area.packageName ?? null,
       exports: packageData.get(area.id)?.exports ?? null,
-      searchText: `${area.label ?? titleCase(area.id)} ${rootPath} ${area.description}`.toLowerCase(),
+      searchText: `${area.label ?? titleCase(area.id)} ${rootPath} ${area.description} ${modules.map((module) => module.searchText).join(" ")}`.toLowerCase(),
+      modules,
       width: 340,
       height: 200,
     };
   });
+}
+
+function buildModules(files, area, workspacePrefix) {
+  if (!area.moduleRoot) return [];
+  const sourceExtensions = new Set([".cjs", ".css", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
+  const groups = new Map();
+  for (const file of files) {
+    const relativePath = file.startsWith(`${area.moduleRoot}/`)
+      ? file.slice(area.moduleRoot.length + 1)
+      : null;
+    if (relativePath === null || !sourceExtensions.has(path.posix.extname(file))) continue;
+    const pathSegments = relativePath.split("/");
+    const folder = pathSegments.length > 1 ? pathSegments[0] : "entry";
+    const override = area.moduleGroups?.[folder];
+    const key = override?.id ?? folder;
+    const group = groups.get(key) ?? {
+      id: `${area.id}--${key}`,
+      key,
+      label: override?.label ?? titleCase(key),
+      folders: new Set(),
+      files: [],
+    };
+    if (folder !== "entry") group.folders.add(folder);
+    group.files.push(file);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()]
+    .map((group) => {
+      const sourcePaths = group.folders.size > 0
+        ? [...group.folders].sort(byName).map((folder) => `${area.moduleRoot}/${folder}`)
+        : [area.moduleRoot];
+      const fullPaths = sourcePaths.map((modulePath) => `${workspacePrefix}/${modulePath}`);
+      return {
+        id: group.id,
+        areaId: area.id,
+        key: group.key,
+        label: group.label,
+        paths: fullPaths.map((modulePath) => modulePath.startsWith("Documents/technical/")
+          ? modulePath.slice("Documents/technical/".length)
+          : modulePath),
+        hrefs: fullPaths.map(toDirectoryHref),
+        fileCount: group.files.length,
+        files: group.files,
+        searchText: `${group.label} ${fullPaths.join(" ")}`.toLowerCase(),
+      };
+    })
+    .sort((left, right) => byName(left.label, right.label));
 }
 
 function sortTree(node) {
@@ -181,12 +239,13 @@ async function loadPackageData(areas) {
   return result;
 }
 
-async function analyzeDependencies(definition, packageData) {
+async function analyzeDependencies(definition, packageData, areas) {
   const cruiseResult = await cruise(definition.analysisRoots.map((root) => path.join(SOFTWARE_DIR, root)), {
     baseDir: SOFTWARE_DIR,
     doNotFollow: "node_modules",
     exclude: "(^|/)dist/",
     outputType: "json",
+    tsPreCompilationDeps: true,
   });
   const graph = JSON.parse(cruiseResult.output);
   const packageNames = new Map(definition.areas.filter((area) => area.packageName).map((area) => [area.packageName, area]));
@@ -195,6 +254,8 @@ async function analyzeDependencies(definition, packageData) {
   const unexpectedDependencies = [];
   const boundaryBypasses = [];
   const edges = new Map();
+  const moduleEdges = new Map();
+  const modulesByArea = new Map(areas.map((area) => [area.id, area.modules]));
 
   for (const area of definition.areas.filter((entry) => entry.packageName)) {
     const manifest = packageData.get(area.id)?.manifest ?? {};
@@ -224,6 +285,9 @@ async function analyzeDependencies(definition, packageData) {
     if (!fromArea) continue;
 
     for (const dependency of module.dependencies ?? []) {
+      const typeOnly = dependency.dependencyTypes?.includes("type-only")
+        || (await readImportKinds(module.source)).get(dependency.module) === true;
+      const reference = { file: module.source, specifier: dependency.module, typeOnly };
       const packageImport = [...packageNames.entries()].find(([name]) =>
         dependency.module === name || dependency.module.startsWith(`${name}/`),
       );
@@ -244,10 +308,10 @@ async function analyzeDependencies(definition, packageData) {
         toArea = findArea(targetPath, definition.areas, definition.workspaceFiles);
         if (!allowedImports.has(`${fromArea.id}:${packageArea.id}`)) {
           unexpectedDependencies.push({ from: module.source, to: targetPath, kind: "package import" });
-          addEdge(edges, fromArea.id, packageArea.id, { file: module.source, specifier: dependency.module });
+          addEdge(edges, fromArea.id, packageArea.id, reference);
           continue;
         }
-        addEdge(edges, fromArea.id, packageArea.id, { file: module.source, specifier: dependency.module });
+        addEdge(edges, fromArea.id, packageArea.id, reference);
       } else {
         toArea = findArea(targetPath, definition.areas, definition.workspaceFiles);
       }
@@ -265,22 +329,54 @@ async function analyzeDependencies(definition, packageData) {
           });
           unexpectedDependencies.push({ from: module.source, to: targetPath || dependency.module, kind: "relative import" });
         }
-        addEdge(edges, fromArea.id, toArea.id, { file: module.source, specifier: dependency.module });
+        addEdge(edges, fromArea.id, toArea.id, reference);
+      }
+      const fromModule = findModuleForFile(modulesByArea.get(fromArea.id), module.source);
+      const toModule = findModuleForFile(modulesByArea.get(toArea.id), targetPath);
+      if (fromModule && toModule) {
+        addModuleEdge(moduleEdges, fromArea.id, fromModule, toArea.id, toModule, reference);
       }
     }
   }
 
   return {
     edges: [...edges.values()]
-      .map(({ references, assetReferences, ...edge }) => ({
+      .map(({ references, typeReferences, assetReferences, ...edge }) => ({
         ...edge,
         count: references.size,
+        typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
         assetReferences: [...assetReferences].sort(byName),
+      }))
+      .sort((left, right) => byName(left.id, right.id)),
+    moduleEdges: [...moduleEdges.values()]
+      .map(({ references, typeReferences, ...edge }) => ({
+        ...edge,
+        count: references.size,
+        typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
       }))
       .sort((left, right) => byName(left.id, right.id)),
     unexpectedDependencies: uniqueRecords(unexpectedDependencies),
     boundaryBypasses: uniqueRecords(boundaryBypasses),
   };
+}
+
+function findModuleForFile(modules, file) {
+  return modules.find((module) => module.files.includes(file));
+}
+
+function addModuleEdge(edges, fromArea, fromModule, toArea, toModule, reference) {
+  const id = `${fromModule.id}--${toModule.id}`;
+  const edge = edges.get(id) ?? {
+    id,
+    fromArea,
+    fromModule: fromModule.id,
+    toArea,
+    toModule: toModule.id,
+    references: new Set(),
+    typeReferences: new Set(),
+  };
+  edge[reference.typeOnly ? "typeReferences" : "references"].add(`${reference.file}\0${reference.specifier}`);
+  edges.set(id, edge);
 }
 
 function resolveExportPath(exportsMap, packageName, specifier, packageRoot) {
@@ -311,6 +407,41 @@ function collectExportTargets(value) {
   return [];
 }
 
+// Maps each static import/export specifier in a file to true when every statement using it is type-only.
+// dependency-cruiser drops this distinction for workspace imports it cannot resolve.
+async function readImportKinds(source) {
+  if (importKindsCache.has(source)) return importKindsCache.get(source);
+  const kinds = new Map();
+  importKindsCache.set(source, kinds);
+  if (!/\.[cm]?tsx?$/.test(source)) return kinds;
+  const text = await readFile(path.join(SOFTWARE_DIR, source), "utf8");
+  const file = ts.createSourceFile(source, text, ts.ScriptTarget.Latest, false);
+  for (const statement of file.statements) {
+    if (!(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement))) continue;
+    if (!statement.moduleSpecifier || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    const typeOnly = isTypeOnlyStatement(statement);
+    kinds.set(specifier, (kinds.get(specifier) ?? true) && typeOnly);
+  }
+  return kinds;
+}
+
+function isTypeOnlyStatement(statement) {
+  if (ts.isExportDeclaration(statement)) {
+    if (statement.isTypeOnly) return true;
+    const clause = statement.exportClause;
+    return Boolean(clause && ts.isNamedExports(clause) && clause.elements.length > 0
+      && clause.elements.every((element) => element.isTypeOnly));
+  }
+  const clause = statement.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  if (clause.name) return false;
+  const bindings = clause.namedBindings;
+  return Boolean(bindings && ts.isNamedImports(bindings) && bindings.elements.length > 0
+    && bindings.elements.every((element) => element.isTypeOnly));
+}
+
 function addEdge(edges, from, to, reference, declared = false, assetReference = null) {
   if (from === to) return;
   const id = `${from}--${to}`;
@@ -319,10 +450,13 @@ function addEdge(edges, from, to, reference, declared = false, assetReference = 
     from,
     to,
     references: new Set(),
+    typeReferences: new Set(),
     assetReferences: new Set(),
     declared: false,
   };
-  if (reference) edge.references.add(`${reference.file}\0${reference.specifier}`);
+  if (reference) {
+    edge[reference.typeOnly ? "typeReferences" : "references"].add(`${reference.file}\0${reference.specifier}`);
+  }
   if (assetReference) edge.assetReferences.add(assetReference);
   edge.declared ||= declared;
   edges.set(id, edge);

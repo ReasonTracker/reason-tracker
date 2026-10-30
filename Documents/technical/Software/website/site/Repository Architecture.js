@@ -9,6 +9,7 @@
     return node;
   };
   const areaLabels = new Map();
+  const moduleLabels = new Map();
   const svgNamespace = "http://www.w3.org/2000/svg";
 
   fetch("/modules/software-architecture.json")
@@ -24,6 +25,9 @@
 
   function renderMap(data) {
     for (const area of data.areas) areaLabels.set(area.id, area.label);
+    for (const area of data.areas) {
+      for (const module of area.modules) moduleLabels.set(module.id, module.label);
+    }
     root.replaceChildren();
 
     const status = element("p", `arch-status${hasFindings(data.report) ? " has-findings" : ""}`);
@@ -60,6 +64,8 @@
       const query = search.value.trim().toLowerCase();
       const edges = root.querySelector(".arch-edges");
       if (edges) edges.hidden = Boolean(query);
+      const modulePanel = root.querySelector(".arch-module-panel");
+      if (modulePanel) modulePanel.hidden = Boolean(query);
       for (const card of root.querySelectorAll(".arch-area-card")) {
         card.hidden = Boolean(query) && !card.dataset.search.includes(query);
       }
@@ -71,17 +77,22 @@
     });
   }
 
-  function isDashedEdge(edge) {
-    return edge.count === 0 && edge.assetReferences.length === 0;
+  function edgeKind(edge) {
+    if (edge.count > 0 || edge.assetReferences.length > 0) return "runtime";
+    return edge.typeCount > 0 ? "types" : "declared";
   }
 
   function renderLegend(data) {
     const legend = element("div", "arch-legend");
-    legend.append(legendItem("arch-legend-line", "Arrow points from a package to a package it depends on. Solid: source import or published asset."));
-    if (data.edges.some(isDashedEdge)) {
+    const kinds = new Set(data.edges.map(edgeKind));
+    legend.append(legendItem("arch-legend-line", "Arrow points from a package to a package it depends on. Solid: runtime source import or published asset."));
+    if (kinds.has("types")) {
+      legend.append(legendItem("arch-legend-line arch-legend-dotted", "Dotted: type-only imports; no runtime code is used."));
+    }
+    if (kinds.has("declared")) {
       legend.append(legendItem("arch-legend-line arch-legend-dashed", "Dashed: package.json dependency only; no source import or published asset detected."));
     }
-    legend.append(element("span", "arch-legend-note", "Folder paths omit Documents/technical/."));
+    legend.append(element("span", "arch-legend-note", "Select a package to show its module dependencies. Folder paths omit Documents/technical/."));
     return legend;
   }
 
@@ -139,7 +150,9 @@
       const { start, end } = edgeEndpoints(areasById.get(edge.from), areasById.get(edge.to));
       const line = document.createElementNS(svgNamespace, "line");
       line.classList.add("arch-edge");
-      if (isDashedEdge(edge)) line.classList.add("arch-edge-declared");
+      const kind = edgeKind(edge);
+      if (kind === "types") line.classList.add("arch-edge-types");
+      if (kind === "declared") line.classList.add("arch-edge-declared");
       line.setAttribute("x1", String(start.x));
       line.setAttribute("y1", String(start.y));
       line.setAttribute("x2", String(end.x));
@@ -150,7 +163,7 @@
     return svg;
   }
 
-  function renderArea(area) {
+  function renderArea(area, onModuleSelect) {
     const card = element("article", "arch-area-card");
     card.dataset.search = area.searchText;
     const heading = element("div", "arch-area-heading");
@@ -162,7 +175,83 @@
     location.title = `Open ${area.path} on the website`;
     const description = element("p", "arch-area-description", area.description);
     card.append(heading, location, description);
+    if (area.modules.length > 0) {
+      const button = element("button", "arch-module-toggle", "Show modules");
+      button.type = "button";
+      button.setAttribute("aria-pressed", "false");
+      button.addEventListener("click", () => onModuleSelect(area.id, button));
+      card.append(button);
+    }
     return card;
+  }
+
+  function renderModuleDetail(areaId, data) {
+    const section = element("section", "arch-module-detail");
+    const area = data.areas.find((candidate) => candidate.id === areaId);
+    const edges = data.moduleEdges.filter((edge) => edge.fromArea === areaId || edge.toArea === areaId);
+    const relatedAreaIds = new Set([areaId]);
+    for (const edge of edges) {
+      relatedAreaIds.add(edge.fromArea);
+      relatedAreaIds.add(edge.toArea);
+    }
+    section.append(element("h3", "", `Module dependencies for ${area.label}`));
+    section.append(element("p", "arch-muted", "Modules group source files by the first folder below the configured source root. Source-root files are grouped as Entry."));
+
+    const groups = element("div", "arch-module-groups");
+    for (const relatedAreaId of relatedAreaIds) {
+      const relatedArea = data.areas.find((candidate) => candidate.id === relatedAreaId);
+      if (!relatedArea?.modules.length) continue;
+      const group = element("section", "arch-module-group");
+      group.append(element("h4", "", relatedArea.label));
+      const modules = element("ul", "arch-module-list");
+      for (const module of relatedArea.modules) {
+        const item = element("li", "arch-module-item");
+        const heading = element("strong", "", module.label);
+        item.append(heading, element("span", "arch-area-count", `${module.fileCount} files`));
+        const paths = element("div", "arch-module-paths");
+        for (const [index, modulePath] of module.paths.entries()) {
+          const link = element("a", "", modulePath);
+          link.href = module.hrefs[index];
+          link.title = `Open ${modulePath} on the website`;
+          paths.append(link);
+        }
+        item.append(paths);
+        modules.append(item);
+      }
+      group.append(modules);
+      groups.append(group);
+    }
+    section.append(groups);
+
+    const dependencies = element("div", "arch-module-dependencies");
+    dependencies.append(element("h4", "", `Dependencies (${edges.length})`));
+    if (edges.length === 0) {
+      dependencies.append(element("p", "arch-muted", "No cross-package source imports connect to this package's modules."));
+    } else {
+      const list = element("ul", "arch-module-edge-list");
+      for (const edge of edges) {
+        const item = element("li", "arch-module-edge-item");
+        const from = element("span", "arch-module-endpoint", `${areaLabels.get(edge.fromArea)} / ${moduleLabels.get(edge.fromModule)}`);
+        const arrow = element("span", `arch-module-edge${edge.count === 0 ? " arch-module-edge-types" : ""}`);
+        arrow.append(element("span", "arch-module-edge-label", "depends on"), element("span", "arch-module-edge-line"));
+        const to = element("span", "arch-module-endpoint", `${areaLabels.get(edge.toArea)} / ${moduleLabels.get(edge.toModule)}`);
+        const imports = [
+          edge.count > 0 ? `${edge.count} runtime` : "",
+          edge.typeCount > 0 ? `${edge.typeCount} type-only` : "",
+        ].filter(Boolean).join(", ");
+        item.append(from, arrow, to, element("span", "arch-module-edge-count", imports));
+        list.append(item);
+      }
+      dependencies.append(list);
+    }
+    section.append(dependencies);
+    const close = element("button", "arch-module-close", "Close module view");
+    close.type = "button";
+    close.addEventListener("click", () => {
+      section.dispatchEvent(new CustomEvent("close-module-view", { bubbles: true }));
+    });
+    section.append(close);
+    return section;
   }
 
   function renderTreeNode(node, depth, data = null) {
@@ -181,8 +270,30 @@
       canvas.style.width = `${data.layout.width}px`;
       canvas.style.height = `${data.layout.height}px`;
       canvas.append(renderEdges(data));
+      let selectedAreaId = null;
+      const modulePanel = element("div", "arch-module-panel");
+      modulePanel.hidden = true;
+      modulePanel.addEventListener("close-module-view", () => {
+        selectedAreaId = null;
+        modulePanel.replaceChildren();
+        for (const button of canvas.querySelectorAll(".arch-module-toggle")) {
+          button.setAttribute("aria-pressed", "false");
+          button.textContent = "Show modules";
+        }
+      });
       for (const area of data.areas) {
-        const card = renderArea(area);
+        const card = renderArea(area, (areaId) => {
+          selectedAreaId = selectedAreaId === areaId ? null : areaId;
+          modulePanel.replaceChildren();
+          modulePanel.hidden = selectedAreaId === null;
+          for (const button of canvas.querySelectorAll(".arch-module-toggle")) {
+            const selected = button.closest(".arch-area-card").dataset.areaId === selectedAreaId;
+            button.setAttribute("aria-pressed", String(selected));
+            button.textContent = selected ? "Hide modules" : "Show modules";
+          }
+          if (selectedAreaId) modulePanel.append(renderModuleDetail(selectedAreaId, data));
+        });
+        card.dataset.areaId = area.id;
         card.style.left = `${area.x}px`;
         card.style.top = `${area.y}px`;
         card.style.width = `${area.width}px`;
@@ -190,7 +301,8 @@
         canvas.append(card);
       }
       scroll.append(canvas);
-      workspace.append(scroll, renderLegend(data));
+      modulePanel.hidden = true;
+      workspace.append(scroll, modulePanel, renderLegend(data));
       folder.append(workspace);
       item.append(folder);
       return item;
@@ -231,11 +343,12 @@
       reportSection("Observed package dependencies", data.edges.map((edge) => {
         const from = areaLabels.get(edge.from);
         const to = areaLabels.get(edge.to);
-        const staticImports = edge.count > 0 ? `static source imports: ${edge.count}` : "";
+        const staticImports = edge.count > 0 ? `runtime imports: ${edge.count}` : "";
+        const typeImports = edge.typeCount > 0 ? `type-only imports: ${edge.typeCount}` : "";
         const publishedAssets = edge.assetReferences.length > 0
           ? `published assets: ${edge.assetReferences.join(", ")}`
           : "";
-        const observedUse = [staticImports, publishedAssets].filter(Boolean).join("; ");
+        const observedUse = [staticImports, typeImports, publishedAssets].filter(Boolean).join("; ");
 
         return observedUse
           ? `${from} depends on ${to} (${observedUse}).`

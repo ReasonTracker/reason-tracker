@@ -35,24 +35,38 @@
     {
       "id": "engine",
       "root": "engine",
+      "moduleRoot": "engine/src",
       "packageName": "@reasontracker/engine",
       "description": "Debate contracts, scoring, geometry, layout, and animation."
     },
     {
       "id": "components",
       "root": "components",
+      "moduleRoot": "components/src",
       "packageName": "@reasontracker/components",
       "description": "Reusable React and SVG rendering, including shared brand styles."
     },
     {
       "id": "videos",
       "root": "videos",
+      "moduleRoot": "videos/src",
+      "moduleGroups": {
+        "Episode0001": {
+          "id": "episodes",
+          "label": "Episodes"
+        },
+        "RelevanceTrapezoidExamples": {
+          "id": "episodes",
+          "label": "Episodes"
+        }
+      },
       "packageName": "@reasontracker/video",
       "description": "Remotion compositions, episode scripts, and video-owned assets."
     },
     {
       "id": "website",
       "root": "website",
+      "moduleRoot": "website",
       "packageName": "@reasontracker/website",
       "description": "Static website publishing, page augmentations, and site assets."
     },
@@ -60,12 +74,14 @@
       "id": "command-center",
       "label": "00 Command Center",
       "root": "00-command-center",
+      "moduleRoot": "00-command-center",
       "packageName": "@reasontracker/00-command-center",
       "description": "Local launcher for workspace commands and tools."
     },
     {
       "id": "scripts",
       "root": "scripts",
+      "moduleRoot": "scripts",
       "description": "Shared workspace tooling and markdown routing rules."
     },
     {

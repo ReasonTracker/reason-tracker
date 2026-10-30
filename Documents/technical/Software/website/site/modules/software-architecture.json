@@ -48,9 +48,10 @@
       "fileCount": 8,
       "packageName": null,
       "exports": null,
-      "searchText": "workspace documents/technical/software workspace orchestration and root configuration.",
+      "searchText": "workspace documents/technical/software workspace orchestration and root configuration. ",
       "width": 340,
       "height": 200,
+      "modules": [],
       "$H": 277,
       "x": 12,
       "y": 12
@@ -62,7 +63,7 @@
       "path": "Software/engine",
       "href": "/technical/software/engine/",
       "description": "Debate contracts, scoring, geometry, layout, and animation.",
-      "fileCount": 60,
+      "fileCount": 59,
       "packageName": "@reasontracker/engine",
       "exports": {
         "./debate-core/*": "./src/debate-core/*",
@@ -72,9 +73,95 @@
         "./animation/*": "./src/animation/*",
         "./typeUtils": "./src/typeUtils.ts"
       },
-      "searchText": "engine documents/technical/software/engine debate contracts, scoring, geometry, layout, and animation.",
+      "searchText": "engine documents/technical/software/engine debate contracts, scoring, geometry, layout, and animation. animation documents/technical/software/engine/src/animation debate core documents/technical/software/engine/src/debate-core entry documents/technical/software/engine/src geometry documents/technical/software/engine/src/geometry layout documents/technical/software/engine/src/layout scoring documents/technical/software/engine/src/scoring",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "engine--animation",
+          "areaId": "engine",
+          "key": "animation",
+          "label": "Animation",
+          "paths": [
+            "Software/engine/src/animation"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/animation/"
+          ],
+          "fileCount": 9,
+          "searchText": "animation documents/technical/software/engine/src/animation"
+        },
+        {
+          "id": "engine--debate-core",
+          "areaId": "engine",
+          "key": "debate-core",
+          "label": "Debate Core",
+          "paths": [
+            "Software/engine/src/debate-core"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/debate-core/"
+          ],
+          "fileCount": 4,
+          "searchText": "debate core documents/technical/software/engine/src/debate-core"
+        },
+        {
+          "id": "engine--entry",
+          "areaId": "engine",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/engine/src"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/"
+          ],
+          "fileCount": 1,
+          "searchText": "entry documents/technical/software/engine/src"
+        },
+        {
+          "id": "engine--geometry",
+          "areaId": "engine",
+          "key": "geometry",
+          "label": "Geometry",
+          "paths": [
+            "Software/engine/src/geometry"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/geometry/"
+          ],
+          "fileCount": 9,
+          "searchText": "geometry documents/technical/software/engine/src/geometry"
+        },
+        {
+          "id": "engine--layout",
+          "areaId": "engine",
+          "key": "layout",
+          "label": "Layout",
+          "paths": [
+            "Software/engine/src/layout"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/layout/"
+          ],
+          "fileCount": 6,
+          "searchText": "layout documents/technical/software/engine/src/layout"
+        },
+        {
+          "id": "engine--scoring",
+          "areaId": "engine",
+          "key": "scoring",
+          "label": "Scoring",
+          "paths": [
+            "Software/engine/src/scoring"
+          ],
+          "hrefs": [
+            "/technical/software/engine/src/scoring/"
+          ],
+          "fileCount": 16,
+          "searchText": "scoring documents/technical/software/engine/src/scoring"
+        }
+      ],
       "$H": 279,
       "x": 1308,
       "y": 739
@@ -86,15 +173,45 @@
       "path": "Software/components",
       "href": "/technical/software/components/",
       "description": "Reusable React and SVG rendering, including shared brand styles.",
-      "fileCount": 16,
+      "fileCount": 17,
       "packageName": "@reasontracker/components",
       "exports": {
         ".": "./src/index.ts",
         "./brand.css": "./src/brand.css"
       },
-      "searchText": "components documents/technical/software/components reusable react and svg rendering, including shared brand styles.",
+      "searchText": "components documents/technical/software/components reusable react and svg rendering, including shared brand styles. debate graph documents/technical/software/components/src/debate-graph entry documents/technical/software/components/src",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "components--debate-graph",
+          "areaId": "components",
+          "key": "debate-graph",
+          "label": "Debate Graph",
+          "paths": [
+            "Software/components/src/debate-graph"
+          ],
+          "hrefs": [
+            "/technical/software/components/src/debate-graph/"
+          ],
+          "fileCount": 7,
+          "searchText": "debate graph documents/technical/software/components/src/debate-graph"
+        },
+        {
+          "id": "components--entry",
+          "areaId": "components",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/components/src"
+          ],
+          "hrefs": [
+            "/technical/software/components/src/"
+          ],
+          "fileCount": 5,
+          "searchText": "entry documents/technical/software/components/src"
+        }
+      ],
       "$H": 281,
       "x": 876,
       "y": 491
@@ -113,9 +230,69 @@
         "./brandSequenceMotion": "./src/shared/brandSequenceMotion.ts",
         "./brandSequence.css": "./src/shared/brandSequence.css"
       },
-      "searchText": "videos documents/technical/software/videos remotion compositions, episode scripts, and video-owned assets.",
+      "searchText": "videos documents/technical/software/videos remotion compositions, episode scripts, and video-owned assets. component visualizers documents/technical/software/videos/src/component-visualizers entry documents/technical/software/videos/src episodes documents/technical/software/videos/src/episode0001 documents/technical/software/videos/src/relevancetrapezoidexamples shared documents/technical/software/videos/src/shared",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "videos--component-visualizers",
+          "areaId": "videos",
+          "key": "component-visualizers",
+          "label": "Component Visualizers",
+          "paths": [
+            "Software/videos/src/component-visualizers"
+          ],
+          "hrefs": [
+            "/technical/software/videos/src/component-visualizers/"
+          ],
+          "fileCount": 2,
+          "searchText": "component visualizers documents/technical/software/videos/src/component-visualizers"
+        },
+        {
+          "id": "videos--entry",
+          "areaId": "videos",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/videos/src"
+          ],
+          "hrefs": [
+            "/technical/software/videos/src/"
+          ],
+          "fileCount": 4,
+          "searchText": "entry documents/technical/software/videos/src"
+        },
+        {
+          "id": "videos--episodes",
+          "areaId": "videos",
+          "key": "episodes",
+          "label": "Episodes",
+          "paths": [
+            "Software/videos/src/Episode0001",
+            "Software/videos/src/RelevanceTrapezoidExamples"
+          ],
+          "hrefs": [
+            "/technical/software/videos/src/episode0001/",
+            "/technical/software/videos/src/relevancetrapezoidexamples/"
+          ],
+          "fileCount": 2,
+          "searchText": "episodes documents/technical/software/videos/src/episode0001 documents/technical/software/videos/src/relevancetrapezoidexamples"
+        },
+        {
+          "id": "videos--shared",
+          "areaId": "videos",
+          "key": "shared",
+          "label": "Shared",
+          "paths": [
+            "Software/videos/src/shared"
+          ],
+          "hrefs": [
+            "/technical/software/videos/src/shared/"
+          ],
+          "fileCount": 22,
+          "searchText": "shared documents/technical/software/videos/src/shared"
+        }
+      ],
       "$H": 283,
       "x": 444,
       "y": 739
@@ -130,9 +307,53 @@
       "fileCount": 19,
       "packageName": "@reasontracker/website",
       "exports": {},
-      "searchText": "website documents/technical/software/website static website publishing, page augmentations, and site assets.",
+      "searchText": "website documents/technical/software/website static website publishing, page augmentations, and site assets. entry documents/technical/software/website scripts documents/technical/software/website/scripts site documents/technical/software/website/site",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "website--entry",
+          "areaId": "website",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/website"
+          ],
+          "hrefs": [
+            "/technical/software/website/"
+          ],
+          "fileCount": 1,
+          "searchText": "entry documents/technical/software/website"
+        },
+        {
+          "id": "website--scripts",
+          "areaId": "website",
+          "key": "scripts",
+          "label": "Scripts",
+          "paths": [
+            "Software/website/scripts"
+          ],
+          "hrefs": [
+            "/technical/software/website/scripts/"
+          ],
+          "fileCount": 1,
+          "searchText": "scripts documents/technical/software/website/scripts"
+        },
+        {
+          "id": "website--site",
+          "areaId": "website",
+          "key": "site",
+          "label": "Site",
+          "paths": [
+            "Software/website/site"
+          ],
+          "hrefs": [
+            "/technical/software/website/site/"
+          ],
+          "fileCount": 8,
+          "searchText": "site documents/technical/software/website/site"
+        }
+      ],
       "$H": 285,
       "x": 12,
       "y": 689
@@ -147,9 +368,53 @@
       "fileCount": 9,
       "packageName": "@reasontracker/00-command-center",
       "exports": {},
-      "searchText": "00 command center documents/technical/software/00-command-center local launcher for workspace commands and tools.",
+      "searchText": "00 command center documents/technical/software/00-command-center local launcher for workspace commands and tools. entry documents/technical/software/00-command-center server documents/technical/software/00-command-center/server src documents/technical/software/00-command-center/src",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "command-center--entry",
+          "areaId": "command-center",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/00-command-center"
+          ],
+          "hrefs": [
+            "/technical/software/00-command-center/"
+          ],
+          "fileCount": 1,
+          "searchText": "entry documents/technical/software/00-command-center"
+        },
+        {
+          "id": "command-center--server",
+          "areaId": "command-center",
+          "key": "server",
+          "label": "Server",
+          "paths": [
+            "Software/00-command-center/server"
+          ],
+          "hrefs": [
+            "/technical/software/00-command-center/server/"
+          ],
+          "fileCount": 1,
+          "searchText": "server documents/technical/software/00-command-center/server"
+        },
+        {
+          "id": "command-center--src",
+          "areaId": "command-center",
+          "key": "src",
+          "label": "Src",
+          "paths": [
+            "Software/00-command-center/src"
+          ],
+          "hrefs": [
+            "/technical/software/00-command-center/src/"
+          ],
+          "fileCount": 3,
+          "searchText": "src documents/technical/software/00-command-center/src"
+        }
+      ],
       "$H": 287,
       "x": 444,
       "y": 491
@@ -164,9 +429,25 @@
       "fileCount": 7,
       "packageName": null,
       "exports": null,
-      "searchText": "scripts documents/technical/software/scripts shared workspace tooling and markdown routing rules.",
+      "searchText": "scripts documents/technical/software/scripts shared workspace tooling and markdown routing rules. entry documents/technical/software/scripts",
       "width": 340,
       "height": 200,
+      "modules": [
+        {
+          "id": "scripts--entry",
+          "areaId": "scripts",
+          "key": "entry",
+          "label": "Entry",
+          "paths": [
+            "Software/scripts"
+          ],
+          "hrefs": [
+            "/technical/software/scripts/"
+          ],
+          "fileCount": 4,
+          "searchText": "entry documents/technical/software/scripts"
+        }
+      ],
       "$H": 289,
       "x": 444,
       "y": 243
@@ -181,9 +462,10 @@
       "fileCount": 3,
       "packageName": null,
       "exports": null,
-      "searchText": "design documents/technical/software/design architecture definitions and software design documents.",
+      "searchText": "design documents/technical/software/design architecture definitions and software design documents. ",
       "width": 340,
       "height": 200,
+      "modules": [],
       "$H": 291,
       "x": 372,
       "y": 12
@@ -195,6 +477,7 @@
       "from": "command-center",
       "to": "components",
       "count": 1,
+      "typeCount": 0,
       "assetReferences": [],
       "declared": true
     },
@@ -202,7 +485,8 @@
       "id": "components--engine",
       "from": "components",
       "to": "engine",
-      "count": 4,
+      "count": 0,
+      "typeCount": 8,
       "assetReferences": [],
       "declared": true
     },
@@ -210,7 +494,8 @@
       "id": "videos--components",
       "from": "videos",
       "to": "components",
-      "count": 4,
+      "count": 5,
+      "typeCount": 0,
       "assetReferences": [],
       "declared": true
     },
@@ -219,6 +504,7 @@
       "from": "videos",
       "to": "engine",
       "count": 10,
+      "typeCount": 12,
       "assetReferences": [],
       "declared": true
     },
@@ -227,6 +513,7 @@
       "from": "website",
       "to": "components",
       "count": 0,
+      "typeCount": 0,
       "assetReferences": [
         "@reasontracker/components/brand.css"
       ],
@@ -237,6 +524,7 @@
       "from": "website",
       "to": "scripts",
       "count": 2,
+      "typeCount": 0,
       "assetReferences": [],
       "declared": false
     },
@@ -245,11 +533,122 @@
       "from": "website",
       "to": "videos",
       "count": 0,
+      "typeCount": 0,
       "assetReferences": [
         "@reasontracker/video/brandSequence.css",
         "@reasontracker/video/brandSequenceMotion"
       ],
       "declared": true
+    }
+  ],
+  "moduleEdges": [
+    {
+      "id": "command-center--src--components--entry",
+      "fromArea": "command-center",
+      "fromModule": "command-center--src",
+      "toArea": "components",
+      "toModule": "components--entry",
+      "count": 1,
+      "typeCount": 0
+    },
+    {
+      "id": "components--debate-graph--engine--animation",
+      "fromArea": "components",
+      "fromModule": "components--debate-graph",
+      "toArea": "engine",
+      "toModule": "engine--animation",
+      "count": 0,
+      "typeCount": 2
+    },
+    {
+      "id": "components--debate-graph--engine--debate-core",
+      "fromArea": "components",
+      "fromModule": "components--debate-graph",
+      "toArea": "engine",
+      "toModule": "engine--debate-core",
+      "count": 0,
+      "typeCount": 1
+    },
+    {
+      "id": "components--debate-graph--engine--geometry",
+      "fromArea": "components",
+      "fromModule": "components--debate-graph",
+      "toArea": "engine",
+      "toModule": "engine--geometry",
+      "count": 0,
+      "typeCount": 5
+    },
+    {
+      "id": "videos--component-visualizers--components--entry",
+      "fromArea": "videos",
+      "fromModule": "videos--component-visualizers",
+      "toArea": "components",
+      "toModule": "components--entry",
+      "count": 1,
+      "typeCount": 0
+    },
+    {
+      "id": "videos--component-visualizers--engine--geometry",
+      "fromArea": "videos",
+      "fromModule": "videos--component-visualizers",
+      "toArea": "engine",
+      "toModule": "engine--geometry",
+      "count": 1,
+      "typeCount": 0
+    },
+    {
+      "id": "videos--entry--components--entry",
+      "fromArea": "videos",
+      "fromModule": "videos--entry",
+      "toArea": "components",
+      "toModule": "components--entry",
+      "count": 1,
+      "typeCount": 0
+    },
+    {
+      "id": "videos--shared--components--entry",
+      "fromArea": "videos",
+      "fromModule": "videos--shared",
+      "toArea": "components",
+      "toModule": "components--entry",
+      "count": 3,
+      "typeCount": 0
+    },
+    {
+      "id": "videos--shared--engine--animation",
+      "fromArea": "videos",
+      "fromModule": "videos--shared",
+      "toArea": "engine",
+      "toModule": "engine--animation",
+      "count": 8,
+      "typeCount": 2
+    },
+    {
+      "id": "videos--shared--engine--debate-core",
+      "fromArea": "videos",
+      "fromModule": "videos--shared",
+      "toArea": "engine",
+      "toModule": "engine--debate-core",
+      "count": 0,
+      "typeCount": 10
+    },
+    {
+      "id": "videos--shared--engine--geometry",
+      "fromArea": "videos",
+      "fromModule": "videos--shared",
+      "toArea": "engine",
+      "toModule": "engine--geometry",
+      "count": 1,
+      "typeCount": 0
+    },
+    {
+      "id": "website--scripts--scripts--entry",
+      "fromArea": "website",
+      "fromModule": "website--scripts",
+      "toArea": "scripts",
+      "toModule": "scripts--entry",
+      "count": 2,
+      "typeCount": 0
     }
   ],
   "allowedPackageImports": [

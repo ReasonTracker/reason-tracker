@@ -17,7 +17,7 @@ New assets should be created as direct children of this folder (for example, `vi
 
 Use this table for fast routing. Read the linked package `📌README.md` files when the change needs local ownership or deeper workflow detail.
 
-The [repository architecture map](../../Repository%20Architecture.md) shows the repository folder structure and nests the Software package dependency map inside `Documents/technical/Software`. Area paths link to their published folder pages. Its Software containment and allowed dependency rules live in `design/repository-architecture.json`. From this folder, run `vp run architecture:map` to refresh the published map data or `vp run architecture:check` to report boundary findings without changing files. `vp run website:build:with-map` refreshes the map before publishing the website.
+The [repository architecture map](../../Repository%20Architecture.md) shows the repository folder structure and nests the Software package dependency map inside `Documents/technical/Software`. Area and module paths link to their published folder pages; select a package to show its module dependencies. Its Software containment and allowed dependency rules live in `design/repository-architecture.json`. From this folder, run `vp run architecture:map` to refresh the published map data or `vp run architecture:check` to report boundary findings without changing files. `vp run website:build:with-map` refreshes the map before publishing the website.
 
 ## Local Command Center
 
