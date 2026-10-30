@@ -17,6 +17,15 @@ const isCheck = process.argv.includes("--check");
 const isStrict = process.argv.includes("--strict");
 const byName = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 const importKindsCache = new Map();
+/** Size of a package card that has no module boxes. */
+const LEAF_AREA_WIDTH = 320;
+const LEAF_AREA_HEIGHT = 170;
+/** Space reserved above module boxes for the package title, path, and description. */
+const AREA_HEADER_HEIGHT = 128;
+const MODULE_WIDTH = 176;
+const MODULE_HEIGHT = 58;
+/** Extra module height for each additional folder link in a grouped module. */
+const MODULE_PATH_HEIGHT = 18;
 
 try {
   const definition = JSON.parse(await readFile(DEFINITION_PATH, "utf8"));
@@ -32,7 +41,7 @@ try {
   const repositoryTree = buildRepositoryTree(repositoryFiles, definition.workspacePrefix);
   const dependencyData = await analyzeDependencies(definition, packageData, areas);
   const exceptions = await validateExceptions(definition.approvedRuntimeExceptions);
-  const layout = await layoutAreas(areas, dependencyData.edges);
+  const layout = await layoutAreas(areas, dependencyData.diagramEdges);
   const report = {
     unexpectedDependencies: dependencyData.unexpectedDependencies,
     boundaryBypasses: dependencyData.boundaryBypasses,
@@ -49,22 +58,27 @@ try {
     },
     areas: areas.map((area) => {
       const { modules, ...areaData } = area;
+      const node = layout.children.find((candidate) => candidate.id === area.id);
       return {
         ...areaData,
-        modules: modules.map(({ files, ...module }) => module),
-        ...layout.children.find((node) => node.id === area.id),
+        x: node.x,
+        y: node.y,
+        width: node.width,
+        height: node.height,
+        modules: modules.map(({ files, ...module }) => {
+          const moduleNode = node.children.find((candidate) => candidate.id === module.id);
+          return {
+            ...module,
+            x: node.x + moduleNode.x,
+            y: node.y + moduleNode.y,
+            width: moduleNode.width,
+            height: moduleNode.height,
+          };
+        }),
       };
     }),
-    edges: layout.edges.map((edge) => ({
-      id: edge.id,
-      from: edge.sources[0],
-      to: edge.targets[0],
-      count: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.count ?? 0,
-      typeCount: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.typeCount ?? 0,
-      assetReferences: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.assetReferences ?? [],
-      declared: dependencyData.edges.find((candidate) => candidate.id === edge.id)?.declared ?? false,
-    })),
-    moduleEdges: dependencyData.moduleEdges,
+    edges: dependencyData.edges,
+    diagramEdges: dependencyData.diagramEdges,
     allowedPackageImports: definition.allowedPackageImports,
     allowedRelativeImports: definition.allowedRelativeImports,
     report,
@@ -149,7 +163,8 @@ function buildAreas(files, definition, packageData) {
       ? rootPath.slice("Documents/technical/".length)
       : rootPath;
 
-    const modules = buildModules(areaFiles, area, definition.workspacePrefix);
+    const allModules = buildModules(areaFiles, area, definition.workspacePrefix);
+    const modules = allModules.length > 1 ? allModules : [];
     return {
       id: area.id,
       label: area.label ?? titleCase(area.id),
@@ -162,8 +177,6 @@ function buildAreas(files, definition, packageData) {
       exports: packageData.get(area.id)?.exports ?? null,
       searchText: `${area.label ?? titleCase(area.id)} ${rootPath} ${area.description} ${modules.map((module) => module.searchText).join(" ")}`.toLowerCase(),
       modules,
-      width: 340,
-      height: 200,
     };
   });
 }
@@ -254,7 +267,7 @@ async function analyzeDependencies(definition, packageData, areas) {
   const unexpectedDependencies = [];
   const boundaryBypasses = [];
   const edges = new Map();
-  const moduleEdges = new Map();
+  const nodeEdges = new Map();
   const modulesByArea = new Map(areas.map((area) => [area.id, area.modules]));
 
   for (const area of definition.areas.filter((entry) => entry.packageName)) {
@@ -316,7 +329,16 @@ async function analyzeDependencies(definition, packageData, areas) {
         toArea = findArea(targetPath, definition.areas, definition.workspaceFiles);
       }
 
-      if (!toArea || toArea.id === fromArea.id) continue;
+      if (!toArea) continue;
+      addNodeEdge(
+        nodeEdges,
+        fromArea.id,
+        findModuleForFile(modulesByArea.get(fromArea.id), module.source)?.id ?? fromArea.id,
+        toArea.id,
+        findModuleForFile(modulesByArea.get(toArea.id), targetPath)?.id ?? toArea.id,
+        reference,
+      );
+      if (toArea.id === fromArea.id) continue;
       if (!packageImport) {
         const relativeImport = definition.allowedRelativeImports.find((entry) =>
           entry.from === module.source && entry.to === targetPath,
@@ -331,29 +353,34 @@ async function analyzeDependencies(definition, packageData, areas) {
         }
         addEdge(edges, fromArea.id, toArea.id, reference);
       }
-      const fromModule = findModuleForFile(modulesByArea.get(fromArea.id), module.source);
-      const toModule = findModuleForFile(modulesByArea.get(toArea.id), targetPath);
-      if (fromModule && toModule) {
-        addModuleEdge(moduleEdges, fromArea.id, fromModule, toArea.id, toModule, reference);
-      }
     }
   }
 
+  const packageEdges = [...edges.values()]
+    .map(({ references, typeReferences, assetReferences, ...edge }) => ({
+      ...edge,
+      count: references.size,
+      typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
+      assetReferences: [...assetReferences].sort(byName),
+    }))
+    .sort((left, right) => byName(left.id, right.id));
+  const importEdges = [...nodeEdges.values()]
+    .map(({ references, typeReferences, ...edge }) => ({
+      ...edge,
+      count: references.size,
+      typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
+      assetReferences: [],
+    }));
+  const coveredPackagePairs = new Set(importEdges.map((edge) => `${edge.fromArea}:${edge.toArea}`));
+  // Package edges with no source import (published assets or declared-only) stay package-to-package.
+  const packageOnlyEdges = packageEdges
+    .filter((edge) => !coveredPackagePairs.has(`${edge.from}:${edge.to}`))
+    .map((edge) => ({ ...edge, fromArea: edge.from, toArea: edge.to }));
+
   return {
-    edges: [...edges.values()]
-      .map(({ references, typeReferences, assetReferences, ...edge }) => ({
-        ...edge,
-        count: references.size,
-        typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
-        assetReferences: [...assetReferences].sort(byName),
-      }))
-      .sort((left, right) => byName(left.id, right.id)),
-    moduleEdges: [...moduleEdges.values()]
-      .map(({ references, typeReferences, ...edge }) => ({
-        ...edge,
-        count: references.size,
-        typeCount: [...typeReferences].filter((key) => !references.has(key)).length,
-      }))
+    edges: packageEdges,
+    diagramEdges: [...importEdges, ...packageOnlyEdges]
+      .map(({ declared, ...edge }) => edge)
       .sort((left, right) => byName(left.id, right.id)),
     unexpectedDependencies: uniqueRecords(unexpectedDependencies),
     boundaryBypasses: uniqueRecords(boundaryBypasses),
@@ -364,14 +391,15 @@ function findModuleForFile(modules, file) {
   return modules.find((module) => module.files.includes(file));
 }
 
-function addModuleEdge(edges, fromArea, fromModule, toArea, toModule, reference) {
-  const id = `${fromModule.id}--${toModule.id}`;
+function addNodeEdge(edges, fromArea, from, toArea, to, reference) {
+  if (from === to) return;
+  const id = `${from}--${to}`;
   const edge = edges.get(id) ?? {
     id,
+    from,
+    to,
     fromArea,
-    fromModule: fromModule.id,
     toArea,
-    toModule: toModule.id,
     references: new Set(),
     typeReferences: new Set(),
   };
@@ -498,12 +526,30 @@ async function layoutAreas(areas, edges) {
     id: "software-workspace",
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": "RIGHT",
-      "elk.spacing.nodeNode": "48",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "92",
+      "elk.direction": "DOWN",
+      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+      "elk.spacing.nodeNode": "40",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "64",
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
     },
-    children: areas.map(({ id, width, height }) => ({ id, width, height })),
+    children: areas.map((area) => area.modules.length === 0
+      ? { id: area.id, width: LEAF_AREA_WIDTH, height: LEAF_AREA_HEIGHT }
+      : {
+        id: area.id,
+        layoutOptions: {
+          "elk.padding": `[top=${AREA_HEADER_HEIGHT},left=16,bottom=16,right=16]`,
+          "elk.nodeSize.constraints": "[MINIMUM_SIZE]",
+          // ELK applies this vector transposed when the hierarchical layout runs top-down.
+          "elk.nodeSize.minimum": `(${LEAF_AREA_HEIGHT}, ${LEAF_AREA_WIDTH})`,
+          "elk.spacing.nodeNode": "18",
+          "elk.layered.spacing.nodeNodeBetweenLayers": "40",
+        },
+        children: area.modules.map((module) => ({
+          id: module.id,
+          width: MODULE_WIDTH,
+          height: MODULE_HEIGHT + MODULE_PATH_HEIGHT * (module.paths.length - 1),
+        })),
+      }),
     edges: edges.map(({ id, from, to }) => ({ id, sources: [from], targets: [to] })),
   });
   return graph;

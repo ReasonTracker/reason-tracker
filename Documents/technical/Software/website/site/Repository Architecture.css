@@ -222,70 +222,58 @@ body>main.doc-shell {
   line-height: 1.35;
 }
 
-#software-architecture-map .arch-module-toggle,
-#software-architecture-map .arch-module-close {
-  align-self: flex-start;
-  margin-top: auto;
-  font-size: 0.82rem;
+#software-architecture-map .arch-area-card.has-modules {
+  background: color-mix(in srgb, var(--panel) 38%, transparent);
 }
 
-#software-architecture-map .arch-module-panel {
-  margin-top: 0.8rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--arch-radius);
-  background: var(--panel);
-}
-
-#software-architecture-map .arch-module-detail h3,
-#software-architecture-map .arch-module-detail h4 {
-  margin: 0 0 0.5rem;
-}
-
-#software-architecture-map .arch-module-detail > p {
-  margin-block: 0.4rem 0.8rem;
-}
-
-#software-architecture-map .arch-module-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: 0.7rem;
-}
-
-#software-architecture-map .arch-module-group {
-  min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0.55rem;
-}
-
-#software-architecture-map .arch-module-list,
-#software-architecture-map .arch-module-edge-list {
-  display: grid;
-  gap: 0.45rem;
-  margin: 0;
+#software-architecture-map .arch-node-select {
   padding: 0;
-  list-style: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-#software-architecture-map .arch-module-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.25rem 0.6rem;
-  padding-block: 0.35rem;
-  border-top: 1px solid var(--border);
+#software-architecture-map .arch-node-select:hover,
+#software-architecture-map .arch-node-select:focus-visible,
+#software-architecture-map .arch-node-select[aria-pressed="true"] {
+  color: var(--pro);
+}
+
+#software-architecture-map .arch-module-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.6rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--pro);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+}
+
+#software-architecture-map .arch-module-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 650;
 }
 
 #software-architecture-map .arch-module-paths {
-  grid-column: 1 / -1;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.7rem;
+  flex-direction: column;
   font-family: var(--mono);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 #software-architecture-map .arch-module-paths a {
+  width: fit-content;
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 0.15em;
@@ -296,63 +284,28 @@ body>main.doc-shell {
   color: var(--pro);
 }
 
-#software-architecture-map .arch-module-dependencies {
-  margin-top: 0.9rem;
+#software-architecture-map .arch-edge,
+#software-architecture-map .arch-area-card,
+#software-architecture-map .arch-module-box {
+  transition: opacity 120ms ease;
 }
 
-#software-architecture-map .arch-module-edge-item {
-  display: grid;
-  grid-template-columns: minmax(8rem, 1fr) auto minmax(8rem, 1fr) auto;
-  align-items: center;
-  gap: 0.45rem;
-  padding-block: 0.4rem;
-  border-top: 1px solid var(--border);
+#software-architecture-map .has-selection .arch-edge:not(.is-related) {
+  opacity: 0.1;
 }
 
-#software-architecture-map .arch-module-endpoint {
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: 0.86rem;
+#software-architecture-map .has-selection .arch-edge.is-related {
+  opacity: 1;
 }
 
-#software-architecture-map .arch-module-edge {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  color: var(--con);
-  font-size: 0.7rem;
-  font-weight: 650;
-  white-space: nowrap;
+#software-architecture-map .has-selection .arch-area-card:not(.is-related),
+#software-architecture-map .has-selection .arch-module-box:not(.is-related) {
+  opacity: 0.4;
 }
 
-#software-architecture-map .arch-module-edge-line {
-  position: relative;
-  width: 1.5rem;
-  border-top: 2px solid currentColor;
-}
-
-#software-architecture-map .arch-module-edge-line::after {
-  position: absolute;
-  top: -0.32rem;
-  right: 0;
-  width: 0.35rem;
-  height: 0.35rem;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  content: "";
-  transform: rotate(45deg);
-}
-
-#software-architecture-map .arch-module-edge-types .arch-module-edge-line,
-#software-architecture-map .arch-module-edge-types .arch-module-edge-line::after {
-  border-style: dotted;
-}
-
-#software-architecture-map .arch-module-edge-count {
-  color: var(--muted);
-  font-size: 0.78rem;
-  white-space: nowrap;
+#software-architecture-map .arch-area-card.is-selected,
+#software-architecture-map .arch-module-box.is-selected {
+  border-color: var(--pro);
 }
 
 #software-architecture-map .arch-report {
@@ -425,13 +378,5 @@ body>main.doc-shell {
 
   #software-architecture-map {
     --arch-padding: 0.75rem;
-  }
-
-  #software-architecture-map .arch-module-edge-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  #software-architecture-map .arch-module-edge-count {
-    grid-column: 1 / -1;
   }
 }

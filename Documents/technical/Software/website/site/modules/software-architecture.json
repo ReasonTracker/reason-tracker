@@ -34,8 +34,8 @@
     ]
   },
   "layout": {
-    "width": 1660,
-    "height": 951
+    "width": 1472,
+    "height": 1789
   },
   "areas": [
     {
@@ -49,12 +49,11 @@
       "packageName": null,
       "exports": null,
       "searchText": "workspace documents/technical/software workspace orchestration and root configuration. ",
-      "width": 340,
-      "height": 200,
-      "modules": [],
-      "$H": 277,
-      "x": 12,
-      "y": 12
+      "x": 504,
+      "y": 30.5,
+      "width": 320,
+      "height": 170,
+      "modules": []
     },
     {
       "id": "engine",
@@ -74,8 +73,10 @@
         "./typeUtils": "./src/typeUtils.ts"
       },
       "searchText": "engine documents/technical/software/engine debate contracts, scoring, geometry, layout, and animation. animation documents/technical/software/engine/src/animation debate core documents/technical/software/engine/src/debate-core entry documents/technical/software/engine/src geometry documents/technical/software/engine/src/geometry layout documents/technical/software/engine/src/layout scoring documents/technical/software/engine/src/scoring",
-      "width": 340,
-      "height": 200,
+      "x": 380.2,
+      "y": 1085,
+      "width": 335.6,
+      "height": 692,
       "modules": [
         {
           "id": "engine--animation",
@@ -89,7 +90,11 @@
             "/technical/software/engine/src/animation/"
           ],
           "fileCount": 9,
-          "searchText": "animation documents/technical/software/engine/src/animation"
+          "searchText": "animation documents/technical/software/engine/src/animation",
+          "x": 413.8,
+          "y": 1213,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "engine--debate-core",
@@ -103,7 +108,11 @@
             "/technical/software/engine/src/debate-core/"
           ],
           "fileCount": 4,
-          "searchText": "debate core documents/technical/software/engine/src/debate-core"
+          "searchText": "debate core documents/technical/software/engine/src/debate-core",
+          "x": 396.2,
+          "y": 1605,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "engine--entry",
@@ -117,7 +126,11 @@
             "/technical/software/engine/src/"
           ],
           "fileCount": 1,
-          "searchText": "entry documents/technical/software/engine/src"
+          "searchText": "entry documents/technical/software/engine/src",
+          "x": 396.2,
+          "y": 1703,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "engine--geometry",
@@ -131,7 +144,11 @@
             "/technical/software/engine/src/geometry/"
           ],
           "fileCount": 9,
-          "searchText": "geometry documents/technical/software/engine/src/geometry"
+          "searchText": "geometry documents/technical/software/engine/src/geometry",
+          "x": 512.8,
+          "y": 1311,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "engine--layout",
@@ -145,7 +162,11 @@
             "/technical/software/engine/src/layout/"
           ],
           "fileCount": 6,
-          "searchText": "layout documents/technical/software/engine/src/layout"
+          "searchText": "layout documents/technical/software/engine/src/layout",
+          "x": 465.8666666666667,
+          "y": 1409,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "engine--scoring",
@@ -159,12 +180,13 @@
             "/technical/software/engine/src/scoring/"
           ],
           "fileCount": 16,
-          "searchText": "scoring documents/technical/software/engine/src/scoring"
+          "searchText": "scoring documents/technical/software/engine/src/scoring",
+          "x": 495.2,
+          "y": 1507,
+          "width": 176,
+          "height": 58
         }
-      ],
-      "$H": 279,
-      "x": 1308,
-      "y": 739
+      ]
     },
     {
       "id": "components",
@@ -180,8 +202,10 @@
         "./brand.css": "./src/brand.css"
       },
       "searchText": "components documents/technical/software/components reusable react and svg rendering, including shared brand styles. debate graph documents/technical/software/components/src/debate-graph entry documents/technical/software/components/src",
-      "width": 340,
-      "height": 200,
+      "x": 452.8,
+      "y": 705,
+      "width": 320,
+      "height": 300,
       "modules": [
         {
           "id": "components--debate-graph",
@@ -195,7 +219,11 @@
             "/technical/software/components/src/debate-graph/"
           ],
           "fileCount": 7,
-          "searchText": "debate graph documents/technical/software/components/src/debate-graph"
+          "searchText": "debate graph documents/technical/software/components/src/debate-graph",
+          "x": 468.8,
+          "y": 931,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "components--entry",
@@ -209,12 +237,13 @@
             "/technical/software/components/src/"
           ],
           "fileCount": 5,
-          "searchText": "entry documents/technical/software/components/src"
+          "searchText": "entry documents/technical/software/components/src",
+          "x": 468.8,
+          "y": 833,
+          "width": 176,
+          "height": 58
         }
-      ],
-      "$H": 281,
-      "x": 876,
-      "y": 491
+      ]
     },
     {
       "id": "videos",
@@ -231,8 +260,10 @@
         "./brandSequence.css": "./src/shared/brandSequence.css"
       },
       "searchText": "videos documents/technical/software/videos remotion compositions, episode scripts, and video-owned assets. component visualizers documents/technical/software/videos/src/component-visualizers entry documents/technical/software/videos/src episodes documents/technical/software/videos/src/episode0001 documents/technical/software/videos/src/relevancetrapezoidexamples shared documents/technical/software/videos/src/shared",
-      "width": 340,
-      "height": 200,
+      "x": 989,
+      "y": 283,
+      "width": 442.3333333333333,
+      "height": 348,
       "modules": [
         {
           "id": "videos--component-visualizers",
@@ -246,7 +277,11 @@
             "/technical/software/videos/src/component-visualizers/"
           ],
           "fileCount": 2,
-          "searchText": "component visualizers documents/technical/software/videos/src/component-visualizers"
+          "searchText": "component visualizers documents/technical/software/videos/src/component-visualizers",
+          "x": 1016,
+          "y": 527,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "videos--entry",
@@ -260,7 +295,11 @@
             "/technical/software/videos/src/"
           ],
           "fileCount": 4,
-          "searchText": "entry documents/technical/software/videos/src"
+          "searchText": "entry documents/technical/software/videos/src",
+          "x": 1016,
+          "y": 429,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "videos--episodes",
@@ -276,7 +315,11 @@
             "/technical/software/videos/src/relevancetrapezoidexamples/"
           ],
           "fileCount": 2,
-          "searchText": "episodes documents/technical/software/videos/src/episode0001 documents/technical/software/videos/src/relevancetrapezoidexamples"
+          "searchText": "episodes documents/technical/software/videos/src/episode0001 documents/technical/software/videos/src/relevancetrapezoidexamples",
+          "x": 1239.3333333333333,
+          "y": 411,
+          "width": 176,
+          "height": 76
         },
         {
           "id": "videos--shared",
@@ -290,12 +333,13 @@
             "/technical/software/videos/src/shared/"
           ],
           "fileCount": 22,
-          "searchText": "shared documents/technical/software/videos/src/shared"
+          "searchText": "shared documents/technical/software/videos/src/shared",
+          "x": 1210,
+          "y": 527,
+          "width": 176,
+          "height": 58
         }
-      ],
-      "$H": 283,
-      "x": 444,
-      "y": 739
+      ]
     },
     {
       "id": "website",
@@ -308,8 +352,10 @@
       "packageName": "@reasontracker/website",
       "exports": {},
       "searchText": "website documents/technical/software/website static website publishing, page augmentations, and site assets. entry documents/technical/software/website scripts documents/technical/software/website/scripts site documents/technical/software/website/site",
-      "width": 340,
-      "height": 200,
+      "x": 864,
+      "y": 12,
+      "width": 596,
+      "height": 202,
       "modules": [
         {
           "id": "website--entry",
@@ -323,7 +369,11 @@
             "/technical/software/website/"
           ],
           "fileCount": 1,
-          "searchText": "entry documents/technical/software/website"
+          "searchText": "entry documents/technical/software/website",
+          "x": 1268,
+          "y": 140,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "website--scripts",
@@ -337,7 +387,11 @@
             "/technical/software/website/scripts/"
           ],
           "fileCount": 1,
-          "searchText": "scripts documents/technical/software/website/scripts"
+          "searchText": "scripts documents/technical/software/website/scripts",
+          "x": 880,
+          "y": 140,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "website--site",
@@ -351,12 +405,13 @@
             "/technical/software/website/site/"
           ],
           "fileCount": 8,
-          "searchText": "site documents/technical/software/website/site"
+          "searchText": "site documents/technical/software/website/site",
+          "x": 1074,
+          "y": 140,
+          "width": 176,
+          "height": 58
         }
-      ],
-      "$H": 285,
-      "x": 12,
-      "y": 689
+      ]
     },
     {
       "id": "command-center",
@@ -369,8 +424,10 @@
       "packageName": "@reasontracker/00-command-center",
       "exports": {},
       "searchText": "00 command center documents/technical/software/00-command-center local launcher for workspace commands and tools. entry documents/technical/software/00-command-center server documents/technical/software/00-command-center/server src documents/technical/software/00-command-center/src",
-      "width": 340,
-      "height": 200,
+      "x": 12,
+      "y": 429,
+      "width": 596,
+      "height": 202,
       "modules": [
         {
           "id": "command-center--entry",
@@ -384,7 +441,11 @@
             "/technical/software/00-command-center/"
           ],
           "fileCount": 1,
-          "searchText": "entry documents/technical/software/00-command-center"
+          "searchText": "entry documents/technical/software/00-command-center",
+          "x": 222,
+          "y": 557,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "command-center--server",
@@ -398,7 +459,11 @@
             "/technical/software/00-command-center/server/"
           ],
           "fileCount": 1,
-          "searchText": "server documents/technical/software/00-command-center/server"
+          "searchText": "server documents/technical/software/00-command-center/server",
+          "x": 28,
+          "y": 557,
+          "width": 176,
+          "height": 58
         },
         {
           "id": "command-center--src",
@@ -412,12 +477,13 @@
             "/technical/software/00-command-center/src/"
           ],
           "fileCount": 3,
-          "searchText": "src documents/technical/software/00-command-center/src"
+          "searchText": "src documents/technical/software/00-command-center/src",
+          "x": 416,
+          "y": 557,
+          "width": 176,
+          "height": 58
         }
-      ],
-      "$H": 287,
-      "x": 444,
-      "y": 491
+      ]
     },
     {
       "id": "scripts",
@@ -429,28 +495,12 @@
       "fileCount": 7,
       "packageName": null,
       "exports": null,
-      "searchText": "scripts documents/technical/software/scripts shared workspace tooling and markdown routing rules. entry documents/technical/software/scripts",
-      "width": 340,
-      "height": 200,
-      "modules": [
-        {
-          "id": "scripts--entry",
-          "areaId": "scripts",
-          "key": "entry",
-          "label": "Entry",
-          "paths": [
-            "Software/scripts"
-          ],
-          "hrefs": [
-            "/technical/software/scripts/"
-          ],
-          "fileCount": 4,
-          "searchText": "entry documents/technical/software/scripts"
-        }
-      ],
-      "$H": 289,
-      "x": 444,
-      "y": 243
+      "searchText": "scripts documents/technical/software/scripts shared workspace tooling and markdown routing rules. ",
+      "x": 648,
+      "y": 283,
+      "width": 320,
+      "height": 170,
+      "modules": []
     },
     {
       "id": "design",
@@ -463,12 +513,11 @@
       "packageName": null,
       "exports": null,
       "searchText": "design documents/technical/software/design architecture definitions and software design documents. ",
-      "width": 340,
-      "height": 200,
-      "modules": [],
-      "$H": 291,
-      "x": 372,
-      "y": 12
+      "x": 144,
+      "y": 30.5,
+      "width": 320,
+      "height": 170,
+      "modules": []
     }
   ],
   "edges": [
@@ -476,37 +525,331 @@
       "id": "command-center--components",
       "from": "command-center",
       "to": "components",
+      "declared": true,
       "count": 1,
       "typeCount": 0,
-      "assetReferences": [],
-      "declared": true
+      "assetReferences": []
     },
     {
       "id": "components--engine",
       "from": "components",
       "to": "engine",
+      "declared": true,
       "count": 0,
       "typeCount": 8,
-      "assetReferences": [],
-      "declared": true
+      "assetReferences": []
     },
     {
       "id": "videos--components",
       "from": "videos",
       "to": "components",
+      "declared": true,
       "count": 5,
       "typeCount": 0,
-      "assetReferences": [],
-      "declared": true
+      "assetReferences": []
     },
     {
       "id": "videos--engine",
       "from": "videos",
       "to": "engine",
+      "declared": true,
       "count": 10,
       "typeCount": 12,
-      "assetReferences": [],
-      "declared": true
+      "assetReferences": []
+    },
+    {
+      "id": "website--components",
+      "from": "website",
+      "to": "components",
+      "declared": true,
+      "count": 0,
+      "typeCount": 0,
+      "assetReferences": [
+        "@reasontracker/components/brand.css"
+      ]
+    },
+    {
+      "id": "website--scripts",
+      "from": "website",
+      "to": "scripts",
+      "declared": false,
+      "count": 2,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "website--videos",
+      "from": "website",
+      "to": "videos",
+      "declared": true,
+      "count": 0,
+      "typeCount": 0,
+      "assetReferences": [
+        "@reasontracker/video/brandSequence.css",
+        "@reasontracker/video/brandSequenceMotion"
+      ]
+    }
+  ],
+  "diagramEdges": [
+    {
+      "id": "command-center--src--components--entry",
+      "from": "command-center--src",
+      "to": "components--entry",
+      "fromArea": "command-center",
+      "toArea": "components",
+      "count": 1,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "components--debate-graph--engine--animation",
+      "from": "components--debate-graph",
+      "to": "engine--animation",
+      "fromArea": "components",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 2,
+      "assetReferences": []
+    },
+    {
+      "id": "components--debate-graph--engine--debate-core",
+      "from": "components--debate-graph",
+      "to": "engine--debate-core",
+      "fromArea": "components",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 1,
+      "assetReferences": []
+    },
+    {
+      "id": "components--debate-graph--engine--geometry",
+      "from": "components--debate-graph",
+      "to": "engine--geometry",
+      "fromArea": "components",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 5,
+      "assetReferences": []
+    },
+    {
+      "id": "components--entry--components--debate-graph",
+      "from": "components--entry",
+      "to": "components--debate-graph",
+      "fromArea": "components",
+      "toArea": "components",
+      "count": 2,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--animation--engine--debate-core",
+      "from": "engine--animation",
+      "to": "engine--debate-core",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 9,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--animation--engine--geometry",
+      "from": "engine--animation",
+      "to": "engine--geometry",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 1,
+      "typeCount": 2,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--animation--engine--layout",
+      "from": "engine--animation",
+      "to": "engine--layout",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 3,
+      "typeCount": 7,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--debate-core--engine--entry",
+      "from": "engine--debate-core",
+      "to": "engine--entry",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 1,
+      "typeCount": 3,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--geometry--engine--animation",
+      "from": "engine--geometry",
+      "to": "engine--animation",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 4,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--geometry--engine--layout",
+      "from": "engine--geometry",
+      "to": "engine--layout",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 1,
+      "typeCount": 1,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--layout--engine--animation",
+      "from": "engine--layout",
+      "to": "engine--animation",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 2,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--layout--engine--debate-core",
+      "from": "engine--layout",
+      "to": "engine--debate-core",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 7,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--layout--engine--geometry",
+      "from": "engine--layout",
+      "to": "engine--geometry",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 2,
+      "typeCount": 1,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--layout--engine--scoring",
+      "from": "engine--layout",
+      "to": "engine--scoring",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 2,
+      "typeCount": 1,
+      "assetReferences": []
+    },
+    {
+      "id": "engine--scoring--engine--debate-core",
+      "from": "engine--scoring",
+      "to": "engine--debate-core",
+      "fromArea": "engine",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 9,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--component-visualizers--components--entry",
+      "from": "videos--component-visualizers",
+      "to": "components--entry",
+      "fromArea": "videos",
+      "toArea": "components",
+      "count": 1,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--component-visualizers--engine--geometry",
+      "from": "videos--component-visualizers",
+      "to": "engine--geometry",
+      "fromArea": "videos",
+      "toArea": "engine",
+      "count": 1,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--entry--components--entry",
+      "from": "videos--entry",
+      "to": "components--entry",
+      "fromArea": "videos",
+      "toArea": "components",
+      "count": 1,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--entry--videos--component-visualizers",
+      "from": "videos--entry",
+      "to": "videos--component-visualizers",
+      "fromArea": "videos",
+      "toArea": "videos",
+      "count": 2,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--entry--videos--shared",
+      "from": "videos--entry",
+      "to": "videos--shared",
+      "fromArea": "videos",
+      "toArea": "videos",
+      "count": 2,
+      "typeCount": 1,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--episodes--videos--shared",
+      "from": "videos--episodes",
+      "to": "videos--shared",
+      "fromArea": "videos",
+      "toArea": "videos",
+      "count": 0,
+      "typeCount": 2,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--shared--components--entry",
+      "from": "videos--shared",
+      "to": "components--entry",
+      "fromArea": "videos",
+      "toArea": "components",
+      "count": 3,
+      "typeCount": 0,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--shared--engine--animation",
+      "from": "videos--shared",
+      "to": "engine--animation",
+      "fromArea": "videos",
+      "toArea": "engine",
+      "count": 8,
+      "typeCount": 2,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--shared--engine--debate-core",
+      "from": "videos--shared",
+      "to": "engine--debate-core",
+      "fromArea": "videos",
+      "toArea": "engine",
+      "count": 0,
+      "typeCount": 10,
+      "assetReferences": []
+    },
+    {
+      "id": "videos--shared--engine--geometry",
+      "from": "videos--shared",
+      "to": "engine--geometry",
+      "fromArea": "videos",
+      "toArea": "engine",
+      "count": 1,
+      "typeCount": 0,
+      "assetReferences": []
     },
     {
       "id": "website--components",
@@ -517,16 +860,18 @@
       "assetReferences": [
         "@reasontracker/components/brand.css"
       ],
-      "declared": true
+      "fromArea": "website",
+      "toArea": "components"
     },
     {
-      "id": "website--scripts",
-      "from": "website",
+      "id": "website--scripts--scripts",
+      "from": "website--scripts",
       "to": "scripts",
+      "fromArea": "website",
+      "toArea": "scripts",
       "count": 2,
       "typeCount": 0,
-      "assetReferences": [],
-      "declared": false
+      "assetReferences": []
     },
     {
       "id": "website--videos",
@@ -538,117 +883,8 @@
         "@reasontracker/video/brandSequence.css",
         "@reasontracker/video/brandSequenceMotion"
       ],
-      "declared": true
-    }
-  ],
-  "moduleEdges": [
-    {
-      "id": "command-center--src--components--entry",
-      "fromArea": "command-center",
-      "fromModule": "command-center--src",
-      "toArea": "components",
-      "toModule": "components--entry",
-      "count": 1,
-      "typeCount": 0
-    },
-    {
-      "id": "components--debate-graph--engine--animation",
-      "fromArea": "components",
-      "fromModule": "components--debate-graph",
-      "toArea": "engine",
-      "toModule": "engine--animation",
-      "count": 0,
-      "typeCount": 2
-    },
-    {
-      "id": "components--debate-graph--engine--debate-core",
-      "fromArea": "components",
-      "fromModule": "components--debate-graph",
-      "toArea": "engine",
-      "toModule": "engine--debate-core",
-      "count": 0,
-      "typeCount": 1
-    },
-    {
-      "id": "components--debate-graph--engine--geometry",
-      "fromArea": "components",
-      "fromModule": "components--debate-graph",
-      "toArea": "engine",
-      "toModule": "engine--geometry",
-      "count": 0,
-      "typeCount": 5
-    },
-    {
-      "id": "videos--component-visualizers--components--entry",
-      "fromArea": "videos",
-      "fromModule": "videos--component-visualizers",
-      "toArea": "components",
-      "toModule": "components--entry",
-      "count": 1,
-      "typeCount": 0
-    },
-    {
-      "id": "videos--component-visualizers--engine--geometry",
-      "fromArea": "videos",
-      "fromModule": "videos--component-visualizers",
-      "toArea": "engine",
-      "toModule": "engine--geometry",
-      "count": 1,
-      "typeCount": 0
-    },
-    {
-      "id": "videos--entry--components--entry",
-      "fromArea": "videos",
-      "fromModule": "videos--entry",
-      "toArea": "components",
-      "toModule": "components--entry",
-      "count": 1,
-      "typeCount": 0
-    },
-    {
-      "id": "videos--shared--components--entry",
-      "fromArea": "videos",
-      "fromModule": "videos--shared",
-      "toArea": "components",
-      "toModule": "components--entry",
-      "count": 3,
-      "typeCount": 0
-    },
-    {
-      "id": "videos--shared--engine--animation",
-      "fromArea": "videos",
-      "fromModule": "videos--shared",
-      "toArea": "engine",
-      "toModule": "engine--animation",
-      "count": 8,
-      "typeCount": 2
-    },
-    {
-      "id": "videos--shared--engine--debate-core",
-      "fromArea": "videos",
-      "fromModule": "videos--shared",
-      "toArea": "engine",
-      "toModule": "engine--debate-core",
-      "count": 0,
-      "typeCount": 10
-    },
-    {
-      "id": "videos--shared--engine--geometry",
-      "fromArea": "videos",
-      "fromModule": "videos--shared",
-      "toArea": "engine",
-      "toModule": "engine--geometry",
-      "count": 1,
-      "typeCount": 0
-    },
-    {
-      "id": "website--scripts--scripts--entry",
       "fromArea": "website",
-      "fromModule": "website--scripts",
-      "toArea": "scripts",
-      "toModule": "scripts--entry",
-      "count": 2,
-      "typeCount": 0
+      "toArea": "videos"
     }
   ],
   "allowedPackageImports": [
