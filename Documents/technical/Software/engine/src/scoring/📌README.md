@@ -6,15 +6,15 @@ For understanding, not the full contract. This form assumes every claim is rever
 
 Parent score:
 
-$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
+$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c \cdot \mathrm{score}_c \cdot \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
 
 Weight of one claim:
 
-$$\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|$$
+$$\mathrm{weight}_c = \rho_c \cdot |\mathrm{score}_c|$$
 
 Relevance of one edge:
 
-$$\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
+$$\rho = \frac{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
 
 Base case: a claim with no child claims scores 1.
 

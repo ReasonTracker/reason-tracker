@@ -11,17 +11,17 @@ Assumptions: every claim is reversible, and the map has no cycles.
 
 Parent score:
 \begin{equation*}
-\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}.
+\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c \cdot \mathrm{score}_c \cdot \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}.
 \end{equation*}
 
 Weight of one claim:
 \begin{equation*}
-\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|.
+\mathrm{weight}_c = \rho_c \cdot |\mathrm{score}_c|.
 \end{equation*}
 
 Relevance of one edge:
 \begin{equation*}
-\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}.
+\rho = \frac{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}.
 \end{equation*}
 
 Base case: a claim with no child claims scores $1$.

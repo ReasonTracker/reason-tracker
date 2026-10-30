@@ -15,15 +15,15 @@ It is a simplified form. It assumes every claim can flip, and that no claim ends
 
 A claim's score:
 
-$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c\, \mathrm{score}_c\, \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
+$$\mathrm{score}_n = \frac{\sum_c \mathrm{isPro}_c \cdot \mathrm{score}_c \cdot \mathrm{weight}_c}{\sum_c \mathrm{weight}_c}$$
 
 How much one reason counts:
 
-$$\mathrm{weight}_c = \rho_c\, |\mathrm{score}_c|$$
+$$\mathrm{weight}_c = \rho_c \cdot |\mathrm{score}_c|$$
 
 How relevant one reason is:
 
-$$\rho = \frac{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r\, \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
+$$\rho = \frac{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r > 0} (1 + |\mathrm{score}_r|)}{\prod_{\mathrm{isPro}_r \cdot \mathrm{score}_r < 0} (1 + |\mathrm{score}_r|)}$$
 
 A claim with no reasons under it scores 1.
 
