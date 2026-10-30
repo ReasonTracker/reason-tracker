@@ -51,6 +51,7 @@ vp run preview
 - Example: source `README.md` is augmented by `site/README.css`.
 - Example: source `README.md` is augmented by `site/README.js`.
 - The repository architecture page uses `site/Repository Architecture.css` and `site/Repository Architecture.js`; the latter reads `site/modules/software-architecture.json` and loads the diagram controls, arrow renderer, and visibility model from `site/modules/architectureDiagram.js`, `site/modules/architectureArrows.js`, and `site/modules/architectureVisibility.js`.
+- The repository architecture tree uses `site/Repository Architecture Tree.css` and `site/Repository Architecture Tree.js`, with the same generated architecture data and the tree modules in `site/modules/`.
 - Nested paths are supported. Example: source `Documents/technical/notes/Plan.md` maps to `site/technical/notes/Plan.css`.
 - Static folders `site/css/`, `site/icons/`, and `site/modules/`, and `site/site-config.json` remain reserved and are not treated as augmentations.
 - Files owned by other packages are published at fixed URLs from `../scripts/published-package-assets.mts`: `dist/css/brand.css`, `dist/css/brand-sequence.css`, and `dist/modules/brand-sequence-motion.js` (TypeScript types stripped), all from `@reasontracker/components`.

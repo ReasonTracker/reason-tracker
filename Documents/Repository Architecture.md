@@ -2,6 +2,8 @@
 
 This map combines repository folder containment with Software package and module dependencies. Area paths open their folders on this website; those pages list the contained files.
 
+The [repository architecture tree](./Repository%20Architecture%20Tree.md) presents the same data as an expandable file tree.
+
 Arrows point to dependencies. Solid arrows indicate a runtime source import or a published asset. Dotted arrows indicate type-only imports. Dashed arrows indicate a `package.json` dependency with no detected source import or published asset. Paths in the diagram are relative to `Documents/technical/Software/`.
 
 Packages with multiple connected modules show their first source folders and connected source-root files inside the package card. The architecture definition can group related folders into one module; grouped modules link to each included folder. Sections without diagram arrows and configured exclusions are listed below the map with their dependencies.

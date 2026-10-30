@@ -1,0 +1,312 @@
+body>main.doc-shell {
+  width: min(100% - 2rem, 1600px);
+  max-width: none;
+}
+
+#software-architecture-tree {
+  margin-block: 1.5rem;
+}
+
+#software-architecture-tree .arch-tree-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-block: 1rem;
+}
+
+#software-architecture-tree input[type="search"],
+#software-architecture-tree select,
+#software-architecture-tree button {
+  color: var(--text);
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--panel);
+  padding: 0.5rem 0.7rem;
+}
+
+#software-architecture-tree input[type="search"] {
+  min-width: min(22rem, 100%);
+  flex: 1 1 16rem;
+}
+
+#software-architecture-tree .arch-tree-control,
+#software-architecture-tree .arch-tree-internal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+}
+
+#software-architecture-tree .arch-tree-internal {
+  cursor: pointer;
+}
+
+#software-architecture-tree .arch-tree-internal input {
+  margin: 0;
+  accent-color: var(--pro);
+}
+
+#software-architecture-tree select:disabled {
+  opacity: 0.6;
+}
+
+#software-architecture-tree button {
+  cursor: pointer;
+}
+
+#software-architecture-tree button:focus-visible,
+#software-architecture-tree input:focus-visible,
+#software-architecture-tree select:focus-visible,
+#software-architecture-tree a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pro) 55%, transparent);
+  outline-offset: 2px;
+}
+
+#software-architecture-tree .arch-tree-report-status {
+  color: var(--pro);
+  font-weight: 600;
+}
+
+#software-architecture-tree .arch-tree-report-status.has-findings {
+  color: var(--con);
+}
+
+#software-architecture-tree .arch-tree-status {
+  margin: -0.3rem 0 0.8rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+#software-architecture-tree .arch-tree-scroll {
+  max-height: min(70vh, 60rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bg) 62%, var(--panel));
+  overscroll-behavior: contain;
+}
+
+#software-architecture-tree .arch-tree-canvas {
+  position: relative;
+}
+
+#software-architecture-tree .arch-tree-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#software-architecture-tree .arch-tree-list,
+#software-architecture-tree .arch-tree-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#software-architecture-tree .arch-tree-list li {
+  margin: 0;
+  padding: 0;
+}
+
+#software-architecture-tree .arch-tree-row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  background: color-mix(in srgb, var(--panel) 64%, transparent);
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+#software-architecture-tree .arch-tree-workspace,
+#software-architecture-tree .arch-tree-area {
+  background: color-mix(in srgb, var(--pro) 9%, var(--panel));
+}
+
+#software-architecture-tree .arch-tree-row:hover,
+#software-architecture-tree .arch-tree-row:focus-within,
+#software-architecture-tree .arch-tree-row.is-selected {
+  background: color-mix(in srgb, var(--pro) 15%, var(--panel));
+}
+
+#software-architecture-tree .has-selection .arch-tree-row:not(.is-related) {
+  opacity: 0.45;
+}
+
+#software-architecture-tree .arch-tree-toggle,
+#software-architecture-tree .arch-tree-toggle-space {
+  flex: 0 0 1.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+#software-architecture-tree .arch-tree-toggle {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: var(--pro);
+  line-height: 1;
+}
+
+#software-architecture-tree .arch-tree-select,
+#software-architecture-tree .arch-tree-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#software-architecture-tree .arch-tree-select {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.86rem;
+}
+
+#software-architecture-tree .arch-tree-area .arch-tree-select,
+#software-architecture-tree .arch-tree-group .arch-tree-select,
+#software-architecture-tree .arch-tree-name {
+  font-weight: 650;
+}
+
+#software-architecture-tree .arch-tree-select:hover,
+#software-architecture-tree .arch-tree-select[aria-pressed="true"] {
+  color: var(--pro);
+}
+
+#software-architecture-tree .arch-tree-count,
+#software-architecture-tree .arch-tree-link {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+#software-architecture-tree .arch-tree-link {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+#software-architecture-tree .arch-tree-link:hover,
+#software-architecture-tree .arch-tree-link:focus-visible {
+  color: var(--pro);
+}
+
+#software-architecture-tree .arch-tree-arrows {
+  position: absolute;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+#software-architecture-tree .arch-tree-arrow {
+  fill: none;
+  stroke: var(--con);
+  stroke-width: 2.4;
+  opacity: 0.8;
+}
+
+#software-architecture-tree .arch-tree-arrow-types {
+  stroke-dasharray: 0.1 6;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+#software-architecture-tree .arch-tree-arrow-declared {
+  stroke-dasharray: 6 5;
+}
+
+#software-architecture-tree .arch-tree-arrow-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+#software-architecture-tree .arch-tree-arrow-group:focus-visible {
+  outline: none;
+}
+
+#software-architecture-tree .arch-tree-arrow-group:hover .arch-tree-arrow,
+#software-architecture-tree .arch-tree-arrow-group:focus-visible .arch-tree-arrow {
+  stroke: var(--pro);
+  stroke-width: 4;
+  opacity: 1;
+}
+
+#software-architecture-tree .arch-tree-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-block: 0.75rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+#software-architecture-tree .arch-tree-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#software-architecture-tree .arch-tree-legend-line {
+  width: 1.7rem;
+  border-top: 2px solid var(--con);
+}
+
+#software-architecture-tree .arch-tree-legend-dotted {
+  border-top: 3px dotted var(--con);
+}
+
+#software-architecture-tree .arch-tree-legend-dashed {
+  border-top-style: dashed;
+}
+
+#software-architecture-tree .arch-tree-report,
+#software-architecture-tree .arch-tree-error {
+  margin-top: 1.2rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--panel);
+}
+
+#software-architecture-tree .arch-tree-report h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+}
+
+#software-architecture-tree .arch-tree-report ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+#software-architecture-tree .arch-tree-report li {
+  margin-block: 0.4rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+#software-architecture-tree .arch-tree-error {
+  border-left: 3px solid var(--con);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  body>main.doc-shell {
+    width: min(100% - 1rem, 1600px);
+  }
+}
