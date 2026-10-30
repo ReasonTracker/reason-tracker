@@ -1,4 +1,4 @@
-import "../../website/site/css/brand.css";
+import "@reasontracker/components/brand.css";
 import "./style.css";
 
 type CommandResponse = {

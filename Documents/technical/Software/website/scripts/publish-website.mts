@@ -1,23 +1,23 @@
 import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { Buffer } from "node:buffer";
 import frontMatter from "front-matter";
 import { marked } from "marked";
-import { normalizeMdStemKey, selectPreferredIndex } from "../../scripts/markdown-index-rules.mts";
+import {
+  INDEX_CANDIDATE_KEYS,
+  selectPreferredIndex,
+  toVirtualPath,
+} from "../../scripts/markdown-index-rules.mts";
 
 const parseFrontMatter = frontMatter as unknown as <T>(
   file: string,
 ) => { attributes: T; body: string };
 
 type AugmentationBucket = "css" | "js";
-
-type SiteConfig = {
-  siteName: string;
-  collapsedSourceRootName: string;
-  indexCandidateKeys: string[];
-};
 
 type RuntimeOptions = {
   writeReport: boolean;
@@ -147,8 +147,12 @@ const PUBLISH_REPORT_PATH = path.join(WEBSITE_DIR, "scripts", "publish-website-r
 const WEBSITE_RELATIVE_DIR = toPosixPath(path.relative(REPO_DIR, WEBSITE_DIR));
 const RESERVED_SITE_PREFIXES = ["css/", "icons/", "modules/"] as const;
 const RESERVED_SITE_FILES = new Set(["site-config.json"]);
-const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
-const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
+// Files owned by other workspace packages, published at fixed site URLs.
+const PACKAGE_ASSETS = [
+  { specifier: "@reasontracker/components/brand.css", output: "css/brand.css", stripTypes: false },
+  { specifier: "@reasontracker/video/brandSequence.css", output: "css/brand-sequence.css", stripTypes: false },
+  { specifier: "@reasontracker/video/brandSequenceMotion", output: "modules/brand-sequence-motion.js", stripTypes: true },
+] as const;
 const EXCLUDED_SOURCE_SEGMENTS = Object.freeze([
   "node_modules",
   ".pnpm-store",
@@ -167,28 +171,23 @@ const AUGMENTATION_TYPES = Object.freeze({
 });
 
 let siteName = "Reason Tracker";
-let indexCandidateKeys = ["readme", "index"];
-let collapsedSourceRootName = DEFAULT_COLLAPSED_SOURCE_ROOT;
 const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 async function main(): Promise<void> {
-  const siteConfig = await resolveSiteConfig();
-  siteName = siteConfig.siteName;
-  indexCandidateKeys = siteConfig.indexCandidateKeys;
-  collapsedSourceRootName = siteConfig.collapsedSourceRootName;
+  siteName = await resolveSiteName();
   await ensureGitRepository();
   await resetDist({ preserveExisting: runtimeOptions.preserveDist });
   await copyStaticAssets();
 
   const sourcePaths = await collectSourcePaths();
   const filteredPaths = sourcePaths.filter((entry) => !isInsideDist(entry) && !isExcludedSourcePath(entry));
-  const virtualEntries = createVirtualEntries(filteredPaths, collapsedSourceRootName);
+  const virtualEntries = createVirtualEntries(filteredPaths);
   const sourceVirtualPathBySourcePath = createSourceVirtualPathMap(virtualEntries);
   const augmentationResult = await buildSourceAugmentations(sourceVirtualPathBySourcePath);
   const augmentationsBySourcePath = augmentationResult.augmentationsBySourcePath;
   const tree = buildTree(virtualEntries);
   const gitContext = await getGitContext();
-  const routePlan = createRoutePlan(tree, indexCandidateKeys);
+  const routePlan = createRoutePlan(tree, INDEX_CANDIDATE_KEYS);
 
   await publishDirectoryPages(routePlan, tree, gitContext, augmentationsBySourcePath);
   await publishFilePages(routePlan, gitContext, augmentationsBySourcePath);
@@ -236,80 +235,33 @@ async function copyStaticAssets(): Promise<void> {
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "css"), path.join(DIST_DIR, "css"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "icons"), path.join(DIST_DIR, "icons"));
   await copyIfPresent(path.join(WEBSITE_DIR, "site", "modules"), path.join(DIST_DIR, "modules"));
+
+  for (const asset of PACKAGE_ASSETS) {
+    const source = await fs.readFile(fileURLToPath(import.meta.resolve(asset.specifier)), "utf8");
+    const outputPath = path.join(DIST_DIR, asset.output);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, asset.stripTypes ? stripTypeScriptTypes(source) : source, "utf8");
+  }
 }
 
-async function resolveSiteConfig(): Promise<SiteConfig> {
+async function resolveSiteName(): Promise<string> {
+  let config: unknown;
   try {
-    const raw = await fs.readFile(SITE_CONFIG_PATH, "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    return normalizeSiteConfig(parsed);
+    config = JSON.parse(await fs.readFile(SITE_CONFIG_PATH, "utf8"));
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT") {
-      return normalizeSiteConfig({});
+      return "Reason Tracker";
     }
 
     throw new Error(`Invalid site config at ${SITE_CONFIG_PATH}: ${toErrorMessage(error)}`);
   }
-}
 
-function validateConfiguredFieldType(value: unknown, fieldName: string, expectedType: "string" | "array"): void {
-  if (value === undefined) {
-    return;
+  const value = isRecord(config) ? config.siteName : undefined;
+  if (value !== undefined && typeof value !== "string") {
+    throw new Error(`Invalid site config at ${SITE_CONFIG_PATH}: \`siteName\` must be a string when provided.`);
   }
 
-  if (expectedType === "array") {
-    if (!Array.isArray(value)) {
-      throw new Error(`\`${fieldName}\` must be an array when provided.`);
-    }
-    return;
-  }
-
-  if (typeof value !== expectedType) {
-    throw new Error(`\`${fieldName}\` must be a ${expectedType} when provided.`);
-  }
-}
-
-function normalizeSiteConfig(value: unknown): SiteConfig {
-  const config = isRecord(value) ? value : {};
-  validateConfiguredFieldType(config.siteName, "siteName", "string");
-  validateConfiguredFieldType(config.collapsedSourceRootName, "collapsedSourceRootName", "string");
-  validateConfiguredFieldType(config.indexFileNames, "indexFileNames", "array");
-
-  const siteNameValue = typeof config.siteName === "string" ? config.siteName.trim() : "";
-  const collapsedSourceRootValue =
-    typeof config.collapsedSourceRootName === "string" ? config.collapsedSourceRootName.trim() : "";
-
-  if (config.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
-    throw new Error("`collapsedSourceRootName` cannot be blank when provided.");
-  }
-
-  const configuredIndexNames = Array.isArray(config.indexFileNames) ? config.indexFileNames : [];
-  if (Array.isArray(config.indexFileNames) && configuredIndexNames.length === 0) {
-    throw new Error("`indexFileNames` must include at least one value when provided.");
-  }
-
-  for (const [index, entry] of configuredIndexNames.entries()) {
-    if (typeof entry !== "string") {
-      throw new Error(`\`indexFileNames[${index}]\` must be a string.`);
-    }
-
-    if (!entry.trim()) {
-      throw new Error(`\`indexFileNames[${index}]\` cannot be blank.`);
-    }
-
-    if (!normalizeMdStemKey(entry)) {
-      throw new Error(`\`indexFileNames[${index}]\` must resolve to a valid markdown stem.`);
-    }
-  }
-
-  const indexFileNames = configuredIndexNames.length > 0 ? configuredIndexNames : DEFAULT_INDEX_FILE_NAMES;
-  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter((name): name is string => Boolean(name));
-
-  return {
-    siteName: siteNameValue || "Reason Tracker",
-    collapsedSourceRootName: collapsedSourceRootValue || DEFAULT_COLLAPSED_SOURCE_ROOT,
-    indexCandidateKeys: [...new Set(indexKeys.length > 0 ? indexKeys : ["readme", "index"])],
-  };
+  return value?.trim() || "Reason Tracker";
 }
 
 async function collectSourcePaths(): Promise<string[]> {
@@ -357,10 +309,10 @@ function isExcludedSourcePath(sourcePath: string): boolean {
   return segments.some((segment) => EXCLUDED_SOURCE_SEGMENTS.includes(segment));
 }
 
-function createVirtualEntries(sourcePaths: string[], collapsedSourceRootNameValue: string): VirtualEntry[] {
+function createVirtualEntries(sourcePaths: string[]): VirtualEntry[] {
   return sourcePaths.map((sourcePath) => ({
     sourcePath,
-    virtualPath: toVirtualPath(sourcePath, collapsedSourceRootNameValue),
+    virtualPath: toVirtualPath(sourcePath),
   }));
 }
 
@@ -578,23 +530,6 @@ function toCanonicalLookupKey(value: string): string {
     .join("/");
 }
 
-function toVirtualPath(sourcePath: string, collapsedRootName: string): string {
-  const normalized = toPosixPath(sourcePath);
-  const rootName = String(collapsedRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
-    .trim()
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const rootOnlyPattern = new RegExp(`^${rootName}$`, "i");
-  const rootPrefixPattern = new RegExp(`^${rootName}/`, "i");
-
-  if (rootOnlyPattern.test(normalized)) {
-    return "";
-  }
-  if (rootPrefixPattern.test(normalized)) {
-    return normalized.slice(normalized.indexOf("/") + 1);
-  }
-  return normalized;
-}
-
 function buildTree(entries: VirtualEntry[]): Map<string, DirectoryNode> {
   const tree = new Map<string, DirectoryNode>();
   tree.set("", { directories: new Set(), files: new Map() });
@@ -804,7 +739,7 @@ async function publishDirectoryPages(
     const directories = [...directoryEntry.directories].sort((a, b) => a.localeCompare(b));
     const fileEntries = [...directoryEntry.files.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     const fallbackSelection = selectPreferredIndex(fileEntries, (entry: [string, string]) => entry[0], {
-      indexCandidateKeys,
+      indexCandidateKeys: INDEX_CANDIDATE_KEYS,
     });
     const resolvedDefaultSource = page.defaultMarkdownSource || fallbackSelection.selected?.[1] || null;
 

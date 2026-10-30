@@ -8,6 +8,7 @@ This package owns reusable React components for debate visualization and claim c
 
 - React and SVG rendering
 - component styling and visual constants
+- brand colors and fonts in `src/brand.css`, used by the website, videos, and command center
 - host-independent components shared by website and video packages
 
 ## Main Entrypoints

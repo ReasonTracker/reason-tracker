@@ -6,6 +6,11 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./brandSequenceMotion": "./src/shared/brandSequenceMotion.ts",
+    "./brandSequence.css": "./src/shared/brandSequence.css"
+  },
   "files": [
     "src",
     "public",
@@ -20,7 +25,6 @@
   "dependencies": {
     "@reasontracker/components": "workspace:*",
     "@reasontracker/engine": "workspace:*",
-    "@reasontracker/website": "workspace:*",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "remotion": "^4.0.448",

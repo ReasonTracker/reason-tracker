@@ -2,24 +2,13 @@ import { promises as fs } from "node:fs";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { normalizeMdStemKey, selectPreferredIndex } from "./markdown-index-rules.mts";
+import { selectPreferredIndex, toVirtualPath } from "./markdown-index-rules.mts";
 
 const SCRIPTS_DIR = path.resolve(import.meta.dirname);
 const REPO_DIR = resolveRepoDir();
-const WEBSITE_CONFIG_PATH = path.join(
-  REPO_DIR,
-  "Documents",
-  "technical",
-  "Software",
-  "website",
-  "site",
-  "site-config.json",
-);
 const REPORT_PATH = path.join(SCRIPTS_DIR, "markdown-maintenance-report.md");
 const AUTONAV_START = "<!-- autonav:start -->";
 const AUTONAV_END = "<!-- autonav:end -->";
-const DEFAULT_COLLAPSED_SOURCE_ROOT = "Documents";
-const DEFAULT_INDEX_FILE_NAMES = Object.freeze(["README.md", "index.md"]);
 const runtimeOptions = parseRuntimeOptions(process.argv.slice(2));
 
 main().catch((error) => {
@@ -28,9 +17,8 @@ main().catch((error) => {
 });
 
 async function main() {
-  const routeConfig = await resolveRouteConfig();
   const sourcePaths = await collectMarkdownSourcePaths();
-  const routeInfo = buildRouteInfo(sourcePaths, routeConfig);
+  const routeInfo = buildRouteInfo(sourcePaths);
 
   const docs = [];
   for (const sourcePath of sourcePaths) {
@@ -109,7 +97,11 @@ async function main() {
 
     const withAutonav =
       additions.length > 0 || hasAutonavSection
-        ? appendAutonavLinks(relabeled.markdown, additions)
+        ? appendAutonavLinks(relabeled.markdown, additions, {
+            docsByRoute,
+            docsBySourcePath,
+            sourcePath: doc.sourcePath,
+          })
         : relabeled.markdown;
 
     if (additions.length > 0) {
@@ -183,76 +175,6 @@ function resolveRepoDir() {
   }
 }
 
-async function resolveRouteConfig() {
-  try {
-    const raw = await fs.readFile(WEBSITE_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return normalizeRouteConfig(parsed);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return normalizeRouteConfig({});
-    }
-
-    throw new Error(`Invalid site config at ${WEBSITE_CONFIG_PATH}: ${error.message}`);
-  }
-}
-
-function validateConfiguredFieldType(value, fieldName, expectedType) {
-  if (value === undefined) {
-    return;
-  }
-
-  if (expectedType === "array") {
-    if (!Array.isArray(value)) {
-      throw new Error(`\`${fieldName}\` must be an array when provided.`);
-    }
-    return;
-  }
-
-  if (typeof value !== expectedType) {
-    throw new Error(`\`${fieldName}\` must be a ${expectedType} when provided.`);
-  }
-}
-
-function normalizeRouteConfig(value) {
-  validateConfiguredFieldType(value?.collapsedSourceRootName, "collapsedSourceRootName", "string");
-  validateConfiguredFieldType(value?.indexFileNames, "indexFileNames", "array");
-
-  const collapsedSourceRootValue =
-    typeof value?.collapsedSourceRootName === "string" ? value.collapsedSourceRootName.trim() : "";
-
-  if (value?.collapsedSourceRootName !== undefined && !collapsedSourceRootValue) {
-    throw new Error("`collapsedSourceRootName` cannot be blank when provided.");
-  }
-
-  const configuredIndexNames = Array.isArray(value?.indexFileNames) ? value.indexFileNames : [];
-  if (Array.isArray(value?.indexFileNames) && configuredIndexNames.length === 0) {
-    throw new Error("`indexFileNames` must include at least one value when provided.");
-  }
-
-  for (const [index, entry] of configuredIndexNames.entries()) {
-    if (typeof entry !== "string") {
-      throw new Error(`\`indexFileNames[${index}]\` must be a string.`);
-    }
-
-    if (!entry.trim()) {
-      throw new Error(`\`indexFileNames[${index}]\` cannot be blank.`);
-    }
-
-    if (!normalizeMdStemKey(entry)) {
-      throw new Error(`\`indexFileNames[${index}]\` must resolve to a valid markdown stem.`);
-    }
-  }
-
-  const indexFileNames = configuredIndexNames.length > 0 ? configuredIndexNames : DEFAULT_INDEX_FILE_NAMES;
-  const indexKeys = indexFileNames.map((name) => normalizeMdStemKey(name)).filter(Boolean);
-
-  return {
-    collapsedSourceRootName: collapsedSourceRootValue || DEFAULT_COLLAPSED_SOURCE_ROOT,
-    indexCandidateKeys: [...new Set(indexKeys.length > 0 ? indexKeys : ["readme", "index"])],
-  };
-}
-
 async function runCommand(command, args, options = {}) {
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -304,12 +226,12 @@ function shouldIncludeMarkdownPath(relativePath) {
   return /^documents$/i.test(segments[0]);
 }
 
-function buildRouteInfo(sourcePaths, routeConfig) {
+function buildRouteInfo(sourcePaths) {
   const bySourcePath = new Map();
   const byVirtualDirectory = new Map();
 
   for (const sourcePath of sourcePaths) {
-    const virtualPath = toVirtualPath(sourcePath, routeConfig.collapsedSourceRootName);
+    const virtualPath = toVirtualPath(sourcePath);
     const fileName = sourcePath.split("/").pop() || sourcePath;
     const virtualDirectory = virtualPath.includes("/")
       ? virtualPath.slice(0, virtualPath.lastIndexOf("/"))
@@ -321,9 +243,7 @@ function buildRouteInfo(sourcePaths, routeConfig) {
   }
 
   for (const [virtualDirectory, entries] of byVirtualDirectory.entries()) {
-    const selection = selectPreferredIndex(entries, (entry) => entry.fileName, {
-      indexCandidateKeys: routeConfig.indexCandidateKeys,
-    });
+    const selection = selectPreferredIndex(entries, (entry) => entry.fileName);
     if (selection.conflict) {
       throw new Error(
         [
@@ -353,22 +273,6 @@ function buildRouteInfo(sourcePaths, routeConfig) {
   return { bySourcePath };
 }
 
-function toVirtualPath(sourcePath, collapsedSourceRootName) {
-  const normalized = toPosixPath(sourcePath);
-  const rootName = String(collapsedSourceRootName || DEFAULT_COLLAPSED_SOURCE_ROOT)
-    .trim()
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const rootOnlyPattern = new RegExp(`^${rootName}$`, "i");
-  const rootPrefixPattern = new RegExp(`^${rootName}/`, "i");
-
-  if (rootOnlyPattern.test(normalized)) {
-    return "";
-  }
-  if (rootPrefixPattern.test(normalized)) {
-    return normalized.slice(normalized.indexOf("/") + 1);
-  }
-  return normalized;
-}
 
 function toDirectoryRoute(virtualDirectory) {
   if (!virtualDirectory) {
@@ -554,9 +458,18 @@ function rewriteBrokenLinks(input) {
 }
 
 function relabelResolvedDocLinks(input) {
-  let relabeledCount = 0;
+  const startIndex = input.markdown.indexOf(AUTONAV_START);
+  const endIndex = input.markdown.indexOf(AUTONAV_END);
+  if (startIndex < 0 || endIndex <= startIndex) {
+    return { markdown: input.markdown, relabeledCount: 0 };
+  }
 
-  const markdown = input.markdown.replace(
+  let relabeledCount = 0;
+  const before = input.markdown.slice(0, startIndex + AUTONAV_START.length);
+  const inside = input.markdown.slice(startIndex + AUTONAV_START.length, endIndex);
+  const after = input.markdown.slice(endIndex);
+
+  const relabeledInside = inside.replace(
     /(!?)\[([^\]\n]+)\]\(([^)\n]+)\)/g,
     (full, imagePrefix, linkText, rawTarget) => {
       if (imagePrefix) {
@@ -593,7 +506,10 @@ function relabelResolvedDocLinks(input) {
     },
   );
 
-  return { markdown, relabeledCount };
+  return {
+    markdown: `${before}${relabeledInside}${after}`,
+    relabeledCount,
+  };
 }
 
 function extractLinkedDocTargets(input) {
@@ -627,7 +543,7 @@ function deriveRequiredNavTargets(doc, childrenByParent) {
   return childrenByParent.get(doc.routePath) || [];
 }
 
-function appendAutonavLinks(markdown, additions) {
+function appendAutonavLinks(markdown, additions, input) {
   const startIndex = markdown.indexOf(AUTONAV_START);
   const endIndex = markdown.indexOf(AUTONAV_END);
   const linkLines = additions.map((item) => `- [${item.title}](${item.href})`);
@@ -636,10 +552,11 @@ function appendAutonavLinks(markdown, additions) {
     const before = markdown.slice(0, startIndex + AUTONAV_START.length);
     const inside = markdown.slice(startIndex + AUTONAV_START.length, endIndex);
     const after = markdown.slice(endIndex);
-    const outsideExisting = collectLinkedHrefSet(
-      `${markdown.slice(0, startIndex)}${markdown.slice(endIndex + AUTONAV_END.length)}`,
-    );
-    const mergedInside = mergeAutonavSection(inside, linkLines, outsideExisting);
+    const outsideExisting = extractLinkedDocTargets({
+      ...input,
+      markdown: `${markdown.slice(0, startIndex)}${markdown.slice(endIndex + AUTONAV_END.length)}`,
+    });
+    const mergedInside = mergeAutonavSection(inside, linkLines, outsideExisting, input);
     return `${before}${mergedInside}${after}`;
   }
 
@@ -647,36 +564,63 @@ function appendAutonavLinks(markdown, additions) {
   return `${markdown.replace(/\s*$/, "")}${autonavBlock}`;
 }
 
-function collectLinkedHrefSet(markdown) {
-  return new Set(
-    [...String(markdown || "").matchAll(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/g)].map((match) =>
-      String(match[1]).trim(),
-    ),
-  );
-}
-
-function mergeAutonavSection(inside, linkLines, outsideExisting = new Set()) {
+function mergeAutonavSection(inside, linkLines, outsideExisting, input) {
   const normalizedInside = inside.replace(/\r\n/g, "\n");
-  const cleanedBase = normalizedInside
-    .split("\n")
-    .filter((line) => {
-      const match = line.match(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/);
-      if (!match) {
-        return true;
-      }
+  const existingTargets = new Set(outsideExisting);
+  const cleanedLines = [];
+  for (const line of normalizedInside.split("\n")) {
+    const match = line.match(/(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)/);
+    if (!match) {
+      cleanedLines.push(line);
+      continue;
+    }
 
-      return !outsideExisting.has(String(match[1]).trim());
-    })
-    .join("\n");
-  const existing = collectLinkedHrefSet(cleanedBase);
+    const destination = parseDestination(match[1]);
+    const resolution = destination
+      ? resolveDocTarget(
+          input.sourcePath,
+          destination.url,
+          input.docsBySourcePath,
+          input.docsByRoute,
+        )
+      : { valid: false };
+    if (
+      !resolution.valid ||
+      !resolution.targetSourcePath ||
+      existingTargets.has(resolution.targetSourcePath)
+    ) {
+      continue;
+    }
+
+    existingTargets.add(resolution.targetSourcePath);
+    cleanedLines.push(line);
+  }
+  const cleanedBase = cleanedLines.join("\n");
 
   const uniqueAdditions = linkLines.filter((line) => {
     const match = line.match(/\(([^)]+)\)$/);
     if (!match) {
       return true;
     }
-    const href = String(match[1]).trim();
-    return !existing.has(href) && !outsideExisting.has(href);
+    const destination = parseDestination(match[1]);
+    const resolution = destination
+      ? resolveDocTarget(
+          input.sourcePath,
+          destination.url,
+          input.docsBySourcePath,
+          input.docsByRoute,
+        )
+      : { valid: false };
+    if (
+      !resolution.valid ||
+      !resolution.targetSourcePath ||
+      existingTargets.has(resolution.targetSourcePath)
+    ) {
+      return false;
+    }
+
+    existingTargets.add(resolution.targetSourcePath);
+    return true;
   });
 
   if (uniqueAdditions.length === 0) {
@@ -762,6 +706,10 @@ function resolveDocTarget(sourcePath, href, docsBySourcePath, docsByRoute) {
       : { valid: false, reason: "Relative markdown target does not exist", relativePath: true };
   }
 
+  if (sourceFileExists(resolved)) {
+    return { valid: true, reason: "Resolved source file", relativePath: true };
+  }
+
   const asRoute = toRouteFromRelativePath(sourcePath, pathPart, docsBySourcePath);
   if (asRoute) {
     const target = docsByRoute.get(asRoute);
@@ -776,6 +724,17 @@ function resolveDocTarget(sourcePath, href, docsBySourcePath, docsByRoute) {
   }
 
   return { valid: false, reason: "Relative target does not resolve to a doc", relativePath: true };
+}
+
+function sourceFileExists(sourcePath) {
+  const absolutePath = path.resolve(REPO_DIR, ...sourcePath.split("/"));
+  const relativePath = path.relative(REPO_DIR, absolutePath);
+  return (
+    relativePath !== "" &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath) &&
+    existsSync(absolutePath)
+  );
 }
 
 function parseDestination(raw) {

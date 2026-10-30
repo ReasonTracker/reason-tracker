@@ -3,18 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": {
-    "./brand-sequence-motion": {
-      "types": "./site/modules/brand-sequence-motion.d.ts",
-      "default": "./site/modules/brand-sequence-motion.js"
-    }
-  },
   "scripts": {
     "dev": "vp dev --host",
     "typecheck": "tsc --noEmit -p ./tsconfig.json",
     "build": "vp exec node ./scripts/publish-website.mts --write-report"
   },
   "dependencies": {
+    "@reasontracker/components": "workspace:*",
+    "@reasontracker/video": "workspace:*",
     "front-matter": "^4.0.2",
     "marked": "^15.0.7"
   },

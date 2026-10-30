@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@reasontracker/components": "workspace:*"
+  },
   "scripts": {
     "00:CommandCenter:open": "vite --host --open",
     "dev": "vite --host --open",

@@ -1,5 +1,5 @@
-import "../../website/site/css/brand.css";
-import "../../website/site/css/brand-sequence.css";
+import "@reasontracker/components/brand.css";
+import "./shared/brandSequence.css";
 import type { ComponentType } from "react";
 import { Composition } from "remotion";
 

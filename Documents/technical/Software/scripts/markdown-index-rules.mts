@@ -1,4 +1,22 @@
-const DEFAULT_INDEX_CANDIDATE_KEYS = ["readme", "index"];
+// Markdown routing settings shared by the website publisher and markdown maintenance.
+// Paths under this root folder are collapsed to root-level routes.
+export const COLLAPSED_SOURCE_ROOT_NAME = "Documents";
+// Directory index candidates, in precedence order.
+const INDEX_FILE_NAMES = ["README.md", "index.md"];
+export const INDEX_CANDIDATE_KEYS = [...new Set(INDEX_FILE_NAMES.map((name) => normalizeCandidateStemKey(name)))];
+
+export function toVirtualPath(sourcePath: string): string {
+  const normalized = String(sourcePath).replaceAll("\\", "/");
+  const rootName = COLLAPSED_SOURCE_ROOT_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  if (new RegExp(`^${rootName}$`, "i").test(normalized)) {
+    return "";
+  }
+  if (new RegExp(`^${rootName}/`, "i").test(normalized)) {
+    return normalized.slice(normalized.indexOf("/") + 1);
+  }
+  return normalized;
+}
 
 export function normalizeMdStemKey(fileName: string): string | null {
   const parsed = parseMarkdownFileName(fileName);
@@ -31,12 +49,12 @@ function normalizeCandidateStemKey(fileName: string): string {
 function resolveIndexCandidateKeys(indexCandidateKeys?: string[]): string[] {
   const values = Array.isArray(indexCandidateKeys)
     ? indexCandidateKeys
-    : DEFAULT_INDEX_CANDIDATE_KEYS;
+    : INDEX_CANDIDATE_KEYS;
 
   const normalized = values.map((entry) => normalizeCandidateStemKey(entry)).filter(Boolean);
 
   if (normalized.length === 0) {
-    return DEFAULT_INDEX_CANDIDATE_KEYS;
+    return INDEX_CANDIDATE_KEYS;
   }
 
   return [...new Set(normalized)];

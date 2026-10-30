@@ -35,8 +35,8 @@ vp run preview
 
 - No synthetic `tree` or `blob` folders are generated.
 - Routes are path-based and URL/file-safe.
-- Single exception: paths under the configured root folder (`collapsedSourceRootName` in `site/site-config.json`, default `Documents`) are collapsed to root-level routes in the generated site.
-- Index precedence for directory default pages comes from `indexFileNames` in `site/site-config.json` (default: `README.md`, then `index.md`).
+- Single exception: paths under `Documents` are collapsed to root-level routes in the generated site.
+- Index precedence for directory default pages is `README.md`, then `index.md`.
 - Matching for index filenames ignores case and extra spaces, including spaces before `.md`.
 - The winning index candidate is treated as index; lower-precedence candidates remain regular pages.
 - Conflicts after collapsing/normalization fail the build with a clear error.
@@ -51,6 +51,7 @@ vp run preview
 - Example: source `README.md` is augmented by `site/README.js`.
 - Nested paths are supported. Example: source `Documents/technical/notes/Plan.md` maps to `site/technical/notes/Plan.css`.
 - Static folders `site/css/`, `site/icons/`, and `site/modules/`, and `site/site-config.json` remain reserved and are not treated as augmentations.
+- Files owned by other packages are published at fixed URLs by `PACKAGE_ASSETS` in `scripts/publish-website.mts`: `dist/css/brand.css` from `@reasontracker/components`, and `dist/css/brand-sequence.css` and `dist/modules/brand-sequence-motion.js` (TypeScript types stripped) from `@reasontracker/video`.
 - Augmentation collisions that normalize to the same key fail the build with a clear error.
 - The output route stays source-driven; augmentation files never change page URLs.
 
@@ -60,9 +61,7 @@ vp run preview
 - Publish diagnostics are written to `scripts/publish-website-report.md` only when `--write-report` is passed.
 - `dev` runs publish with `--no-report` to avoid watcher loops from report-file writes.
 - Set the displayed site name in `site/site-config.json` via `siteName`.
-- Configure collapsed root folder name in `site/site-config.json` via `collapsedSourceRootName` (case-insensitive).
-- Configure directory index candidates in `site/site-config.json` via `indexFileNames`.
-- Invalid values for `collapsedSourceRootName` or `indexFileNames` fail publish/maintenance with a clear config error.
+- The collapsed root folder and index precedence are defined in `../scripts/markdown-index-rules.mts`, which this publisher and markdown maintenance share.
 - `site/index.html` is not required and is intentionally omitted.
 - Markdown maintenance validates source markdown links (not generated HTML), updates files in place, and only auto-adds autonav links on index-style pages.
 
