@@ -9,7 +9,7 @@ import {
 import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
-} from "@reasontracker/engine/geometry/path-geometry/pathGeometrySvg.ts";
+} from "@reasontracker/components";
 import type { PathGeometryVisualizerProps } from "./pathGeometryVisualizerSchema";
 
 /** Width of the Remotion preview canvas in pixels. */

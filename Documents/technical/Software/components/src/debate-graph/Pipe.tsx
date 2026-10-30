@@ -1,9 +1,9 @@
 import { useId } from "react";
+import type { SceneBandGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
 import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
-} from "@reasontracker/engine/geometry/path-geometry/pathGeometrySvg.ts";
-import type { SceneBandGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
+} from "./pathGeometrySvg";
 import { DEBATE_GRAPH_COLORS, debateGraphSideColor } from "./visualConstants";
 
 /** Fluid border width as a fraction of the pipe's outline width. */

@@ -1,19 +1,19 @@
 import { DebateGraph } from "@reasontracker/components";
 import type { ClaimId } from "@reasontracker/engine/debate-core/Claim.ts";
-import type { DebateCore } from "@reasontracker/engine/debate-core/Debate.ts";
 import {
 	resolveAnimationFrame,
 	type AnimationStepId,
 	type DebateAnimationPlan,
 	type DebateFrame,
 } from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
+import { resolveDebateSceneGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
+import { useMemo } from "react";
 import { useCurrentFrame } from "remotion";
 import type { ClaimTextReveal } from "./compileEpisodeScript";
 
 export type DebateAnimationSurfaceProps = {
 	claimScoreVisibility: Readonly<Record<string, boolean>>
 	claimTextReveals: Readonly<Record<string, ClaimTextReveal>>
-	debateCore: DebateCore
 	frameOverride?: DebateFrame
 	foregroundClaimIds?: ReadonlySet<ClaimId>
 	hideScores: boolean
@@ -26,7 +26,6 @@ export type DebateAnimationSurfaceProps = {
 export function DebateAnimationSurface({
 	claimScoreVisibility,
 	claimTextReveals,
-	debateCore,
 	frameOverride,
 	foregroundClaimIds,
 	hideScores,
@@ -36,9 +35,13 @@ export function DebateAnimationSurface({
 	stepProgress,
 }: DebateAnimationSurfaceProps) {
 	const currentFrame = useCurrentFrame();
-	const frame = frameOverride ?? (stepId
+	const frame = useMemo(() => frameOverride ?? (stepId
 		? resolveAnimationFrame(plan, stepId, stepProgress)
-		: plan.openingFrame);
+		: plan.openingFrame), [frameOverride, plan, stepId, stepProgress]);
+	const geometry = useMemo(
+		() => resolveDebateSceneGeometry({ frame, options: plan.options }),
+		[frame, plan.options],
+	);
 	return (
 		<DebateGraph
 			bounds={renderBounds ?? plan.bounds}
@@ -50,8 +53,8 @@ export function DebateAnimationSurface({
 			foregroundClaimIds={foregroundClaimIds}
 			scoreless={hideScores}
 			showClaimScore={(claimId) => claimScoreVisibility[claimId] ?? true}
-			debateCore={debateCore}
 			frame={frame}
+			geometry={geometry}
 			options={plan.options}
 		/>
 	);

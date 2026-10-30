@@ -16,7 +16,6 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - `fitPathGeometryCorners`
 - `buildPathVolumeGeometry` for moving fluid volumes along a path
 - shared type contracts that describe path-geometry inputs and outputs
-- SVG path-data helpers for path-geometry command output
 
 ## Responsibilities
 
@@ -88,7 +87,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - layout or routing
   - collision avoidance
   - multi-line coordination
-- general-purpose SVG, canvas, or host-specific drawing APIs outside path-geometry command conversion
+- SVG, canvas, or host-specific drawing APIs, including conversion of path-geometry commands to SVG path data (owned by `components/src/debate-graph/pathGeometrySvg.ts`)
 
 ## Boundaries
 

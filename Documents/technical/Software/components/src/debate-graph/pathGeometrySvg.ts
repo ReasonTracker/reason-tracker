@@ -1,4 +1,4 @@
-import type { PathGeometryCommand } from "./buildPathGeometry.ts";
+import type { PathGeometryCommand } from "@reasontracker/engine/geometry/path-geometry/buildPathGeometry.ts";
 
 export function pathGeometryCommandsToSvgPathData(
     commands: PathGeometryCommand[],

@@ -81,7 +81,6 @@ export function ScreenFillClaim({
 			<DebateAnimationSurface
 				claimScoreVisibility={playback.animation.claimScoreVisibility}
 				claimTextReveals={episode.claimTextReveals}
-				debateCore={playback.animation.debateCore}
 				frameOverride={isolatedFrame}
 				hideScores={playback.animation.hideScores}
 				plan={playback.animation.plan}

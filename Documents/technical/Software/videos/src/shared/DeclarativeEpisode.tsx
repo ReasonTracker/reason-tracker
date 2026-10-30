@@ -140,7 +140,6 @@ export function DeclarativeEpisode({ camera, episode, mediaAssets = {} }: Declar
 				<DebateAnimationSurface
 					claimScoreVisibility={playback.animation.claimScoreVisibility}
 					claimTextReveals={episode.claimTextReveals}
-					debateCore={playback.animation.debateCore}
 					foregroundClaimIds={foregroundClaimIds}
 					hideScores={playback.animation.hideScores}
 					plan={playback.animation.plan}

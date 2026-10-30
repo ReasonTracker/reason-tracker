@@ -67,6 +67,7 @@ export type SceneBandGeometry = {
 export type ClaimGeometry = {
 	height: number
 	id: string
+	outlineWidth: number
 	width: number
 	x: number
 	y: number
@@ -90,6 +91,7 @@ export function resolveDebateSceneGeometry(args: {
 			return [claim.id, {
 				height,
 				id: claim.id,
+				outlineWidth: resolveDebateGraphOutlineWidth(claim.scale),
 				width,
 				x: claim.position.x - (width / 2),
 				y: claim.position.y - (height / 2),

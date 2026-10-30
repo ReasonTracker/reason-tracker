@@ -1,19 +1,17 @@
 import { type CSSProperties } from "react";
 import type { ClaimId } from "@reasontracker/engine/debate-core/Claim.ts";
-import type { DebateCore } from "@reasontracker/engine/debate-core/Debate.ts";
 import type {
 	DebateAnimationPlan,
 	DebateFrame,
 } from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
 import type { PlannerOptions } from "@reasontracker/engine/animation/contracts.ts";
+import type { DebateSceneGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
 import { DeliveryAggregator } from "./DeliveryAggregator";
 import { Pipe } from "./Pipe";
-import { resolveDebateSceneGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
 import {
 	DEBATE_GRAPH_COLORS,
 	debateGraphSideColor,
 } from "./visualConstants";
-import { resolveDebateGraphOutlineWidth } from "@reasontracker/engine/geometry/debateGraphOutline.ts";
 import { ClaimMarkdown, type ClaimTextReveal } from "./ClaimMarkdown";
 
 const COLORS = DEBATE_GRAPH_COLORS;
@@ -24,10 +22,10 @@ export type { ClaimTextReveal } from "./ClaimMarkdown";
 export type DebateGraphProps = {
 	bounds: DebateAnimationPlan["bounds"]
 	claimTextReveals?: Readonly<Record<string, ClaimTextReveal>>
-	debateCore: DebateCore
 	diagnostics?: boolean
 	foregroundClaimIds?: ReadonlySet<ClaimId>
 	frame: DebateFrame
+	geometry: DebateSceneGeometry
 	options: PlannerOptions
 	scoreless?: boolean
 	showClaimScore?: (claimId: ClaimId) => boolean
@@ -36,15 +34,14 @@ export type DebateGraphProps = {
 export function DebateGraph({
 	bounds,
 	claimTextReveals,
-	debateCore,
 	diagnostics = false,
 	foregroundClaimIds,
 	frame,
+	geometry,
 	options,
 	scoreless = false,
 	showClaimScore,
 }: DebateGraphProps) {
-	const geometry = resolveDebateSceneGeometry({ frame, options });
 	const claims = Object.values(frame.claims).sort((left, right) =>
 		Number(foregroundClaimIds?.has(left.claimId) ?? false)
 		- Number(foregroundClaimIds?.has(right.claimId) ?? false)
@@ -87,7 +84,7 @@ export function DebateGraph({
 						}
 
 						const color = debateGraphSideColor(claim.displaySide);
-						const outlineWidth = resolveDebateGraphOutlineWidth(claim.scale);
+						const outlineWidth = claimGeometry.outlineWidth;
 						return (
 							<g
 								data-claim-id={String(claim.claimId)}
