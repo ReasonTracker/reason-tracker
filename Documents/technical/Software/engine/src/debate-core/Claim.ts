@@ -1,5 +1,5 @@
-import type { PatchWithRequiredId } from "../typeUtils.ts";
-import type { CreateWithOptionalId } from "../typeUtils.ts";
+import type { PatchWithRequiredId } from "./typeUtils.ts";
+import type { CreateWithOptionalId } from "./typeUtils.ts";
 
 export interface Claim {
 	id: ClaimId

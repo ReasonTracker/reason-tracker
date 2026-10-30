@@ -4,7 +4,7 @@ import {
 	applyRelevanceClaimAddCommand,
 } from "./applyDebateCommand.ts";
 import { buildDebateFrame } from "../layout/buildDebateFrame.ts";
-import type { PresentationConnectorOccurrenceId } from "../layout/buildPresentationGraphFromDebateCore.ts";
+import type { PresentationConnectorOccurrenceId } from "../animationContracts.ts";
 import {
 	resolveCommandImpact,
 	resolveFirstWaveImpact,

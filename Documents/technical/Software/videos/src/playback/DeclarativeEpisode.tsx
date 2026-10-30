@@ -10,7 +10,7 @@ import {
 	type EpisodeMediaAsset,
 	type GraphPlayback,
 	resolveSceneObjectStates,
-} from "./compileEpisodeScript";
+} from "../episode-script/compileEpisodeScript";
 import {
 	compileSceneCamera,
 	resolveCanvasCameraTransform,

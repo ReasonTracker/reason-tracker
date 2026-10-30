@@ -66,7 +66,6 @@
     {
       "id": "website",
       "root": "website",
-      "moduleRoot": "website",
       "packageName": "@reasontracker/website",
       "description": "Static website publishing, page augmentations, and site assets."
     },
@@ -74,8 +73,10 @@
       "id": "command-center",
       "label": "00 Command Center",
       "root": "00-command-center",
-      "moduleRoot": "00-command-center",
       "packageName": "@reasontracker/00-command-center",
+      "diagramExclusion": {
+        "reason": "The command center is a local workspace launcher."
+      },
       "description": "Local launcher for workspace commands and tools."
     },
     {
@@ -106,10 +107,6 @@
     {
       "from": "website",
       "to": "components"
-    },
-    {
-      "from": "website",
-      "to": "videos"
     },
     {
       "from": "command-center",

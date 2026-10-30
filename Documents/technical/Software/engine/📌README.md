@@ -8,9 +8,11 @@ The engine package owns debate domain contracts, scoring, layout, geometry, and 
 
 - `src/debate-core/`: debate entities and command contracts
 - `src/scoring/`: score calculation and cycle resolution
-- `src/geometry/`: renderer-independent paths, ports, and graph geometry
+- `src/geometry/`: low-level renderer-independent point, path, and connector primitives
 - `src/layout/`: presentation graph and frame layout
 - `src/animation/`: command application and animation plans
+- `src/scene-geometry/`: scene geometry resolved from layout frames and animation contracts
+- `src/animationContracts.ts`: shared planner and frame contracts that keep module dependencies one-way
 
 ## Related
 

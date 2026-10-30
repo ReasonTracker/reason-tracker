@@ -9,16 +9,17 @@ import type {
 } from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
 import type { ScoreRole } from "../scoring/scoreTypes.ts";
+import type {
+	PresentationClaimOccurrenceId,
+	PresentationConnectorOccurrenceId,
+} from "../animationContracts.ts";
 
 const DEFAULT_MAX_PRESENTATION_OCCURRENCES = 100_000;
 
-export type PresentationClaimOccurrenceId = string & {
-	readonly __brand: "PresentationClaimOccurrenceId"
-};
-
-export type PresentationConnectorOccurrenceId = string & {
-	readonly __brand: "PresentationConnectorOccurrenceId"
-};
+export type {
+	PresentationClaimOccurrenceId,
+	PresentationConnectorOccurrenceId,
+} from "../animationContracts.ts";
 
 export type PresentationClaimOccurrence = {
 	affects: ScoreRole

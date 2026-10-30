@@ -5,7 +5,7 @@ import type {
     CompiledSceneObject,
     EpisodeMediaAsset,
     ResolvedSceneObjectState,
-} from "./compileEpisodeScript";
+} from "../episode-script/compileEpisodeScript";
 import { EpisodeMedia } from "./EpisodeMedia";
 
 const BALANCE_VIEW_STYLE = {

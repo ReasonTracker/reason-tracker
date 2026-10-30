@@ -1,6 +1,6 @@
 import { useId } from "react";
 import type { Point } from "@reasontracker/engine/geometry/Point.ts";
-import type { DeliveryAggregatorGeometry } from "@reasontracker/engine/geometry/resolveDeliveryAggregatorGeometry.ts";
+import type { DeliveryAggregatorGeometry } from "@reasontracker/engine/scene-geometry/resolveDeliveryAggregatorGeometry.ts";
 import { pathGeometryBoundariesToClosedSvgPathData } from "./pathGeometrySvg";
 import { DEBATE_GRAPH_COLORS, debateGraphSideColor } from "./visualConstants";
 

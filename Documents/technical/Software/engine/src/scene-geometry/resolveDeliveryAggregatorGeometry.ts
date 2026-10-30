@@ -2,16 +2,16 @@ import type {
 	ClaimFrameState,
 	ConfidenceConnectionFrameState,
 	ConnectorVolumeTransition,
-} from "../animation/DebateAnimationPlan.ts";
-import type { Point } from "./Point.ts";
+	PlannerOptions,
+} from "../animationContracts.ts";
+import type { Point } from "../geometry/Point.ts";
 import { resolveDeliveryAggregatorWidth } from "../layout/buildDebateFrame.ts";
-import type { PlannerOptions } from "../animation/contracts.ts";
-import { buildPathVolumeGeometry } from "./path-geometry/buildPathVolumeGeometry.ts";
+import { buildPathVolumeGeometry } from "../geometry/path-geometry/buildPathVolumeGeometry.ts";
 import type {
 	PathGeometry,
 	PathGeometryCommand,
-} from "./path-geometry/buildPathGeometry.ts";
-import { resolveDebateGraphOutlineWidth } from "./debateGraphOutline.ts";
+} from "../geometry/path-geometry/buildPathGeometry.ts";
+import { resolveDebateGraphOutlineWidth } from "../geometry/debateGraphOutline.ts";
 
 const GEOMETRY_EPSILON = 1e-6;
 

@@ -1,7 +1,7 @@
 import { Img } from "remotion";
 import type { CSSProperties } from "react";
 
-import type { CssStyle } from "./episodeScriptSpec";
+import type { CssStyle } from "../episode-script/episodeScriptSpec";
 
 type EpisodeMediaProps = {
     source: string

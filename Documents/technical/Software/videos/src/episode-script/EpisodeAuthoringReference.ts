@@ -8,7 +8,7 @@ This file is the complete reference for creating one `episode.ts`. It is written
 Create `episode.ts` in the episode directory. Use this wrapper:
 
 ```ts
-import type { EpisodeScriptSpecInput } from "../shared/episodeScriptSpec.ts";
+import type { EpisodeScriptSpecInput } from "../episode-script/episodeScriptSpec.ts";
 
 const episode = {
   schemaVersion: 4,

@@ -9,12 +9,12 @@ import type {
 import type {
 	ConfidenceConnectionFrameState,
 	DebateFrame,
+	PlannerOptions,
 	RelevanceConnectionFrameState,
-} from "../animation/DebateAnimationPlan.ts";
+} from "../animationContracts.ts";
 import type { Point } from "../geometry/Point.ts";
 import { calculateConnectorCorridor } from "../geometry/calculateConnectorCorridor.ts";
 import { dotProduct, normalizePoint } from "../geometry/path-geometry/pathGeometryMath.ts";
-import type { PlannerOptions } from "../animation/contracts.ts";
 import type { ResolvedPresentationMath } from "./resolvePresentationMath.ts";
 
 /** Smallest rendered width or length treated as nonzero by contour packing. */

@@ -1,15 +1,14 @@
-# Geometry
+# Geometry Primitives
 
-This folder owns renderer-independent debate scene and path geometry.
+This folder owns low-level, renderer-independent geometry primitives.
 
 ## Main Entrypoints
 
-- `resolveDebateSceneGeometry.ts` derives claim bounds, attachment ports, routed bands, and connector shells and fluids from layout frames.
-- `resolveDeliveryAggregatorGeometry.ts` derives delivery-aggregator polygons and through-flow bands.
-- `path-geometry/` builds and measures paths around routed centerlines.
 - `Point.ts` defines the shared point contract.
+- `calculateConnectorCorridor.ts` resolves connector corridor dimensions.
+- `path-geometry/` builds and measures paths around routed centerlines.
 
-The layout layer owns positions and scales. This layer derives geometry from that state without React, SVG rendering, or Remotion dependencies. [Components](../../../components/📌README.md) render the resulting geometry.
+These primitives do not depend on layout, animation, React, SVG rendering, or Remotion. Higher-level scene geometry is owned by [Scene Geometry](../scene-geometry/📌README.md); [Components](../../../components/📌README.md) render its results.
 
 <!-- autonav:start -->
 - [Path Geometry](./path-geometry/📌README.md)

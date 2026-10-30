@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@reasontracker/components": "workspace:*",
-    "@reasontracker/video": "workspace:*",
     "front-matter": "^4.0.2",
     "marked": "^15.0.7"
   },

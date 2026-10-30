@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 
-import { createDeclarativeEpisode } from "./shared/DeclarativeEpisode";
-import type { EpisodeMediaAsset } from "./shared/compileEpisodeScript";
+import { createDeclarativeEpisode } from "./playback/DeclarativeEpisode";
+import type { EpisodeMediaAsset } from "./episode-script/compileEpisodeScript";
 
 const episodeFiles = require.context("./", true, /\/episode\.(json|ts)$/);
 const mediaFiles = require.context("./", true, /\/media\/[^/]+\.(avif|gif|jpe?g|png|webp)$/i);

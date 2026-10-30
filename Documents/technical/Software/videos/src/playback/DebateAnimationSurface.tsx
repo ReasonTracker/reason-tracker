@@ -6,10 +6,10 @@ import {
 	type DebateAnimationPlan,
 	type DebateFrame,
 } from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
-import { resolveDebateSceneGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
+import { resolveDebateSceneGeometry } from "@reasontracker/engine/scene-geometry/resolveDebateSceneGeometry.ts";
 import { useMemo } from "react";
 import { useCurrentFrame } from "remotion";
-import type { ClaimTextReveal } from "./compileEpisodeScript";
+import type { ClaimTextReveal } from "../episode-script/compileEpisodeScript";
 
 export type DebateAnimationSurfaceProps = {
 	claimScoreVisibility: Readonly<Record<string, boolean>>

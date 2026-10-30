@@ -8,7 +8,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./brand.css": "./src/brand.css"
+    "./brand.css": "./src/brand/brand.css",
+    "./brandSequenceMotion": "./src/brand/brandSequenceMotion.ts",
+    "./brandSequence.css": "./src/brand/brandSequence.css"
   },
   "files": [
     "src"

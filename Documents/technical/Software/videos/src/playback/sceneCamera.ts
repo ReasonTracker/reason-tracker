@@ -5,8 +5,8 @@ import {
     type CompiledEpisodeScript,
     type SceneTarget,
     type ScheduledEpisodeAction,
-} from "./compileEpisodeScript";
-import type { EpisodeAction } from "./episodeScriptSpec";
+} from "../episode-script/compileEpisodeScript";
+import type { EpisodeAction } from "../episode-script/episodeScriptSpec";
 
 const CAMERA_EASING = Easing.bezier(0.42, 0, 0.2, 1);
 

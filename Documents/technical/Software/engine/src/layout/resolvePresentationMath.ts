@@ -1,5 +1,6 @@
 import type { ConnectorId } from "../debate-core/Connector.ts";
 import type { DebateCore } from "../debate-core/Debate.ts";
+import type { PresentationSide } from "../animationContracts.ts";
 import {
 	resolveCyclesFromDebateCore,
 	type AggregatedClaimScore,
@@ -23,7 +24,7 @@ import {
 
 export { calculatePresentationScales } from "./calculatePresentationScales.ts";
 
-export type PresentationSide = "proMain" | "conMain";
+export type { PresentationSide } from "../animationContracts.ts";
 
 export type ResolvedPresentationMath = {
 	claimScores: Partial<Record<PresentationClaimOccurrenceId, AggregatedClaimScore>>

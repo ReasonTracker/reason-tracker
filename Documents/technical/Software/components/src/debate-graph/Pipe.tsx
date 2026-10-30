@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { SceneBandGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
+import type { SceneBandGeometry } from "@reasontracker/engine/scene-geometry/resolveDebateSceneGeometry.ts";
 import {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,

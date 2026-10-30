@@ -7,10 +7,14 @@
   "exports": {
     "./debate-core/*": "./src/debate-core/*",
     "./scoring/*": "./src/scoring/*",
+    "./geometry/resolveDebateSceneGeometry.ts": "./src/scene-geometry/resolveDebateSceneGeometry.ts",
+    "./geometry/resolveDeliveryAggregatorGeometry.ts": "./src/scene-geometry/resolveDeliveryAggregatorGeometry.ts",
     "./geometry/*": "./src/geometry/*",
+    "./scene-geometry/*": "./src/scene-geometry/*",
     "./layout/*": "./src/layout/*",
     "./animation/*": "./src/animation/*",
-    "./typeUtils": "./src/typeUtils.ts"
+    "./animationContracts.ts": "./src/animationContracts.ts",
+    "./typeUtils": "./src/debate-core/typeUtils.ts"
   },
   "files": [
     "src"

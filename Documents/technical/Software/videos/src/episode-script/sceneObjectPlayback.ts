@@ -3,8 +3,8 @@ import type {
 	CompiledSceneObject,
 	ResolvedSceneObjectState,
 	SceneTarget,
-} from "./compileEpisodeScript";
-import type { CssStyle, ObjectLayout } from "./episodeScriptSpec";
+} from "../episode-script/compileEpisodeScript";
+import type { CssStyle, ObjectLayout } from "../episode-script/episodeScriptSpec";
 
 export function resolveSceneObjectStates(
 	episode: CompiledEpisodeScript,

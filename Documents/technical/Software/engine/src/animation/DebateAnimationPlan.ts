@@ -1,15 +1,23 @@
-import type { ClaimId } from "../debate-core/Claim.ts";
 import type {
-	ConfidenceConnectorId,
-	RelevanceConnectorId,
-} from "../debate-core/Connector.ts";
-import type {
+	ClaimFrameState,
+	ConfidenceConnectionFrameState,
+	ConnectorVolumeTransition,
+	DebateFrame,
+	PlannerOptions,
 	PresentationClaimOccurrenceId,
 	PresentationConnectorOccurrenceId,
-} from "../layout/buildPresentationGraphFromDebateCore.ts";
-import type { PlannerOptions } from "./contracts.ts";
-import type { PresentationSide } from "../layout/resolvePresentationMath.ts";
+	PresentationSide,
+	RelevanceConnectionFrameState,
+} from "../animationContracts.ts";
 import type { Point } from "../geometry/Point.ts";
+
+export type {
+	ClaimFrameState,
+	ConfidenceConnectionFrameState,
+	DebateFrame,
+	ConnectorVolumeTransition,
+	RelevanceConnectionFrameState,
+} from "../animationContracts.ts";
 
 export type AnimationStepId = "voila" | "sprout" | "firstFill" | "wave" | "reorient";
 export type AnimationEasing = "linear" | "smooth";
@@ -20,75 +28,6 @@ export type NumberTrack = {
 	from: number
 	startProgress: number
 	to: number
-};
-
-export type ClaimFrameState = {
-	claimId: ClaimId
-	derivedContent: string
-	derivedSide: PresentationSide
-	displayContent: string
-	displaySide: PresentationSide
-	id: PresentationClaimOccurrenceId
-	opacity: number
-	originalContent: string
-	originalSide: PresentationSide
-	originalValue: number
-	position: Point
-	scale: number
-	sourcesScale: number
-	value: number
-};
-
-export type ConnectorVolumeTransition = {
-	finalValue: number
-	initialValue: number
-	progress: number
-};
-
-export type ConfidenceConnectionFrameState = {
-	/** Fluid level inside the target's delivery aggregator; it trails `score` by one step. */
-	aggregatorScore: number
-	aggregatorVolumeTransitions: ConnectorVolumeTransition[]
-	confidenceConnectorId: ConfidenceConnectorId
-	deliveryScore: number
-	deliveryScale: number
-	deliveryTargetScale: number
-	id: PresentationConnectorOccurrenceId
-	relevanceMultiplier: number
-	relevanceConnectorOccurrenceIds: PresentationConnectorOccurrenceId[]
-	score: number
-	shellReveal: number
-	displaySide: PresentationSide
-	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
-	sourceScale: number
-	targetClaimOccurrenceId: PresentationClaimOccurrenceId
-	targetSideOffset: number
-	volumeTransitions: ConnectorVolumeTransition[]
-};
-
-export type RelevanceConnectionFrameState = {
-	id: PresentationConnectorOccurrenceId
-	relevanceConnectorId: RelevanceConnectorId
-	scale: number
-	score: number
-	shellReveal: number
-	displaySide: PresentationSide
-	sourceClaimOccurrenceId: PresentationClaimOccurrenceId
-	targetConfidenceConnectorOccurrenceId: PresentationConnectorOccurrenceId
-	targetSideOffset: number
-	volumeTransitions: ConnectorVolumeTransition[]
-};
-
-export type DebateFrame = {
-	claims: Record<PresentationClaimOccurrenceId, ClaimFrameState>
-	confidenceConnections: Record<
-		PresentationConnectorOccurrenceId,
-		ConfidenceConnectionFrameState
-	>
-	relevanceConnections: Record<
-		PresentationConnectorOccurrenceId,
-		RelevanceConnectionFrameState
-	>
 };
 
 type ClaimTracks = Partial<Record<

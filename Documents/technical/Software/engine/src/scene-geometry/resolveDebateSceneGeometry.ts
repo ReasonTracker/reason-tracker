@@ -2,13 +2,11 @@ import type {
 	ConnectorVolumeTransition,
 	DebateFrame,
 	RelevanceConnectionFrameState,
-} from "../animation/DebateAnimationPlan.ts";
-import type { Point } from "./Point.ts";
-import type {
+	PlannerOptions,
 	PresentationClaimOccurrenceId,
 	PresentationConnectorOccurrenceId,
-} from "../layout/buildPresentationGraphFromDebateCore.ts";
-import type { PlannerOptions } from "../animation/contracts.ts";
+} from "../animationContracts.ts";
+import type { Point } from "../geometry/Point.ts";
 import {
 	buildPathGeometry,
 	fitPathGeometryCorners,
@@ -16,21 +14,21 @@ import {
 	type PathGeometryInstruction,
 	type PathGeometryIssue,
 	type Waypoint,
-} from "./path-geometry/buildPathGeometry.ts";
-import { buildPathVolumeGeometry } from "./path-geometry/buildPathVolumeGeometry.ts";
+} from "../geometry/path-geometry/buildPathGeometry.ts";
+import { buildPathVolumeGeometry } from "../geometry/path-geometry/buildPathVolumeGeometry.ts";
 import {
 	clamp01,
 	dotProduct,
 	estimateRouteLength,
 	normalizePoint,
-} from "./path-geometry/pathGeometryMath.ts";
+} from "../geometry/path-geometry/pathGeometryMath.ts";
 import {
 	resolveDeliveryAggregatorFlowGeometry,
 	resolveDeliveryAggregatorGeometry,
 	type DeliveryAggregatorGeometry,
 } from "./resolveDeliveryAggregatorGeometry.ts";
-import { calculateConnectorCorridor } from "./calculateConnectorCorridor.ts";
-import { resolveDebateGraphOutlineWidth } from "./debateGraphOutline.ts";
+import { calculateConnectorCorridor } from "../geometry/calculateConnectorCorridor.ts";
+import { resolveDebateGraphOutlineWidth } from "../geometry/debateGraphOutline.ts";
 
 const GEOMETRY_EPSILON = 1e-6;
 /** Makes the settled delivery taper occupy its full route. */

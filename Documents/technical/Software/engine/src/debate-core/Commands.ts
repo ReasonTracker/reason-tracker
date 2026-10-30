@@ -1,4 +1,4 @@
-import { PatchWithRequiredId } from "../typeUtils.ts";
+import type { PatchWithRequiredId } from "./typeUtils.ts";
 import type { ClaimCreate, ClaimPatch, ClaimId } from "./Claim.ts";
 import type {
 	ConfidenceConnectorCreate,

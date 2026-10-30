@@ -1,5 +1,5 @@
 import type { ClaimId } from "./Claim.ts";
-import type { CreateWithOptionalId, PatchWithRequiredId } from "../typeUtils.ts";
+import type { CreateWithOptionalId, PatchWithRequiredId } from "./typeUtils.ts";
 
 interface BaseConnector<TConnectorId extends ConnectorId> {
 	id: TConnectorId

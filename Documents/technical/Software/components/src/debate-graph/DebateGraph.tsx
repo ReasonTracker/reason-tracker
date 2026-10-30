@@ -4,8 +4,8 @@ import type {
 	DebateAnimationPlan,
 	DebateFrame,
 } from "@reasontracker/engine/animation/DebateAnimationPlan.ts";
-import type { PlannerOptions } from "@reasontracker/engine/animation/contracts.ts";
-import type { DebateSceneGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
+import type { PlannerOptions } from "@reasontracker/engine/animationContracts.ts";
+import type { DebateSceneGeometry } from "@reasontracker/engine/scene-geometry/resolveDebateSceneGeometry.ts";
 import { DeliveryAggregator } from "./DeliveryAggregator";
 import { Pipe } from "./Pipe";
 import {

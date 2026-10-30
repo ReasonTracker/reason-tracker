@@ -8,5 +8,7 @@ This folder contains React components and their rendering-specific helpers.
 - Shared layout, scoring, path, and scene geometry belong to [Engine](../../engine/📌README.md).
 
 <!-- autonav:start -->
+- [Brand](./brand/📌README.md)
 - [Debate Graph](./debate-graph/📌README.md)
+- [Score Display](./score-display/📌README.md)
 <!-- autonav:end -->

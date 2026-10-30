@@ -1,4 +1,4 @@
-import type { EpisodeScriptSpecInput } from "../shared/episodeScriptSpec";
+import type { EpisodeScriptSpecInput } from "../episode-script/episodeScriptSpec";
 
 const episode = {
 	schemaVersion: 4,

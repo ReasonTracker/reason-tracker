@@ -3,7 +3,7 @@ import { DebateAnimationSurface } from "./DebateAnimationSurface";
 import type {
 	CompiledEpisodeScript,
 	GraphPlayback,
-} from "./compileEpisodeScript";
+} from "../episode-script/compileEpisodeScript";
 
 // These insets are composition-space margins for screen-fill scaling.
 const SCREEN_FILL_HORIZONTAL_INSET = 180;

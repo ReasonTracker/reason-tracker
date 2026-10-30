@@ -4,7 +4,7 @@ export {
 	pathGeometryBoundariesToClosedSvgPathData,
 	pathGeometryCommandsToSvgPathData,
 } from "./debate-graph/pathGeometrySvg";
-export { BalanceScale } from "./BalanceScale";
-export type { BalanceScaleProps } from "./BalanceScale";
-export { Scoreboard } from "./Scoreboard";
-export type { ScoreboardProps } from "./Scoreboard";
+export { BalanceScale } from "./score-display/BalanceScale";
+export type { BalanceScaleProps } from "./score-display/BalanceScale";
+export { Scoreboard } from "./score-display/Scoreboard";
+export type { ScoreboardProps } from "./score-display/Scoreboard";

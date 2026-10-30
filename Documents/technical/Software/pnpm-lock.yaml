@@ -122,9 +122,6 @@ importers:
       '@reasontracker/components':
         specifier: workspace:*
         version: link:../components
-      '@reasontracker/video':
-        specifier: workspace:*
-        version: link:../videos
       front-matter:
         specifier: ^4.0.2
         version: 4.0.2
