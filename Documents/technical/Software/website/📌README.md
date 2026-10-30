@@ -50,10 +50,10 @@ vp run preview
 - A matching `site/<same-path>/<same-name>.js` is injected at the end of the generated page `<body>` as an inline `<script>` block.
 - Example: source `README.md` is augmented by `site/README.css`.
 - Example: source `README.md` is augmented by `site/README.js`.
-- The repository architecture page uses `site/Repository Architecture.css` and `site/Repository Architecture.js`; the latter reads the generated `site/modules/software-architecture.json`.
+- The repository architecture page uses `site/Repository Architecture.css` and `site/Repository Architecture.js`; the latter reads `site/modules/software-architecture.json` and loads the diagram controls, arrow renderer, and visibility model from `site/modules/architectureDiagram.js`, `site/modules/architectureArrows.js`, and `site/modules/architectureVisibility.js`.
 - Nested paths are supported. Example: source `Documents/technical/notes/Plan.md` maps to `site/technical/notes/Plan.css`.
 - Static folders `site/css/`, `site/icons/`, and `site/modules/`, and `site/site-config.json` remain reserved and are not treated as augmentations.
-- Files owned by other packages are published at fixed URLs from `../scripts/published-package-assets.mts`: `dist/css/brand.css` from `@reasontracker/components`, and `dist/css/brand-sequence.css` and `dist/modules/brand-sequence-motion.js` (TypeScript types stripped) from `@reasontracker/video`.
+- Files owned by other packages are published at fixed URLs from `../scripts/published-package-assets.mts`: `dist/css/brand.css`, `dist/css/brand-sequence.css`, and `dist/modules/brand-sequence-motion.js` (TypeScript types stripped), all from `@reasontracker/components`.
 - Augmentation collisions that normalize to the same key fail the build with a clear error.
 - The output route stays source-driven; augmentation files never change page URLs.
 

@@ -22,7 +22,8 @@ body>main.doc-shell {
   margin-block: 1rem;
 }
 
-#software-architecture-map input,
+#software-architecture-map input[type="search"],
+#software-architecture-map select,
 #software-architecture-map button {
   color: var(--text);
   font: inherit;
@@ -32,9 +33,30 @@ body>main.doc-shell {
   padding: 0.5rem 0.7rem;
 }
 
-#software-architecture-map input {
+#software-architecture-map input[type="search"] {
   min-width: min(22rem, 100%);
   flex: 1 1 16rem;
+}
+
+#software-architecture-map .arch-control,
+#software-architecture-map .arch-internal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+}
+
+#software-architecture-map .arch-internal-toggle {
+  cursor: pointer;
+}
+
+#software-architecture-map .arch-internal-toggle input {
+  margin: 0;
+  accent-color: var(--pro);
+}
+
+#software-architecture-map select:disabled {
+  opacity: 0.6;
 }
 
 #software-architecture-map button {
@@ -43,10 +65,17 @@ body>main.doc-shell {
 
 #software-architecture-map button:hover,
 #software-architecture-map button:focus-visible,
-#software-architecture-map input:focus-visible {
+#software-architecture-map input:focus-visible,
+#software-architecture-map select:focus-visible {
   border-color: var(--pro);
   outline: 2px solid color-mix(in srgb, var(--pro) 45%, transparent);
   outline-offset: 1px;
+}
+
+#software-architecture-map .arch-edge-status {
+  margin: -0.3rem 0 0.8rem;
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 #software-architecture-map .arch-legend {
@@ -166,6 +195,24 @@ body>main.doc-shell {
   stroke-dasharray: 0.1 6;
   stroke-linecap: round;
   stroke-width: 3;
+}
+
+#software-architecture-map .arch-summary-hit {
+  stroke: transparent;
+  stroke-width: 20;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+#software-architecture-map .arch-summary-edge:focus-visible {
+  outline: none;
+}
+
+#software-architecture-map .arch-summary-edge:hover .arch-summary-line,
+#software-architecture-map .arch-summary-edge:focus-visible .arch-summary-line {
+  stroke: var(--pro);
+  stroke-width: 4;
+  opacity: 1;
 }
 
 #software-architecture-map .arch-area-card {
@@ -288,14 +335,6 @@ body>main.doc-shell {
 #software-architecture-map .arch-area-card,
 #software-architecture-map .arch-module-box {
   transition: opacity 120ms ease;
-}
-
-#software-architecture-map .has-selection .arch-edge:not(.is-related) {
-  opacity: 0.1;
-}
-
-#software-architecture-map .has-selection .arch-edge.is-related {
-  opacity: 1;
 }
 
 #software-architecture-map .has-selection .arch-area-card:not(.is-related),
