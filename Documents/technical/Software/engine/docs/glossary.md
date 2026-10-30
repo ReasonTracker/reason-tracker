@@ -21,6 +21,8 @@
 ## Scoring and Scale
 
 - **Score:** A claim's standing after entered claims are applied. A score of `1` means unreduced standing, not proof.
+- **ScoreNode:** One occurrence of a claim in the acyclic scoring graph; a reusable claim can have multiple score nodes.
+- **ScoreGraph:** The nodes and optional parent-to-child index consumed by score calculation.
 - **Reversible Claim:** A claim whose signed `directedValue` can be negative while its displayed `value` remains non-negative.
 - **Potential Scale:** Structural size at 100% score.
 - **sourcesScale:** A claim occurrence's base potential scale and the budget for its children.
@@ -35,17 +37,17 @@
 - **Lane Axis:** The vertical axis used to arrange items inside a lane.
 - **Cross-Lane Axis:** The horizontal axis that separates lanes.
 - **Claim Lane:** A lane for claim visuals; claim boxes are left-justified within its band.
-- **Connector Curve Lane:** Corridor width reserved for a curved connector segment.
-- **Connector Diagonal Lane:** Corridor width reserved for a diagonal connector segment.
 - **Claim Lane Axis Gap:** Edge-to-edge gap between sibling claim boxes, resolved at local `sourcesScale`.
-- **Claim Column:** Direct confidence children followed by relevance claims that affect the parent's delivery.
 - **targetSideOffset:** Offset along the resolved target edge used to position a connector's attachment.
 - **Shared Ordering:** One deterministic order used by sibling claims and their target-edge connector stacks.
 
 ## Animation
 
 - **Planner:** Applies a command to pre-command `DebateCore` state and produces frames and animation tracks.
+- **PlannerInput:** Pre-command `DebateCore`, command, and optional origin and planner options.
+- **PlannerOptions:** Layout dimensions, claim-lane gap, and connector corridor straight-section share.
 - **DebateAnimationPlan:** Opening frame and named animation steps with tracks for scalar display properties.
+- **Track:** Numeric property changes associated with an entity across one animation step.
 - **Voila:** Transition into command-applied staging geometry.
 - **Sprout:** Connector-shell reveal.
 - **First Fill:** Connector-fluid reveal and associated contact transition.

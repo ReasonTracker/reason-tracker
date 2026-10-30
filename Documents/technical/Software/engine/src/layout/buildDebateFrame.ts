@@ -13,10 +13,10 @@ import type {
 } from "../animation/DebateAnimationPlan.ts";
 import type { Point } from "../geometry/Point.ts";
 import { calculateConnectorCorridor } from "../geometry/calculateConnectorCorridor.ts";
+import { dotProduct, normalizePoint } from "../geometry/path-geometry/pathGeometryMath.ts";
 import type { PlannerOptions } from "../animation/contracts.ts";
 import type { ResolvedPresentationMath } from "./resolvePresentationMath.ts";
 
-// AGENT NOTE: Keep layout geometry tolerances and spacing/shape tuning grouped here.
 /** Smallest rendered width or length treated as nonzero by contour packing. */
 const CONTOUR_GEOMETRY_EPSILON = 1e-6;
 /**
@@ -751,7 +751,7 @@ function addPlacementConnectorContour(args: {
 		};
 		const normalA = { x: -tangent.y, y: tangent.x };
 		const normalB = { x: tangent.y, y: -tangent.x };
-		targetNormal = dot(normalA, towardOpposite) >= dot(normalB, towardOpposite)
+		targetNormal = dotProduct(normalA, towardOpposite) >= dotProduct(normalB, towardOpposite)
 			? normalA
 			: normalB;
 	}
@@ -956,15 +956,11 @@ function contourBottomAt(slice: ClaimContourSlice, x: number): number {
 }
 
 function normalizeVector(vector: Point): Point {
-	const magnitude = Math.hypot(vector.x, vector.y);
-	if (magnitude <= CONTOUR_GEOMETRY_EPSILON) {
+	const normalized = normalizePoint(vector, CONTOUR_GEOMETRY_EPSILON);
+	if (!normalized) {
 		throw new Error("Cannot normalize a zero-length contour edge");
 	}
-	return { x: vector.x / magnitude, y: vector.y / magnitude };
-}
-
-function dot(left: Point, right: Point): number {
-	return (left.x * right.x) + (left.y * right.y);
+	return normalized;
 }
 
 /**

@@ -12,7 +12,6 @@ import {
 } from "@reasontracker/engine/geometry/path-geometry/pathGeometrySvg.ts";
 import type { PathGeometryVisualizerProps } from "./pathGeometryVisualizerSchema";
 
-// AGENT NOTE: Keep tunable numeric preview constants grouped here.
 /** Width of the Remotion preview canvas in pixels. */
 const CANVAS_WIDTH = 1920;
 

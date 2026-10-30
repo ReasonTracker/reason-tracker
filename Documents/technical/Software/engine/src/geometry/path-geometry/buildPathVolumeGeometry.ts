@@ -5,8 +5,8 @@ import {
 	type PathGeometryInstruction,
 	type Waypoint,
 } from "./buildPathGeometry.ts";
+import { clamp01, estimateRouteLength } from "./pathGeometryMath.ts";
 
-// AGENT NOTE: Keep tunable path-volume geometry constants grouped here.
 const GEOMETRY_EPSILON = 1e-6;
 /** Keeps animated fill transitions the same length as a one-shell-width wall transition. */
 const VOLUME_TRANSITION_LENGTH_SCALE = 1;
@@ -183,20 +183,4 @@ function resolveCollapseOffset(
 	}
 
 	return placement === "negativeEdge" ? -(shellWidth / 2) : shellWidth / 2;
-}
-
-function estimateRouteLength(points: Waypoint[]): number {
-	let length = 0;
-	for (let index = 1; index < points.length; index += 1) {
-		const previous = points[index - 1];
-		const current = points[index];
-		if (previous && current) {
-			length += Math.hypot(current.x - previous.x, current.y - previous.y);
-		}
-	}
-	return length;
-}
-
-function clamp01(value: number): number {
-	return Math.min(1, Math.max(0, value));
 }

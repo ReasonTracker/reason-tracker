@@ -69,6 +69,7 @@ These are implementation guidelines for repository code structure and file organ
 - For files that use tunable numeric values (for example layout sizing or spacing), define named constants directly below imports.
 - Keep those constants grouped in one block and reference them in the implementation instead of inline magic numbers.
 - Add a short `AGENT NOTE` only when keeping the constants together prevents a regression.
+- Do not add per-file `AGENT NOTE` comments that restate this grouping rule.
 - Add a concise comment only when the constant's behavior or effect is not clear from its name.
 
 ## Type Patterns

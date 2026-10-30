@@ -2,13 +2,6 @@
   "name": "reason-tracker",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "00-command-center",
-    "app",
-    "components",
-    "website",
-    "videos"
-  ],
   "scripts": {
     "developer:setup-machine": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-machine.ps1",
     "typecheck": "vp run -r typecheck",

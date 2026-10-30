@@ -4,7 +4,25 @@
  * The README in this folder is the authoritative behavior spec.
  */
 
-// AGENT NOTE: Keep tunable numeric geometry constants grouped here.
+import type { Point } from "../Point.ts";
+export type { Point } from "../Point.ts";
+import {
+	addPoint,
+	clampNumber,
+	crossProduct,
+	distanceBetweenPoints,
+	dotProduct,
+	interpolateNumber,
+	interpolatePoint,
+	leftNormal,
+	lengthOfPoint,
+	normalizePoint,
+	pointsEqual,
+	rightNormal,
+	scalePoint,
+	subtractPoint,
+} from "./pathGeometryMath.ts";
+
 /** Small tolerance for treating numeric values as effectively equal. */
 const GEOMETRY_EPSILON = 1e-6;
 /** Maximum routed-path span represented by one sampled segment in a curved transition. */
@@ -12,18 +30,9 @@ const CURVED_TRANSITION_SAMPLE_LENGTH_PX = 12;
 /** Minimum number of sampled segments used to approximate a curved transition. */
 const CURVED_TRANSITION_MIN_SAMPLE_SEGMENTS = 12;
 
-//#region Geometry primitives
-
-export interface Point {
-	x: number;
-	y: number;
-}
-
 export interface Waypoint extends Point {
 	radius?: number;
 }
-
-//#endregion
 
 //#region Builder input
 
@@ -245,8 +254,8 @@ export function fitPathGeometryCorners(input: PathGeometryCornerFitInput): PathG
 			continue;
 		}
 
-		const incomingDirection = normalizePoint(incomingVector);
-		const outgoingDirection = normalizePoint(outgoingVector);
+		const incomingDirection = normalizePoint(incomingVector, GEOMETRY_EPSILON);
+		const outgoingDirection = normalizePoint(outgoingVector, GEOMETRY_EPSILON);
 
 		if (!incomingDirection || !outgoingDirection) {
 			continue;
@@ -569,7 +578,7 @@ function buildFilletCorner(
 	const turnSign = turnCross > 0 ? 1 : -1;
 	const inwardNormalA = turnSign > 0 ? leftNormal(incomingDirection) : rightNormal(incomingDirection);
 	const inwardNormalB = turnSign > 0 ? leftNormal(outgoingDirection) : rightNormal(outgoingDirection);
-	const bisectorDirection = normalizePoint(addPoint(inwardNormalA, inwardNormalB));
+	const bisectorDirection = normalizePoint(addPoint(inwardNormalA, inwardNormalB), GEOMETRY_EPSILON);
 
 	if (!bisectorDirection) {
 		issues.push({
@@ -1175,7 +1184,7 @@ function appendEndpointCommand(commands: PathGeometryCommand[], point: Point): v
 	}
 
 	const currentPoint = getCommandEndpoint(commands[commands.length - 1]);
-	if (!currentPoint || !pointsEqual(currentPoint, point)) {
+	if (!currentPoint || !pointsEqual(currentPoint, point, GEOMETRY_EPSILON)) {
 		commands.push({ kind: "lineTo", x: point.x, y: point.y });
 	}
 }
@@ -1192,7 +1201,10 @@ function evaluateCenterlinePart(part: CenterlinePart, distance: number): Centerl
 	if (part.kind === "line") {
 		const span = part.endDistance - part.startDistance;
 		const interpolation = span <= GEOMETRY_EPSILON ? 0 : (distance - part.startDistance) / span;
-		const direction = normalizePoint(subtractPoint(part.endPoint, part.startPoint)) ?? { x: 1, y: 0 };
+		const direction = normalizePoint(
+			subtractPoint(part.endPoint, part.startPoint),
+			GEOMETRY_EPSILON,
+		) ?? { x: 1, y: 0 };
 		return {
 			point: interpolatePoint(part.startPoint, part.endPoint, clampNumber(interpolation, 0, 1)),
 			tangent: direction,
@@ -1344,69 +1356,6 @@ function resolveMinimumCornerFitRadius(
 	}
 
 	return Math.max(0, -offsetEnvelope.minOffset);
-}
-
-function addPoint(a: Point, b: Point): Point {
-	return { x: a.x + b.x, y: a.y + b.y };
-}
-
-function subtractPoint(a: Point, b: Point): Point {
-	return { x: a.x - b.x, y: a.y - b.y };
-}
-
-function scalePoint(point: Point, scalar: number): Point {
-	return { x: point.x * scalar, y: point.y * scalar };
-}
-
-function interpolatePoint(a: Point, b: Point, interpolation: number): Point {
-	return {
-		x: interpolateNumber(a.x, b.x, interpolation),
-		y: interpolateNumber(a.y, b.y, interpolation),
-	};
-}
-
-function interpolateNumber(a: number, b: number, interpolation: number): number {
-	return a + (b - a) * interpolation;
-}
-
-function normalizePoint(point: Point): Point | undefined {
-	const magnitude = lengthOfPoint(point);
-	if (magnitude <= GEOMETRY_EPSILON) {
-		return undefined;
-	}
-	return { x: point.x / magnitude, y: point.y / magnitude };
-}
-
-function lengthOfPoint(point: Point): number {
-	return Math.hypot(point.x, point.y);
-}
-
-function distanceBetweenPoints(a: Point, b: Point): number {
-	return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function dotProduct(a: Point, b: Point): number {
-	return a.x * b.x + a.y * b.y;
-}
-
-function crossProduct(a: Point, b: Point): number {
-	return a.x * b.y - a.y * b.x;
-}
-
-function leftNormal(point: Point): Point {
-	return { x: -point.y, y: point.x };
-}
-
-function rightNormal(point: Point): Point {
-	return { x: point.y, y: -point.x };
-}
-
-function clampNumber(value: number, minimum: number, maximum: number): number {
-	return Math.min(Math.max(value, minimum), maximum);
-}
-
-function pointsEqual(a: Point, b: Point): boolean {
-	return Math.abs(a.x - b.x) <= GEOMETRY_EPSILON && Math.abs(a.y - b.y) <= GEOMETRY_EPSILON;
 }
 
 function interpolateOffsetSection(

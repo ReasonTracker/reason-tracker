@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 
-// AGENT NOTE: Keep scoreboard proportions and palette values together for visual tuning.
 const SCOREBOARD_BORDER_WIDTH = 5;
 const SCOREBOARD_RADIUS = 50;
 const CELL_PADDING = 10;

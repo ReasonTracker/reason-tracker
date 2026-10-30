@@ -19,6 +19,12 @@ import {
 } from "./path-geometry/buildPathGeometry.ts";
 import { buildPathVolumeGeometry } from "./path-geometry/buildPathVolumeGeometry.ts";
 import {
+	clamp01,
+	dotProduct,
+	estimateRouteLength,
+	normalizePoint,
+} from "./path-geometry/pathGeometryMath.ts";
+import {
 	resolveDeliveryAggregatorFlowGeometry,
 	resolveDeliveryAggregatorGeometry,
 	type DeliveryAggregatorGeometry,
@@ -27,7 +33,6 @@ import { calculateConnectorCorridor } from "./calculateConnectorCorridor.ts";
 import { resolveDebateGraphOutlineWidth } from "./debateGraphOutline.ts";
 
 const GEOMETRY_EPSILON = 1e-6;
-// AGENT NOTE: Keep connector-shape tuning constants together below the imports.
 /** Makes the settled delivery taper occupy its full route. */
 const DELIVERY_TAPER_START_POSITION_PERCENT = 0;
 /** Maximum routed-path span represented by one segment in a moving taper profile. */
@@ -657,10 +662,10 @@ function edgePort(args: {
 	oppositePoint: Point
 	width: number
 }): AttachmentPort {
-	const tangent = normalize({
+	const tangent = normalizePoint({
 		x: args.edgeEnd.x - args.edgeStart.x,
 		y: args.edgeEnd.y - args.edgeStart.y,
-	});
+	}, GEOMETRY_EPSILON) ?? { x: 0, y: 1 };
 	const edgeCenter = {
 		x: (args.edgeStart.x + args.edgeEnd.x) / 2,
 		y: (args.edgeStart.y + args.edgeEnd.y) / 2,
@@ -672,7 +677,7 @@ function edgePort(args: {
 		x: args.oppositePoint.x - center.x,
 		y: args.oppositePoint.y - center.y,
 	};
-	const outwardNormal = dot(normalA, towardOpposite) >= dot(normalB, towardOpposite)
+	const outwardNormal = dotProduct(normalA, towardOpposite) >= dotProduct(normalB, towardOpposite)
 		? normalA
 		: normalB;
 
@@ -682,19 +687,6 @@ function edgePort(args: {
 		shellWidth: Math.max(0, args.width),
 		tangent,
 	};
-}
-
-function normalize(vector: Point): Point {
-	const length = Math.hypot(vector.x, vector.y);
-	if (length <= GEOMETRY_EPSILON) {
-		return { x: 0, y: 1 };
-	}
-
-	return { x: vector.x / length, y: vector.y / length };
-}
-
-function dot(left: Point, right: Point): number {
-	return (left.x * right.x) + (left.y * right.y);
 }
 
 function getClaimGeometry(
@@ -719,21 +711,4 @@ function getRelevanceState(
 	}
 
 	return connection;
-}
-
-function clamp01(value: number): number {
-	return Math.min(1, Math.max(0, value));
-}
-
-function estimateRouteLength(route: Waypoint[]): number {
-	let length = 0;
-	for (let index = 1; index < route.length; index += 1) {
-		const previous = route[index - 1];
-		const current = route[index];
-		if (previous && current) {
-			length += Math.hypot(current.x - previous.x, current.y - previous.y);
-		}
-	}
-
-	return length;
 }

@@ -69,4 +69,9 @@ The renderer paints all connector and aggregator shells, then all fluids, then a
 
 ## Planner Options
 
-`PlannerOptions` defines claim width and height, the lane-axis gap, and the curved and diagonal connector corridor widths. Defaults are declared in `engine/src/animation/contracts.ts`.
+`PlannerOptions` defines claim width and height, the claim-lane axis gap, and the fraction of a connector corridor reserved for its central straight section. `resolvePlannerOptions` fills omitted values from defaults declared in `engine/src/animation/contracts.ts` and validates the connector share.
+
+- `claimWidth`: `360`
+- `claimHeight`: `176`
+- `claimLaneAxisGap`: `50`, resolved at local `sourcesScale`
+- `connectorStraightShare`: `0.5`

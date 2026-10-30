@@ -95,7 +95,7 @@ This folder owns shared path-geometry contracts and implementation that are inte
 - Keep Remotion runtime hooks out of this folder.
 - Keep higher-level component composition out of this folder unless it is specific to path geometry.
 - Consumers should express connector reveal, removal, and ordered geometry sweeps by composing `PathGeometryInstruction` values here instead of introducing host-side clipping, visibility-window, or surrogate transition props.
-- Prefer colocating the core contracts with `buildPathGeometry` until this slice clearly needs more separation.
+- Keep builder-specific contracts with `buildPathGeometry`; keep reusable path math in `pathGeometryMath.ts`.
 - Do not invent alternate route skeletons here when a supplied route cannot support a requested corner treatment.
 
 ---

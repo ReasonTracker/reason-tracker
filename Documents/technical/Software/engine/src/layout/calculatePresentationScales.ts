@@ -4,6 +4,7 @@ import type {
 	DebatePresentationGraph,
 } from "./buildPresentationGraphFromDebateCore.ts";
 import type { ResolvedPresentationMath } from "./resolvePresentationMath.ts";
+import { resolveNonNegativeFinite } from "./layoutMath.ts";
 
 export function calculatePresentationScales(args: {
 	connectorScores: ResolvedPresentationMath["connectorScores"]
@@ -110,12 +111,4 @@ export function calculatePresentationScales(args: {
 	);
 
 	return { deliveryScales, parentFluidShares, sourcesScales };
-}
-
-function resolveNonNegativeFinite(value: number): number {
-	if (!Number.isFinite(value) || value < 0) {
-		throw new Error(`Expected a finite non-negative number: ${value}`);
-	}
-
-	return value;
 }

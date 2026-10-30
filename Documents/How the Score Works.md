@@ -6,7 +6,7 @@ Reason Tracker draws a decision as a map, and scores it with the same formula ev
 
 ## The score is a snapshot, not a verdict
 
-It is not a poll, not a probability that something is true, and not an AI deciding for you. It's a picture of the argument as entered so far, scored by [a formula you can inspect](https://reasontracker.com/technical/software/engine/src/scoring/).
+It is not a poll, not a probability that something is true, and not an AI deciding for you. It's a picture of the argument as entered so far, scored by [a formula you can inspect](A%20Formula%20You%20Can%20Inspect.md).
 
 The formula is fixed. The map is not. The score is only as complete and fair as the argument entered so far — change the map, and the score changes.
 

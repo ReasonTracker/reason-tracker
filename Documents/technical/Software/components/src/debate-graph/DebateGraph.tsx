@@ -16,7 +16,6 @@ import {
 import { resolveDebateGraphOutlineWidth } from "@reasontracker/engine/geometry/debateGraphOutline.ts";
 import { ClaimMarkdown, type ClaimTextReveal } from "./ClaimMarkdown";
 
-// AGENT NOTE: Keep tunable rendering values together below imports.
 const COLORS = DEBATE_GRAPH_COLORS;
 const CLAIM_TEXT_FONT_SIZE = 18;
 const SCORELESS_CLAIM_TEXT_SCALE = 1.3;

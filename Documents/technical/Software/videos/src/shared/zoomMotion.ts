@@ -1,6 +1,5 @@
 import { Easing, interpolate } from "remotion";
 
-// AGENT NOTE: Keep camera motion tuning constants grouped here.
 /** Easing used by camera moves so pan and zoom settle together without a hard stop. */
 const CAMERA_MOTION_EASING = Easing.bezier(0.42, 0, 0.2, 1);
 

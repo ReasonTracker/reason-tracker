@@ -19,4 +19,5 @@ uncertainty explicit, and improve over time as you contribute feedback and new e
 - [Videos](./Documents/technical/Software/videos/📌README.md)
 - [Agent Steering](./AGENTS.md)
 - [How the Score Works](./Documents/How%20the%20Score%20Works.md)
+- [A Formula You Can Inspect](./Documents/A%20Formula%20You%20Can%20Inspect.md)
 <!-- autonav:end -->

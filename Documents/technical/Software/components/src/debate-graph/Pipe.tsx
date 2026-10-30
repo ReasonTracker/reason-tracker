@@ -6,7 +6,6 @@ import {
 import type { SceneBandGeometry } from "@reasontracker/engine/geometry/resolveDebateSceneGeometry.ts";
 import { DEBATE_GRAPH_COLORS, debateGraphSideColor } from "./visualConstants";
 
-// AGENT NOTE: Keep pipe rendering tuning constants together below the imports.
 /** Fluid border width as a fraction of the pipe's outline width. */
 const FLUID_BORDER_WIDTH_RATIO = 0.5;
 
